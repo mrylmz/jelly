@@ -22,10 +22,17 @@
 // SOFTWARE.
 //
 
-#include <Basic/Basic.h>
-#include <Parse/Parse.h>
-#include <string>
+#include "Basic/Hasher.h"
 
-int main(int argc, char** argv) {
-    return 0;
+Hasher::Hasher() :
+hash(5381) {}
+
+void Hasher::combine_impl(size_t hash) {
+    this->hash = ((this->hash << 5) + this->hash) + hash;
+}
+
+size_t Hasher::finalize() {
+    size_t result = hash;
+    hash = 5381;
+    return result;
 }

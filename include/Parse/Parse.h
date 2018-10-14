@@ -22,10 +22,7 @@
 // SOFTWARE.
 //
 
-#include <Basic/Basic.h>
-#include <Parse/Parse.h>
-#include <string>
+#pragma once
 
-int main(int argc, char** argv) {
-    return 0;
-}
+#include "Parse/Lexer.h"
+#include "Parse/Parser.h"

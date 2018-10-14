@@ -22,10 +22,3 @@
 // SOFTWARE.
 //
 
-#include <Basic/Basic.h>
-#include <Parse/Parse.h>
-#include <string>
-
-int main(int argc, char** argv) {
-    return 0;
-}

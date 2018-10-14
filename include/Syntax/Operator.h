@@ -22,10 +22,35 @@
 // SOFTWARE.
 //
 
-#include <Basic/Basic.h>
-#include <Parse/Parse.h>
-#include <string>
+#pragma once
 
-int main(int argc, char** argv) {
-    return 0;
-}
+#include <stddef.h>
+
+enum OperatorKind : uint8_t {
+    OPERATOR_INVALID,
+    OPERATOR_PREFIX,
+    OPERATOR_INFIX,
+    OPERATOR_POSTFIX
+};
+
+enum Associativity : uint8_t {
+    ASSOCIATIVITY_NONE,
+    ASSOCIATIVITY_LEFT,
+    ASSOCIATIVITY_RIGHT
+};
+
+struct Operator {
+    OperatorKind  kind;
+    String        text;
+    Associativity associativity;
+    uint32_t      precedence;
+
+    Operator() : kind(OPERATOR_INVALID), text({}), associativity(ASSOCIATIVITY_NONE), precedence(250) {}
+
+    Operator(OperatorKind kind, String text, Associativity associativity = ASSOCIATIVITY_NONE, uint32_t precedence = 250) :
+    kind(kind), text(text), associativity(associativity), precedence(precedence) {}
+
+    bool is_valid() const {
+        return kind != OPERATOR_INVALID;
+    }
+};

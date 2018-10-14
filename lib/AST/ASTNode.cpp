@@ -22,10 +22,9 @@
 // SOFTWARE.
 //
 
-#include <Basic/Basic.h>
-#include <Parse/Parse.h>
-#include <string>
+#include "AST/ASTNodes.h"
+#include "AST/ASTContext.h"
 
-int main(int argc, char** argv) {
-    return 0;
+void* ASTNode::operator new (size_t size, ASTContext* context) {
+    return context->alloc_node();
 }

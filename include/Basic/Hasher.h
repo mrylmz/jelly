@@ -22,10 +22,29 @@
 // SOFTWARE.
 //
 
-#include <Basic/Basic.h>
-#include <Parse/Parse.h>
-#include <string>
+#pragma once
 
-int main(int argc, char** argv) {
-    return 0;
-}
+#include <stddef.h>
+
+struct Hasher {
+    Hasher();
+
+    template<typename Hashable>
+    void combine(Hashable value) {
+        combine_impl(sizeof(Hashable));
+        combine_impl(value);
+    }
+
+    template<typename Hashable>
+    void combine(const Hashable* value) {
+        value->hash_into(this);
+    }
+
+    size_t finalize();
+
+private:
+    void combine_impl(size_t hash);
+
+    size_t hash;
+};
+

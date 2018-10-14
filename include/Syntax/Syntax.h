@@ -22,4 +22,8 @@
 // SOFTWARE.
 //
 
+#pragma once
 
+#include "Syntax/Operator.h"
+#include "Syntax/Token.h"
+#include "Syntax/TokenKinds.h"

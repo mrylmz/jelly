@@ -22,10 +22,28 @@
 // SOFTWARE.
 //
 
-#include <Basic/Basic.h>
-#include <Parse/Parse.h>
-#include <string>
+#pragma once
 
-int main(int argc, char** argv) {
-    return 0;
-}
+#include <Basic/Basic.h>
+#include "Syntax/TokenKinds.h"
+
+struct Token {
+    uint32_t kind;
+    String   text;
+
+    Token() : kind(TOKEN_UNKNOWN), text({}) { }
+    Token(uint32_t kind, String text) : kind(kind), text(text) { }
+
+    bool is(uint32_t kind) const {
+        return this->kind == kind;
+    }
+
+    template <typename ...T>
+    bool is(uint32_t kind1, uint32_t kind2, T... kinds) const {
+        if (is(kind1)) {
+            return true;
+        }
+
+        return is(kind2, kinds...);
+    }
+};

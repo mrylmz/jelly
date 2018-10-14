@@ -22,10 +22,8 @@
 // SOFTWARE.
 //
 
-#include <Basic/Basic.h>
-#include <Parse/Parse.h>
-#include <string>
+#pragma once
 
-int main(int argc, char** argv) {
-    return 0;
-}
+#include "Basic/Hasher.h"
+#include "Basic/String.h"
+#include "Basic/StringMap.h"

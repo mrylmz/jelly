@@ -22,10 +22,10 @@
 // SOFTWARE.
 //
 
-#include <Basic/Basic.h>
-#include <Parse/Parse.h>
-#include <string>
+#pragma once
 
-int main(int argc, char** argv) {
-    return 0;
-}
+#include <stdint.h>
+
+enum ASTFlags : uint32_t {
+    AST_VARIABLE_IS_CONSTANT = 1 << 0,
+};

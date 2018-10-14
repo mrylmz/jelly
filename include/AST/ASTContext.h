@@ -22,10 +22,31 @@
 // SOFTWARE.
 //
 
-#include <Basic/Basic.h>
-#include <Parse/Parse.h>
-#include <string>
+#pragma once
 
-int main(int argc, char** argv) {
-    return 0;
-}
+#include "AST/ASTNodes.h"
+
+#include <vector>
+#include <unistd.h>
+#include <iostream>
+
+#warning Isn't there a cleaner solution to the node size problem then ASTNodeContainer ??
+
+struct ASTContext {
+    template<typename Element>
+    using Array = std::vector<Element>;
+
+    ASTContext();
+    ~ASTContext();
+
+    const ASTBlock* root;
+
+    void* alloc_node();
+
+private:
+    size_t       page_size;
+    size_t       node_size;
+    size_t       node_count;
+    size_t       nodes_per_page;
+    Array<void*> node_pages;
+};

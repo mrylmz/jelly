@@ -22,10 +22,44 @@
 // SOFTWARE.
 //
 
-#include <Basic/Basic.h>
-#include <Parse/Parse.h>
-#include <string>
+#pragma once
 
-int main(int argc, char** argv) {
-    return 0;
-}
+#include <stddef.h>
+#include <stdint.h>
+
+struct Hasher;
+
+struct String {
+    const char* buffer_start;
+    size_t      buffer_length;
+
+    String();
+    String(const char *buffer);
+    String(const char *buffer, size_t length);
+
+    ~String();
+
+    char*       copy_buffer() const;
+
+    bool        is_empty() const;
+    bool        is_equal(String other) const;
+
+    bool        has_prefix(String prefix) const;
+    bool        has_suffix(String suffix) const;
+
+    String      slice(size_t start, size_t end) const;
+    String      prefix(size_t length) const;
+    String      suffix(size_t length) const;
+
+    size_t      hash() const;
+    void        hash_into(Hasher* hasher) const;
+
+    bool        convert_to_int(uint64_t& result) const;
+    bool        convert_to_int(uint32_t radix, uint64_t& result) const;
+    bool        convert_to_double(double &result) const;
+
+    char operator [] (size_t index) const;
+};
+
+inline bool operator == (String lhs, String rhs);
+inline bool operator != (String lhs, String rhs);
