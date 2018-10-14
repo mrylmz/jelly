@@ -25,7 +25,7 @@
 #include <AST/AST.h>
 #include "Parse/Parser.h"
 
-#warning Add subscript-expression, member-access-expression, ternary-expression
+#warning Add member-access-expression, ternary-expression
 #warning Check line-break requirements, do not allow consecutive statements on a line
 
 /// |   alternation
@@ -373,6 +373,7 @@ ASTExpression* Parser::parse_expression(uint32_t precedence) {
     while (precedence < op.precedence) {
         consume_token();
 
+#warning Refactor code-duplication of call-expression and subscript-expression!
         if (op.kind == OPERATOR_INFIX) {
             ASTBinaryExpression* right = new (context) ASTBinaryExpression;
             right->op = op;
@@ -391,7 +392,7 @@ ASTExpression* Parser::parse_expression(uint32_t precedence) {
             left = right;
         } else if (op.text.is_equal("()")) {
             // call-expression := expression "(" [ expression { "," expression } ] ")"
-            ASTCallExpression* right = new (context) ASTCallExpression;
+            ASTCall* right = new (context) ASTCall;
             right->left = left;
 
             if (!token.is(')')) {
@@ -407,6 +408,33 @@ ASTExpression* Parser::parse_expression(uint32_t precedence) {
                         break;
                     } else if (!token.is(',')) {
                         report_error("Expected ')' or ',' in argument list of call-expression!");
+                        return nullptr;
+                    }
+
+                    consume_token();
+                }
+            }
+
+            consume_token();
+            left = right;
+        } else if (op.text.is_equal("[]")) {
+            // subscript-expression := expression "[" [ expression { "," expression } ] "]"
+            ASTSubscript* right = new (context) ASTSubscript;
+            right->left = left;
+
+            if (!token.is(']')) {
+                while (true) {
+                    ASTExpression* argument = parse_expression();
+                    if (argument == nullptr) {
+                        return nullptr;
+                    }
+
+                    right->arguments.push_back(argument);
+
+                    if (token.is(']')) {
+                        break;
+                    } else if (!token.is(',')) {
+                        report_error("Expected ']' or ',' in argument list of subscript-expression!");
                         return nullptr;
                     }
 

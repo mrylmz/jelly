@@ -51,7 +51,8 @@ enum ASTNodeKind : uint8_t {
     AST_SWITCH,
     AST_SWITCH_CASE,
     AST_WHILE,
-    AST_CALL_EXPRESSION,
+    AST_CALL,
+    AST_SUBSCRIPT,
 };
 
 enum ASTTypeKind : uint8_t {

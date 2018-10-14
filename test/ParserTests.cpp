@@ -26,6 +26,10 @@
 #include <AST/AST.h>
 #include <Parse/Parse.h>
 
+#warning !!! Replace Parser tests with file comparison of pre-generated json representations of the AST !!!
+#warning !!! Replace Parser tests with file comparison of pre-generated json representations of the AST !!!
+#warning !!! Replace Parser tests with file comparison of pre-generated json representations of the AST !!!
+
 #define EXPECT_AST_IDENTIFIER_TEXT_EQ(__AST__,__STRING__)   \
 EXPECT_NE(__AST__, nullptr);                                \
 if (__AST__ != nullptr) {                                   \
@@ -1436,9 +1440,9 @@ TEST(Parser, parse_call_expression) {
                 EXPECT_EQ(func->block->statements.size(), 1);
                 if (func->block->statements.size() == 1) {
                     ASTStatement* stmt = func->block->statements.at(0);
-                    EXPECT_EQ(stmt->kind, AST_CALL_EXPRESSION);
-                    if (stmt->kind == AST_CALL_EXPRESSION) {
-                        ASTCallExpression* call = reinterpret_cast<ASTCallExpression*>(stmt);
+                    EXPECT_EQ(stmt->kind, AST_CALL);
+                    if (stmt->kind == AST_CALL) {
+                        ASTCall* call = reinterpret_cast<ASTCall*>(stmt);
                         EXPECT_EQ(call->arguments.size(), 0);
                         EXPECT_NE(call->left, nullptr);
                         if (call->left) {
@@ -1446,6 +1450,63 @@ TEST(Parser, parse_call_expression) {
                             if (call->left->kind == AST_IDENTIFIER) {
                                 ASTIdentifier* identifier = reinterpret_cast<ASTIdentifier*>(call->left);
                                 EXPECT_AST_IDENTIFIER_TEXT_EQ(identifier, "myFunc");
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+TEST(Parser, parse_subscript_expression) {
+    const char* source =
+    "func main() -> Void {  \n"
+    "   myData[1]()         \n"
+    "}";
+    Lexer       lexer(source);
+    Parser      parser(lexer);
+
+    ASTNode* node = parser.parse();
+    EXPECT_NE(node, nullptr);
+
+    if (node) {
+        EXPECT_EQ(node->kind, AST_FUNC);
+        if (node->kind == AST_FUNC) {
+            ASTFunc* func = reinterpret_cast<ASTFunc*>(node);
+            EXPECT_NE(func->block, nullptr);
+            if (func->block) {
+                EXPECT_EQ(func->block->statements.size(), 1);
+                if (func->block->statements.size() == 1) {
+                    ASTStatement* stmt = func->block->statements.at(0);
+                    EXPECT_EQ(stmt->kind, AST_CALL);
+                    if (stmt->kind == AST_CALL) {
+                        ASTCall* call = reinterpret_cast<ASTCall*>(stmt);
+                        EXPECT_EQ(call->arguments.size(), 0);
+                        EXPECT_NE(call->left, nullptr);
+                        if (call->left) {
+                            EXPECT_EQ(call->left->kind, AST_SUBSCRIPT);
+                            if (call->left->kind == AST_SUBSCRIPT) {
+                                ASTSubscript* subscript = reinterpret_cast<ASTSubscript*>(call->left);
+                                EXPECT_EQ(subscript->arguments.size(), 1);
+                                if (subscript->arguments.size() == 1) {
+                                    ASTExpression* argument = subscript->arguments.at(0);
+                                    EXPECT_EQ(argument->kind, AST_LITERAL);
+                                    if (argument->kind == AST_LITERAL) {
+                                        ASTLiteral* literal = reinterpret_cast<ASTLiteral*>(argument);
+                                        EXPECT_EQ(literal->token_kind, TOKEN_LITERAL_INT);
+                                        EXPECT_EQ(literal->int_value, 1);
+                                    }
+                                }
+
+                                EXPECT_NE(subscript->left, nullptr);
+                                if (subscript->left) {
+                                    EXPECT_EQ(subscript->left->kind, AST_IDENTIFIER);
+                                    if (subscript->left->kind == AST_IDENTIFIER) {
+                                        ASTIdentifier* identifier = reinterpret_cast<ASTIdentifier*>(subscript->left);
+                                        EXPECT_AST_IDENTIFIER_TEXT_EQ(identifier, "myData");
+                                    }
+                                }
                             }
                         }
                     }

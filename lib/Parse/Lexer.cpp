@@ -200,8 +200,8 @@ buffer_ptr(buffer) {
     // Pointer Type Operator
     register_operator(Operator(OPERATOR_POSTFIX, "*"));
     register_operator(Operator(OPERATOR_POSTFIX, "()", ASSOCIATIVITY_LEFT, 1000, true));
+    register_operator(Operator(OPERATOR_POSTFIX, "[]", ASSOCIATIVITY_LEFT, 1100, true));
 
-    // Subscripting:        OP_POSTFIX, [], ASSOC_LEFT, 0
     // Element selection:   OP_POSTFIX, . , ASSOC_LEFT, 0
 
     lex_next();

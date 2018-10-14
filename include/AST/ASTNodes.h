@@ -304,9 +304,18 @@ struct ASTWhile : public ASTStatement {
     ASTBlock*             block;
 };
 
-struct ASTCallExpression : public ASTExpression {
-    ASTCallExpression() {
-        kind = AST_CALL_EXPRESSION;
+struct ASTCall : public ASTExpression {
+    ASTCall() {
+        kind = AST_CALL;
+    }
+
+    ASTExpression*        left;
+    Array<ASTExpression*> arguments;
+};
+
+struct ASTSubscript : public ASTExpression {
+    ASTSubscript() {
+        kind = AST_SUBSCRIPT;
     }
 
     ASTExpression*        left;
