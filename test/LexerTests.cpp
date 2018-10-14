@@ -171,7 +171,7 @@ TEST(Lexer, AssignNil) {
 
 TEST(Lexer, SelfDotPosition) {
     EXPECT_TOKEN_KINDS_EQ("self.position",
-                         TOKEN_IDENTIFIER, '.', TOKEN_IDENTIFIER)
+                         TOKEN_IDENTIFIER, TOKEN_OPERATOR, TOKEN_IDENTIFIER)
 }
 
 TEST(Lexer, InvalidBinaryIntegerLiteral) {

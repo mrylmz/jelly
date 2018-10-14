@@ -155,54 +155,52 @@ buffer_ptr(buffer) {
     register_operator(Operator(OPERATOR_PREFIX, "+"));
     register_operator(Operator(OPERATOR_PREFIX, "-"));
 
-    register_operator(Operator(OPERATOR_INFIX, "<<", ASSOCIATIVITY_NONE, 900));
-    register_operator(Operator(OPERATOR_INFIX, ">>", ASSOCIATIVITY_NONE, 900));
+    register_operator(Operator(OPERATOR_INFIX, "<<",  ASSOCIATIVITY_NONE, 900));
+    register_operator(Operator(OPERATOR_INFIX, ">>",  ASSOCIATIVITY_NONE, 900));
 
-    register_operator(Operator(OPERATOR_INFIX, "*", ASSOCIATIVITY_LEFT, 800));
-    register_operator(Operator(OPERATOR_INFIX, "/", ASSOCIATIVITY_LEFT, 800));
-    register_operator(Operator(OPERATOR_INFIX, "%", ASSOCIATIVITY_LEFT, 800));
-    register_operator(Operator(OPERATOR_INFIX, "&", ASSOCIATIVITY_LEFT, 800));
+    register_operator(Operator(OPERATOR_INFIX, "*",   ASSOCIATIVITY_LEFT, 800));
+    register_operator(Operator(OPERATOR_INFIX, "/",   ASSOCIATIVITY_LEFT, 800));
+    register_operator(Operator(OPERATOR_INFIX, "%",   ASSOCIATIVITY_LEFT, 800));
+    register_operator(Operator(OPERATOR_INFIX, "&",   ASSOCIATIVITY_LEFT, 800));
 
-    register_operator(Operator(OPERATOR_INFIX, "+", ASSOCIATIVITY_LEFT, 700));
-    register_operator(Operator(OPERATOR_INFIX, "-", ASSOCIATIVITY_LEFT, 700));
-    register_operator(Operator(OPERATOR_INFIX, "|", ASSOCIATIVITY_LEFT, 700));
-    register_operator(Operator(OPERATOR_INFIX, "^", ASSOCIATIVITY_LEFT, 700));
+    register_operator(Operator(OPERATOR_INFIX, "+",   ASSOCIATIVITY_LEFT, 700));
+    register_operator(Operator(OPERATOR_INFIX, "-",   ASSOCIATIVITY_LEFT, 700));
+    register_operator(Operator(OPERATOR_INFIX, "|",   ASSOCIATIVITY_LEFT, 700));
+    register_operator(Operator(OPERATOR_INFIX, "^",   ASSOCIATIVITY_LEFT, 700));
 
     register_operator(Operator(OPERATOR_INFIX, "..<", ASSOCIATIVITY_NONE, 600));
     register_operator(Operator(OPERATOR_INFIX, "...", ASSOCIATIVITY_NONE, 600));
 
-    register_operator(Operator(OPERATOR_INFIX, "is", ASSOCIATIVITY_LEFT, 500));
-    register_operator(Operator(OPERATOR_INFIX, "as", ASSOCIATIVITY_LEFT, 500));
+    register_operator(Operator(OPERATOR_INFIX, "is",  ASSOCIATIVITY_LEFT, 500));
+    register_operator(Operator(OPERATOR_INFIX, "as",  ASSOCIATIVITY_LEFT, 500));
 
-    register_operator(Operator(OPERATOR_INFIX, "<", ASSOCIATIVITY_NONE, 400));
-    register_operator(Operator(OPERATOR_INFIX, "<=", ASSOCIATIVITY_NONE, 400));
-    register_operator(Operator(OPERATOR_INFIX, ">", ASSOCIATIVITY_NONE, 400));
-    register_operator(Operator(OPERATOR_INFIX, ">=", ASSOCIATIVITY_NONE, 400));
-    register_operator(Operator(OPERATOR_INFIX, "==", ASSOCIATIVITY_NONE, 400));
-    register_operator(Operator(OPERATOR_INFIX, "!=", ASSOCIATIVITY_NONE, 400));
+    register_operator(Operator(OPERATOR_INFIX, "<",   ASSOCIATIVITY_NONE, 400));
+    register_operator(Operator(OPERATOR_INFIX, "<=",  ASSOCIATIVITY_NONE, 400));
+    register_operator(Operator(OPERATOR_INFIX, ">",   ASSOCIATIVITY_NONE, 400));
+    register_operator(Operator(OPERATOR_INFIX, ">=",  ASSOCIATIVITY_NONE, 400));
+    register_operator(Operator(OPERATOR_INFIX, "==",  ASSOCIATIVITY_NONE, 400));
+    register_operator(Operator(OPERATOR_INFIX, "!=",  ASSOCIATIVITY_NONE, 400));
 
-    register_operator(Operator(OPERATOR_INFIX, "&&", ASSOCIATIVITY_LEFT, 300));
+    register_operator(Operator(OPERATOR_INFIX, "&&",  ASSOCIATIVITY_LEFT, 300));
 
-    register_operator(Operator(OPERATOR_INFIX, "||", ASSOCIATIVITY_LEFT, 200));
+    register_operator(Operator(OPERATOR_INFIX, "||",  ASSOCIATIVITY_LEFT, 200));
 
-    register_operator(Operator(OPERATOR_INFIX, "=", ASSOCIATIVITY_RIGHT, 100));
-    register_operator(Operator(OPERATOR_INFIX, "*=", ASSOCIATIVITY_RIGHT, 100));
-    register_operator(Operator(OPERATOR_INFIX, "/=", ASSOCIATIVITY_RIGHT, 100));
-    register_operator(Operator(OPERATOR_INFIX, "%=", ASSOCIATIVITY_RIGHT, 100));
-    register_operator(Operator(OPERATOR_INFIX, "+=", ASSOCIATIVITY_RIGHT, 100));
-    register_operator(Operator(OPERATOR_INFIX, "-=", ASSOCIATIVITY_RIGHT, 100));
+    register_operator(Operator(OPERATOR_INFIX, "=",   ASSOCIATIVITY_RIGHT, 100));
+    register_operator(Operator(OPERATOR_INFIX, "*=",  ASSOCIATIVITY_RIGHT, 100));
+    register_operator(Operator(OPERATOR_INFIX, "/=",  ASSOCIATIVITY_RIGHT, 100));
+    register_operator(Operator(OPERATOR_INFIX, "%=",  ASSOCIATIVITY_RIGHT, 100));
+    register_operator(Operator(OPERATOR_INFIX, "+=",  ASSOCIATIVITY_RIGHT, 100));
+    register_operator(Operator(OPERATOR_INFIX, "-=",  ASSOCIATIVITY_RIGHT, 100));
     register_operator(Operator(OPERATOR_INFIX, "<<=", ASSOCIATIVITY_RIGHT, 100));
     register_operator(Operator(OPERATOR_INFIX, ">>=", ASSOCIATIVITY_RIGHT, 100));
-    register_operator(Operator(OPERATOR_INFIX, "&=", ASSOCIATIVITY_RIGHT, 100));
-    register_operator(Operator(OPERATOR_INFIX, "|=", ASSOCIATIVITY_RIGHT, 100));
-    register_operator(Operator(OPERATOR_INFIX, "^=", ASSOCIATIVITY_RIGHT, 100));
+    register_operator(Operator(OPERATOR_INFIX, "&=",  ASSOCIATIVITY_RIGHT, 100));
+    register_operator(Operator(OPERATOR_INFIX, "|=",  ASSOCIATIVITY_RIGHT, 100));
+    register_operator(Operator(OPERATOR_INFIX, "^=",  ASSOCIATIVITY_RIGHT, 100));
 
-    // Pointer Type Operator
-    register_operator(Operator(OPERATOR_POSTFIX, "*"));
+    register_operator(Operator(OPERATOR_POSTFIX, ".",  ASSOCIATIVITY_LEFT, 1000, false));
+    register_operator(Operator(OPERATOR_POSTFIX, "*",  ASSOCIATIVITY_LEFT, 1000, false));
     register_operator(Operator(OPERATOR_POSTFIX, "()", ASSOCIATIVITY_LEFT, 1000, true));
-    register_operator(Operator(OPERATOR_POSTFIX, "[]", ASSOCIATIVITY_LEFT, 1100, true));
-
-    // Element selection:   OP_POSTFIX, . , ASSOC_LEFT, 0
+    register_operator(Operator(OPERATOR_POSTFIX, "[]", ASSOCIATIVITY_LEFT, 1000, true));
 
     lex_next();
 }
@@ -263,7 +261,6 @@ uint32_t Lexer::get_operator_precedence_before(uint32_t precedence) {
 
 void Lexer::register_operator(const Operator& op) {
     assert(!op.text.is_equal("->")     && "'->' is reserved and cannot be added as operator!");
-    assert(!op.text.is_equal(".")      && "'.' is reserved and cannot be added as operator!");
     assert(!op.text.is_equal("//")     && "'//' is reserved and cannot be added as operator!");
     assert(!op.text.is_equal("/*")     && "'/*' is reserved and cannot be added as operator!");
     assert(!op.text.is_equal("*/")     && "'*/' is reserved and cannot be added as operator!");

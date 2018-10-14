@@ -77,6 +77,9 @@ private:
     // MARK: - Expressions
 
     ASTExpression* parse_expression(uint32_t precedence = 0);
+    ASTExpression* parse_call_expression(ASTExpression* left);
+    ASTExpression* parse_subscript_expression(ASTExpression* left);
+    ASTExpression* parse_primary_expression();
     ASTExpression* parse_unary_expression();
     ASTExpression* parse_atom_expression();
     ASTExpression* parse_group_expression();

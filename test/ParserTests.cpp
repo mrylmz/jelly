@@ -1459,6 +1459,73 @@ TEST(Parser, parse_call_expression) {
     }
 }
 
+TEST(Parser, parse_member_access_expression) {
+    const char* source =
+    "func main() -> Void {              \n"
+    "   myStruct.myMember.myOtherMember \n"
+    "}";
+    Lexer       lexer(source);
+    Parser      parser(lexer);
+
+    ASTNode* node = parser.parse();
+    EXPECT_NE(node, nullptr);
+
+    if (node) {
+        EXPECT_EQ(node->kind, AST_FUNC);
+        if (node->kind == AST_FUNC) {
+            ASTFunc* func = reinterpret_cast<ASTFunc*>(node);
+            EXPECT_NE(func->block, nullptr);
+            if (func->block) {
+                EXPECT_EQ(func->block->statements.size(), 1);
+                if (func->block->statements.size() == 1) {
+                    ASTStatement* stmt = func->block->statements.at(0);
+                    EXPECT_EQ(stmt->kind, AST_BINARY);
+                    if (stmt->kind == AST_BINARY) {
+                        ASTBinaryExpression* binary = reinterpret_cast<ASTBinaryExpression*>(stmt);
+                        EXPECT_NE(binary->left, nullptr);
+                        EXPECT_NE(binary->right, nullptr);
+                        EXPECT_TRUE(binary->op.text.is_equal("."));
+
+                        if (binary->left) {
+                            EXPECT_EQ(binary->left->kind, AST_BINARY);
+                            if (binary->left->kind == AST_BINARY) {
+                                ASTBinaryExpression* left = reinterpret_cast<ASTBinaryExpression*>(binary->left);
+                                EXPECT_NE(left->left, nullptr);
+                                EXPECT_NE(left->right, nullptr);
+                                EXPECT_TRUE(left->op.text.is_equal("."));
+
+                                if (left->left) {
+                                    EXPECT_EQ(left->left->kind, AST_IDENTIFIER);
+                                    if (left->left->kind == AST_IDENTIFIER) {
+                                        ASTIdentifier* identifier = reinterpret_cast<ASTIdentifier*>(left->left);
+                                        EXPECT_AST_IDENTIFIER_TEXT_EQ(identifier, "myStruct");
+                                    }
+                                }
+
+                                if (left->right) {
+                                    EXPECT_EQ(left->right->kind, AST_IDENTIFIER);
+                                    if (left->right->kind == AST_IDENTIFIER) {
+                                        ASTIdentifier* identifier = reinterpret_cast<ASTIdentifier*>(left->right);
+                                        EXPECT_AST_IDENTIFIER_TEXT_EQ(identifier, "myMember");
+                                    }
+                                }
+                            }
+                        }
+
+                        if (binary->right) {
+                            EXPECT_EQ(binary->right->kind, AST_IDENTIFIER);
+                            if (binary->right->kind == AST_IDENTIFIER) {
+                                ASTIdentifier* identifier = reinterpret_cast<ASTIdentifier*>(binary->right);
+                                EXPECT_AST_IDENTIFIER_TEXT_EQ(identifier, "myOtherMember");
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 TEST(Parser, parse_subscript_expression) {
     const char* source =
     "func main() -> Void {  \n"
