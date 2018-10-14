@@ -54,6 +54,7 @@ struct _ASTNodeContainer {
         ASTIf    node_if;
         ASTSwitch node_switch;
         ASTWhile  node_while;
+        ASTCallExpression node_call;
     };
 };
 

@@ -44,11 +44,12 @@ struct Operator {
     String        text;
     Associativity associativity;
     uint32_t      precedence;
+    bool          can_have_arguments;
 
-    Operator() : kind(OPERATOR_INVALID), text({}), associativity(ASSOCIATIVITY_NONE), precedence(250) {}
+    Operator() : kind(OPERATOR_INVALID), text({}), associativity(ASSOCIATIVITY_NONE), precedence(250), can_have_arguments(false) {}
 
-    Operator(OperatorKind kind, String text, Associativity associativity = ASSOCIATIVITY_NONE, uint32_t precedence = 250) :
-    kind(kind), text(text), associativity(associativity), precedence(precedence) {}
+    Operator(OperatorKind kind, String text, Associativity associativity = ASSOCIATIVITY_NONE, uint32_t precedence = 250, bool can_have_arguments = false) :
+    kind(kind), text(text), associativity(associativity), precedence(precedence), can_have_arguments(can_have_arguments) {}
 
     bool is_valid() const {
         return kind != OPERATOR_INVALID;

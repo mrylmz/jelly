@@ -25,7 +25,7 @@
 #include <AST/AST.h>
 #include "Parse/Parser.h"
 
-#warning Add call-expression, subscript-expression, selector-expression
+#warning Add subscript-expression, member-access-expression, ternary-expression
 #warning Check line-break requirements, do not allow consecutive statements on a line
 
 /// |   alternation
@@ -366,37 +366,59 @@ ASTExpression* Parser::parse_expression(uint32_t precedence) {
         return nullptr;
     }
 
-    if (!token.is(TOKEN_OPERATOR)) {
+    if (!lexer.get_operator(token, OPERATOR_INFIX, op) && !lexer.get_operator(token, OPERATOR_POSTFIX, op)) {
         return left;
     }
-
-    if (!lexer.get_operator(token, OPERATOR_INFIX, op)) {
-        report_error("Expected infix operator in expression!");
-        return nullptr;
-    }
-
-#warning Add support for subscript, function call and ternary expression!
 
     while (precedence < op.precedence) {
         consume_token();
 
-        ASTBinaryExpression* right = new (context) ASTBinaryExpression;
-        right->op = op;
-        right->left = left;
+        if (op.kind == OPERATOR_INFIX) {
+            ASTBinaryExpression* right = new (context) ASTBinaryExpression;
+            right->op = op;
+            right->left = left;
 
-        uint32_t next_precedence = op.precedence;
-        if (op.associativity == ASSOCIATIVITY_RIGHT) {
-            next_precedence = lexer.get_operator_precedence_before(next_precedence);
+            uint32_t next_precedence = op.precedence;
+            if (op.associativity == ASSOCIATIVITY_RIGHT) {
+                next_precedence = lexer.get_operator_precedence_before(next_precedence);
+            }
+
+            right->right = parse_expression(next_precedence);
+            if (right->right == nullptr) {
+                return nullptr;
+            }
+
+            left = right;
+        } else if (op.text.is_equal("()")) {
+            // call-expression := expression "(" [ expression { "," expression } ] ")"
+            ASTCallExpression* right = new (context) ASTCallExpression;
+            right->left = left;
+
+            if (!token.is(')')) {
+                while (true) {
+                    ASTExpression* argument = parse_expression();
+                    if (argument == nullptr) {
+                        return nullptr;
+                    }
+
+                    right->arguments.push_back(argument);
+
+                    if (token.is(')')) {
+                        break;
+                    } else if (!token.is(',')) {
+                        report_error("Expected ')' or ',' in argument list of call-expression!");
+                        return nullptr;
+                    }
+
+                    consume_token();
+                }
+            }
+
+            consume_token();
+            left = right;
         }
 
-        right->right = parse_expression(next_precedence);
-        if (right->right == nullptr) {
-            return nullptr;
-        }
-
-        left = right;
-
-        if (!token.is(TOKEN_OPERATOR) || !lexer.get_operator(token, OPERATOR_INFIX, op)) {
+        if (!lexer.get_operator(token, OPERATOR_INFIX, op) && !lexer.get_operator(token, OPERATOR_POSTFIX, op)) {
             break;
         }
     }

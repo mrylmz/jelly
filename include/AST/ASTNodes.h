@@ -303,3 +303,12 @@ struct ASTWhile : public ASTStatement {
     Array<ASTExpression*> conditions;
     ASTBlock*             block;
 };
+
+struct ASTCallExpression : public ASTExpression {
+    ASTCallExpression() {
+        kind = AST_CALL_EXPRESSION;
+    }
+
+    ASTExpression*        left;
+    Array<ASTExpression*> arguments;
+};

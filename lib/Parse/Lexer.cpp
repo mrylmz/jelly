@@ -199,8 +199,8 @@ buffer_ptr(buffer) {
 
     // Pointer Type Operator
     register_operator(Operator(OPERATOR_POSTFIX, "*"));
+    register_operator(Operator(OPERATOR_POSTFIX, "()", ASSOCIATIVITY_LEFT, 1000, true));
 
-    // Function call:       OP_POSTFIX, (), ASSOC_LEFT, 0
     // Subscripting:        OP_POSTFIX, [], ASSOC_LEFT, 0
     // Element selection:   OP_POSTFIX, . , ASSOC_LEFT, 0
 
@@ -220,8 +220,6 @@ void Lexer::peek_next_token(Token& token) {
 }
 
 bool Lexer::get_operator(const Token& token, OperatorKind kind, Operator& op) {
-    assert(token.kind == TOKEN_OPERATOR && "Invalid token given, is not kind of OPERATOR!");
-
     StringMap<size_t, 256>* operator_keys;
     Array<Operator>*        operator_values;
 
@@ -246,7 +244,6 @@ bool Lexer::get_operator(const Token& token, OperatorKind kind, Operator& op) {
     }
 
     size_t index;
-
     if (operator_keys->get(token.text, index)) {
         op = operator_values->at(index);
         return true;
@@ -289,6 +286,7 @@ void Lexer::register_operator(const Operator& op) {
         case OPERATOR_POSTFIX:
             operator_keys = &postfix_operator_keys;
             operator_values = &postfix_operator_values;
+            register_operator_precedence(op.precedence);
             break;
 
         default:
@@ -297,10 +295,15 @@ void Lexer::register_operator(const Operator& op) {
 
     size_t index;
 
-    assert(!operator_keys->get(op.text, index) && "Overriding operators is not allowed!");
+    String text = op.text;
+    if (op.can_have_arguments) {
+        text = text.prefix(1);
+    }
+
+    assert(!operator_keys->get(text, index) && "Overriding operators is not allowed!");
 
     index = operator_values->size();
-    operator_keys->set(op.text, index);
+    operator_keys->set(text, index);
     operator_values->push_back(op);
 }
 

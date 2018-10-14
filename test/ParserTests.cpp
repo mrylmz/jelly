@@ -897,15 +897,6 @@ TEST(Parser, parse_expression$unary_plus) {
     }
 }
 
-TEST(Parser, parse_expression$invalid_infix_operator) {
-    const char* source = "var x: Int = -10 ! 0";
-    Lexer       lexer(source);
-    Parser      parser(lexer);
-
-    ASTNode* node = parser.parse();
-    EXPECT_EQ(node, nullptr);
-}
-
 TEST(Parser, parse_expression$invalid_prefix_operator) {
     const char* source = "var x: Int = <<10";
     Lexer       lexer(source);
@@ -1419,6 +1410,45 @@ TEST(Parser, parse_defer_statement$defer_assign_zero) {
                 EXPECT_NE(defer->expression, nullptr);
                 if (defer->expression) {
                     EXPECT_EQ(defer->expression->kind, AST_BINARY);
+                }
+            }
+        }
+    }
+}
+
+TEST(Parser, parse_call_expression) {
+    const char* source =
+    "func main() -> Void {  \n"
+    "   myFunc()            \n"
+    "}";
+    Lexer       lexer(source);
+    Parser      parser(lexer);
+
+    ASTNode* node = parser.parse();
+    EXPECT_NE(node, nullptr);
+
+    if (node) {
+        EXPECT_EQ(node->kind, AST_FUNC);
+        if (node->kind == AST_FUNC) {
+            ASTFunc* func = reinterpret_cast<ASTFunc*>(node);
+            EXPECT_NE(func->block, nullptr);
+            if (func->block) {
+                EXPECT_EQ(func->block->statements.size(), 1);
+                if (func->block->statements.size() == 1) {
+                    ASTStatement* stmt = func->block->statements.at(0);
+                    EXPECT_EQ(stmt->kind, AST_CALL_EXPRESSION);
+                    if (stmt->kind == AST_CALL_EXPRESSION) {
+                        ASTCallExpression* call = reinterpret_cast<ASTCallExpression*>(stmt);
+                        EXPECT_EQ(call->arguments.size(), 0);
+                        EXPECT_NE(call->left, nullptr);
+                        if (call->left) {
+                            EXPECT_EQ(call->left->kind, AST_IDENTIFIER);
+                            if (call->left->kind == AST_IDENTIFIER) {
+                                ASTIdentifier* identifier = reinterpret_cast<ASTIdentifier*>(call->left);
+                                EXPECT_AST_IDENTIFIER_TEXT_EQ(identifier, "myFunc");
+                            }
+                        }
+                    }
                 }
             }
         }
