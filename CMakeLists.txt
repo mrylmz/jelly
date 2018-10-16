@@ -80,17 +80,17 @@ include(CodeCoverage)
 APPEND_COVERAGE_COMPILER_FLAGS()
 
 set_property(
-    TARGET jellyBasic jellySyntax jellyParse jellyTest jellyBenchmark
+    TARGET jellyAST jellyBasic jellySyntax jellyParse jellyTest jellyBenchmark
     PROPERTY XCODE_ATTRIBUTE_CLANG_ENABLE_CODE_COVERAGE YES
 )
 
 set_property(
-    TARGET jellyBasic jellySyntax jellyParse jellyTest jellyBenchmark
+    TARGET jellyAST jellyBasic jellySyntax jellyParse jellyTest jellyBenchmark
     PROPERTY XCODE_ATTRIBUTE_GCC_GENERATE_TEST_COVERAGE_FILES YES
 )
 
 set_property(
-    TARGET jellyBasic jellySyntax jellyParse jellyTest jellyBenchmark
+    TARGET jellyAST jellyBasic jellySyntax jellyParse jellyTest jellyBenchmark
     PROPERTY XCODE_ATTRIBUTE_GCC_INSTRUMENT_PROGRAM_FLOW_ARCS YES
 )
 

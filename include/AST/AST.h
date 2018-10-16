@@ -28,3 +28,5 @@
 #include "AST/ASTFlags.h"
 #include "AST/ASTNodeKinds.h"
 #include "AST/ASTNodes.h"
+#include "AST/ASTPrinter.h"
+#include "AST/ASTVisitor.h"
