@@ -282,9 +282,9 @@ ASTFuncSignature* Parser::parse_func_signature() {
 
     consume_token();
 
-    signature->return_type_name = parse_identifier();
-    if (signature->return_type_name == nullptr) {
-        report_error("Expected identifier for return type of function declaration!");
+    signature->return_type = parse_type();
+    if (signature->return_type == nullptr) {
+        report_error("Expected return type of function declaration!");
         return nullptr;
     }
 
@@ -1040,9 +1040,9 @@ ASTParameter* Parser::parse_parameter() {
     }
     consume_token();
 
-    parameter->type_name = parse_identifier();
-    if (parameter->type_name == nullptr) {
-        report_error("Expected identifier for type name of parameter!");
+    parameter->type = parse_type();
+    if (parameter->type == nullptr) {
+        report_error("Expected type of parameter!");
         return nullptr;
     }
 

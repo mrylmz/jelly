@@ -69,10 +69,6 @@ struct ASTDeclaration : public ASTStatement {
 };
 
 struct ASTExpression : public ASTStatement {
-    ASTExpression() {
-        kind = AST_UNKNOWN;
-    }
-
 };
 
 struct ASTUnaryExpression : public ASTExpression {
@@ -143,12 +139,12 @@ struct ASTLoad : public ASTDirective {
 };
 
 struct ASTParameter : public ASTNode {
-    ASTParameter() : name(nullptr), type_name(nullptr) {
+    ASTParameter() : name(nullptr), type(nullptr) {
         kind = AST_PARAMETER;
     }
 
     ASTIdentifier* name;
-    ASTIdentifier* type_name;
+    ASTType*       type;
 };
 
 struct ASTBlock : public ASTNode {
@@ -160,13 +156,13 @@ struct ASTBlock : public ASTNode {
 };
 
 struct ASTFuncSignature : public ASTNode {
-    ASTFuncSignature() : name(nullptr), return_type_name(nullptr) {
+    ASTFuncSignature() : name(nullptr), return_type(nullptr) {
         kind = AST_FUNC_SIGNATURE;
     }
 
     ASTIdentifier*       name;
     Array<ASTParameter*> parameters;
-    ASTIdentifier*       return_type_name;
+    ASTType*             return_type;
 };
 
 struct ASTFunc : public ASTDeclaration {
@@ -221,6 +217,7 @@ struct ASTControl : public ASTStatement {
         kind = AST_CONTROL;
     }
 
+    // TODO: Replace with new ASTControlKind enum !!!
     uint32_t       token_kind;
     ASTExpression* expression;
 };
