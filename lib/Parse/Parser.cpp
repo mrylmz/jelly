@@ -38,7 +38,7 @@ void Parser::consume_token() {
 }
 
 void Parser::report_error(const char* message) {
-#warning TODO: forward error messages to diagnostics engine!
+#warning Forward error messages to diagnostics engine!
     printf("Error: %s\n", message);
 }
 
@@ -90,7 +90,7 @@ ASTDirective* Parser::parse_load_directive() {
     assert(token.is(TOKEN_KEYWORD_LOAD) && "Invalid token given for start of load directive!");
     consume_token();
 
-    ASTLoad* load = new (context) ASTLoad;
+    ASTLoad* load = new (&context) ASTLoad;
     load->literal = parse_literal();
     if (load->literal == nullptr || load->literal->token_kind != TOKEN_LITERAL_STRING) {
         report_error("Expected string literal after load directive!");
@@ -107,7 +107,7 @@ ASTDeclaration* Parser::parse_enum_declaration() {
     assert(token.is(TOKEN_KEYWORD_ENUM) && "Invalid token given for start of enum!");
     consume_token();
 
-    ASTEnum* enumeration = new (context) ASTEnum;
+    ASTEnum* enumeration = new (&context)  ASTEnum;
 
     enumeration->name = parse_identifier();
     if (enumeration->name == nullptr) {
@@ -150,7 +150,7 @@ ASTDeclaration* Parser::parse_func_declaration() {
     assert(token.is(TOKEN_KEYWORD_FUNC) && "Invalid token given for start of func declaration!");
     consume_token();
 
-    ASTFunc* func = new (context) ASTFunc;
+    ASTFunc* func = new (&context)  ASTFunc;
     func->signature = parse_func_signature();
     if (func->signature == nullptr) {
         return nullptr;
@@ -169,7 +169,7 @@ ASTDeclaration* Parser::parse_struct_declaration() {
     assert(token.is(TOKEN_KEYWORD_STRUCT) && "Invalid token given for start of struct!");
     consume_token();
 
-    ASTStruct* structure = new (context) ASTStruct;
+    ASTStruct* structure = new (&context)  ASTStruct;
     structure->name = parse_identifier();
     if (structure->name == nullptr) {
         report_error("Expected identifier for name of struct declaration!");
@@ -198,7 +198,7 @@ ASTDeclaration* Parser::parse_struct_declaration() {
 ASTDeclaration* Parser::parse_variable_declaration() {
     assert(token.is(TOKEN_KEYWORD_VAR, TOKEN_KEYWORD_LET) && "Invalid token given for start of variable-declaration!");
 
-    ASTVariable* variable = new (context) ASTVariable;
+    ASTVariable* variable = new (&context)  ASTVariable;
     if (token.is(TOKEN_KEYWORD_LET)) {
         variable->flags |= AST_VARIABLE_IS_CONSTANT;
     }
@@ -239,7 +239,7 @@ ASTDeclaration* Parser::parse_variable_declaration() {
 
 /// grammar: func-signature := "func" identifier "(" [ parameter { "," parameter } ] ")" "->" type-identifier
 ASTFuncSignature* Parser::parse_func_signature() {
-    ASTFuncSignature* signature = new (context) ASTFuncSignature;
+    ASTFuncSignature* signature = new (&context)  ASTFuncSignature;
     signature->name = parse_identifier();
     if (signature->name == nullptr) {
         report_error("Expected identifier in function declaration!");
@@ -295,7 +295,7 @@ ASTFuncSignature* Parser::parse_func_signature() {
 
 /// grammar: literal := integer-literal | float-literal | string-literal | "true" | "false" | "nil"
 ASTLiteral* Parser::parse_literal() {
-    ASTLiteral* literal = new (context) ASTLiteral;
+    ASTLiteral* literal = new (&context)  ASTLiteral;
     literal->token_kind = token.kind;
 
     switch (token.kind) {
@@ -366,7 +366,7 @@ ASTExpression* Parser::parse_expression(uint32_t precedence) {
                 next_precedence = lexer.get_operator_precedence_before(next_precedence);
             }
 
-            ASTBinaryExpression* right = new (context) ASTBinaryExpression;
+            ASTBinaryExpression* right = new (&context)  ASTBinaryExpression;
             right->op = op;
             right->left = left;
             right->right = parse_expression(next_precedence);
@@ -396,7 +396,7 @@ ASTExpression* Parser::parse_call_expression(ASTExpression* left) {
     assert(token.is('(') && "Invalid token given for start of call-expression");
     consume_token();
 
-    ASTCall* call = new (context) ASTCall;
+    ASTCall* call = new (&context)  ASTCall;
     call->left = left;
 
     if (!token.is(')')) {
@@ -428,7 +428,7 @@ ASTExpression* Parser::parse_subscript_expression(ASTExpression* left) {
     assert(token.is('[') && "Invalid token given for start of call-expression");
     consume_token();
 
-    ASTSubscript* subscript = new (context) ASTSubscript;
+    ASTSubscript* subscript = new (&context)  ASTSubscript;
     subscript->left = left;
 
     if (!token.is(']')) {
@@ -469,7 +469,7 @@ ASTExpression* Parser::parse_unary_expression() {
     assert(token.is(TOKEN_OPERATOR) && lexer.get_operator(token, OPERATOR_PREFIX, op) && "Invalid token given for start of unary-expression!");
     consume_token();
 
-    ASTUnaryExpression* expression = new (context) ASTUnaryExpression;
+    ASTUnaryExpression* expression = new (&context)  ASTUnaryExpression;
     expression->op = op;
     expression->right = parse_expression();
 
@@ -582,12 +582,12 @@ ASTStatement* Parser::parse_control_statement() {
                     TOKEN_KEYWORD_FALLTHROUGH,
                     TOKEN_KEYWORD_RETURN) && "Invalid token given for start of control-statement!");
 
-    ASTControl* control = new (context) ASTControl;
+    ASTControl* control = new (&context)  ASTControl;
     control->token_kind = token.kind;
     consume_token();
 
     if (control->token_kind == TOKEN_KEYWORD_RETURN) {
-        // TODO: Control lexer state here with unwinding on failure!
+#warning Control lexer state here with unwinding on failure!
         control->expression = parse_expression();
     }
 
@@ -599,7 +599,7 @@ ASTStatement* Parser::parse_defer_statement() {
     assert(token.is(TOKEN_KEYWORD_DEFER) && "Invalid token given for start of defer-statement!");
     consume_token();
 
-    ASTDefer* defer = new (context) ASTDefer;
+    ASTDefer* defer = new (&context)  ASTDefer;
     defer->expression = parse_expression();
     if (defer->expression == nullptr) {
         return nullptr;
@@ -613,7 +613,7 @@ ASTStatement* Parser::parse_do_statement() {
     assert(token.is(TOKEN_KEYWORD_DO) && "Invalid token given for start of do-statement");
     consume_token();
 
-    ASTDo* stmt = new (context) ASTDo;
+    ASTDo* stmt = new (&context)  ASTDo;
     stmt->block = parse_block();
     if (stmt->block == nullptr) {
         return nullptr;
@@ -649,7 +649,7 @@ ASTStatement* Parser::parse_for_statement() {
     assert(token.is(TOKEN_KEYWORD_FOR) && "Invalid token given for start of for-statement");
     consume_token();
 
-    ASTFor* stmt = new (context) ASTFor;
+    ASTFor* stmt = new (&context)  ASTFor;
     stmt->iterator = parse_identifier();
     if (stmt->iterator == nullptr) {
         return nullptr;
@@ -681,7 +681,7 @@ ASTStatement* Parser::parse_guard_statement() {
     assert(token.is(TOKEN_KEYWORD_GUARD) && "Invalid token given for start of guard-statement");
     consume_token();
 
-    ASTGuard* guard = new (context) ASTGuard;
+    ASTGuard* guard = new (&context)  ASTGuard;
 
     do {
 
@@ -737,7 +737,7 @@ ASTStatement* Parser::parse_if_statement() {
     assert(token.is(TOKEN_KEYWORD_IF) && "Invalid token given for start of if-statement!");
     consume_token();
 
-    ASTIf* stmt = new (context) ASTIf;
+    ASTIf* stmt = new (&context)  ASTIf;
     do {
 
         ASTExpression* condition = parse_expression();
@@ -785,7 +785,7 @@ ASTStatement* Parser::parse_switch_statement() {
     assert(token.is(TOKEN_KEYWORD_SWITCH) && "Invalid token given for start of switch-statement!");
     consume_token();
 
-    ASTSwitch* stmt = new (context) ASTSwitch;
+    ASTSwitch* stmt = new (&context)  ASTSwitch;
     stmt->expression = parse_expression();
     if (stmt->expression == nullptr) {
         return nullptr;
@@ -823,7 +823,7 @@ ASTStatement* Parser::parse_while_statement() {
     assert(token.is(TOKEN_KEYWORD_WHILE) && "Invalid token given for start of while-statement!");
     consume_token();
 
-    ASTWhile* stmt = new (context) ASTWhile;
+    ASTWhile* stmt = new (&context)  ASTWhile;
 
     do {
 
@@ -859,7 +859,7 @@ ASTBlock* Parser::parse_block() {
     }
     consume_token();
 
-    ASTBlock* block = new (context) ASTBlock;
+    ASTBlock* block = new (&context)  ASTBlock;
 
     if (!token.is('}')) {
         while (true) {
@@ -890,7 +890,7 @@ ASTIdentifier* Parser::parse_identifier() {
         return nullptr;
     }
 
-    ASTIdentifier* identifier = new (context) ASTIdentifier;
+    ASTIdentifier* identifier = new (&context)  ASTIdentifier;
     identifier->text = String(token.text.copy_buffer(), token.text.buffer_length);
     consume_token();
 
@@ -910,12 +910,12 @@ ASTType* Parser::parse_type() {
     switch (token.kind) {
         case TOKEN_KEYWORD_ANY:
             consume_token();
-            type = new (context) ASTType;
+            type = new (&context)  ASTType;
             type->type_kind = AST_TYPE_ANY;
             break;
 
         case TOKEN_IDENTIFIER:
-            type = new (context) ASTType;
+            type = new (&context)  ASTType;
             type->type_kind = AST_TYPE_IDENTIFIER;
             type->identifier = parse_identifier();
             if (type->identifier == nullptr) {
@@ -932,7 +932,7 @@ ASTType* Parser::parse_type() {
             }
             consume_token();
 
-            type = new (context) ASTType;
+            type = new (&context)  ASTType;
             type->type_kind = AST_TYPE_TYPEOF;
             type->expression = parse_expression();
             if (type->expression == nullptr) {
@@ -963,7 +963,7 @@ ASTType* Parser::parse_type() {
                 }
                 consume_token();
 
-                next = new (context) ASTType;
+                next = new (&context)  ASTType;
                 next->type_kind = AST_TYPE_POINTER;
                 next->type = type;
                 type = next;
@@ -972,7 +972,7 @@ ASTType* Parser::parse_type() {
             case '[':
                 consume_token();
 
-                next = new (context) ASTType;
+                next = new (&context)  ASTType;
                 next->type_kind = AST_TYPE_ARRAY;
                 next->type = type;
                 next->expression = parse_expression();
@@ -1004,7 +1004,7 @@ ASTEnumElement* Parser::parse_enum_element() {
     }
     consume_token();
 
-    ASTEnumElement* element = new (context) ASTEnumElement;
+    ASTEnumElement* element = new (&context)  ASTEnumElement;
     element->name = parse_identifier();
     if (element->name == nullptr) {
         report_error("Expected identifier for name of enum element!");
@@ -1026,7 +1026,7 @@ ASTEnumElement* Parser::parse_enum_element() {
 
 /// grammar: parameter := identifier ":" type-identifier
 ASTParameter* Parser::parse_parameter() {
-    ASTParameter* parameter = new (context) ASTParameter;
+    ASTParameter* parameter = new (&context)  ASTParameter;
 
     parameter->name = parse_identifier();
     if (parameter->name == nullptr) {
@@ -1055,7 +1055,7 @@ ASTSwitchCase* Parser::parse_switch_case() {
         return nullptr;
     }
 
-    ASTSwitchCase* switch_case = new (context) ASTSwitchCase;
+    ASTSwitchCase* switch_case = new (&context)  ASTSwitchCase;
 
     if (token.is(TOKEN_KEYWORD_CASE)) {
         consume_token();

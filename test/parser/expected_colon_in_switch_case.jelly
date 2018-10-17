@@ -1,0 +1,7 @@
+func main() -> Void {
+    switch expr {
+    case 0  return
+    case 1: return
+    else:   return
+    }
+}

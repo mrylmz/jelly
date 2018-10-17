@@ -1,0 +1,4 @@
+func main() -> Void {
+    if condition0, condition1, condition2 {}
+    else if condition0, condition1 {}
+}

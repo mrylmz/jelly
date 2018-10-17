@@ -577,7 +577,7 @@ void ASTPrinter::visit(const ASTIf* node) {
     print_raw("ELSE = ");
     switch (node->if_kind) {
         case AST_IF_SINGLE:
-            print_raw("NONE()\n");
+            print_raw("NULL()");
             break;
 
         case AST_IF_ELSE:

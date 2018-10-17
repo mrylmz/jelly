@@ -1,0 +1,18 @@
+(
+    ROOT = AST_VARIABLE(
+        NAME = AST_IDENTIFIER(
+            TEXT = STRING(myPointer)
+        )
+        IS_CONSTANT = FALSE
+        TYPE = AST_TYPE(
+            KIND = POINTER(
+                AST_TYPE(
+                    KIND = AST_IDENTIFIER(
+                        TEXT = STRING(Void)
+                    )
+                )
+            )
+        )
+        ASSIGNMENT = NULL()
+    )
+)

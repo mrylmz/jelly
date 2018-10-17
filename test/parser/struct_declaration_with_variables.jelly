@@ -1,0 +1,8 @@
+struct MyStruct { 
+    let a: Void*
+    var b: Bool
+    let c: Int64[]
+    var d: Float32[4]
+    let e: Float64[4 * 4]
+    var a_copy: typeof(a)
+}

@@ -1,0 +1,6 @@
+enum Direction {
+    case north  = 1
+    case east   = 2
+    case south
+    case west   = 2 * 2
+}

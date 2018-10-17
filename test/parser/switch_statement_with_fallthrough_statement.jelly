@@ -1,0 +1,15 @@
+func main() -> Void { 
+    switch direction {
+    case north:
+        fallthrough
+
+    case east:
+        fallthrough 
+
+    case south:
+        fallthrough 
+
+    case west:
+        break
+    }
+}

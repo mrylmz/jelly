@@ -1,0 +1,1 @@
+func main(x: Int, y: Int[], z: Int*, w: Int[10]) -> Void {}

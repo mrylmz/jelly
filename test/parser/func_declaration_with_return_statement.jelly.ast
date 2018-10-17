@@ -1,0 +1,26 @@
+(
+    ROOT = AST_FUNC(
+        SIGNATURE = AST_FUNC_SIGNATURE(
+            NAME = AST_IDENTIFIER(
+                TEXT = STRING(main)
+            )
+            PARAMETERS = [
+
+            ]
+            RETURN_TYPE = AST_TYPE(
+                KIND = AST_IDENTIFIER(
+                    TEXT = STRING(Void)
+                )
+            )
+        )
+        BLOCK = AST_BLOCK(
+            STATEMENTS = [
+                AST_CONTROL(
+                    KIND = RETURN(
+                        NULL()
+                    )
+                )
+            ]
+        )
+    )
+)

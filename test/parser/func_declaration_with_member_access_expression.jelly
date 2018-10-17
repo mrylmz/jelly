@@ -1,0 +1,3 @@
+func main() -> Void {
+    myStruct.myMember.myOtherMember
+}

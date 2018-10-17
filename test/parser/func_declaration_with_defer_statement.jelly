@@ -1,0 +1,4 @@
+func main() -> Void {
+    var mem: Void* = alloc(10)
+    defer free(mem)
+}

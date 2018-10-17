@@ -41,12 +41,14 @@ file(GLOB PARSE_SOURCE_FILES    "lib/Parse/*.cpp")
 add_library           (jellyParse STATIC ${PARSE_HEADER_FILES} ${PARSE_SOURCE_FILES})
 target_link_libraries (jellyParse jellyBasic jellySyntax jellyAST)
 
+file(GLOB TEST_HEADER_FILES     "test/*.h")
 file(GLOB TEST_SOURCE_FILES     "test/*.cpp")
 
 include(GoogleTest)
 
 add_executable(jellyTest 
     ${HEADER_FILES}
+    ${TEST_HEADER_FILES}
     ${TEST_SOURCE_FILES}
 )
 

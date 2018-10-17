@@ -30,13 +30,10 @@
 #warning Replace error messages with error types
 
 struct Parser {
-    Parser(Lexer& lexer) : lexer(lexer), context(nullptr) {
-#warning Move ASTContext out of Parser and pass it as parameter!
-        context = new ASTContext();
+    Parser(ASTContext& context, Lexer& lexer) : context(context), lexer(lexer) {
     }
 
     ~Parser() {
-        delete context;
     }
 
     ASTNode* parse();
@@ -44,8 +41,9 @@ struct Parser {
 private:
     Operator    op;
     Token       token;
+
+    ASTContext& context;
     Lexer&      lexer;
-    ASTContext* context;
 
     void consume_token();
     void report_error(const char* message);

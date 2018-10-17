@@ -58,8 +58,7 @@ struct ASTWhile;
 struct ASTCall;
 struct ASTSubscript;
 
-#warning Inherit from ASTVisitor as soon as it is implemented !!!
-#warning Make ASTPrinter generic and allow any streaming method !!!
+#warning Add unit tests with at runtime generated AST representations !!!
 struct ASTPrinter : private ASTVisitor {
     using OutputStream = std::ostream;
 

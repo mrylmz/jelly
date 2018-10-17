@@ -1,0 +1,3 @@
+func main() -> Void {
+    myData[1]()
+}

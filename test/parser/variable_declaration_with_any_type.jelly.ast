@@ -1,0 +1,12 @@
+(
+    ROOT = AST_VARIABLE(
+        NAME = AST_IDENTIFIER(
+            TEXT = STRING(myVar)
+        )
+        IS_CONSTANT = FALSE
+        TYPE = AST_TYPE(
+            KIND = ANY()
+        )
+        ASSIGNMENT = NULL()
+    )
+)

@@ -1,0 +1,7 @@
+(
+    ROOT = AST_LOAD(
+        LITERAL = AST_LITERAL(
+            VALUE = STRING(path/to/source/file.jelly)
+        )
+    )
+)

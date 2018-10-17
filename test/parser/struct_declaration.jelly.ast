@@ -1,0 +1,15 @@
+(
+    ROOT = AST_STRUCT(
+        NAME = AST_IDENTIFIER(
+            TEXT = STRING(Empty)
+        )
+        BLOCK = AST_BLOCK(
+            STATEMENTS = [
+
+            ]
+        )
+        VARIABLES = [
+
+        ]
+    )
+)
