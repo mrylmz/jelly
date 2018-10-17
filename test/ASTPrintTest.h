@@ -78,25 +78,24 @@ bool write_file_content(std::string filepath, std::string content) {
     return is_open;
 }
 
-ASTNode* parse_file_content(ASTContext& context, std::string filepath) {
+void parse_file_content(ASTContext& context, std::string filepath) {
     std::string content;
 
     if (!read_file_content(filepath, content)) {
-        return nullptr;
+        return;
     }
 
     Lexer    lexer(content.c_str());
     Parser   parser(context, lexer);
-    ASTNode* node = parser.parse();
 
-    return node;
+    parser.parse();
 }
 
-std::string print_ast(const ASTNode* node) {
+std::string print_ast(const ASTContext& context) {
     std::stringstream output;
     ASTPrinter        printer(output);
 
-    printer.print(node);
+    printer.print(context);
 
     return output.str();
 }
@@ -107,8 +106,8 @@ bool record_ast(std::string directory, std::string filename) {
     std::string target_filepath = std::string(source_filepath).append(".ast");
 
     ASTContext  context;
-    ASTNode*    node = parse_file_content(context, source_filepath);
-    std::string source_ast = print_ast(node);
+    parse_file_content(context, source_filepath);
+    std::string source_ast = print_ast(context);
     std::string target_ast;
 
     return write_file_content(target_filepath, source_ast);
@@ -176,8 +175,8 @@ TEST_P(ASTPrintTest, parse_tree) {
     }
 
     ASTContext  context;
-    ASTNode*    node = parse_file_content(context, source_filepath);
-    std::string source_ast = print_ast(node);
+    parse_file_content(context, source_filepath);
+    std::string source_ast = print_ast(context);
     std::string target_ast;
 
     printf("[ RUN      ] %s\n", parameter.source_filename.c_str());

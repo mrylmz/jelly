@@ -24,15 +24,22 @@
 
 #pragma once
 
+#include "AST/ASTNodeKinds.h"
+
 #include <Basic/Basic.h>
 #include <Syntax/Syntax.h>
 #include <vector>
 
-#include "AST/ASTNodeKinds.h"
-
 #warning Revisit naming and structures of all ASTNodes
 
 struct ASTContext;
+
+struct ASTLexeme {
+    ASTLexeme(int64_t index = -1) : index(index) {
+    }
+
+    int64_t index;
+};
 
 struct ASTNode {
     ASTNode() : kind(AST_UNKNOWN), flags(0) {}
@@ -91,12 +98,11 @@ struct ASTBinaryExpression : public ASTExpression {
 };
 
 struct ASTIdentifier : public ASTExpression {
-    ASTIdentifier() : text({}) {
+    ASTIdentifier() : lexeme({}) {
         kind = AST_IDENTIFIER;
     }
 
-#warning Replace text with hashed set storage inside a StringSet
-    String text;
+    ASTLexeme lexeme;
 };
 
 struct ASTType : public ASTNode {
@@ -152,7 +158,7 @@ struct ASTBlock : public ASTNode {
         kind = AST_BLOCK;
     }
 
-    Array<ASTStatement*> statements;
+    Array<ASTNode*> statements;
 };
 
 struct ASTFuncSignature : public ASTNode {

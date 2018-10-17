@@ -1,19 +1,23 @@
 (
-    ROOT = AST_VARIABLE(
-        NAME = AST_IDENTIFIER(
-            TEXT = STRING(x)
-        )
-        IS_CONSTANT = FALSE
-        TYPE = AST_TYPE(
-            KIND = AST_IDENTIFIER(
-                TEXT = STRING(Int)
+    ROOT = AST_BLOCK(
+        STATEMENTS = [
+            AST_VARIABLE(
+                NAME = AST_IDENTIFIER(
+                    TEXT = STRING(x)
+                )
+                IS_CONSTANT = FALSE
+                TYPE = AST_TYPE(
+                    KIND = AST_IDENTIFIER(
+                        TEXT = STRING(Int)
+                    )
+                )
+                ASSIGNMENT = AST_UNARY(
+                    OPERATOR = -
+                    RIGHT = AST_LITERAL(
+                        VALUE = INT(10)
+                    )
+                )
             )
-        )
-        ASSIGNMENT = AST_UNARY(
-            OPERATOR = -
-            RIGHT = AST_LITERAL(
-                VALUE = INT(10)
-            )
-        )
+        ]
     )
 )

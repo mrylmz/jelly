@@ -42,12 +42,14 @@ print_raw("\n");                                                 \
 print_indentation();                                             \
 print_raw("]");
 
-void ASTPrinter::print(const ASTNode* node) {
+void ASTPrinter::print(const ASTContext& context) {
+    current_context = &context;
+
     print_raw("(\n");
     indentation_level += 1;
     print_indentation();
     print_raw("ROOT = ");
-    visit(node);
+    visit(reinterpret_cast<const ASTNode*>(context.root));
     indentation_level -= 1;
     print_raw("\n)\n");
 }
@@ -309,7 +311,7 @@ void ASTPrinter::visit(const ASTIdentifier* node) {
 
     print_indentation();
     print_raw("TEXT = STRING(");
-    print_raw(node->text);
+    print_raw(current_context->get_lexeme_text(node->lexeme));
     print_raw(")");
 
     indentation_level -= 1;

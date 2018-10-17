@@ -36,7 +36,7 @@ struct Parser {
     ~Parser() {
     }
 
-    ASTNode* parse();
+    void parse();
 
 private:
     Operator    op;

@@ -1,76 +1,80 @@
 (
-    ROOT = AST_FUNC(
-        SIGNATURE = AST_FUNC_SIGNATURE(
-            NAME = AST_IDENTIFIER(
-                TEXT = STRING(main)
-            )
-            PARAMETERS = [
-
-            ]
-            RETURN_TYPE = AST_TYPE(
-                KIND = AST_IDENTIFIER(
-                    TEXT = STRING(Void)
-                )
-            )
-        )
-        BLOCK = AST_BLOCK(
-            STATEMENTS = [
-                AST_SWITCH(
-                    EXPRESSION = AST_IDENTIFIER(
-                        TEXT = STRING(direction)
+    ROOT = AST_BLOCK(
+        STATEMENTS = [
+            AST_FUNC(
+                SIGNATURE = AST_FUNC_SIGNATURE(
+                    NAME = AST_IDENTIFIER(
+                        TEXT = STRING(main)
                     )
-                    CASES = [
-                        AST_SWITCH_CASE(
-                            KIND = CASE(
-                                CONDITION = AST_IDENTIFIER(
-                                    TEXT = STRING(north)
-                                )
-                            )
-                            STATEMENTS = [
-                                AST_CONTROL(
-                                    KIND = FALLTHROUGH()
-                                )
-                            ]
+                    PARAMETERS = [
+
+                    ]
+                    RETURN_TYPE = AST_TYPE(
+                        KIND = AST_IDENTIFIER(
+                            TEXT = STRING(Void)
                         )
-                        AST_SWITCH_CASE(
-                            KIND = CASE(
-                                CONDITION = AST_IDENTIFIER(
-                                    TEXT = STRING(east)
-                                )
+                    )
+                )
+                BLOCK = AST_BLOCK(
+                    STATEMENTS = [
+                        AST_SWITCH(
+                            EXPRESSION = AST_IDENTIFIER(
+                                TEXT = STRING(direction)
                             )
-                            STATEMENTS = [
-                                AST_CONTROL(
-                                    KIND = FALLTHROUGH()
+                            CASES = [
+                                AST_SWITCH_CASE(
+                                    KIND = CASE(
+                                        CONDITION = AST_IDENTIFIER(
+                                            TEXT = STRING(north)
+                                        )
+                                    )
+                                    STATEMENTS = [
+                                        AST_CONTROL(
+                                            KIND = FALLTHROUGH()
+                                        )
+                                    ]
                                 )
-                            ]
-                        )
-                        AST_SWITCH_CASE(
-                            KIND = CASE(
-                                CONDITION = AST_IDENTIFIER(
-                                    TEXT = STRING(south)
+                                AST_SWITCH_CASE(
+                                    KIND = CASE(
+                                        CONDITION = AST_IDENTIFIER(
+                                            TEXT = STRING(east)
+                                        )
+                                    )
+                                    STATEMENTS = [
+                                        AST_CONTROL(
+                                            KIND = FALLTHROUGH()
+                                        )
+                                    ]
                                 )
-                            )
-                            STATEMENTS = [
-                                AST_CONTROL(
-                                    KIND = FALLTHROUGH()
+                                AST_SWITCH_CASE(
+                                    KIND = CASE(
+                                        CONDITION = AST_IDENTIFIER(
+                                            TEXT = STRING(south)
+                                        )
+                                    )
+                                    STATEMENTS = [
+                                        AST_CONTROL(
+                                            KIND = FALLTHROUGH()
+                                        )
+                                    ]
                                 )
-                            ]
-                        )
-                        AST_SWITCH_CASE(
-                            KIND = CASE(
-                                CONDITION = AST_IDENTIFIER(
-                                    TEXT = STRING(west)
-                                )
-                            )
-                            STATEMENTS = [
-                                AST_CONTROL(
-                                    KIND = BREAK()
+                                AST_SWITCH_CASE(
+                                    KIND = CASE(
+                                        CONDITION = AST_IDENTIFIER(
+                                            TEXT = STRING(west)
+                                        )
+                                    )
+                                    STATEMENTS = [
+                                        AST_CONTROL(
+                                            KIND = BREAK()
+                                        )
+                                    ]
                                 )
                             ]
                         )
                     ]
                 )
-            ]
-        )
+            )
+        ]
     )
 )

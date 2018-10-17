@@ -1,77 +1,81 @@
 (
-    ROOT = AST_FUNC(
-        SIGNATURE = AST_FUNC_SIGNATURE(
-            NAME = AST_IDENTIFIER(
-                TEXT = STRING(main)
-            )
-            PARAMETERS = [
-                AST_PARAMETER(
+    ROOT = AST_BLOCK(
+        STATEMENTS = [
+            AST_FUNC(
+                SIGNATURE = AST_FUNC_SIGNATURE(
                     NAME = AST_IDENTIFIER(
-                        TEXT = STRING(x)
+                        TEXT = STRING(main)
                     )
-                    TYPE = AST_TYPE(
+                    PARAMETERS = [
+                        AST_PARAMETER(
+                            NAME = AST_IDENTIFIER(
+                                TEXT = STRING(x)
+                            )
+                            TYPE = AST_TYPE(
+                                KIND = AST_IDENTIFIER(
+                                    TEXT = STRING(Int)
+                                )
+                            )
+                        )
+                        AST_PARAMETER(
+                            NAME = AST_IDENTIFIER(
+                                TEXT = STRING(y)
+                            )
+                            TYPE = AST_TYPE(
+                                KIND = ARRAY(
+                                    TYPE = AST_TYPE(
+                                        KIND = AST_IDENTIFIER(
+                                            TEXT = STRING(Int)
+                                        )
+                                    )
+                                    SIZE = NULL()
+                                )
+                            )
+                        )
+                        AST_PARAMETER(
+                            NAME = AST_IDENTIFIER(
+                                TEXT = STRING(z)
+                            )
+                            TYPE = AST_TYPE(
+                                KIND = POINTER(
+                                    AST_TYPE(
+                                        KIND = AST_IDENTIFIER(
+                                            TEXT = STRING(Int)
+                                        )
+                                    )
+                                )
+                            )
+                        )
+                        AST_PARAMETER(
+                            NAME = AST_IDENTIFIER(
+                                TEXT = STRING(w)
+                            )
+                            TYPE = AST_TYPE(
+                                KIND = ARRAY(
+                                    TYPE = AST_TYPE(
+                                        KIND = AST_IDENTIFIER(
+                                            TEXT = STRING(Int)
+                                        )
+                                    )
+                                    SIZE = AST_LITERAL(
+                                        VALUE = INT(10)
+                                    )
+                                )
+                            )
+                        )
+                    ]
+                    RETURN_TYPE = AST_TYPE(
                         KIND = AST_IDENTIFIER(
-                            TEXT = STRING(Int)
+                            TEXT = STRING(Void)
                         )
                     )
                 )
-                AST_PARAMETER(
-                    NAME = AST_IDENTIFIER(
-                        TEXT = STRING(y)
-                    )
-                    TYPE = AST_TYPE(
-                        KIND = ARRAY(
-                            TYPE = AST_TYPE(
-                                KIND = AST_IDENTIFIER(
-                                    TEXT = STRING(Int)
-                                )
-                            )
-                            SIZE = NULL()
-                        )
-                    )
-                )
-                AST_PARAMETER(
-                    NAME = AST_IDENTIFIER(
-                        TEXT = STRING(z)
-                    )
-                    TYPE = AST_TYPE(
-                        KIND = POINTER(
-                            AST_TYPE(
-                                KIND = AST_IDENTIFIER(
-                                    TEXT = STRING(Int)
-                                )
-                            )
-                        )
-                    )
-                )
-                AST_PARAMETER(
-                    NAME = AST_IDENTIFIER(
-                        TEXT = STRING(w)
-                    )
-                    TYPE = AST_TYPE(
-                        KIND = ARRAY(
-                            TYPE = AST_TYPE(
-                                KIND = AST_IDENTIFIER(
-                                    TEXT = STRING(Int)
-                                )
-                            )
-                            SIZE = AST_LITERAL(
-                                VALUE = INT(10)
-                            )
-                        )
-                    )
-                )
-            ]
-            RETURN_TYPE = AST_TYPE(
-                KIND = AST_IDENTIFIER(
-                    TEXT = STRING(Void)
+                BLOCK = AST_BLOCK(
+                    STATEMENTS = [
+
+                    ]
                 )
             )
-        )
-        BLOCK = AST_BLOCK(
-            STATEMENTS = [
-
-            ]
-        )
+        ]
     )
 )

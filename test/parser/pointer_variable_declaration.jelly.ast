@@ -1,18 +1,22 @@
 (
-    ROOT = AST_VARIABLE(
-        NAME = AST_IDENTIFIER(
-            TEXT = STRING(myPointer)
-        )
-        IS_CONSTANT = FALSE
-        TYPE = AST_TYPE(
-            KIND = POINTER(
-                AST_TYPE(
-                    KIND = AST_IDENTIFIER(
-                        TEXT = STRING(Void)
+    ROOT = AST_BLOCK(
+        STATEMENTS = [
+            AST_VARIABLE(
+                NAME = AST_IDENTIFIER(
+                    TEXT = STRING(myPointer)
+                )
+                IS_CONSTANT = FALSE
+                TYPE = AST_TYPE(
+                    KIND = POINTER(
+                        AST_TYPE(
+                            KIND = AST_IDENTIFIER(
+                                TEXT = STRING(Void)
+                            )
+                        )
                     )
                 )
+                ASSIGNMENT = NULL()
             )
-        )
-        ASSIGNMENT = NULL()
+        ]
     )
 )

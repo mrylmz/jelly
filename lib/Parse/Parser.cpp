@@ -25,11 +25,17 @@
 #include <AST/AST.h>
 #include "Parse/Parser.h"
 
+#include <vector>
+
 #warning Check line-break requirements, do not allow consecutive statements on a line
 
-ASTNode* Parser::parse() {
+void Parser::parse() {
     lexer.peek_next_token(token);
-    return parse_top_level_node();
+
+    ASTNode* node;
+    while ((node = parse_top_level_node()) != nullptr) {
+        context.root->statements.push_back(node);
+    }
 }
 
 void Parser::consume_token() {
@@ -891,7 +897,7 @@ ASTIdentifier* Parser::parse_identifier() {
     }
 
     ASTIdentifier* identifier = new (&context)  ASTIdentifier;
-    identifier->text = String(token.text.copy_buffer(), token.text.buffer_length);
+    identifier->lexeme = context.get_lexeme(token.text);
     consume_token();
 
     return identifier;

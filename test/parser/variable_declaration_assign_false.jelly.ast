@@ -1,16 +1,20 @@
 (
-    ROOT = AST_VARIABLE(
-        NAME = AST_IDENTIFIER(
-            TEXT = STRING(myVar)
-        )
-        IS_CONSTANT = FALSE
-        TYPE = AST_TYPE(
-            KIND = AST_IDENTIFIER(
-                TEXT = STRING(Bool)
+    ROOT = AST_BLOCK(
+        STATEMENTS = [
+            AST_VARIABLE(
+                NAME = AST_IDENTIFIER(
+                    TEXT = STRING(myVar)
+                )
+                IS_CONSTANT = FALSE
+                TYPE = AST_TYPE(
+                    KIND = AST_IDENTIFIER(
+                        TEXT = STRING(Bool)
+                    )
+                )
+                ASSIGNMENT = AST_LITERAL(
+                    VALUE = BOOL(FALSE)
+                )
             )
-        )
-        ASSIGNMENT = AST_LITERAL(
-            VALUE = BOOL(FALSE)
-        )
+        ]
     )
 )

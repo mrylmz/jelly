@@ -62,14 +62,15 @@ struct ASTSubscript;
 struct ASTPrinter : private ASTVisitor {
     using OutputStream = std::ostream;
 
-    ASTPrinter(OutputStream& output_stream) : output_stream(output_stream), indentation_level(0) {
+    ASTPrinter(OutputStream& output_stream) : current_context(nullptr), output_stream(output_stream), indentation_level(0) {
     }
 
-    void print(const ASTNode* node);
+    void print(const ASTContext& context);
 
 private:
-    OutputStream& output_stream;
-    uint32_t      indentation_level;
+    const ASTContext* current_context;
+    OutputStream&     output_stream;
+    uint32_t          indentation_level;
 
     virtual void visit(const ASTNode *node);
     virtual void visit(const ASTLoad* node);
