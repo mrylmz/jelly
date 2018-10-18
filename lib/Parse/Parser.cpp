@@ -583,16 +583,33 @@ ASTStatement* Parser::parse_statement() {
 /// grammar: control-statement := return-statement | "fallthrough" | "break" | "continue"
 /// grammar: return-statement := "return" [ expression ]
 ASTStatement* Parser::parse_control_statement() {
-    assert(token.is(TOKEN_KEYWORD_BREAK,
-                    TOKEN_KEYWORD_CONTINUE,
-                    TOKEN_KEYWORD_FALLTHROUGH,
-                    TOKEN_KEYWORD_RETURN) && "Invalid token given for start of control-statement!");
+    ASTControl* control = new (&context) ASTControl;
 
-    ASTControl* control = new (&context)  ASTControl;
-    control->token_kind = token.kind;
+    switch (token.kind) {
+        case TOKEN_KEYWORD_BREAK:
+            control->control_kind = AST_CONTROL_BREAK;
+            break;
+
+        case TOKEN_KEYWORD_CONTINUE:
+            control->control_kind = AST_CONTROL_CONTINUE;
+            break;
+
+        case TOKEN_KEYWORD_FALLTHROUGH:
+            control->control_kind = AST_CONTROL_FALLTHROUGH;
+            break;
+
+        case TOKEN_KEYWORD_RETURN:
+            control->control_kind = AST_CONTROL_RETURN;
+            break;
+
+        default:
+            assert(true && "Invalid token given for start of control-statement!");
+            break;
+    }
+
     consume_token();
 
-    if (control->token_kind == TOKEN_KEYWORD_RETURN) {
+    if (control->control_kind == AST_CONTROL_RETURN) {
 #warning Control lexer state here with unwinding on failure!
         control->expression = parse_expression();
     }

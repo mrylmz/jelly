@@ -366,20 +366,20 @@ void ASTPrinter::visit(const ASTControl* node) {
     indentation_level += 1;
 
     print_indentation();
-    switch (node->token_kind) {
-        case TOKEN_KEYWORD_BREAK:
+    switch (node->control_kind) {
+        case AST_CONTROL_BREAK:
             print_raw("KIND = BREAK()");
             break;
 
-        case TOKEN_KEYWORD_CONTINUE:
+        case AST_CONTROL_CONTINUE:
             print_raw("KIND = CONTINUE()");
             break;
 
-        case TOKEN_KEYWORD_FALLTHROUGH:
+        case AST_CONTROL_FALLTHROUGH:
             print_raw("KIND = FALLTHROUGH()");
             break;
 
-        case TOKEN_KEYWORD_RETURN:
+        case AST_CONTROL_RETURN:
             print_raw("KIND = RETURN(\n");
             indentation_level += 1;
             print_indentation();

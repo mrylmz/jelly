@@ -218,12 +218,11 @@ struct ASTEnum : public ASTDeclaration {
 };
 
 struct ASTControl : public ASTStatement {
-    ASTControl() : token_kind(TOKEN_UNKNOWN), expression(nullptr) {
+    ASTControl() : control_kind(AST_CONTROL_UNKNOWN), expression(nullptr) {
         kind = AST_CONTROL;
     }
 
-    // TODO: Replace with new ASTControlKind enum !!!
-    uint32_t       token_kind;
+    ASTControlKind control_kind;
     ASTExpression* expression;
 };
 
