@@ -218,11 +218,6 @@ void ASTPrinter::visit(const ASTStruct* node) {
     print_indentation();
     print_raw("BLOCK = ");
     visit(reinterpret_cast<const ASTNode*>(node->block));
-    print_raw("\n");
-
-    print_indentation();
-    print_raw("VARIABLES = ");
-    PRINT_ARRAY(node->variables);
 
     indentation_level -= 1;
     print_raw("\n");

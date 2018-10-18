@@ -192,9 +192,6 @@ ASTDeclaration* Parser::parse_struct_declaration() {
             report_error("Only variable declarations are allowed inside of structure declarations!");
             return nullptr;
         }
-
-        ASTVariable* variable = reinterpret_cast<ASTVariable*>(*it);
-        structure->variables.push_back(variable);
     }
 
     return structure;

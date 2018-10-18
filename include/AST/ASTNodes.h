@@ -197,7 +197,6 @@ struct ASTStruct : public ASTDeclaration {
 
     ASTIdentifier*      name;
     ASTBlock*           block;
-    Array<ASTVariable*> variables;
 };
 
 struct ASTEnumElement : public ASTNode {
