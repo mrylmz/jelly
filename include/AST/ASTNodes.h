@@ -284,7 +284,7 @@ struct ASTSwitchCase : public ASTNode {
 
     ASTSwitchCaseKind    case_kind;
     ASTExpression*       condition;
-    Array<ASTStatement*> statements;
+    ASTBlock*            block;
 };
 
 struct ASTSwitch : public ASTStatement {

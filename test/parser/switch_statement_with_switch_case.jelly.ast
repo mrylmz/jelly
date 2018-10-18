@@ -28,13 +28,15 @@
                                             VALUE = INT(0)
                                         )
                                     )
-                                    STATEMENTS = [
-                                        AST_CONTROL(
-                                            KIND = RETURN(
-                                                NULL()
+                                    BLOCK = AST_BLOCK(
+                                        STATEMENTS = [
+                                            AST_CONTROL(
+                                                KIND = RETURN(
+                                                    NULL()
+                                                )
                                             )
-                                        )
-                                    ]
+                                        ]
+                                    )
                                 )
                             ]
                         )

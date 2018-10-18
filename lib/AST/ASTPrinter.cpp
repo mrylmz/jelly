@@ -646,8 +646,8 @@ void ASTPrinter::visit(const ASTSwitchCase* node) {
     print_raw("\n");
 
     print_indentation();
-    print_raw("STATEMENTS = ");
-    PRINT_ARRAY(node->statements);
+    print_raw("BLOCK = ");
+    visit(reinterpret_cast<const ASTNode*>(node->block));
 
     indentation_level -= 1;
     print_raw("\n");

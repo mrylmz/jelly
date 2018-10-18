@@ -1078,7 +1078,7 @@ ASTSwitchCase* Parser::parse_switch_case() {
         return nullptr;
     }
 
-    ASTSwitchCase* switch_case = new (&context)  ASTSwitchCase;
+    ASTSwitchCase* switch_case = new (&context) ASTSwitchCase;
 
     if (token.is(TOKEN_KEYWORD_CASE)) {
         consume_token();
@@ -1098,6 +1098,8 @@ ASTSwitchCase* Parser::parse_switch_case() {
     }
     consume_token();
 
+    switch_case->block = new (&context) ASTBlock;
+
     do {
 
         ASTStatement* statement = parse_statement();
@@ -1105,7 +1107,7 @@ ASTSwitchCase* Parser::parse_switch_case() {
             return nullptr;
         }
 
-        switch_case->statements.push_back(statement);
+        switch_case->block->statements.push_back(statement);
 
         if (token.is(TOKEN_KEYWORD_CASE, TOKEN_KEYWORD_ELSE, '}')) {
             break;

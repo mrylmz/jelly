@@ -28,11 +28,13 @@
                                             TEXT = STRING(north)
                                         )
                                     )
-                                    STATEMENTS = [
-                                        AST_CONTROL(
-                                            KIND = FALLTHROUGH()
-                                        )
-                                    ]
+                                    BLOCK = AST_BLOCK(
+                                        STATEMENTS = [
+                                            AST_CONTROL(
+                                                KIND = FALLTHROUGH()
+                                            )
+                                        ]
+                                    )
                                 )
                                 AST_SWITCH_CASE(
                                     KIND = CASE(
@@ -40,11 +42,13 @@
                                             TEXT = STRING(east)
                                         )
                                     )
-                                    STATEMENTS = [
-                                        AST_CONTROL(
-                                            KIND = FALLTHROUGH()
-                                        )
-                                    ]
+                                    BLOCK = AST_BLOCK(
+                                        STATEMENTS = [
+                                            AST_CONTROL(
+                                                KIND = FALLTHROUGH()
+                                            )
+                                        ]
+                                    )
                                 )
                                 AST_SWITCH_CASE(
                                     KIND = CASE(
@@ -52,11 +56,13 @@
                                             TEXT = STRING(south)
                                         )
                                     )
-                                    STATEMENTS = [
-                                        AST_CONTROL(
-                                            KIND = FALLTHROUGH()
-                                        )
-                                    ]
+                                    BLOCK = AST_BLOCK(
+                                        STATEMENTS = [
+                                            AST_CONTROL(
+                                                KIND = FALLTHROUGH()
+                                            )
+                                        ]
+                                    )
                                 )
                                 AST_SWITCH_CASE(
                                     KIND = CASE(
@@ -64,11 +70,13 @@
                                             TEXT = STRING(west)
                                         )
                                     )
-                                    STATEMENTS = [
-                                        AST_CONTROL(
-                                            KIND = BREAK()
-                                        )
-                                    ]
+                                    BLOCK = AST_BLOCK(
+                                        STATEMENTS = [
+                                            AST_CONTROL(
+                                                KIND = BREAK()
+                                            )
+                                        ]
+                                    )
                                 )
                             ]
                         )

@@ -28,13 +28,15 @@
                                             VALUE = INT(0)
                                         )
                                     )
-                                    STATEMENTS = [
-                                        AST_CONTROL(
-                                            KIND = RETURN(
-                                                NULL()
+                                    BLOCK = AST_BLOCK(
+                                        STATEMENTS = [
+                                            AST_CONTROL(
+                                                KIND = RETURN(
+                                                    NULL()
+                                                )
                                             )
-                                        )
-                                    ]
+                                        ]
+                                    )
                                 )
                                 AST_SWITCH_CASE(
                                     KIND = CASE(
@@ -42,13 +44,15 @@
                                             VALUE = INT(1)
                                         )
                                     )
-                                    STATEMENTS = [
-                                        AST_CONTROL(
-                                            KIND = RETURN(
-                                                NULL()
+                                    BLOCK = AST_BLOCK(
+                                        STATEMENTS = [
+                                            AST_CONTROL(
+                                                KIND = RETURN(
+                                                    NULL()
+                                                )
                                             )
-                                        )
-                                    ]
+                                        ]
+                                    )
                                 )
                                 AST_SWITCH_CASE(
                                     KIND = CASE(
@@ -56,13 +60,15 @@
                                             VALUE = INT(2)
                                         )
                                     )
-                                    STATEMENTS = [
-                                        AST_CONTROL(
-                                            KIND = RETURN(
-                                                NULL()
+                                    BLOCK = AST_BLOCK(
+                                        STATEMENTS = [
+                                            AST_CONTROL(
+                                                KIND = RETURN(
+                                                    NULL()
+                                                )
                                             )
-                                        )
-                                    ]
+                                        ]
+                                    )
                                 )
                             ]
                         )
