@@ -22,9 +22,22 @@
 // SOFTWARE.
 //
 
-#pragma once
-
 #include "Basic/ErrorHandling.h"
-#include "Basic/Hasher.h"
-#include "Basic/String.h"
-#include "Basic/StringMap.h"
+#include <stdio.h>
+#include <cstdlib>
+
+
+void __unreachable(const char *message, const char *filename, unsigned line) {
+    fprintf(stderr, "Error: %s\nFile: %s\nLine: %u", message, filename, line);
+    abort();
+}
+
+void fatal_error(const char* message) {
+    if (message) {
+        fprintf(stderr, "Error: %s", message);
+    } else {
+        fprintf(stderr, "Error: Internal compiler error!");
+    }
+
+    exit(EXIT_FAILURE);
+}

@@ -74,7 +74,10 @@ ASTContext::ASTContext() {
     }
 
     void* buffer = malloc(page_size);
-    assert(buffer && "Memory allocation failed!");
+    if (buffer == nullptr) {
+        fatal_error("Memory allocation failed!");
+    }
+
     node_pages.push_back((uint8_t*)buffer);
 
     root = new (this) ASTBlock;
@@ -96,7 +99,10 @@ void* ASTContext::alloc_node()  {
 
     if (page_index >= node_pages.size()) {
         void* buffer = malloc(page_size);
-        assert(buffer && "Memory allocation failed!");
+        if (buffer == nullptr) {
+            fatal_error("Memory allocation failed!");
+        }
+
         node_pages.push_back(buffer);
     }
 

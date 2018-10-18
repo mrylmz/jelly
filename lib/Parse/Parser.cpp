@@ -87,7 +87,7 @@ ASTDirective* Parser::parse_directive() {
             return parse_load_directive();
 
         default:
-            assert(false && "Invalid token given for start of directive!");
+            unreachable("Invalid token given for start of directive!");
     }
 }
 
@@ -603,8 +603,7 @@ ASTStatement* Parser::parse_control_statement() {
             break;
 
         default:
-            assert(true && "Invalid token given for start of control-statement!");
-            break;
+            unreachable("Invalid token given for start of control-statement!");
     }
 
     consume_token();

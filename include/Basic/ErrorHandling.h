@@ -24,7 +24,13 @@
 
 #pragma once
 
-#include "Basic/ErrorHandling.h"
-#include "Basic/Hasher.h"
 #include "Basic/String.h"
-#include "Basic/StringMap.h"
+
+#ifndef unreachable
+#define unreachable(__MESSAGE__) \
+    __unreachable(__MESSAGE__, __FILE__, __LINE__)
+#endif
+
+void __unreachable(const char *message, const char *filename, unsigned line);
+
+void fatal_error(const char* message = nullptr);

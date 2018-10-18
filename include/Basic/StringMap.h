@@ -98,7 +98,10 @@ struct StringMap {
         }
 
         element = (Element*)malloc(sizeof(Element));
-        assert(element && "Memory allocation failed!");
+        if (element == nullptr) {
+            fatal_error("Memory allocation failed!");
+        }
+
         element->hash = hash;
         element->key = key;
         element->value = value;
