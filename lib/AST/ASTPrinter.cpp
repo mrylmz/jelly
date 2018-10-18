@@ -270,8 +270,8 @@ void ASTPrinter::visit(const ASTEnum* node) {
     print_raw("\n");
 
     print_indentation();
-    print_raw("ELEMENTS = ");
-    PRINT_ARRAY(node->elements);
+    print_raw("BLOCK = ");
+    visit(reinterpret_cast<const ASTNode*>(node->block));
 
     indentation_level -= 1;
     print_raw("\n");

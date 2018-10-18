@@ -213,8 +213,8 @@ struct ASTEnum : public ASTDeclaration {
         kind = AST_ENUM;
     }
 
-    ASTIdentifier*         name;
-    Array<ASTEnumElement*> elements;
+    ASTIdentifier* name;
+    ASTBlock*      block;
 };
 
 struct ASTControl : public ASTStatement {

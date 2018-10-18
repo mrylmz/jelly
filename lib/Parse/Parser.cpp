@@ -113,7 +113,7 @@ ASTDeclaration* Parser::parse_enum_declaration() {
     assert(token.is(TOKEN_KEYWORD_ENUM) && "Invalid token given for start of enum!");
     consume_token();
 
-    ASTEnum* enumeration = new (&context)  ASTEnum;
+    ASTEnum* enumeration = new (&context) ASTEnum;
 
     enumeration->name = parse_identifier();
     if (enumeration->name == nullptr) {
@@ -125,8 +125,12 @@ ASTDeclaration* Parser::parse_enum_declaration() {
         report_error("Expected '{' after name of enum declaration!");
         return nullptr;
     }
-
     consume_token();
+
+    enumeration->block = new (&context) ASTBlock;
+    enumeration->block->scope = context.make_scope_for_node(enumeration->block);
+    enumeration->block->scope->parent = get_current_scope();
+    scope_stack.push_back(enumeration->block->scope);
 
     if (!token.is('}')) {
         while (true) {
@@ -135,7 +139,7 @@ ASTDeclaration* Parser::parse_enum_declaration() {
                 return nullptr;
             }
 
-            enumeration->elements.push_back(element);
+            enumeration->block->statements.push_back(element);
 
             if (token.is('}')) {
                 break;
@@ -145,7 +149,6 @@ ASTDeclaration* Parser::parse_enum_declaration() {
             }
         }
     }
-
     consume_token();
 
     return enumeration;
@@ -1007,7 +1010,7 @@ ASTEnumElement* Parser::parse_enum_element() {
     }
     consume_token();
 
-    ASTEnumElement* element = new (&context)  ASTEnumElement;
+    ASTEnumElement* element = new (&context) ASTEnumElement;
     element->name = parse_identifier();
     if (element->name == nullptr) {
         report_error("Expected identifier for name of enum element!");
