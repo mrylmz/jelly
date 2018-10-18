@@ -29,23 +29,22 @@
 #include <Basic/Basic.h>
 #include <Syntax/Syntax.h>
 #include <vector>
-
-#warning Revisit naming and structures of all ASTNodes
+#include <map>
 
 struct ASTContext;
 
 struct ASTLexeme {
-    ASTLexeme(int64_t index = -1) : index(index) {
-    }
+    int64_t index = -1;
 
-    int64_t index;
+    bool operator == (const ASTLexeme &other) const {
+        return index == other.index;
+    }
 };
+
+struct ASTDeclaration;
 
 struct ASTNode {
     ASTNode() : kind(AST_UNKNOWN), flags(0) {}
-
-    ASTNodeKind kind;
-    uint32_t    flags;
 
 #warning Replace with custom implementation of Array in Basic!
     template<typename Element>
@@ -67,15 +66,20 @@ struct ASTNode {
     void* operator new (size_t size, ASTContext* context);
     void  operator delete (void* ptr) = delete;
     void  operator delete [] (void* ptr) = delete;
+
+    ASTNodeKind kind;
+    uint32_t    flags;
 };
 
-struct ASTStatement : public ASTNode {
-};
+struct ASTStatement : public ASTNode {};
+struct ASTExpression : public ASTStatement {};
+struct ASTDirective : public ASTNode {};
 
 struct ASTDeclaration : public ASTStatement {
-};
+    ASTDeclaration() : name(nullptr) {
+    }
 
-struct ASTExpression : public ASTStatement {
+    ASTIdentifier* name;
 };
 
 struct ASTUnaryExpression : public ASTExpression {
@@ -133,9 +137,6 @@ struct ASTLiteral : public ASTExpression {
     };
 };
 
-struct ASTDirective : public ASTNode {
-};
-
 struct ASTLoad : public ASTDirective {
     ASTLoad() : literal(nullptr) {
         kind = AST_LOAD;
@@ -144,13 +145,13 @@ struct ASTLoad : public ASTDirective {
     ASTLiteral* literal;
 };
 
-struct ASTParameter : public ASTNode {
-    ASTParameter() : name(nullptr), type(nullptr) {
+struct ASTParameter : public ASTDeclaration {
+    ASTParameter() : type(nullptr) {
         kind = AST_PARAMETER;
     }
 
-    ASTIdentifier* name;
-    ASTType*       type;
+    uint32_t position;
+    ASTType* type;
 };
 
 struct ASTBlock : public ASTNode {
@@ -159,6 +160,12 @@ struct ASTBlock : public ASTNode {
     }
 
     Array<ASTNode*> statements;
+
+    // Scope Members
+    using SymbolTable = std::map<int64_t, ASTDeclaration*>;
+
+    SymbolTable           symbols;
+    Array<ASTIdentifier*> unresolved_identifier;
 };
 
 struct ASTFuncSignature : public ASTNode {
@@ -181,40 +188,36 @@ struct ASTFunc : public ASTDeclaration {
 };
 
 struct ASTVariable : public ASTDeclaration {
-    ASTVariable() : name(nullptr), type(nullptr), assignment(nullptr) {
+    ASTVariable() : type(nullptr), assignment(nullptr) {
         kind = AST_VARIABLE;
     }
 
-    ASTIdentifier* name;
     ASTType*       type;
     ASTExpression* assignment;
 };
 
 struct ASTStruct : public ASTDeclaration {
-    ASTStruct() : name(nullptr), block(nullptr) {
+    ASTStruct() : block(nullptr) {
         kind = AST_STRUCT;
     }
 
-    ASTIdentifier*      name;
-    ASTBlock*           block;
+    ASTBlock* block;
 };
 
-struct ASTEnumElement : public ASTNode {
-    ASTEnumElement() : name(nullptr), assignment(nullptr) {
+struct ASTEnumElement : public ASTDeclaration {
+    ASTEnumElement() : assignment(nullptr) {
         kind = AST_ENUM_ELEMENT;
     }
 
-    ASTIdentifier* name;
     ASTExpression* assignment;
 };
 
 struct ASTEnum : public ASTDeclaration {
-    ASTEnum() : name(nullptr) {
+    ASTEnum() {
         kind = AST_ENUM;
     }
 
-    ASTIdentifier* name;
-    ASTBlock*      block;
+    ASTBlock* block;
 };
 
 struct ASTControl : public ASTStatement {

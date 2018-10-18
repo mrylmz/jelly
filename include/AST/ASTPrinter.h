@@ -30,7 +30,7 @@
 #include <ostream>
 
 struct String;
-
+struct ASTContext;
 struct ASTNode;
 struct ASTLoad;
 struct ASTLiteral;

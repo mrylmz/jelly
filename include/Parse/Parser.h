@@ -25,6 +25,7 @@
 #pragma once
 
 #include <AST/AST.h>
+
 #include "Parse/Lexer.h"
 
 #warning Replace error messages with error types
@@ -39,14 +40,25 @@ struct Parser {
     void parse();
 
 private:
-    Operator    op;
-    Token       token;
+    template<typename Element>
+    using Array = std::vector<Element>;
+
+    Operator         op;
+    Token            token;
+    Array<ASTBlock*> scope_stack;
 
     ASTContext& context;
     Lexer&      lexer;
 
     void consume_token();
+
     void report_error(const char* message);
+
+    ASTBlock* get_current_scope();
+
+    bool scope_get_declaration(ASTBlock* block, ASTLexeme lexeme, ASTDeclaration*& declaration);
+    bool scope_add_declaration(ASTBlock* block, ASTDeclaration* declaration);
+    void scope_add_unresolved_identifier(ASTBlock* block, ASTIdentifier* identifier);
 
     // MARK: - Top Level Declarations
 

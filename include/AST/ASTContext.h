@@ -24,14 +24,14 @@
 
 #pragma once
 
-#include "AST/ASTNodes.h"
-
 #include <Basic/Basic.h>
 #include <vector>
 #include <unistd.h>
 #include <iostream>
 #include <map>
 #include <string>
+
+#include "AST/ASTNodes.h"
 
 #warning Isn't there a cleaner solution to the node size problem then ASTNodeContainer ??
 
