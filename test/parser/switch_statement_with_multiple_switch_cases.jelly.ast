@@ -1,70 +1,80 @@
 (
-    ROOT = AST_FUNC(
-        SIGNATURE = AST_FUNC_SIGNATURE(
-            NAME = AST_IDENTIFIER(
-                TEXT = STRING(main)
-            )
-            PARAMETERS = [
-
-            ]
-            RETURN_TYPE = AST_TYPE(
-                KIND = AST_IDENTIFIER(
-                    TEXT = STRING(Void)
-                )
-            )
-        )
-        BLOCK = AST_BLOCK(
-            STATEMENTS = [
-                AST_SWITCH(
-                    EXPRESSION = AST_IDENTIFIER(
-                        TEXT = STRING(expr)
+    ROOT = AST_BLOCK(
+        STATEMENTS = [
+            AST_FUNC(
+                SIGNATURE = AST_FUNC_SIGNATURE(
+                    NAME = AST_IDENTIFIER(
+                        TEXT = STRING(main)
                     )
-                    CASES = [
-                        AST_SWITCH_CASE(
-                            KIND = CASE(
-                                CONDITION = AST_LITERAL(
-                                    VALUE = INT(0)
-                                )
+                    PARAMETERS = [
+
+                    ]
+                    RETURN_TYPE = AST_TYPE(
+                        KIND = AST_IDENTIFIER(
+                            TEXT = STRING(Void)
+                        )
+                    )
+                )
+                BLOCK = AST_BLOCK(
+                    STATEMENTS = [
+                        AST_SWITCH(
+                            EXPRESSION = AST_IDENTIFIER(
+                                TEXT = STRING(expr)
                             )
-                            STATEMENTS = [
-                                AST_CONTROL(
-                                    KIND = RETURN(
-                                        NULL()
+                            CASES = [
+                                AST_SWITCH_CASE(
+                                    KIND = CASE(
+                                        CONDITION = AST_LITERAL(
+                                            VALUE = INT(0)
+                                        )
+                                    )
+                                    BLOCK = AST_BLOCK(
+                                        STATEMENTS = [
+                                            AST_CONTROL(
+                                                KIND = RETURN(
+                                                    NULL()
+                                                )
+                                            )
+                                        ]
                                     )
                                 )
-                            ]
-                        )
-                        AST_SWITCH_CASE(
-                            KIND = CASE(
-                                CONDITION = AST_LITERAL(
-                                    VALUE = INT(1)
-                                )
-                            )
-                            STATEMENTS = [
-                                AST_CONTROL(
-                                    KIND = RETURN(
-                                        NULL()
+                                AST_SWITCH_CASE(
+                                    KIND = CASE(
+                                        CONDITION = AST_LITERAL(
+                                            VALUE = INT(1)
+                                        )
+                                    )
+                                    BLOCK = AST_BLOCK(
+                                        STATEMENTS = [
+                                            AST_CONTROL(
+                                                KIND = RETURN(
+                                                    NULL()
+                                                )
+                                            )
+                                        ]
                                     )
                                 )
-                            ]
-                        )
-                        AST_SWITCH_CASE(
-                            KIND = CASE(
-                                CONDITION = AST_LITERAL(
-                                    VALUE = INT(2)
-                                )
-                            )
-                            STATEMENTS = [
-                                AST_CONTROL(
-                                    KIND = RETURN(
-                                        NULL()
+                                AST_SWITCH_CASE(
+                                    KIND = CASE(
+                                        CONDITION = AST_LITERAL(
+                                            VALUE = INT(2)
+                                        )
+                                    )
+                                    BLOCK = AST_BLOCK(
+                                        STATEMENTS = [
+                                            AST_CONTROL(
+                                                KIND = RETURN(
+                                                    NULL()
+                                                )
+                                            )
+                                        ]
                                     )
                                 )
                             ]
                         )
                     ]
                 )
-            ]
-        )
+            )
+        ]
     )
 )

@@ -22,63 +22,22 @@
 // SOFTWARE.
 //
 
-#pragma once
+#include "Basic/ErrorHandling.h"
+#include <stdio.h>
+#include <cstdlib>
 
-#include <stdint.h>
 
-enum ASTNodeKind : uint8_t {
-    AST_UNKNOWN,
-    AST_LOAD,
-    AST_LITERAL,
-    AST_FUNC,
-    AST_FUNC_SIGNATURE,
-    AST_BLOCK,
-    AST_PARAMETER,
-    AST_STRUCT,
-    AST_VARIABLE,
-    AST_ENUM,
-    AST_ENUM_ELEMENT,
-    AST_IDENTIFIER,
-    AST_UNARY,
-    AST_BINARY,
-    AST_CONTROL,
-    AST_TYPE,
-    AST_DEFER,
-    AST_DO,
-    AST_FOR,
-    AST_GUARD,
-    AST_IF,
-    AST_SWITCH,
-    AST_SWITCH_CASE,
-    AST_WHILE,
-    AST_CALL,
-    AST_SUBSCRIPT,
-};
+void __unreachable(const char *message, const char *filename, unsigned line) {
+    fprintf(stderr, "Error: %s\nFile: %s\nLine: %u", message, filename, line);
+    abort();
+}
 
-enum ASTTypeKind : uint8_t {
-    AST_TYPE_UNKNOWN,
-    AST_TYPE_IDENTIFIER,
-    AST_TYPE_ANY,
-    AST_TYPE_TYPEOF,
-    AST_TYPE_POINTER,
-    AST_TYPE_ARRAY
-};
+void fatal_error(const char* message) {
+    if (message) {
+        fprintf(stderr, "Error: %s", message);
+    } else {
+        fprintf(stderr, "Error: Internal compiler error!");
+    }
 
-enum ASTIfKind : uint8_t {
-    AST_IF_SINGLE,
-    AST_IF_ELSE,
-    AST_IF_ELSE_IF
-};
-
-enum ASTSwitchCaseKind : uint8_t {
-    AST_SWITCH_CASE_CONDITION,
-    AST_SWITCH_CASE_ELSE
-};
-
-enum ASTControlKind : uint8_t {
-    AST_CONTROL_UNKNOWN,
-    AST_CONTROL_BREAK,
-    AST_CONTROL_CONTINUE,
-    AST_CONTROL_FALLTHROUGH,
-    AST_CONTROL_RETURN
-};
+    exit(EXIT_FAILURE);
+}

@@ -1,21 +1,25 @@
 (
-    ROOT = AST_VARIABLE(
-        NAME = AST_IDENTIFIER(
-            TEXT = STRING(myArray)
-        )
-        IS_CONSTANT = FALSE
-        TYPE = AST_TYPE(
-            KIND = ARRAY(
+    ROOT = AST_BLOCK(
+        STATEMENTS = [
+            AST_VARIABLE(
+                NAME = AST_IDENTIFIER(
+                    TEXT = STRING(myArray)
+                )
+                IS_CONSTANT = FALSE
                 TYPE = AST_TYPE(
-                    KIND = AST_IDENTIFIER(
-                        TEXT = STRING(Bool)
+                    KIND = ARRAY(
+                        TYPE = AST_TYPE(
+                            KIND = AST_IDENTIFIER(
+                                TEXT = STRING(Bool)
+                            )
+                        )
+                        SIZE = AST_LITERAL(
+                            VALUE = INT(1234)
+                        )
                     )
                 )
-                SIZE = AST_LITERAL(
-                    VALUE = INT(1234)
-                )
+                ASSIGNMENT = NULL()
             )
-        )
-        ASSIGNMENT = NULL()
+        ]
     )
 )

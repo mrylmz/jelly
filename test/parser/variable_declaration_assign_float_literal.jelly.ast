@@ -1,16 +1,20 @@
 (
-    ROOT = AST_VARIABLE(
-        NAME = AST_IDENTIFIER(
-            TEXT = STRING(myFloat)
-        )
-        IS_CONSTANT = FALSE
-        TYPE = AST_TYPE(
-            KIND = AST_IDENTIFIER(
-                TEXT = STRING(Float)
+    ROOT = AST_BLOCK(
+        STATEMENTS = [
+            AST_VARIABLE(
+                NAME = AST_IDENTIFIER(
+                    TEXT = STRING(myFloat)
+                )
+                IS_CONSTANT = FALSE
+                TYPE = AST_TYPE(
+                    KIND = AST_IDENTIFIER(
+                        TEXT = STRING(Float)
+                    )
+                )
+                ASSIGNMENT = AST_LITERAL(
+                    VALUE = FLOAT(3.14)
+                )
             )
-        )
-        ASSIGNMENT = AST_LITERAL(
-            VALUE = FLOAT(3.14)
-        )
+        ]
     )
 )

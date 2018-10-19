@@ -42,12 +42,14 @@ print_raw("\n");                                                 \
 print_indentation();                                             \
 print_raw("]");
 
-void ASTPrinter::print(const ASTNode* node) {
+void ASTPrinter::print(const ASTContext& context) {
+    current_context = &context;
+
     print_raw("(\n");
     indentation_level += 1;
     print_indentation();
     print_raw("ROOT = ");
-    visit(node);
+    visit(reinterpret_cast<const ASTNode*>(context.root));
     indentation_level -= 1;
     print_raw("\n)\n");
 }
@@ -216,11 +218,6 @@ void ASTPrinter::visit(const ASTStruct* node) {
     print_indentation();
     print_raw("BLOCK = ");
     visit(reinterpret_cast<const ASTNode*>(node->block));
-    print_raw("\n");
-
-    print_indentation();
-    print_raw("VARIABLES = ");
-    PRINT_ARRAY(node->variables);
 
     indentation_level -= 1;
     print_raw("\n");
@@ -273,8 +270,8 @@ void ASTPrinter::visit(const ASTEnum* node) {
     print_raw("\n");
 
     print_indentation();
-    print_raw("ELEMENTS = ");
-    PRINT_ARRAY(node->elements);
+    print_raw("BLOCK = ");
+    visit(reinterpret_cast<const ASTNode*>(node->block));
 
     indentation_level -= 1;
     print_raw("\n");
@@ -309,7 +306,7 @@ void ASTPrinter::visit(const ASTIdentifier* node) {
 
     print_indentation();
     print_raw("TEXT = STRING(");
-    print_raw(node->text);
+    print_raw(current_context->get_lexeme_text(node->lexeme));
     print_raw(")");
 
     indentation_level -= 1;
@@ -369,20 +366,20 @@ void ASTPrinter::visit(const ASTControl* node) {
     indentation_level += 1;
 
     print_indentation();
-    switch (node->token_kind) {
-        case TOKEN_KEYWORD_BREAK:
+    switch (node->control_kind) {
+        case AST_CONTROL_BREAK:
             print_raw("KIND = BREAK()");
             break;
 
-        case TOKEN_KEYWORD_CONTINUE:
+        case AST_CONTROL_CONTINUE:
             print_raw("KIND = CONTINUE()");
             break;
 
-        case TOKEN_KEYWORD_FALLTHROUGH:
+        case AST_CONTROL_FALLTHROUGH:
             print_raw("KIND = FALLTHROUGH()");
             break;
 
-        case TOKEN_KEYWORD_RETURN:
+        case AST_CONTROL_RETURN:
             print_raw("KIND = RETURN(\n");
             indentation_level += 1;
             print_indentation();
@@ -649,8 +646,8 @@ void ASTPrinter::visit(const ASTSwitchCase* node) {
     print_raw("\n");
 
     print_indentation();
-    print_raw("STATEMENTS = ");
-    PRINT_ARRAY(node->statements);
+    print_raw("BLOCK = ");
+    visit(reinterpret_cast<const ASTNode*>(node->block));
 
     indentation_level -= 1;
     print_raw("\n");

@@ -265,8 +265,8 @@ void Lexer::register_operator(const Operator& op) {
     assert(!op.text.is_equal("/*")     && "'/*' is reserved and cannot be added as operator!");
     assert(!op.text.is_equal("*/")     && "'*/' is reserved and cannot be added as operator!");
 
-    StringMap<size_t, 256>* operator_keys;
-    Array<Operator>*        operator_values;
+    StringMap<size_t, 256>* operator_keys = nullptr;
+    Array<Operator>*        operator_values = nullptr;
 
     switch (op.kind) {
         case OPERATOR_PREFIX:
@@ -287,7 +287,7 @@ void Lexer::register_operator(const Operator& op) {
             break;
 
         default:
-            assert(false && "Invalid operator kind given!");
+            unreachable("Invalid operator kind given!");
     }
 
     size_t index;

@@ -24,11 +24,14 @@
 
 #pragma once
 
-#include "AST/ASTNodes.h"
-
+#include <Basic/Basic.h>
 #include <vector>
 #include <unistd.h>
 #include <iostream>
+#include <map>
+#include <string>
+
+#include "AST/ASTNodes.h"
 
 #warning Isn't there a cleaner solution to the node size problem then ASTNodeContainer ??
 
@@ -39,11 +42,17 @@ struct ASTContext {
     ASTContext();
     ~ASTContext();
 
-    const ASTBlock* root;
-
     void* alloc_node();
 
+    ASTLexeme get_lexeme(const String& text);
+    String    get_lexeme_text(const ASTLexeme& lexeme) const;
+
+    ASTBlock* root;
+
 private:
+    StringMap<int64_t, 4 * 1024> lexeme_map;
+    Array<String>                lexeme_values;
+
     size_t       page_size;
     size_t       node_size;
     size_t       node_count;

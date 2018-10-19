@@ -23,13 +23,23 @@
 //
 
 #include <AST/AST.h>
+#include <vector>
 #include "Parse/Parser.h"
 
 #warning Check line-break requirements, do not allow consecutive statements on a line
 
-ASTNode* Parser::parse() {
+void Parser::parse() {
     lexer.peek_next_token(token);
-    return parse_top_level_node();
+
+    scope_stack.clear();
+    scope_stack.push_back(context.root);
+
+    ASTNode* node;
+    while ((node = parse_top_level_node()) != nullptr) {
+        context.root->statements.push_back(node);
+    }
+
+    scope_stack.pop_back();
 }
 
 void Parser::consume_token() {
@@ -40,6 +50,43 @@ void Parser::consume_token() {
 void Parser::report_error(const char* message) {
 #warning Forward error messages to diagnostics engine!
     printf("Error: %s\n", message);
+}
+
+ASTBlock* Parser::get_current_scope() {
+    return scope_stack.back();
+}
+
+bool Parser::scope_get_declaration(ASTBlock* block, ASTLexeme lexeme, ASTDeclaration*& declaration) {
+    auto it = block->symbols.find(lexeme.index);
+    if (it != block->symbols.end()) {
+        declaration = it->second;
+        return true;
+    }
+
+    return false;
+}
+
+bool Parser::scope_add_declaration(ASTBlock* block, ASTDeclaration* declaration) {
+    auto it = block->symbols.find(declaration->name->lexeme.index);
+    if (it != block->symbols.end()) {
+        report_error("Invalid redeclaration of identifier!");
+        return false;
+    }
+
+    block->symbols.emplace(std::pair<int64_t, ASTDeclaration*>(declaration->name->lexeme.index, declaration));
+    return true;
+}
+
+void Parser::scope_add_unresolved_identifier(ASTBlock* block, ASTIdentifier* identifier) {
+    bool found = false;
+
+    for (auto it = block->unresolved_identifier.begin(); it != block->unresolved_identifier.end(); it++) {
+        found |= (*it)->lexeme == identifier->lexeme;
+    }
+
+    if (!found) {
+        block->unresolved_identifier.push_back(identifier);
+    }
 }
 
 // MARK: - Top Level Declarations
@@ -81,7 +128,7 @@ ASTDirective* Parser::parse_directive() {
             return parse_load_directive();
 
         default:
-            assert(false && "Invalid token given for start of directive!");
+            unreachable("Invalid token given for start of directive!");
     }
 }
 
@@ -107,7 +154,7 @@ ASTDeclaration* Parser::parse_enum_declaration() {
     assert(token.is(TOKEN_KEYWORD_ENUM) && "Invalid token given for start of enum!");
     consume_token();
 
-    ASTEnum* enumeration = new (&context)  ASTEnum;
+    ASTEnum* enumeration = new (&context) ASTEnum;
 
     enumeration->name = parse_identifier();
     if (enumeration->name == nullptr) {
@@ -119,8 +166,10 @@ ASTDeclaration* Parser::parse_enum_declaration() {
         report_error("Expected '{' after name of enum declaration!");
         return nullptr;
     }
-
     consume_token();
+
+    enumeration->block = new (&context) ASTBlock;
+    scope_stack.push_back(enumeration->block);
 
     if (!token.is('}')) {
         while (true) {
@@ -129,7 +178,7 @@ ASTDeclaration* Parser::parse_enum_declaration() {
                 return nullptr;
             }
 
-            enumeration->elements.push_back(element);
+            enumeration->block->statements.push_back(element);
 
             if (token.is('}')) {
                 break;
@@ -139,8 +188,12 @@ ASTDeclaration* Parser::parse_enum_declaration() {
             }
         }
     }
-
     consume_token();
+
+    scope_stack.pop_back();
+    if (!scope_add_declaration(get_current_scope(), enumeration)) {
+        return nullptr;
+    }
 
     return enumeration;
 }
@@ -150,14 +203,25 @@ ASTDeclaration* Parser::parse_func_declaration() {
     assert(token.is(TOKEN_KEYWORD_FUNC) && "Invalid token given for start of func declaration!");
     consume_token();
 
-    ASTFunc* func = new (&context)  ASTFunc;
+    ASTFunc* func = new (&context) ASTFunc;
     func->signature = parse_func_signature();
     if (func->signature == nullptr) {
         return nullptr;
     }
+    func->name = func->signature->name;
 
     func->block = parse_block();
     if (func->block == nullptr) {
+        return nullptr;
+    }
+
+    for (auto it = func->signature->parameters.begin(); it != func->signature->parameters.end(); it++) {
+        if (!scope_add_declaration(func->block, *it)) {
+            return nullptr;
+        }
+    }
+
+    if (!scope_add_declaration(get_current_scope(), func)) {
         return nullptr;
     }
 
@@ -169,7 +233,7 @@ ASTDeclaration* Parser::parse_struct_declaration() {
     assert(token.is(TOKEN_KEYWORD_STRUCT) && "Invalid token given for start of struct!");
     consume_token();
 
-    ASTStruct* structure = new (&context)  ASTStruct;
+    ASTStruct* structure = new (&context) ASTStruct;
     structure->name = parse_identifier();
     if (structure->name == nullptr) {
         report_error("Expected identifier for name of struct declaration!");
@@ -186,9 +250,10 @@ ASTDeclaration* Parser::parse_struct_declaration() {
             report_error("Only variable declarations are allowed inside of structure declarations!");
             return nullptr;
         }
+    }
 
-        ASTVariable* variable = reinterpret_cast<ASTVariable*>(*it);
-        structure->variables.push_back(variable);
+    if (!scope_add_declaration(get_current_scope(), structure)) {
+        return nullptr;
     }
 
     return structure;
@@ -198,7 +263,7 @@ ASTDeclaration* Parser::parse_struct_declaration() {
 ASTDeclaration* Parser::parse_variable_declaration() {
     assert(token.is(TOKEN_KEYWORD_VAR, TOKEN_KEYWORD_LET) && "Invalid token given for start of variable-declaration!");
 
-    ASTVariable* variable = new (&context)  ASTVariable;
+    ASTVariable* variable = new (&context) ASTVariable;
     if (token.is(TOKEN_KEYWORD_LET)) {
         variable->flags |= AST_VARIABLE_IS_CONSTANT;
     }
@@ -232,14 +297,77 @@ ASTDeclaration* Parser::parse_variable_declaration() {
         }
     }
 
+    if (!scope_add_declaration(get_current_scope(), variable)) {
+        return nullptr;
+    }
+
     return variable;
+}
+
+// MARK: - Context Declarations
+
+/// grammar: enum-element := "case" identifier [ "=" expression ]
+ASTEnumElement* Parser::parse_enum_element() {
+    if (!token.is(TOKEN_KEYWORD_CASE)) {
+        report_error("Expected 'case' keyword at start of enum element!");
+        return nullptr;
+    }
+    consume_token();
+
+    ASTEnumElement* element = new (&context) ASTEnumElement;
+    element->name = parse_identifier();
+    if (element->name == nullptr) {
+        report_error("Expected identifier for name of enum element!");
+        return nullptr;
+    }
+
+    if (token.is(TOKEN_OPERATOR) && lexer.get_operator(token, OPERATOR_INFIX, op) && op.text.is_equal("=")) {
+        consume_token();
+
+        element->assignment = parse_expression();
+        if (element->assignment == nullptr) {
+            report_error("Expected expression after '=' assignment operator!");
+            return nullptr;
+        }
+    }
+
+    if (!scope_add_declaration(get_current_scope(), element)) {
+        return nullptr;
+    }
+
+    return element;
+}
+
+/// grammar: parameter := identifier ":" type-identifier
+ASTParameter* Parser::parse_parameter() {
+    ASTParameter* parameter = new (&context) ASTParameter;
+
+    parameter->name = parse_identifier();
+    if (parameter->name == nullptr) {
+        report_error("Expected identifier for name of parameter!");
+        return nullptr;
+    }
+
+    if (!token.is(':')) {
+        report_error("Expected ':' after name of parameter!");
+        return nullptr;
+    }
+    consume_token();
+
+    parameter->type = parse_type();
+    if (parameter->type == nullptr) {
+        report_error("Expected type of parameter!");
+        return nullptr;
+    }
+
+    return parameter;
 }
 
 // MARK: - Signatures
 
 /// grammar: func-signature := "func" identifier "(" [ parameter { "," parameter } ] ")" "->" type-identifier
 ASTFuncSignature* Parser::parse_func_signature() {
-    ASTFuncSignature* signature = new (&context)  ASTFuncSignature;
+    ASTFuncSignature* signature = new (&context) ASTFuncSignature;
     signature->name = parse_identifier();
     if (signature->name == nullptr) {
         report_error("Expected identifier in function declaration!");
@@ -254,11 +382,16 @@ ASTFuncSignature* Parser::parse_func_signature() {
     consume_token();
 
     if (!token.is(')')) {
+        uint32_t position = 0;
+
         while (true) {
             ASTParameter* parameter = parse_parameter();
             if (parameter == nullptr) {
                 return nullptr;
             }
+
+            parameter->position = position;
+            position += 1;
 
             signature->parameters.push_back(parameter);
 
@@ -295,7 +428,7 @@ ASTFuncSignature* Parser::parse_func_signature() {
 
 /// grammar: literal := integer-literal | float-literal | string-literal | "true" | "false" | "nil"
 ASTLiteral* Parser::parse_literal() {
-    ASTLiteral* literal = new (&context)  ASTLiteral;
+    ASTLiteral* literal = new (&context) ASTLiteral;
     literal->token_kind = token.kind;
 
     switch (token.kind) {
@@ -366,7 +499,7 @@ ASTExpression* Parser::parse_expression(uint32_t precedence) {
                 next_precedence = lexer.get_operator_precedence_before(next_precedence);
             }
 
-            ASTBinaryExpression* right = new (&context)  ASTBinaryExpression;
+            ASTBinaryExpression* right = new (&context) ASTBinaryExpression;
             right->op = op;
             right->left = left;
             right->right = parse_expression(next_precedence);
@@ -396,7 +529,7 @@ ASTExpression* Parser::parse_call_expression(ASTExpression* left) {
     assert(token.is('(') && "Invalid token given for start of call-expression");
     consume_token();
 
-    ASTCall* call = new (&context)  ASTCall;
+    ASTCall* call = new (&context) ASTCall;
     call->left = left;
 
     if (!token.is(')')) {
@@ -428,7 +561,7 @@ ASTExpression* Parser::parse_subscript_expression(ASTExpression* left) {
     assert(token.is('[') && "Invalid token given for start of call-expression");
     consume_token();
 
-    ASTSubscript* subscript = new (&context)  ASTSubscript;
+    ASTSubscript* subscript = new (&context) ASTSubscript;
     subscript->left = left;
 
     if (!token.is(']')) {
@@ -469,7 +602,7 @@ ASTExpression* Parser::parse_unary_expression() {
     assert(token.is(TOKEN_OPERATOR) && lexer.get_operator(token, OPERATOR_PREFIX, op) && "Invalid token given for start of unary-expression!");
     consume_token();
 
-    ASTUnaryExpression* expression = new (&context)  ASTUnaryExpression;
+    ASTUnaryExpression* expression = new (&context) ASTUnaryExpression;
     expression->op = op;
     expression->right = parse_expression();
 
@@ -505,6 +638,7 @@ ASTExpression* Parser::parse_atom_expression() {
 
         case TOKEN_IDENTIFIER:
             expression = parse_identifier();
+            scope_add_unresolved_identifier(get_current_scope(), reinterpret_cast<ASTIdentifier*>(expression));
             break;
 
         default:
@@ -577,16 +711,32 @@ ASTStatement* Parser::parse_statement() {
 /// grammar: control-statement := return-statement | "fallthrough" | "break" | "continue"
 /// grammar: return-statement := "return" [ expression ]
 ASTStatement* Parser::parse_control_statement() {
-    assert(token.is(TOKEN_KEYWORD_BREAK,
-                    TOKEN_KEYWORD_CONTINUE,
-                    TOKEN_KEYWORD_FALLTHROUGH,
-                    TOKEN_KEYWORD_RETURN) && "Invalid token given for start of control-statement!");
+    ASTControl* control = new (&context) ASTControl;
 
-    ASTControl* control = new (&context)  ASTControl;
-    control->token_kind = token.kind;
+    switch (token.kind) {
+        case TOKEN_KEYWORD_BREAK:
+            control->control_kind = AST_CONTROL_BREAK;
+            break;
+
+        case TOKEN_KEYWORD_CONTINUE:
+            control->control_kind = AST_CONTROL_CONTINUE;
+            break;
+
+        case TOKEN_KEYWORD_FALLTHROUGH:
+            control->control_kind = AST_CONTROL_FALLTHROUGH;
+            break;
+
+        case TOKEN_KEYWORD_RETURN:
+            control->control_kind = AST_CONTROL_RETURN;
+            break;
+
+        default:
+            unreachable("Invalid token given for start of control-statement!");
+    }
+
     consume_token();
 
-    if (control->token_kind == TOKEN_KEYWORD_RETURN) {
+    if (control->control_kind == AST_CONTROL_RETURN) {
 #warning Control lexer state here with unwinding on failure!
         control->expression = parse_expression();
     }
@@ -599,7 +749,7 @@ ASTStatement* Parser::parse_defer_statement() {
     assert(token.is(TOKEN_KEYWORD_DEFER) && "Invalid token given for start of defer-statement!");
     consume_token();
 
-    ASTDefer* defer = new (&context)  ASTDefer;
+    ASTDefer* defer = new (&context) ASTDefer;
     defer->expression = parse_expression();
     if (defer->expression == nullptr) {
         return nullptr;
@@ -613,7 +763,7 @@ ASTStatement* Parser::parse_do_statement() {
     assert(token.is(TOKEN_KEYWORD_DO) && "Invalid token given for start of do-statement");
     consume_token();
 
-    ASTDo* stmt = new (&context)  ASTDo;
+    ASTDo* stmt = new (&context) ASTDo;
     stmt->block = parse_block();
     if (stmt->block == nullptr) {
         return nullptr;
@@ -649,7 +799,7 @@ ASTStatement* Parser::parse_for_statement() {
     assert(token.is(TOKEN_KEYWORD_FOR) && "Invalid token given for start of for-statement");
     consume_token();
 
-    ASTFor* stmt = new (&context)  ASTFor;
+    ASTFor* stmt = new (&context) ASTFor;
     stmt->iterator = parse_identifier();
     if (stmt->iterator == nullptr) {
         return nullptr;
@@ -673,6 +823,11 @@ ASTStatement* Parser::parse_for_statement() {
         return nullptr;
     }
 
+    // TODO: Add iterator of for-statement as declaration into the scope !!!
+    //       The current grammar of the for-statement will at least require minimalistic
+    //       type inference to be declared correctly because the iterator and sequence
+    //       are not explicitly typed ...
+
     return stmt;
 }
 
@@ -681,7 +836,7 @@ ASTStatement* Parser::parse_guard_statement() {
     assert(token.is(TOKEN_KEYWORD_GUARD) && "Invalid token given for start of guard-statement");
     consume_token();
 
-    ASTGuard* guard = new (&context)  ASTGuard;
+    ASTGuard* guard = new (&context) ASTGuard;
 
     do {
 
@@ -737,7 +892,7 @@ ASTStatement* Parser::parse_if_statement() {
     assert(token.is(TOKEN_KEYWORD_IF) && "Invalid token given for start of if-statement!");
     consume_token();
 
-    ASTIf* stmt = new (&context)  ASTIf;
+    ASTIf* stmt = new (&context) ASTIf;
     do {
 
         ASTExpression* condition = parse_expression();
@@ -785,7 +940,7 @@ ASTStatement* Parser::parse_switch_statement() {
     assert(token.is(TOKEN_KEYWORD_SWITCH) && "Invalid token given for start of switch-statement!");
     consume_token();
 
-    ASTSwitch* stmt = new (&context)  ASTSwitch;
+    ASTSwitch* stmt = new (&context) ASTSwitch;
     stmt->expression = parse_expression();
     if (stmt->expression == nullptr) {
         return nullptr;
@@ -823,7 +978,7 @@ ASTStatement* Parser::parse_while_statement() {
     assert(token.is(TOKEN_KEYWORD_WHILE) && "Invalid token given for start of while-statement!");
     consume_token();
 
-    ASTWhile* stmt = new (&context)  ASTWhile;
+    ASTWhile* stmt = new (&context) ASTWhile;
 
     do {
 
@@ -859,7 +1014,8 @@ ASTBlock* Parser::parse_block() {
     }
     consume_token();
 
-    ASTBlock* block = new (&context)  ASTBlock;
+    ASTBlock* block = new (&context) ASTBlock;
+    scope_stack.push_back(block);
 
     if (!token.is('}')) {
         while (true) {
@@ -875,8 +1031,10 @@ ASTBlock* Parser::parse_block() {
             }
         }
     }
-
     consume_token();
+
+    scope_stack.pop_back();
+
     return block;
 }
 
@@ -890,8 +1048,8 @@ ASTIdentifier* Parser::parse_identifier() {
         return nullptr;
     }
 
-    ASTIdentifier* identifier = new (&context)  ASTIdentifier;
-    identifier->text = String(token.text.copy_buffer(), token.text.buffer_length);
+    ASTIdentifier* identifier = new (&context) ASTIdentifier;
+    identifier->lexeme = context.get_lexeme(token.text);
     consume_token();
 
     return identifier;
@@ -910,12 +1068,12 @@ ASTType* Parser::parse_type() {
     switch (token.kind) {
         case TOKEN_KEYWORD_ANY:
             consume_token();
-            type = new (&context)  ASTType;
+            type = new (&context) ASTType;
             type->type_kind = AST_TYPE_ANY;
             break;
 
         case TOKEN_IDENTIFIER:
-            type = new (&context)  ASTType;
+            type = new (&context) ASTType;
             type->type_kind = AST_TYPE_IDENTIFIER;
             type->identifier = parse_identifier();
             if (type->identifier == nullptr) {
@@ -932,7 +1090,7 @@ ASTType* Parser::parse_type() {
             }
             consume_token();
 
-            type = new (&context)  ASTType;
+            type = new (&context) ASTType;
             type->type_kind = AST_TYPE_TYPEOF;
             type->expression = parse_expression();
             if (type->expression == nullptr) {
@@ -963,7 +1121,7 @@ ASTType* Parser::parse_type() {
                 }
                 consume_token();
 
-                next = new (&context)  ASTType;
+                next = new (&context) ASTType;
                 next->type_kind = AST_TYPE_POINTER;
                 next->type = type;
                 type = next;
@@ -972,7 +1130,7 @@ ASTType* Parser::parse_type() {
             case '[':
                 consume_token();
 
-                next = new (&context)  ASTType;
+                next = new (&context) ASTType;
                 next->type_kind = AST_TYPE_ARRAY;
                 next->type = type;
                 next->expression = parse_expression();
@@ -996,66 +1154,13 @@ ASTType* Parser::parse_type() {
 
 // MARK: - Helpers
 
-/// grammar: enum-element := "case" identifier [ "=" expression ]
-ASTEnumElement* Parser::parse_enum_element() {
-    if (!token.is(TOKEN_KEYWORD_CASE)) {
-        report_error("Expected 'case' keyword at start of enum element!");
-        return nullptr;
-    }
-    consume_token();
-
-    ASTEnumElement* element = new (&context)  ASTEnumElement;
-    element->name = parse_identifier();
-    if (element->name == nullptr) {
-        report_error("Expected identifier for name of enum element!");
-        return nullptr;
-    }
-
-    if (token.is(TOKEN_OPERATOR) && lexer.get_operator(token, OPERATOR_INFIX, op) && op.text.is_equal("=")) {
-        consume_token();
-
-        element->assignment = parse_expression();
-        if (element->assignment == nullptr) {
-            report_error("Expected expression after '=' assignment operator!");
-            return nullptr;
-        }
-    }
-
-    return element;
-}
-
-/// grammar: parameter := identifier ":" type-identifier
-ASTParameter* Parser::parse_parameter() {
-    ASTParameter* parameter = new (&context)  ASTParameter;
-
-    parameter->name = parse_identifier();
-    if (parameter->name == nullptr) {
-        report_error("Expected identifier for name of parameter!");
-        return nullptr;
-    }
-
-    if (!token.is(':')) {
-        report_error("Expected ':' after name of parameter!");
-        return nullptr;
-    }
-    consume_token();
-
-    parameter->type = parse_type();
-    if (parameter->type == nullptr) {
-        report_error("Expected type of parameter!");
-        return nullptr;
-    }
-
-    return parameter;
-}
-
 /// grammar: switch-case := ( "case" expression | "else" ) ":" statement { line-break statement }
 ASTSwitchCase* Parser::parse_switch_case() {
     if (!token.is(TOKEN_KEYWORD_CASE, TOKEN_KEYWORD_ELSE)) {
         return nullptr;
     }
 
-    ASTSwitchCase* switch_case = new (&context)  ASTSwitchCase;
+    ASTSwitchCase* switch_case = new (&context) ASTSwitchCase;
 
     if (token.is(TOKEN_KEYWORD_CASE)) {
         consume_token();
@@ -1075,6 +1180,9 @@ ASTSwitchCase* Parser::parse_switch_case() {
     }
     consume_token();
 
+    switch_case->block = new (&context) ASTBlock;
+    scope_stack.push_back(switch_case->block);
+
     do {
 
         ASTStatement* statement = parse_statement();
@@ -1082,13 +1190,15 @@ ASTSwitchCase* Parser::parse_switch_case() {
             return nullptr;
         }
 
-        switch_case->statements.push_back(statement);
+        switch_case->block->statements.push_back(statement);
 
         if (token.is(TOKEN_KEYWORD_CASE, TOKEN_KEYWORD_ELSE, '}')) {
             break;
         }
 
     } while (true);
+
+    scope_stack.pop_back();
 
     return switch_case;
 }

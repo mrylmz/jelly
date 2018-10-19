@@ -74,26 +74,18 @@ ASTContext::ASTContext() {
     }
 
     void* buffer = malloc(page_size);
-    assert(buffer && "Memory allocation failed!");
+    if (buffer == nullptr) {
+        fatal_error("Memory allocation failed!");
+    }
+
     node_pages.push_back((uint8_t*)buffer);
 
     root = new (this) ASTBlock;
 }
 
 ASTContext::~ASTContext() {
-    for (size_t i = 0; i < node_count; i++) {
-        size_t page_index = i / nodes_per_page;
-        size_t node_index = i - page_index * nodes_per_page;
-
-        uint8_t* buffer  = (uint8_t*)node_pages.at(page_index);
-        uint8_t* pointer = buffer + node_index * node_size;
-
-        ASTNode* node = reinterpret_cast<ASTNode*>(pointer);
-        if (node->kind == AST_IDENTIFIER) {
-            ASTIdentifier* identifier = reinterpret_cast<ASTIdentifier*>(node);
-
-            free((void*)identifier->text.buffer_start);
-        }
+    for (auto it = lexeme_values.begin(); it != lexeme_values.end(); it++) {
+        free((void*)it->buffer_start);
     }
 
     for (auto it = node_pages.begin(); it != node_pages.end(); it++) {
@@ -107,7 +99,10 @@ void* ASTContext::alloc_node()  {
 
     if (page_index >= node_pages.size()) {
         void* buffer = malloc(page_size);
-        assert(buffer && "Memory allocation failed!");
+        if (buffer == nullptr) {
+            fatal_error("Memory allocation failed!");
+        }
+
         node_pages.push_back(buffer);
     }
 
@@ -116,4 +111,24 @@ void* ASTContext::alloc_node()  {
 
     node_count += 1;
     return pointer;
+}
+
+ASTLexeme ASTContext::get_lexeme(const String& text) {
+    ASTLexeme lexeme;
+
+    if (lexeme_map.get(text, lexeme.index)) {
+        return lexeme;
+    }
+
+    String copy(text.copy_buffer(), text.buffer_length);
+
+    lexeme.index = lexeme_values.size();
+    lexeme_values.push_back(copy);
+    lexeme_map.set(copy, lexeme.index);
+    return lexeme;
+}
+
+String ASTContext::get_lexeme_text(const ASTLexeme& lexeme) const {
+    assert(lexeme.index >= 0 && "Invalid lexeme given!");
+    return lexeme_values.at(lexeme.index);
 }

@@ -27,8 +27,7 @@ void BM_parser_parse(benchmark::State& state) {
         Lexer  lexer("func main() -> Void {}");
         Parser parser(lexer);
 
-        while (parser.parse()) {}
-
+        parser.parse();
         index++;
     }
 

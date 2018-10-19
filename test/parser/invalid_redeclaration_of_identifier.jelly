@@ -1,0 +1,3 @@
+func main(x: Int, y: Int) -> Void {
+    var x: Int
+}

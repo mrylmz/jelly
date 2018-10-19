@@ -24,6 +24,7 @@
 
 #pragma once
 
+#include "Basic/ErrorHandling.h"
 #include "Basic/Hasher.h"
 #include "Basic/String.h"
 #include "Basic/StringMap.h"
