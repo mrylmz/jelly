@@ -32,6 +32,8 @@
 #include <map>
 
 struct ASTContext;
+struct ASTDeclaration;
+struct ASTIdentifier;
 
 struct ASTLexeme {
     int64_t index = -1;
@@ -40,8 +42,6 @@ struct ASTLexeme {
         return index == other.index;
     }
 };
-
-struct ASTDeclaration;
 
 struct ASTNode {
     ASTNode() : kind(AST_UNKNOWN), flags(0) {}
