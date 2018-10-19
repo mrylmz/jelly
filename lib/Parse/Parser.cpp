@@ -191,7 +191,9 @@ ASTDeclaration* Parser::parse_enum_declaration() {
     consume_token();
 
     scope_stack.pop_back();
-    scope_add_declaration(get_current_scope(), enumeration);
+    if (!scope_add_declaration(get_current_scope(), enumeration)) {
+        return nullptr;
+    }
 
     return enumeration;
 }
@@ -214,10 +216,14 @@ ASTDeclaration* Parser::parse_func_declaration() {
     }
 
     for (auto it = func->signature->parameters.begin(); it != func->signature->parameters.end(); it++) {
-        scope_add_declaration(func->block, *it);
+        if (!scope_add_declaration(func->block, *it)) {
+            return nullptr;
+        }
     }
 
-    scope_add_declaration(get_current_scope(), func);
+    if (!scope_add_declaration(get_current_scope(), func)) {
+        return nullptr;
+    }
 
     return func;
 }
@@ -246,7 +252,9 @@ ASTDeclaration* Parser::parse_struct_declaration() {
         }
     }
 
-    scope_add_declaration(get_current_scope(), structure);
+    if (!scope_add_declaration(get_current_scope(), structure)) {
+        return nullptr;
+    }
 
     return structure;
 }
@@ -289,7 +297,9 @@ ASTDeclaration* Parser::parse_variable_declaration() {
         }
     }
 
-    scope_add_declaration(get_current_scope(), variable);
+    if (!scope_add_declaration(get_current_scope(), variable)) {
+        return nullptr;
+    }
 
     return variable;
 }
@@ -321,7 +331,9 @@ ASTEnumElement* Parser::parse_enum_element() {
         }
     }
 
-    scope_add_declaration(get_current_scope(), element);
+    if (!scope_add_declaration(get_current_scope(), element)) {
+        return nullptr;
+    }
 
     return element;
 }
