@@ -34,6 +34,7 @@
 struct ASTContext;
 struct ASTDeclaration;
 struct ASTIdentifier;
+struct ASTBlock;
 
 struct ASTLexeme {
     int64_t index = -1;
@@ -44,9 +45,9 @@ struct ASTLexeme {
 };
 
 struct ASTNode {
-    ASTNode() : kind(AST_UNKNOWN), flags(0) {}
+    ASTNode() : kind(AST_UNKNOWN), flags(0), parent(nullptr) {}
 
-#warning Replace with custom implementation of Array in Basic!
+// TODO: Replace with custom implementation of Array in Basic!
     template<typename Element>
     using Array = std::vector<Element>;
 
@@ -63,12 +64,27 @@ struct ASTNode {
         return is(kind2, kinds...);
     }
 
+    ASTBlock* get_parent_block() const {
+        ASTNode* next = parent;
+
+        while (next) {
+            if (next->kind == AST_BLOCK) {
+                return reinterpret_cast<ASTBlock*>(next);
+            }
+
+            next = next->parent;
+        }
+
+        return nullptr;
+    }
+
     void* operator new (size_t size, ASTContext* context);
     void  operator delete (void* ptr) = delete;
     void  operator delete [] (void* ptr) = delete;
 
     ASTNodeKind kind;
     uint32_t    flags;
+    ASTNode*    parent;
 };
 
 struct ASTStatement : public ASTNode {};

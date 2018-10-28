@@ -1,7 +1,7 @@
 #include <benchmark/benchmark.h>
 #include <Parse/Parse.h>
 
-#warning remove BM_lexer_lex and add real use-cases
+// TODO: remove BM_lexer_lex and add real use-cases
 
 void BM_lexer_lex(benchmark::State& state) {
     size_t index = 0;

@@ -33,7 +33,7 @@
 
 #include "AST/ASTNodes.h"
 
-#warning Isn't there a cleaner solution to the node size problem then ASTNodeContainer ??
+// TODO: Isn't there a cleaner solution to the node size problem then ASTNodeContainer ??
 
 struct ASTContext {
     template<typename Element>

@@ -24,9 +24,7 @@
 
 #pragma once
 
-#include "Basic/Defer.h"
-#include "Basic/ErrorHandling.h"
-#include "Basic/Hasher.h"
-#include "Basic/Macros.h"
-#include "Basic/String.h"
-#include "Basic/StringMap.h"
+#define __CONCATENATE(__PREFIX__,__SUFFIX__) __PREFIX__##__SUFFIX__
+#define CONCATENATE(__HEAD__,__TAIL__) __CONCATENATE(__HEAD__,__TAIL__)
+
+#define UNIQUE(__NAME__) CONCATENATE(__NAME__, __COUNTER__)

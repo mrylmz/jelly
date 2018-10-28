@@ -28,7 +28,7 @@
 
 #include "Parse/Lexer.h"
 
-#warning Replace error messages with error types
+// TODO: Replace error messages with error types
 
 struct Parser {
     Parser(ASTContext& context, Lexer& lexer) : context(context), lexer(lexer) {
@@ -46,6 +46,7 @@ private:
     Operator         op;
     Token            token;
     Array<ASTBlock*> scope_stack;
+    Array<ASTNode*>  parent_stack;
 
     ASTContext& context;
     Lexer&      lexer;

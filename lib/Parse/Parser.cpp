@@ -23,23 +23,28 @@
 //
 
 #include <AST/AST.h>
+#include <Basic/Basic.h>
 #include <vector>
 #include "Parse/Parser.h"
 
-#warning Check line-break requirements, do not allow consecutive statements on a line
+// TODO: Check line-break requirements, do not allow consecutive statements on a line
+// TODO: Check if symbols of unary expressions are right bound ! (unexpected: ~ value, expected: ~value)
+// TODO: Write unit-tests for assignment of parents
 
 void Parser::parse() {
     lexer.peek_next_token(token);
 
     scope_stack.clear();
     scope_stack.push_back(context.root);
+    defer(scope_stack.pop_back());
+
+    parent_stack.push_back(context.root);
+    defer(parent_stack.pop_back());
 
     ASTNode* node;
     while ((node = parse_top_level_node()) != nullptr) {
         context.root->statements.push_back(node);
     }
-
-    scope_stack.pop_back();
 }
 
 void Parser::consume_token() {
@@ -48,7 +53,7 @@ void Parser::consume_token() {
 }
 
 void Parser::report_error(const char* message) {
-#warning Forward error messages to diagnostics engine!
+// TODO: Forward error messages to diagnostics engine!
     printf("Error: %s\n", message);
 }
 
@@ -138,6 +143,11 @@ ASTDirective* Parser::parse_load_directive() {
     consume_token();
 
     ASTLoad* load = new (&context) ASTLoad;
+    load->parent = parent_stack.back();
+
+    parent_stack.push_back(load);
+    defer(parent_stack.pop_back());
+
     load->literal = parse_literal();
     if (load->literal == nullptr || load->literal->token_kind != TOKEN_LITERAL_STRING) {
         report_error("Expected string literal after load directive!");
@@ -155,6 +165,9 @@ ASTDeclaration* Parser::parse_enum_declaration() {
     consume_token();
 
     ASTEnum* enumeration = new (&context) ASTEnum;
+    enumeration->parent = parent_stack.back();
+    parent_stack.push_back(enumeration);
+    defer(parent_stack.pop_back());
 
     enumeration->name = parse_identifier();
     if (enumeration->name == nullptr) {
@@ -169,9 +182,15 @@ ASTDeclaration* Parser::parse_enum_declaration() {
     consume_token();
 
     enumeration->block = new (&context) ASTBlock;
-    scope_stack.push_back(enumeration->block);
+    enumeration->block->parent = parent_stack.back();
 
     if (!token.is('}')) {
+        parent_stack.push_back(enumeration->block);
+        defer(parent_stack.pop_back());
+
+        scope_stack.push_back(enumeration->block);
+        defer(scope_stack.pop_back());
+
         while (true) {
             ASTEnumElement* element = parse_enum_element();
             if (element == nullptr) {
@@ -190,7 +209,6 @@ ASTDeclaration* Parser::parse_enum_declaration() {
     }
     consume_token();
 
-    scope_stack.pop_back();
     if (!scope_add_declaration(get_current_scope(), enumeration)) {
         return nullptr;
     }
@@ -204,6 +222,10 @@ ASTDeclaration* Parser::parse_func_declaration() {
     consume_token();
 
     ASTFunc* func = new (&context) ASTFunc;
+    func->parent = parent_stack.back();
+    parent_stack.push_back(func);
+    defer(parent_stack.pop_back());
+
     func->signature = parse_func_signature();
     if (func->signature == nullptr) {
         return nullptr;
@@ -234,6 +256,10 @@ ASTDeclaration* Parser::parse_struct_declaration() {
     consume_token();
 
     ASTStruct* structure = new (&context) ASTStruct;
+    structure->parent = parent_stack.back();
+    parent_stack.push_back(structure);
+    defer(parent_stack.pop_back());
+
     structure->name = parse_identifier();
     if (structure->name == nullptr) {
         report_error("Expected identifier for name of struct declaration!");
@@ -264,6 +290,10 @@ ASTDeclaration* Parser::parse_variable_declaration() {
     assert(token.is(TOKEN_KEYWORD_VAR, TOKEN_KEYWORD_LET) && "Invalid token given for start of variable-declaration!");
 
     ASTVariable* variable = new (&context) ASTVariable;
+    variable->parent = parent_stack.back();
+    parent_stack.push_back(variable);
+    defer(parent_stack.pop_back());
+
     if (token.is(TOKEN_KEYWORD_LET)) {
         variable->flags |= AST_VARIABLE_IS_CONSTANT;
     }
@@ -315,6 +345,10 @@ ASTEnumElement* Parser::parse_enum_element() {
     consume_token();
 
     ASTEnumElement* element = new (&context) ASTEnumElement;
+    element->parent = parent_stack.back();
+    parent_stack.push_back(element);
+    defer(parent_stack.pop_back());
+
     element->name = parse_identifier();
     if (element->name == nullptr) {
         report_error("Expected identifier for name of enum element!");
@@ -341,6 +375,9 @@ ASTEnumElement* Parser::parse_enum_element() {
 /// grammar: parameter := identifier ":" type-identifier
 ASTParameter* Parser::parse_parameter() {
     ASTParameter* parameter = new (&context) ASTParameter;
+    parameter->parent = parent_stack.back();
+    parent_stack.push_back(parameter);
+    defer(parent_stack.pop_back());
 
     parameter->name = parse_identifier();
     if (parameter->name == nullptr) {
@@ -368,6 +405,10 @@ ASTParameter* Parser::parse_parameter() {
 /// grammar: func-signature := "func" identifier "(" [ parameter { "," parameter } ] ")" "->" type-identifier
 ASTFuncSignature* Parser::parse_func_signature() {
     ASTFuncSignature* signature = new (&context) ASTFuncSignature;
+    signature->parent = parent_stack.back();
+    parent_stack.push_back(signature);
+    defer(parent_stack.pop_back());
+
     signature->name = parse_identifier();
     if (signature->name == nullptr) {
         report_error("Expected identifier in function declaration!");
@@ -429,6 +470,10 @@ ASTFuncSignature* Parser::parse_func_signature() {
 /// grammar: literal := integer-literal | float-literal | string-literal | "true" | "false" | "nil"
 ASTLiteral* Parser::parse_literal() {
     ASTLiteral* literal = new (&context) ASTLiteral;
+    literal->parent = parent_stack.back();
+    parent_stack.push_back(literal);
+    defer(parent_stack.pop_back());
+
     literal->token_kind = token.kind;
 
     switch (token.kind) {
@@ -471,8 +516,8 @@ ASTLiteral* Parser::parse_literal() {
         default:
             return nullptr;
     }
-
     consume_token();
+
     return literal;
 }
 
@@ -530,6 +575,10 @@ ASTExpression* Parser::parse_call_expression(ASTExpression* left) {
     consume_token();
 
     ASTCall* call = new (&context) ASTCall;
+    call->parent = parent_stack.back();
+    parent_stack.push_back(call);
+    defer(parent_stack.pop_back());
+
     call->left = left;
 
     if (!token.is(')')) {
@@ -562,6 +611,10 @@ ASTExpression* Parser::parse_subscript_expression(ASTExpression* left) {
     consume_token();
 
     ASTSubscript* subscript = new (&context) ASTSubscript;
+    subscript->parent = parent_stack.back();
+    parent_stack.push_back(subscript);
+    defer(parent_stack.pop_back());
+
     subscript->left = left;
 
     if (!token.is(']')) {
@@ -603,6 +656,10 @@ ASTExpression* Parser::parse_unary_expression() {
     consume_token();
 
     ASTUnaryExpression* expression = new (&context) ASTUnaryExpression;
+    expression->parent = parent_stack.back();
+    parent_stack.push_back(expression);
+    defer(parent_stack.pop_back());
+
     expression->op = op;
     expression->right = parse_expression();
 
@@ -611,7 +668,7 @@ ASTExpression* Parser::parse_unary_expression() {
         return nullptr;
     }
 
-#warning Add `sizeof`, `alignof`, ... expressions
+// TODO: Add `sizeof`, `alignof`, ... expressions
 
     return expression;
 }
@@ -712,6 +769,9 @@ ASTStatement* Parser::parse_statement() {
 /// grammar: return-statement := "return" [ expression ]
 ASTStatement* Parser::parse_control_statement() {
     ASTControl* control = new (&context) ASTControl;
+    control->parent = parent_stack.back();
+    parent_stack.push_back(control);
+    defer(parent_stack.pop_back());
 
     switch (token.kind) {
         case TOKEN_KEYWORD_BREAK:
@@ -737,7 +797,7 @@ ASTStatement* Parser::parse_control_statement() {
     consume_token();
 
     if (control->control_kind == AST_CONTROL_RETURN) {
-#warning Control lexer state here with unwinding on failure!
+// TODO: Control lexer state here with unwinding on failure!
         control->expression = parse_expression();
     }
 
@@ -750,6 +810,10 @@ ASTStatement* Parser::parse_defer_statement() {
     consume_token();
 
     ASTDefer* defer = new (&context) ASTDefer;
+    defer->parent = parent_stack.back();
+    parent_stack.push_back(defer);
+    defer(parent_stack.pop_back());
+
     defer->expression = parse_expression();
     if (defer->expression == nullptr) {
         return nullptr;
@@ -764,6 +828,10 @@ ASTStatement* Parser::parse_do_statement() {
     consume_token();
 
     ASTDo* stmt = new (&context) ASTDo;
+    stmt->parent = parent_stack.back();
+    parent_stack.push_back(stmt);
+    defer(parent_stack.pop_back());
+
     stmt->block = parse_block();
     if (stmt->block == nullptr) {
         return nullptr;
@@ -800,6 +868,10 @@ ASTStatement* Parser::parse_for_statement() {
     consume_token();
 
     ASTFor* stmt = new (&context) ASTFor;
+    stmt->parent = parent_stack.back();
+    parent_stack.push_back(stmt);
+    defer(parent_stack.pop_back());
+
     stmt->iterator = parse_identifier();
     if (stmt->iterator == nullptr) {
         return nullptr;
@@ -837,6 +909,9 @@ ASTStatement* Parser::parse_guard_statement() {
     consume_token();
 
     ASTGuard* guard = new (&context) ASTGuard;
+    guard->parent = parent_stack.back();
+    parent_stack.push_back(guard);
+    defer(parent_stack.pop_back());
 
     do {
 
@@ -893,6 +968,10 @@ ASTStatement* Parser::parse_if_statement() {
     consume_token();
 
     ASTIf* stmt = new (&context) ASTIf;
+    stmt->parent = parent_stack.back();
+    parent_stack.push_back(stmt);
+    defer(parent_stack.pop_back());
+
     do {
 
         ASTExpression* condition = parse_expression();
@@ -941,6 +1020,10 @@ ASTStatement* Parser::parse_switch_statement() {
     consume_token();
 
     ASTSwitch* stmt = new (&context) ASTSwitch;
+    stmt->parent = parent_stack.back();
+    parent_stack.push_back(stmt);
+    defer(parent_stack.pop_back());
+
     stmt->expression = parse_expression();
     if (stmt->expression == nullptr) {
         return nullptr;
@@ -979,6 +1062,9 @@ ASTStatement* Parser::parse_while_statement() {
     consume_token();
 
     ASTWhile* stmt = new (&context) ASTWhile;
+    stmt->parent = parent_stack.back();
+    parent_stack.push_back(stmt);
+    defer(parent_stack.pop_back());
 
     do {
 
@@ -1015,7 +1101,11 @@ ASTBlock* Parser::parse_block() {
     consume_token();
 
     ASTBlock* block = new (&context) ASTBlock;
+    block->parent = parent_stack.back();
+    parent_stack.push_back(block);
+    defer(parent_stack.pop_back());
     scope_stack.push_back(block);
+    defer(scope_stack.pop_back());
 
     if (!token.is('}')) {
         while (true) {
@@ -1033,8 +1123,6 @@ ASTBlock* Parser::parse_block() {
     }
     consume_token();
 
-    scope_stack.pop_back();
-
     return block;
 }
 
@@ -1049,6 +1137,10 @@ ASTIdentifier* Parser::parse_identifier() {
     }
 
     ASTIdentifier* identifier = new (&context) ASTIdentifier;
+    identifier->parent = parent_stack.back();
+    parent_stack.push_back(identifier);
+    defer(parent_stack.pop_back());
+
     identifier->lexeme = context.get_lexeme(token.text);
     consume_token();
 
@@ -1063,17 +1155,17 @@ ASTIdentifier* Parser::parse_identifier() {
 /// grammar: array-type-identifier := type-identifier "[" [ expression ] "]"
 /// grammar: type-of-type-identifier := "typeof" "(" expression ")"
 ASTType* Parser::parse_type() {
-    ASTType* type = nullptr;
+    ASTType* type = new (&context) ASTType;
+    type->parent = parent_stack.back();
+    parent_stack.push_back(type);
 
     switch (token.kind) {
         case TOKEN_KEYWORD_ANY:
             consume_token();
-            type = new (&context) ASTType;
             type->type_kind = AST_TYPE_ANY;
             break;
 
         case TOKEN_IDENTIFIER:
-            type = new (&context) ASTType;
             type->type_kind = AST_TYPE_IDENTIFIER;
             type->identifier = parse_identifier();
             if (type->identifier == nullptr) {
@@ -1090,7 +1182,6 @@ ASTType* Parser::parse_type() {
             }
             consume_token();
 
-            type = new (&context) ASTType;
             type->type_kind = AST_TYPE_TYPEOF;
             type->expression = parse_expression();
             if (type->expression == nullptr) {
@@ -1103,10 +1194,10 @@ ASTType* Parser::parse_type() {
             }
             consume_token();
             break;
-    }
 
-    if (type == nullptr) {
-        return nullptr;
+        default:
+            report_error("Expected type identifier!");
+            return nullptr;
     }
 
     ASTType* next = nullptr;
@@ -1122,6 +1213,9 @@ ASTType* Parser::parse_type() {
                 consume_token();
 
                 next = new (&context) ASTType;
+                next->parent = parent_stack.back();
+                parent_stack.push_back(next);
+
                 next->type_kind = AST_TYPE_POINTER;
                 next->type = type;
                 type = next;
@@ -1131,6 +1225,9 @@ ASTType* Parser::parse_type() {
                 consume_token();
 
                 next = new (&context) ASTType;
+                next->parent = parent_stack.back();
+                parent_stack.push_back(next);
+
                 next->type_kind = AST_TYPE_ARRAY;
                 next->type = type;
                 next->expression = parse_expression();
@@ -1149,6 +1246,13 @@ ASTType* Parser::parse_type() {
         }
     }
 
+    next = type;
+    while (next != nullptr) {
+        parent_stack.pop_back();
+
+        next = next->type;
+    }
+
     return type;
 }
 
@@ -1161,6 +1265,9 @@ ASTSwitchCase* Parser::parse_switch_case() {
     }
 
     ASTSwitchCase* switch_case = new (&context) ASTSwitchCase;
+    switch_case->parent = parent_stack.back();
+    parent_stack.push_back(switch_case);
+    defer(parent_stack.pop_back());
 
     if (token.is(TOKEN_KEYWORD_CASE)) {
         consume_token();
@@ -1181,24 +1288,29 @@ ASTSwitchCase* Parser::parse_switch_case() {
     consume_token();
 
     switch_case->block = new (&context) ASTBlock;
-    scope_stack.push_back(switch_case->block);
+    switch_case->block->parent = parent_stack.back();
+    {
+        parent_stack.push_back(switch_case->block);
+        defer(parent_stack.pop_back());
 
-    do {
+        scope_stack.push_back(switch_case->block);
+        defer(scope_stack.pop_back());
 
-        ASTStatement* statement = parse_statement();
-        if (statement == nullptr) {
-            return nullptr;
-        }
+        do {
 
-        switch_case->block->statements.push_back(statement);
+            ASTStatement* statement = parse_statement();
+            if (statement == nullptr) {
+                return nullptr;
+            }
 
-        if (token.is(TOKEN_KEYWORD_CASE, TOKEN_KEYWORD_ELSE, '}')) {
-            break;
-        }
+            switch_case->block->statements.push_back(statement);
 
-    } while (true);
+            if (token.is(TOKEN_KEYWORD_CASE, TOKEN_KEYWORD_ELSE, '}')) {
+                break;
+            }
 
-    scope_stack.pop_back();
+        } while (true);
+    }
 
     return switch_case;
 }

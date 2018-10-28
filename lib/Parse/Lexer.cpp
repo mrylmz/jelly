@@ -25,7 +25,7 @@
 #include <string>
 #include "Parse/Lexer.h"
 
-#warning Add UTF-8 support!
+// TODO: Add UTF-8 support!
 
 #define BINARY_DIGIT            '0'...'1'
 #define OCTAL_DIGIT             '0'...'7'

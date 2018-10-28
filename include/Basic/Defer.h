@@ -24,9 +24,19 @@
 
 #pragma once
 
-#include "Basic/Defer.h"
-#include "Basic/ErrorHandling.h"
-#include "Basic/Hasher.h"
 #include "Basic/Macros.h"
-#include "Basic/String.h"
-#include "Basic/StringMap.h"
+
+#define defer(__EXPR__) auto UNIQUE(__deferred) = __defer_func([&]() { __EXPR__; })
+
+template<typename Function>
+struct Deferred {
+    Function func;
+
+    Deferred(Function func) : func(func) {}
+    ~Deferred() { func(); }
+};
+
+template<typename Function>
+Deferred<Function> __defer_func(Function func) {
+    return Deferred<Function>(func);
+}
