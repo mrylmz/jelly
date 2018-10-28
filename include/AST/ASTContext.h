@@ -33,8 +33,6 @@
 
 #include "AST/ASTNodes.h"
 
-// TODO: Isn't there a cleaner solution to the node size problem then ASTNodeContainer ??
-
 struct ASTContext {
     template<typename Element>
     using Array = std::vector<Element>;

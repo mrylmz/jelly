@@ -24,43 +24,44 @@
 
 #include "AST/ASTContext.h"
 
-struct _ASTNodeContainer {
-    union {
-        ASTNode      node;
-        ASTStatement statement;
-        ASTDeclaration declaration;
-        ASTExpression expression;
-        ASTUnaryExpression unary_expression;
-        ASTBinaryExpression binary_expression;
-        ASTIdentifier identifier;
-        ASTType type;
-        ASTLiteral literal;
-        ASTDirective directive;
-        ASTLoad load;
-        ASTParameter parameter;
-        ASTBlock block;
-        ASTFuncSignature func_signature;
-        ASTFunc func;
-        ASTVariable variable;
-        ASTStruct structure;
-        ASTEnumElement enum_element;
-        ASTEnum enumeration;
-        ASTControl control;
-        ASTSwitchCase switch_case;
-        ASTDefer defer;
-        ASTDo doloop;
-        ASTFor forloop;
-        ASTGuard guard;
-        ASTIf    node_if;
-        ASTSwitch node_switch;
-        ASTWhile  node_while;
-        ASTCall node_call;
-        ASTSubscript node_subscript;
-    };
+static size_t node_sizes[] = {
+    sizeof(ASTNode),
+    sizeof(ASTStatement),
+    sizeof(ASTDeclaration),
+    sizeof(ASTExpression),
+    sizeof(ASTUnaryExpression),
+    sizeof(ASTBinaryExpression),
+    sizeof(ASTIdentifier),
+    sizeof(ASTType),
+    sizeof(ASTLiteral),
+    sizeof(ASTDirective),
+    sizeof(ASTLoad),
+    sizeof(ASTParameter),
+    sizeof(ASTBlock),
+    sizeof(ASTFuncSignature),
+    sizeof(ASTFunc),
+    sizeof(ASTVariable),
+    sizeof(ASTStruct),
+    sizeof(ASTEnumElement),
+    sizeof(ASTEnum),
+    sizeof(ASTControl),
+    sizeof(ASTSwitchCase),
+    sizeof(ASTDefer),
+    sizeof(ASTDo),
+    sizeof(ASTFor),
+    sizeof(ASTGuard),
+    sizeof(ASTIf),
+    sizeof(ASTSwitch),
+    sizeof(ASTWhile),
+    sizeof(ASTCall),
+    sizeof(ASTSubscript)
 };
 
 ASTContext::ASTContext() {
-    size_t container_size = sizeof(_ASTNodeContainer);
+    size_t container_size = node_sizes[0];
+    for (auto i = 1; i < sizeof(node_sizes) / sizeof(size_t); i++) {
+        container_size = std::max(container_size, node_sizes[i]);
+    }
 
     page_size = sysconf(_SC_PAGESIZE);
     node_size = 1;
