@@ -827,7 +827,8 @@ ASTStatement* Parser::parse_do_statement() {
     assert(token.is(TOKEN_KEYWORD_DO) && "Invalid token given for start of do-statement");
     consume_token();
 
-    ASTDo* stmt = new (&context) ASTDo;
+    ASTLoop* stmt = new (&context) ASTLoop;
+    stmt->pre_check_conditions = false;
     stmt->parent = parent_stack.back();
     parent_stack.push_back(stmt);
     defer(parent_stack.pop_back());
@@ -1061,7 +1062,8 @@ ASTStatement* Parser::parse_while_statement() {
     assert(token.is(TOKEN_KEYWORD_WHILE) && "Invalid token given for start of while-statement!");
     consume_token();
 
-    ASTWhile* stmt = new (&context) ASTWhile;
+    ASTLoop* stmt = new (&context) ASTLoop;
+    stmt->pre_check_conditions = true;
     stmt->parent = parent_stack.back();
     parent_stack.push_back(stmt);
     defer(parent_stack.pop_back());

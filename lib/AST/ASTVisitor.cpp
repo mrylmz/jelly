@@ -78,9 +78,6 @@ void ASTVisitor::visit(const ASTNode* node) {
         case AST_DEFER:
             return visit(reinterpret_cast<const ASTDefer*>(node));
 
-        case AST_DO:
-            return visit(reinterpret_cast<const ASTDo*>(node));
-
         case AST_FOR:
             return visit(reinterpret_cast<const ASTFor*>(node));
 
@@ -96,8 +93,8 @@ void ASTVisitor::visit(const ASTNode* node) {
         case AST_SWITCH_CASE:
             return visit(reinterpret_cast<const ASTSwitchCase*>(node));
 
-        case AST_WHILE:
-            return visit(reinterpret_cast<const ASTWhile*>(node));
+        case AST_LOOP:
+            return visit(reinterpret_cast<const ASTLoop*>(node));
 
         case AST_CALL:
             return visit(reinterpret_cast<const ASTCall*>(node));

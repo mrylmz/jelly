@@ -490,26 +490,6 @@ void ASTPrinter::visit(const ASTDefer* node) {
     print_raw(")");
 }
 
-void ASTPrinter::visit(const ASTDo* node) {
-    print_kind(node);
-    print_raw("(\n");
-    indentation_level += 1;
-
-    print_indentation();
-    print_raw("BLOCK = ");
-    visit(reinterpret_cast<ASTNode*>(node->block));
-    print_raw("\n");
-
-    print_indentation();
-    print_raw("CONDITIONS = ");
-    PRINT_ARRAY(node->conditions);
-
-    indentation_level -= 1;
-    print_raw("\n");
-    print_indentation();
-    print_raw(")");
-}
-
 void ASTPrinter::visit(const ASTFor* node) {
     print_kind(node);
     print_raw("(\n");
@@ -655,10 +635,19 @@ void ASTPrinter::visit(const ASTSwitchCase* node) {
     print_raw(")");
 }
 
-void ASTPrinter::visit(const ASTWhile* node) {
+void ASTPrinter::visit(const ASTLoop* node) {
     print_kind(node);
     print_raw("(\n");
     indentation_level += 1;
+
+    print_indentation();
+    print_raw("PRE_CHECK_CONDITIONS = ");
+    if (node->pre_check_conditions) {
+        print_raw("TRUE");
+    } else {
+        print_raw("FALSE");
+    }
+    print_raw("\n");
 
     print_indentation();
     print_raw("CONDITIONS = ");
@@ -768,9 +757,6 @@ void ASTPrinter::print_kind(const ASTNode* node) {
         case AST_DEFER:
             return print_raw("AST_DEFER");
 
-        case AST_DO:
-            return print_raw("AST_DO");
-
         case AST_FOR:
             return print_raw("AST_FOR");
 
@@ -786,8 +772,8 @@ void ASTPrinter::print_kind(const ASTNode* node) {
         case AST_SWITCH_CASE:
             return print_raw("AST_SWITCH_CASE");
 
-        case AST_WHILE:
-            return print_raw("AST_WHILE");
+        case AST_LOOP:
+            return print_raw("AST_LOOP");
 
         case AST_CALL:
             return print_raw("AST_CALL");

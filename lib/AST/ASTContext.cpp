@@ -47,12 +47,11 @@ static size_t node_sizes[] = {
     sizeof(ASTControl),
     sizeof(ASTSwitchCase),
     sizeof(ASTDefer),
-    sizeof(ASTDo),
     sizeof(ASTFor),
     sizeof(ASTGuard),
     sizeof(ASTIf),
     sizeof(ASTSwitch),
-    sizeof(ASTWhile),
+    sizeof(ASTLoop),
     sizeof(ASTCall),
     sizeof(ASTSubscript)
 };

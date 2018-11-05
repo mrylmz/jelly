@@ -17,17 +17,18 @@
                 )
                 BLOCK = AST_BLOCK(
                     STATEMENTS = [
-                        AST_DO(
-                            BLOCK = AST_BLOCK(
-                                STATEMENTS = [
-
-                                ]
-                            )
+                        AST_LOOP(
+                            PRE_CHECK_CONDITIONS = FALSE
                             CONDITIONS = [
                                 AST_LITERAL(
                                     VALUE = BOOL(TRUE)
                                 )
                             ]
+                            BLOCK = AST_BLOCK(
+                                STATEMENTS = [
+
+                                ]
+                            )
                         )
                     ]
                 )

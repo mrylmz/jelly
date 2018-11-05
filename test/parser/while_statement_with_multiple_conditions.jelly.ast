@@ -17,7 +17,8 @@
                 )
                 BLOCK = AST_BLOCK(
                     STATEMENTS = [
-                        AST_WHILE(
+                        AST_LOOP(
+                            PRE_CHECK_CONDITIONS = TRUE
                             CONDITIONS = [
                                 AST_IDENTIFIER(
                                     TEXT = STRING(condition0)

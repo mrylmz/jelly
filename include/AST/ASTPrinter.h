@@ -48,13 +48,12 @@ struct ASTBinaryExpression;
 struct ASTControl;
 struct ASTType;
 struct ASTDefer;
-struct ASTDo;
 struct ASTFor;
 struct ASTGuard;
 struct ASTIf;
 struct ASTSwitch;
 struct ASTSwitchCase;
-struct ASTWhile;
+struct ASTLoop;
 struct ASTCall;
 struct ASTSubscript;
 
@@ -89,13 +88,12 @@ private:
     virtual void visit(const ASTControl* node);
     virtual void visit(const ASTType* node);
     virtual void visit(const ASTDefer* node);
-    virtual void visit(const ASTDo* node);
     virtual void visit(const ASTFor* node);
     virtual void visit(const ASTGuard* node);
     virtual void visit(const ASTIf* node);
     virtual void visit(const ASTSwitch* node);
     virtual void visit(const ASTSwitchCase* node);
-    virtual void visit(const ASTWhile* node);
+    virtual void visit(const ASTLoop* node);
     virtual void visit(const ASTCall* node);
     virtual void visit(const ASTSubscript* node);
 

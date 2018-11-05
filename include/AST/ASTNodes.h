@@ -253,15 +253,6 @@ struct ASTDefer : public ASTStatement {
     ASTExpression* expression;
 };
 
-struct ASTDo : public ASTStatement {
-    ASTDo() {
-        kind = AST_DO;
-    }
-
-    ASTBlock*             block;
-    Array<ASTExpression*> conditions;
-};
-
 struct ASTFor : public ASTStatement {
     ASTFor() {
         kind = AST_FOR;
@@ -315,11 +306,12 @@ struct ASTSwitch : public ASTStatement {
     Array<ASTSwitchCase*> cases;
 };
 
-struct ASTWhile : public ASTStatement {
-    ASTWhile() {
-        kind = AST_WHILE;
+struct ASTLoop : public ASTStatement {
+    ASTLoop() : pre_check_conditions(true), conditions({}), block(nullptr) {
+        kind = AST_LOOP;
     }
 
+    bool                  pre_check_conditions;
     Array<ASTExpression*> conditions;
     ASTBlock*             block;
 };
