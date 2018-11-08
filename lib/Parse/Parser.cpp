@@ -34,10 +34,6 @@
 void Parser::parse() {
     lexer.peek_next_token(token);
 
-    scope_stack.clear();
-    scope_stack.push_back(context.root);
-    defer(scope_stack.pop_back());
-
     parent_stack.push_back(context.root);
     defer(parent_stack.pop_back());
 
@@ -55,43 +51,6 @@ void Parser::consume_token() {
 void Parser::report_error(const char* message) {
 // TODO: Forward error messages to diagnostics engine!
     printf("Error: %s\n", message);
-}
-
-ASTBlock* Parser::get_current_scope() {
-    return scope_stack.back();
-}
-
-bool Parser::scope_get_declaration(ASTBlock* block, ASTLexeme lexeme, ASTDeclaration*& declaration) {
-    auto it = block->symbols.find(lexeme.index);
-    if (it != block->symbols.end()) {
-        declaration = it->second;
-        return true;
-    }
-
-    return false;
-}
-
-bool Parser::scope_add_declaration(ASTBlock* block, ASTDeclaration* declaration) {
-    auto it = block->symbols.find(declaration->name->lexeme.index);
-    if (it != block->symbols.end()) {
-        report_error("Invalid redeclaration of identifier!");
-        return false;
-    }
-
-    block->symbols.emplace(std::pair<int64_t, ASTDeclaration*>(declaration->name->lexeme.index, declaration));
-    return true;
-}
-
-void Parser::scope_add_unresolved_identifier(ASTBlock* block, ASTIdentifier* identifier) {
-    bool found = false;
-
-    for (auto it = block->unresolved_identifier.begin(); it != block->unresolved_identifier.end(); it++) {
-        found |= (*it)->lexeme == identifier->lexeme;
-    }
-
-    if (!found) {
-        block->unresolved_identifier.push_back(identifier);
-    }
 }
 
 // MARK: - Top Level Declarations
@@ -135,6 +94,8 @@ ASTDirective* Parser::parse_directive() {
         default:
             unreachable("Invalid token given for start of directive!");
     }
+
+    return nullptr;
 }
 
 /// grammar: load-directive := "#load" string-literal
@@ -188,9 +149,6 @@ ASTDeclaration* Parser::parse_enum_declaration() {
         parent_stack.push_back(enumeration->block);
         defer(parent_stack.pop_back());
 
-        scope_stack.push_back(enumeration->block);
-        defer(scope_stack.pop_back());
-
         while (true) {
             ASTEnumElement* element = parse_enum_element();
             if (element == nullptr) {
@@ -208,10 +166,6 @@ ASTDeclaration* Parser::parse_enum_declaration() {
         }
     }
     consume_token();
-
-    if (!scope_add_declaration(get_current_scope(), enumeration)) {
-        return nullptr;
-    }
 
     return enumeration;
 }
@@ -237,16 +191,6 @@ ASTDeclaration* Parser::parse_func_declaration() {
         return nullptr;
     }
 
-    for (auto it = func->signature->parameters.begin(); it != func->signature->parameters.end(); it++) {
-        if (!scope_add_declaration(func->block, *it)) {
-            return nullptr;
-        }
-    }
-
-    if (!scope_add_declaration(get_current_scope(), func)) {
-        return nullptr;
-    }
-
     return func;
 }
 
@@ -268,17 +212,6 @@ ASTDeclaration* Parser::parse_struct_declaration() {
 
     structure->block = parse_block();
     if (structure->block == nullptr) {
-        return nullptr;
-    }
-
-    for (auto it = structure->block->statements.begin(); it != structure->block->statements.end(); it++) {
-        if ((*it)->kind != AST_VARIABLE) {
-            report_error("Only variable declarations are allowed inside of structure declarations!");
-            return nullptr;
-        }
-    }
-
-    if (!scope_add_declaration(get_current_scope(), structure)) {
         return nullptr;
     }
 
@@ -311,8 +244,8 @@ ASTDeclaration* Parser::parse_variable_declaration() {
     }
     consume_token();
 
-    variable->type = parse_type();
-    if (variable->type == nullptr) {
+    variable->type_ref = parse_type_ref();
+    if (variable->type_ref == nullptr) {
         report_error("Expected type of variable declaration!");
         return nullptr;
     }
@@ -325,10 +258,6 @@ ASTDeclaration* Parser::parse_variable_declaration() {
             report_error("Expected expression after '=' assignment operator!");
             return nullptr;
         }
-    }
-
-    if (!scope_add_declaration(get_current_scope(), variable)) {
-        return nullptr;
     }
 
     return variable;
@@ -365,10 +294,6 @@ ASTEnumElement* Parser::parse_enum_element() {
         }
     }
 
-    if (!scope_add_declaration(get_current_scope(), element)) {
-        return nullptr;
-    }
-
     return element;
 }
 
@@ -391,8 +316,8 @@ ASTParameter* Parser::parse_parameter() {
     }
     consume_token();
 
-    parameter->type = parse_type();
-    if (parameter->type == nullptr) {
+    parameter->type_ref = parse_type_ref();
+    if (parameter->type_ref == nullptr) {
         report_error("Expected type of parameter!");
         return nullptr;
     }
@@ -456,8 +381,8 @@ ASTFuncSignature* Parser::parse_func_signature() {
 
     consume_token();
 
-    signature->return_type = parse_type();
-    if (signature->return_type == nullptr) {
+    signature->return_type_ref = parse_type_ref();
+    if (signature->return_type_ref == nullptr) {
         report_error("Expected return type of function declaration!");
         return nullptr;
     }
@@ -475,6 +400,7 @@ ASTLiteral* Parser::parse_literal() {
     defer(parent_stack.pop_back());
 
     literal->token_kind = token.kind;
+    literal->flags |= AST_EXPRESSION_IS_CONSTANT;
 
     switch (token.kind) {
         case TOKEN_LITERAL_INT:
@@ -545,12 +471,21 @@ ASTExpression* Parser::parse_expression(uint32_t precedence) {
             }
 
             ASTBinaryExpression* right = new (&context) ASTBinaryExpression;
+            right->parent = parent_stack.back(); // TODO: Check if this is correct !!!
             right->op = op;
+            right->op_identifier = new (&context) ASTIdentifier;
+            right->op_identifier->type = context.type_unresolved;
+            right->op_identifier->parent = right;
+            right->op_identifier->lexeme = context.get_lexeme(op.text);
+
             right->left = left;
+            left->parent = right;
+
             right->right = parse_expression(next_precedence);
             if (right->right == nullptr) {
                 return nullptr;
             }
+            right->right->parent = right;
 
             left = right;
         } else if (op.text.is_equal("()")) {
@@ -661,6 +596,11 @@ ASTExpression* Parser::parse_unary_expression() {
     defer(parent_stack.pop_back());
 
     expression->op = op;
+    expression->op_identifier = new (&context) ASTIdentifier;
+    expression->op_identifier->type = context.type_unresolved;
+    expression->op_identifier->parent = parent_stack.back();
+    expression->op_identifier->lexeme = context.get_lexeme(op.text);
+
     expression->right = parse_expression();
 
     if (expression->right == nullptr) {
@@ -695,7 +635,6 @@ ASTExpression* Parser::parse_atom_expression() {
 
         case TOKEN_IDENTIFIER:
             expression = parse_identifier();
-            scope_add_unresolved_identifier(get_current_scope(), reinterpret_cast<ASTIdentifier*>(expression));
             break;
 
         default:
@@ -1106,8 +1045,6 @@ ASTBlock* Parser::parse_block() {
     block->parent = parent_stack.back();
     parent_stack.push_back(block);
     defer(parent_stack.pop_back());
-    scope_stack.push_back(block);
-    defer(scope_stack.pop_back());
 
     if (!token.is('}')) {
         while (true) {
@@ -1156,21 +1093,21 @@ ASTIdentifier* Parser::parse_identifier() {
 /// grammar: pointer-type-identifier := type-identifier "*"
 /// grammar: array-type-identifier := type-identifier "[" [ expression ] "]"
 /// grammar: type-of-type-identifier := "typeof" "(" expression ")"
-ASTType* Parser::parse_type() {
-    ASTType* type = new (&context) ASTType;
-    type->parent = parent_stack.back();
-    parent_stack.push_back(type);
+ASTTypeRef* Parser::parse_type_ref() {
+    ASTTypeRef* type_ref = new (&context) ASTTypeRef;
+    type_ref->parent = parent_stack.back();
+    parent_stack.push_back(type_ref);
 
     switch (token.kind) {
         case TOKEN_KEYWORD_ANY:
             consume_token();
-            type->type_kind = AST_TYPE_ANY;
+            type_ref->type_ref_kind = AST_TYPE_REF_ANY;
             break;
 
         case TOKEN_IDENTIFIER:
-            type->type_kind = AST_TYPE_IDENTIFIER;
-            type->identifier = parse_identifier();
-            if (type->identifier == nullptr) {
+            type_ref->type_ref_kind = AST_TYPE_REF_IDENTIFIER;
+            type_ref->identifier = parse_identifier();
+            if (type_ref->identifier == nullptr) {
                 return nullptr;
             }
             break;
@@ -1184,14 +1121,14 @@ ASTType* Parser::parse_type() {
             }
             consume_token();
 
-            type->type_kind = AST_TYPE_TYPEOF;
-            type->expression = parse_expression();
-            if (type->expression == nullptr) {
+            type_ref->type_ref_kind = AST_TYPE_REF_TYPEOF;
+            type_ref->expression = parse_expression();
+            if (type_ref->expression == nullptr) {
                 return nullptr;
             }
 
             if (!token.is(')')) {
-                report_error("Expected ) after expression of typeof!");
+                report_error("Expected ) after expression of typeof keyword!");
                 return nullptr;
             }
             consume_token();
@@ -1202,7 +1139,7 @@ ASTType* Parser::parse_type() {
             return nullptr;
     }
 
-    ASTType* next = nullptr;
+    ASTTypeRef* next = nullptr;
     bool finished = false;
 
     while (!finished) {
@@ -1214,26 +1151,27 @@ ASTType* Parser::parse_type() {
                 }
                 consume_token();
 
-                next = new (&context) ASTType;
+                next = new (&context) ASTTypeRef;
                 next->parent = parent_stack.back();
                 parent_stack.push_back(next);
 
-                next->type_kind = AST_TYPE_POINTER;
-                next->type = type;
-                type = next;
+                next->type_ref_kind = AST_TYPE_REF_POINTER;
+                next->base_ref = type_ref;
+                type_ref = next;
                 break;
 
             case '[':
                 consume_token();
 
-                next = new (&context) ASTType;
+                // TODO: Do we have to precheck if token is ']' to avoid parsing a failing expression ?
+                next = new (&context) ASTTypeRef;
                 next->parent = parent_stack.back();
                 parent_stack.push_back(next);
 
-                next->type_kind = AST_TYPE_ARRAY;
-                next->type = type;
+                next->type_ref_kind = AST_TYPE_REF_ARRAY;
+                next->base_ref = type_ref;
                 next->expression = parse_expression();
-                type = next;
+                type_ref = next;
 
                 if (!token.is(']')) {
                     report_error("Expected ] after expression of array-type-identifier!");
@@ -1248,14 +1186,14 @@ ASTType* Parser::parse_type() {
         }
     }
 
-    next = type;
+    next = type_ref;
     while (next != nullptr) {
         parent_stack.pop_back();
 
-        next = next->type;
+        next = next->base_ref;
     }
 
-    return type;
+    return type_ref;
 }
 
 // MARK: - Helpers
@@ -1294,9 +1232,6 @@ ASTSwitchCase* Parser::parse_switch_case() {
     {
         parent_stack.push_back(switch_case->block);
         defer(parent_stack.pop_back());
-
-        scope_stack.push_back(switch_case->block);
-        defer(scope_stack.pop_back());
 
         do {
 

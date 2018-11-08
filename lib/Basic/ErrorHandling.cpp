@@ -34,9 +34,9 @@ void __unreachable(const char *message, const char *filename, unsigned line) {
 
 void fatal_error(const char* message) {
     if (message) {
-        fprintf(stderr, "Error: %s", message);
+        fprintf(stderr, "Error: %s\n", message);
     } else {
-        fprintf(stderr, "Error: Internal compiler error!");
+        fprintf(stderr, "Error: Internal compiler error!\n");
     }
 
     exit(EXIT_FAILURE);

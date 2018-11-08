@@ -39,7 +39,7 @@ struct ASTIdentifier;
 struct ASTUnaryExpression;
 struct ASTBinaryExpression;
 struct ASTControl;
-struct ASTType;
+struct ASTTypeRef;
 struct ASTDefer;
 struct ASTFor;
 struct ASTGuard;
@@ -50,33 +50,36 @@ struct ASTLoop;
 struct ASTCall;
 struct ASTSubscript;
 
-// TODO: Rename visit methods adding type names as suffix
-// TODO: Add more useful visitor logic to fully cover visitor-pattern.
-
 struct ASTVisitor {
-    virtual void visit(const ASTNode* node);
-    virtual void visit(const ASTLoad* node) = 0;
-    virtual void visit(const ASTLiteral* node) = 0;
-    virtual void visit(const ASTFunc* node) = 0;
-    virtual void visit(const ASTFuncSignature* node) = 0;
-    virtual void visit(const ASTBlock* node) = 0;
-    virtual void visit(const ASTParameter* node) = 0;
-    virtual void visit(const ASTStruct* node) = 0;
-    virtual void visit(const ASTVariable* node) = 0;
-    virtual void visit(const ASTEnum* node) = 0;
-    virtual void visit(const ASTEnumElement* node) = 0;
-    virtual void visit(const ASTIdentifier* node) = 0;
-    virtual void visit(const ASTUnaryExpression* node) = 0;
-    virtual void visit(const ASTBinaryExpression* node) = 0;
-    virtual void visit(const ASTControl* node) = 0;
-    virtual void visit(const ASTType* node) = 0;
-    virtual void visit(const ASTDefer* node) = 0;
-    virtual void visit(const ASTFor* node) = 0;
-    virtual void visit(const ASTGuard* node) = 0;
-    virtual void visit(const ASTIf* node) = 0;
-    virtual void visit(const ASTSwitch* node) = 0;
-    virtual void visit(const ASTSwitchCase* node) = 0;
-    virtual void visit(const ASTLoop* node) = 0;
-    virtual void visit(const ASTCall* node) = 0;
-    virtual void visit(const ASTSubscript* node) = 0;
+    virtual void pre_visit_node(ASTNode* node);
+    virtual void post_visit_node(ASTNode* node);
+
+    void         visit_node(ASTNode* node);
+    virtual void visit_load(ASTLoad* node);
+    virtual void visit_literal(ASTLiteral* node);
+    virtual void visit_func(ASTFunc* node);
+    virtual void visit_func_signature(ASTFuncSignature* node);
+    virtual void visit_block(ASTBlock* node);
+    virtual void visit_parameter(ASTParameter* node);
+    virtual void visit_struct(ASTStruct* node);
+    virtual void visit_variable(ASTVariable* node);
+    virtual void visit_enum(ASTEnum* node);
+    virtual void visit_enum_element(ASTEnumElement* node);
+    virtual void visit_identifier(ASTIdentifier* node);
+    virtual void visit_unary(ASTUnaryExpression* node);
+    virtual void visit_binary(ASTBinaryExpression* node);
+    virtual void visit_control(ASTControl* node);
+    virtual void visit_type_ref(ASTTypeRef* node);
+    virtual void visit_defer(ASTDefer* node);
+    virtual void visit_for(ASTFor* node);
+    virtual void visit_guard(ASTGuard* node);
+    virtual void visit_if(ASTIf* node);
+    virtual void visit_switch(ASTSwitch* node);
+    virtual void visit_switch_case(ASTSwitchCase* node);
+    virtual void visit_loop(ASTLoop* node);
+    virtual void visit_call(ASTCall* node);
+    virtual void visit_subscript(ASTSubscript* node);
+
+private:
+    void visit_children(ASTNode* node);
 };

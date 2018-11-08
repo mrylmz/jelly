@@ -24,7 +24,8 @@
 
 #pragma once
 
-#include "AST/ASTNodeKinds.h"
+#include "AST/ASTEnums.h"
+#include "AST/ASTFlags.h"
 
 #include <Basic/Basic.h>
 #include <Syntax/Syntax.h>
@@ -32,9 +33,14 @@
 #include <map>
 
 struct ASTContext;
+struct ASTNode;
 struct ASTDeclaration;
 struct ASTIdentifier;
+struct ASTFunc;
+struct ASTStruct;
+struct ASTEnum;
 struct ASTBlock;
+struct ASTTypeRef;
 
 struct ASTLexeme {
     int64_t index = -1;
@@ -64,6 +70,17 @@ struct ASTNode {
         return is(kind2, kinds...);
     }
 
+    bool is_expression() const {
+        return is(
+            AST_UNARY,
+            AST_BINARY,
+            AST_IDENTIFIER,
+            AST_LITERAL,
+            AST_CALL,
+            AST_SUBSCRIPT
+        );
+    }
+
     ASTBlock* get_parent_block() const {
         ASTNode* next = parent;
 
@@ -88,7 +105,14 @@ struct ASTNode {
 };
 
 struct ASTStatement : public ASTNode {};
-struct ASTExpression : public ASTStatement {};
+
+struct ASTExpression : public ASTStatement {
+    ASTExpression() : substitution(nullptr) {
+    }
+
+    ASTExpression* substitution;
+};
+
 struct ASTDirective : public ASTNode {};
 
 struct ASTDeclaration : public ASTStatement {
@@ -99,20 +123,22 @@ struct ASTDeclaration : public ASTStatement {
 };
 
 struct ASTUnaryExpression : public ASTExpression {
-    ASTUnaryExpression() : op({}), right(nullptr) {
+    ASTUnaryExpression() : op({}), op_identifier(nullptr), right(nullptr) {
         kind = AST_UNARY;
     }
 
     Operator       op;
+    ASTIdentifier* op_identifier;
     ASTExpression* right;
 };
 
 struct ASTBinaryExpression : public ASTExpression {
-    ASTBinaryExpression() {
+    ASTBinaryExpression() : op_identifier(nullptr), left(nullptr), right(nullptr) {
         kind = AST_BINARY;
     }
 
     Operator       op;
+    ASTIdentifier* op_identifier;
     ASTExpression* left;
     ASTExpression* right;
 };
@@ -125,17 +151,16 @@ struct ASTIdentifier : public ASTExpression {
     ASTLexeme lexeme;
 };
 
-struct ASTType : public ASTNode {
-    ASTType() : type(nullptr), type_kind(AST_TYPE_UNKNOWN), identifier(nullptr) {
-        kind = AST_TYPE;
+struct ASTTypeRef : public ASTNode {
+    ASTTypeRef() : type_ref_kind(AST_TYPE_REF_UNKNOWN), base_ref(nullptr), identifier(nullptr) {
+        kind = AST_TYPE_REF;
     }
 
-    ASTType*    type;
-    ASTTypeKind type_kind;
-
+    ASTTypeRefKind type_ref_kind;
+    ASTTypeRef*    base_ref;
     union {
-        ASTIdentifier* identifier;
-        ASTExpression* expression;
+        ASTIdentifier*  identifier;
+        ASTExpression*  expression;
     };
 };
 
@@ -162,12 +187,12 @@ struct ASTLoad : public ASTDirective {
 };
 
 struct ASTParameter : public ASTDeclaration {
-    ASTParameter() : type(nullptr) {
+    ASTParameter() : type_ref(nullptr) {
         kind = AST_PARAMETER;
     }
 
-    uint32_t position;
-    ASTType* type;
+    uint32_t    position;
+    ASTTypeRef* type_ref;
 };
 
 struct ASTBlock : public ASTNode {
@@ -180,18 +205,19 @@ struct ASTBlock : public ASTNode {
     // Scope Members
     using SymbolTable = std::map<int64_t, ASTDeclaration*>;
 
-    SymbolTable           symbols;
-    Array<ASTIdentifier*> unresolved_identifier;
+    SymbolTable symbols;
 };
 
-struct ASTFuncSignature : public ASTNode {
-    ASTFuncSignature() : name(nullptr), return_type(nullptr) {
+// TODO: Maybe this shouldn't derive from ASTDeclaration?
+//       currently ASTFunc and ASTFuncSignature have a name
+//       but one of them is redundant ...
+struct ASTFuncSignature : public ASTDeclaration {
+    ASTFuncSignature() : return_type_ref(nullptr) {
         kind = AST_FUNC_SIGNATURE;
     }
 
-    ASTIdentifier*       name;
     Array<ASTParameter*> parameters;
-    ASTType*             return_type;
+    ASTTypeRef*          return_type_ref;
 };
 
 struct ASTFunc : public ASTDeclaration {
@@ -204,11 +230,11 @@ struct ASTFunc : public ASTDeclaration {
 };
 
 struct ASTVariable : public ASTDeclaration {
-    ASTVariable() : type(nullptr), assignment(nullptr) {
+    ASTVariable() : type_ref(nullptr), assignment(nullptr) {
         kind = AST_VARIABLE;
     }
 
-    ASTType*       type;
+    ASTTypeRef*    type_ref;
     ASTExpression* assignment;
 };
 
@@ -263,21 +289,23 @@ struct ASTFor : public ASTStatement {
     ASTBlock*      block;
 };
 
-struct ASTGuard : public ASTStatement {
+struct ASTBranch : public ASTStatement {
+    Array<ASTExpression*> conditions;
+};
+
+struct ASTGuard : public ASTBranch {
     ASTGuard() {
         kind = AST_GUARD;
     }
 
-    Array<ASTExpression*> conditions;
     ASTBlock*             else_block;
 };
 
-struct ASTIf : public ASTStatement {
+struct ASTIf : public ASTBranch {
     ASTIf() : if_kind(AST_IF_SINGLE) {
         kind = AST_IF;
     }
 
-    Array<ASTExpression*> conditions;
     ASTBlock*             block;
 
     ASTIfKind if_kind;
@@ -285,6 +313,15 @@ struct ASTIf : public ASTStatement {
         ASTBlock* else_block;
         ASTIf*    else_if;
     };
+};
+
+struct ASTLoop : public ASTBranch {
+    ASTLoop() : pre_check_conditions(true), block(nullptr) {
+        kind = AST_LOOP;
+    }
+
+    bool                  pre_check_conditions;
+    ASTBlock*             block;
 };
 
 struct ASTSwitchCase : public ASTNode {
@@ -306,18 +343,8 @@ struct ASTSwitch : public ASTStatement {
     Array<ASTSwitchCase*> cases;
 };
 
-struct ASTLoop : public ASTStatement {
-    ASTLoop() : pre_check_conditions(true), conditions({}), block(nullptr) {
-        kind = AST_LOOP;
-    }
-
-    bool                  pre_check_conditions;
-    Array<ASTExpression*> conditions;
-    ASTBlock*             block;
-};
-
 struct ASTCall : public ASTExpression {
-    ASTCall() {
+    ASTCall() : left(nullptr) {
         kind = AST_CALL;
     }
 

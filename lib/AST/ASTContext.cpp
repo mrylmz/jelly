@@ -32,7 +32,7 @@ static size_t node_sizes[] = {
     sizeof(ASTUnaryExpression),
     sizeof(ASTBinaryExpression),
     sizeof(ASTIdentifier),
-    sizeof(ASTType),
+    sizeof(ASTTypeRef),
     sizeof(ASTLiteral),
     sizeof(ASTDirective),
     sizeof(ASTLoad),
@@ -48,10 +48,11 @@ static size_t node_sizes[] = {
     sizeof(ASTSwitchCase),
     sizeof(ASTDefer),
     sizeof(ASTFor),
+    sizeof(ASTBranch),
     sizeof(ASTGuard),
     sizeof(ASTIf),
-    sizeof(ASTSwitch),
     sizeof(ASTLoop),
+    sizeof(ASTSwitch),
     sizeof(ASTCall),
     sizeof(ASTSubscript)
 };

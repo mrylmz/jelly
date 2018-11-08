@@ -45,7 +45,6 @@ private:
 
     Operator         op;
     Token            token;
-    Array<ASTBlock*> scope_stack;
     Array<ASTNode*>  parent_stack;
 
     ASTContext& context;
@@ -57,9 +56,6 @@ private:
 
     ASTBlock* get_current_scope();
 
-    bool scope_get_declaration(ASTBlock* block, ASTLexeme lexeme, ASTDeclaration*& declaration);
-    bool scope_add_declaration(ASTBlock* block, ASTDeclaration* declaration);
-    void scope_add_unresolved_identifier(ASTBlock* block, ASTIdentifier* identifier);
 
     // MARK: - Top Level Declarations
 
@@ -117,7 +113,7 @@ private:
 
     // MARK: - Types
 
-    ASTType* parse_type();
+    ASTTypeRef* parse_type_ref();
 
     // MARK: - Helpers
 

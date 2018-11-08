@@ -27,5 +27,6 @@
 #include <stdint.h>
 
 enum ASTFlags : uint32_t {
-    AST_VARIABLE_IS_CONSTANT = 1 << 0,
+    AST_EXPRESSION_IS_CONSTANT = 1 << 1,
+    AST_VARIABLE_IS_CONSTANT = 1 << 2,
 };

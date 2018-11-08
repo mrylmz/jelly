@@ -46,7 +46,7 @@ struct ASTIdentifier;
 struct ASTUnaryExpression;
 struct ASTBinaryExpression;
 struct ASTControl;
-struct ASTType;
+struct ASTTypeRef;
 struct ASTDefer;
 struct ASTFor;
 struct ASTGuard;
@@ -58,7 +58,7 @@ struct ASTCall;
 struct ASTSubscript;
 
 // TODO: Add unit tests with at runtime generated AST representations !!!
-struct ASTPrinter : private ASTVisitor {
+struct ASTPrinter {
     using OutputStream = std::ostream;
 
     ASTPrinter(OutputStream& output_stream) : current_context(nullptr), output_stream(output_stream), indentation_level(0) {
@@ -71,31 +71,31 @@ private:
     OutputStream&     output_stream;
     uint32_t          indentation_level;
 
-    virtual void visit(const ASTNode *node);
-    virtual void visit(const ASTLoad* node);
-    virtual void visit(const ASTLiteral* node);
-    virtual void visit(const ASTFunc* node);
-    virtual void visit(const ASTFuncSignature* node);
-    virtual void visit(const ASTBlock* node);
-    virtual void visit(const ASTParameter* node);
-    virtual void visit(const ASTStruct* node);
-    virtual void visit(const ASTVariable* node);
-    virtual void visit(const ASTEnum* node);
-    virtual void visit(const ASTEnumElement* node);
-    virtual void visit(const ASTIdentifier* node);
-    virtual void visit(const ASTUnaryExpression* node);
-    virtual void visit(const ASTBinaryExpression* node);
-    virtual void visit(const ASTControl* node);
-    virtual void visit(const ASTType* node);
-    virtual void visit(const ASTDefer* node);
-    virtual void visit(const ASTFor* node);
-    virtual void visit(const ASTGuard* node);
-    virtual void visit(const ASTIf* node);
-    virtual void visit(const ASTSwitch* node);
-    virtual void visit(const ASTSwitchCase* node);
-    virtual void visit(const ASTLoop* node);
-    virtual void visit(const ASTCall* node);
-    virtual void visit(const ASTSubscript* node);
+    void visit(const ASTNode *node);
+    void visit(const ASTLoad* node);
+    void visit(const ASTLiteral* node);
+    void visit(const ASTFunc* node);
+    void visit(const ASTFuncSignature* node);
+    void visit(const ASTBlock* node);
+    void visit(const ASTParameter* node);
+    void visit(const ASTStruct* node);
+    void visit(const ASTVariable* node);
+    void visit(const ASTEnum* node);
+    void visit(const ASTEnumElement* node);
+    void visit(const ASTIdentifier* node);
+    void visit(const ASTUnaryExpression* node);
+    void visit(const ASTBinaryExpression* node);
+    void visit(const ASTControl* node);
+    void visit(const ASTTypeRef* node);
+    void visit(const ASTDefer* node);
+    void visit(const ASTFor* node);
+    void visit(const ASTGuard* node);
+    void visit(const ASTIf* node);
+    void visit(const ASTSwitch* node);
+    void visit(const ASTSwitchCase* node);
+    void visit(const ASTLoop* node);
+    void visit(const ASTCall* node);
+    void visit(const ASTSubscript* node);
 
     void print_indentation();
     void print_kind(const ASTNode* node);
