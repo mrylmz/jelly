@@ -28,3 +28,12 @@
 #define CONCATENATE(__HEAD__,__TAIL__) __CONCATENATE(__HEAD__,__TAIL__)
 
 #define UNIQUE(__NAME__) CONCATENATE(__NAME__, __COUNTER__)
+
+#if defined(__GNUC__) || defined(__clang__)
+#   define JELLY_DEPRECATED __attribute__((deprecated))
+#elif defined(_MSC_VER)
+#   define JELLY_DEPRECATED __declspec(deprecated)
+#else
+#   pragma message("Deprecation not supported by the compiler!")
+#   define JELLY_DEPRECATED
+#endif

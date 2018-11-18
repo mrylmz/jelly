@@ -126,6 +126,7 @@ ASTDeclaration* Parser::parse_enum_declaration() {
     consume_token();
 
     ASTEnum* enumeration = new (&context) ASTEnum;
+    enumeration->type = new (&context) ASTEnumType(enumeration);
     enumeration->parent = parent_stack.back();
     parent_stack.push_back(enumeration);
     defer(parent_stack.pop_back());
@@ -180,11 +181,25 @@ ASTDeclaration* Parser::parse_func_declaration() {
     parent_stack.push_back(func);
     defer(parent_stack.pop_back());
 
+    func->name = parse_identifier();
+    if (func->name == nullptr) {
+        report_error("Expected identifier in function declaration!");
+        return nullptr;
+    }
+
     func->signature = parse_func_signature();
     if (func->signature == nullptr) {
         return nullptr;
     }
-    func->name = func->signature->name;
+
+    auto func_type = new (&context) ASTFuncType(func);
+    func->type = func_type;
+
+    for (auto parameter : func->signature->parameters) {
+        func_type->parameter_types.push_back(parameter->type);
+    }
+
+    func_type->return_type = func->signature->return_type;
 
     func->block = parse_block();
     if (func->block == nullptr) {
@@ -213,6 +228,16 @@ ASTDeclaration* Parser::parse_struct_declaration() {
     structure->block = parse_block();
     if (structure->block == nullptr) {
         return nullptr;
+    }
+
+    auto struct_type = new (&context) ASTStructType(structure);
+    structure->type = struct_type;
+
+    for (auto stmt : structure->block->statements) {
+        if (stmt->is(AST_VARIABLE)) {
+            auto variable = reinterpret_cast<ASTVariable*>(stmt);
+            struct_type->member_types.push_back(variable->type);
+        }
     }
 
     return structure;
@@ -244,8 +269,8 @@ ASTDeclaration* Parser::parse_variable_declaration() {
     }
     consume_token();
 
-    variable->type_ref = parse_type_ref();
-    if (variable->type_ref == nullptr) {
+    variable->type = parse_type();
+    if (variable->type == nullptr) {
         report_error("Expected type of variable declaration!");
         return nullptr;
     }
@@ -274,6 +299,7 @@ ASTEnumElement* Parser::parse_enum_element() {
     consume_token();
 
     ASTEnumElement* element = new (&context) ASTEnumElement;
+    element->type = context.type_Int;
     element->parent = parent_stack.back();
     parent_stack.push_back(element);
     defer(parent_stack.pop_back());
@@ -316,8 +342,8 @@ ASTParameter* Parser::parse_parameter() {
     }
     consume_token();
 
-    parameter->type_ref = parse_type_ref();
-    if (parameter->type_ref == nullptr) {
+    parameter->type = parse_type();
+    if (parameter->type == nullptr) {
         report_error("Expected type of parameter!");
         return nullptr;
     }
@@ -334,12 +360,6 @@ ASTFuncSignature* Parser::parse_func_signature() {
     parent_stack.push_back(signature);
     defer(parent_stack.pop_back());
 
-    signature->name = parse_identifier();
-    if (signature->name == nullptr) {
-        report_error("Expected identifier in function declaration!");
-        return nullptr;
-    }
-
     if (!token.is('(')) {
         report_error("Expected '(' in parameter list of function declaration!");
         return nullptr;
@@ -348,16 +368,11 @@ ASTFuncSignature* Parser::parse_func_signature() {
     consume_token();
 
     if (!token.is(')')) {
-        uint32_t position = 0;
-
         while (true) {
             ASTParameter* parameter = parse_parameter();
             if (parameter == nullptr) {
                 return nullptr;
             }
-
-            parameter->position = position;
-            position += 1;
 
             signature->parameters.push_back(parameter);
 
@@ -381,8 +396,8 @@ ASTFuncSignature* Parser::parse_func_signature() {
 
     consume_token();
 
-    signature->return_type_ref = parse_type_ref();
-    if (signature->return_type_ref == nullptr) {
+    signature->return_type = parse_type();
+    if (signature->return_type == nullptr) {
         report_error("Expected return type of function declaration!");
         return nullptr;
     }
@@ -409,6 +424,7 @@ ASTLiteral* Parser::parse_literal() {
                 return nullptr;
             }
 
+            literal->type = context.type_Int;
             break;
 
         case TOKEN_LITERAL_FLOAT:
@@ -417,26 +433,31 @@ ASTLiteral* Parser::parse_literal() {
                 return nullptr;
             }
 
+            literal->type = context.type_Float;
             break;
 
         case TOKEN_LITERAL_STRING:
             assert(token.text.buffer_length >= 2 && "Invalid length of string literal text, has to contain at least \"\"");
             literal->string_value = token.text.slice(1, token.text.buffer_length - 2);
             literal->string_value = String(literal->string_value.copy_buffer(), literal->string_value.buffer_length);
+            literal->type = context.type_String;
             break;
 
         case TOKEN_KEYWORD_TRUE:
             literal->token_kind = TOKEN_LITERAL_BOOL;
             literal->bool_value = true;
+            literal->type = context.type_Bool;
             break;
 
         case TOKEN_KEYWORD_FALSE:
             literal->token_kind = TOKEN_LITERAL_BOOL;
             literal->bool_value = false;
+            literal->type = context.type_Bool;
             break;
 
         case TOKEN_KEYWORD_NIL:
             literal->token_kind = TOKEN_LITERAL_NIL;
+            literal->type = context.type_AnyPointer;
             break;
 
         default:
@@ -461,6 +482,7 @@ ASTExpression* Parser::parse_expression(uint32_t precedence) {
         return left;
     }
 
+    // TODO: Maintain parent stack for binary expressions !!!
     while (precedence < op.precedence) {
         if (op.kind == OPERATOR_INFIX || op.text.is_equal(".")) {
             consume_token();
@@ -474,9 +496,13 @@ ASTExpression* Parser::parse_expression(uint32_t precedence) {
             right->parent = parent_stack.back(); // TODO: Check if this is correct !!!
             right->op = op;
             right->op_identifier = new (&context) ASTIdentifier;
-            right->op_identifier->type = context.type_unresolved;
+            right->op_identifier->type = new (&context) ASTOpaqueType(right->op_identifier);
             right->op_identifier->parent = right;
             right->op_identifier->lexeme = context.get_lexeme(op.text);
+            right->type = right->op_identifier->type;
+#ifdef DEBUG
+            right->op_identifier->debug_lexeme_text = context.get_lexeme_text(right->op_identifier->lexeme);
+#endif
 
             right->left = left;
             left->parent = right;
@@ -510,6 +536,7 @@ ASTExpression* Parser::parse_call_expression(ASTExpression* left) {
     consume_token();
 
     ASTCall* call = new (&context) ASTCall;
+    call->type = context.type_unknown;
     call->parent = parent_stack.back();
     parent_stack.push_back(call);
     defer(parent_stack.pop_back());
@@ -597,9 +624,15 @@ ASTExpression* Parser::parse_unary_expression() {
 
     expression->op = op;
     expression->op_identifier = new (&context) ASTIdentifier;
-    expression->op_identifier->type = context.type_unresolved;
+    expression->op_identifier->type = new (&context) ASTOpaqueType(expression->op_identifier);
     expression->op_identifier->parent = parent_stack.back();
     expression->op_identifier->lexeme = context.get_lexeme(op.text);
+
+    expression->type = expression->op_identifier->type;
+
+#ifdef DEBUG
+    expression->op_identifier->debug_lexeme_text = context.get_lexeme_text(expression->op_identifier->lexeme);
+#endif
 
     expression->right = parse_expression();
 
@@ -1076,12 +1109,17 @@ ASTIdentifier* Parser::parse_identifier() {
     }
 
     ASTIdentifier* identifier = new (&context) ASTIdentifier;
+    identifier->type = new (&context) ASTOpaqueType(identifier);
     identifier->parent = parent_stack.back();
     parent_stack.push_back(identifier);
     defer(parent_stack.pop_back());
 
     identifier->lexeme = context.get_lexeme(token.text);
     consume_token();
+
+#ifdef DEBUG
+    identifier->debug_lexeme_text = context.get_lexeme_text(identifier->lexeme);
+#endif
 
     return identifier;
 }
@@ -1093,26 +1131,27 @@ ASTIdentifier* Parser::parse_identifier() {
 /// grammar: pointer-type-identifier := type-identifier "*"
 /// grammar: array-type-identifier := type-identifier "[" [ expression ] "]"
 /// grammar: type-of-type-identifier := "typeof" "(" expression ")"
-ASTTypeRef* Parser::parse_type_ref() {
-    ASTTypeRef* type_ref = new (&context) ASTTypeRef;
-    type_ref->parent = parent_stack.back();
-    parent_stack.push_back(type_ref);
+ASTType* Parser::parse_type() {
+    ASTType* type = nullptr;
+//    type->parent = parent_stack.back();
+//    parent_stack.push_back(type);
 
     switch (token.kind) {
         case TOKEN_KEYWORD_ANY:
             consume_token();
-            type_ref->type_ref_kind = AST_TYPE_REF_ANY;
+            type = context.type_Any;
             break;
 
-        case TOKEN_IDENTIFIER:
-            type_ref->type_ref_kind = AST_TYPE_REF_IDENTIFIER;
-            type_ref->identifier = parse_identifier();
-            if (type_ref->identifier == nullptr) {
+        case TOKEN_IDENTIFIER: {
+            auto identifier = parse_identifier();
+            if (identifier == nullptr) {
                 return nullptr;
             }
-            break;
 
-        case TOKEN_KEYWORD_TYPEOF:
+            type = new (&context) ASTOpaqueType(identifier);
+        }   break;
+
+        case TOKEN_KEYWORD_TYPEOF: {
             consume_token();
 
             if (!token.is('(')) {
@@ -1121,64 +1160,65 @@ ASTTypeRef* Parser::parse_type_ref() {
             }
             consume_token();
 
-            type_ref->type_ref_kind = AST_TYPE_REF_TYPEOF;
-            type_ref->expression = parse_expression();
-            if (type_ref->expression == nullptr) {
+            auto expr = parse_expression();
+            if (expr == nullptr) {
                 return nullptr;
             }
+
+            type = new (&context) ASTTypeOfType(expr);
 
             if (!token.is(')')) {
                 report_error("Expected ) after expression of typeof keyword!");
                 return nullptr;
             }
             consume_token();
-            break;
+        }   break;
 
         default:
             report_error("Expected type identifier!");
             return nullptr;
     }
 
-    ASTTypeRef* next = nullptr;
     bool finished = false;
-
     while (!finished) {
         switch (token.kind) {
-            case TOKEN_OPERATOR:
+            case TOKEN_OPERATOR: {
                 if (!lexer.get_operator(token, OPERATOR_POSTFIX, op) || !op.text.is_equal("*")) {
                     finished = true;
                     break;
                 }
                 consume_token();
 
-                next = new (&context) ASTTypeRef;
-                next->parent = parent_stack.back();
-                parent_stack.push_back(next);
+                uint32_t pointer_depth = 1;
+                while (token.is(TOKEN_OPERATOR) && lexer.get_operator(token, OPERATOR_POSTFIX, op) && op.text.is_equal("*")) {
+                    pointer_depth += 1;
+                    consume_token();
+                }
 
-                next->type_ref_kind = AST_TYPE_REF_POINTER;
-                next->base_ref = type_ref;
-                type_ref = next;
-                break;
+                type = new (&context) ASTPointerType(pointer_depth, type);
+            }   break;
 
-            case '[':
+            case '[': {
                 consume_token();
 
-                // TODO: Do we have to precheck if token is ']' to avoid parsing a failing expression ?
-                next = new (&context) ASTTypeRef;
-                next->parent = parent_stack.back();
-                parent_stack.push_back(next);
+                if (token.is(']')) {
+                    type = new (&context) ASTArrayType(false, nullptr, type);
+                } else {
+                    auto expr = parse_expression();
+                    if (expr == nullptr) {
+                        return nullptr;
+                    }
 
-                next->type_ref_kind = AST_TYPE_REF_ARRAY;
-                next->base_ref = type_ref;
-                next->expression = parse_expression();
-                type_ref = next;
+                    // TODO: Check if expr is constant and assign is_static in a later phase !!!
+                    type = new (&context) ASTArrayType(true, expr, type);
+                }
 
                 if (!token.is(']')) {
                     report_error("Expected ] after expression of array-type-identifier!");
                     return nullptr;
                 }
                 consume_token();
-                break;
+            }   break;
 
             default:
                 finished = true;
@@ -1186,14 +1226,7 @@ ASTTypeRef* Parser::parse_type_ref() {
         }
     }
 
-    next = type_ref;
-    while (next != nullptr) {
-        parent_stack.pop_back();
-
-        next = next->base_ref;
-    }
-
-    return type_ref;
+    return type;
 }
 
 // MARK: - Helpers

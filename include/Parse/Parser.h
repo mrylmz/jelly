@@ -54,9 +54,6 @@ private:
 
     void report_error(const char* message);
 
-    ASTBlock* get_current_scope();
-
-
     // MARK: - Top Level Declarations
 
     ASTNode* parse_top_level_node();
@@ -113,7 +110,7 @@ private:
 
     // MARK: - Types
 
-    ASTTypeRef* parse_type_ref();
+    ASTType* parse_type();
 
     // MARK: - Helpers
 

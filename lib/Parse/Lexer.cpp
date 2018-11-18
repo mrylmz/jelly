@@ -149,6 +149,7 @@ buffer_ptr(buffer) {
     keywords.set("nil", TOKEN_KEYWORD_NIL);
     keywords.set("true", TOKEN_KEYWORD_TRUE);
     keywords.set("typeof", TOKEN_KEYWORD_TYPEOF);
+    // TODO: [1] Reserve Builtin types as keywords !!!
 
     register_operator(Operator(OPERATOR_PREFIX, "!"));
     register_operator(Operator(OPERATOR_PREFIX, "~"));

@@ -32,6 +32,8 @@ void ASTVisitor::post_visit_node(ASTNode* node) {
 }
 
 void ASTVisitor::visit_node(ASTNode* node) {
+    assert(node);
+
     pre_visit_node(node);
     defer(post_visit_node(node));
 
@@ -85,9 +87,6 @@ void ASTVisitor::visit_node(ASTNode* node) {
         case AST_CONTROL:
             return visit_control(reinterpret_cast<ASTControl*>(node));
 
-        case AST_TYPE_REF:
-            return visit_type_ref(reinterpret_cast<ASTTypeRef*>(node));
-
         case AST_DEFER:
             return visit_defer(reinterpret_cast<ASTDefer*>(node));
 
@@ -114,6 +113,9 @@ void ASTVisitor::visit_node(ASTNode* node) {
 
         case AST_SUBSCRIPT:
             return visit_subscript(reinterpret_cast<ASTSubscript*>(node));
+
+        case AST_TYPE:
+            return visit_type(reinterpret_cast<ASTType*>(node));
 
         default: break;
     }
@@ -175,10 +177,6 @@ void ASTVisitor::visit_control(ASTControl* node) {
     visit_children(node);
 }
 
-void ASTVisitor::visit_type_ref(ASTTypeRef* node) {
-    visit_children(node);
-}
-
 void ASTVisitor::visit_defer(ASTDefer* node) {
     visit_children(node);
 }
@@ -215,6 +213,9 @@ void ASTVisitor::visit_subscript(ASTSubscript* node) {
     visit_children(node);
 }
 
+void ASTVisitor::visit_type(ASTType* node) {
+    visit_children(node);
+}
 
 void ASTVisitor::visit_children(ASTNode* node) {
     switch (node->kind) {
@@ -232,11 +233,10 @@ void ASTVisitor::visit_children(ASTNode* node) {
 
         case AST_FUNC_SIGNATURE: {
             auto signature = reinterpret_cast<ASTFuncSignature*>(node);
-            visit_node(signature->name);
             for (auto parameter : signature->parameters) {
                 visit_node(parameter);
             }
-            visit_node(signature->return_type_ref);
+            visit_node(signature->return_type);
         }   break;
 
         case AST_BLOCK: {
@@ -249,7 +249,7 @@ void ASTVisitor::visit_children(ASTNode* node) {
         case AST_PARAMETER: {
             auto parameter = reinterpret_cast<ASTParameter*>(node);
             visit_node(parameter->name);
-            visit_node(parameter->type_ref);
+            visit_node(parameter->type);
         }   break;
 
         case AST_STRUCT: {
@@ -261,8 +261,10 @@ void ASTVisitor::visit_children(ASTNode* node) {
         case AST_VARIABLE: {
             auto variable = reinterpret_cast<ASTVariable*>(node);
             visit_node(variable->name);
-            visit_node(variable->type_ref);
-            visit_node(variable->assignment);
+            visit_node(variable->type);
+            if (variable->assignment) {
+                visit_node(variable->assignment);
+            }
         }   break;
 
         case AST_ENUM: {
@@ -274,7 +276,9 @@ void ASTVisitor::visit_children(ASTNode* node) {
         case AST_ENUM_ELEMENT: {
             auto element = reinterpret_cast<ASTEnumElement*>(node);
             visit_node(element->name);
-            visit_node(element->assignment);
+            if (element->assignment) {
+                visit_node(element->assignment);
+            }
         }   break;
 
         case AST_UNARY: {
@@ -294,32 +298,6 @@ void ASTVisitor::visit_children(ASTNode* node) {
             auto control = reinterpret_cast<ASTControl*>(node);
             if (control->expression) {
                 visit_node(control->expression);
-            }
-        }   break;
-
-        case AST_TYPE_REF: {
-            auto type_ref = reinterpret_cast<ASTTypeRef*>(node);
-            switch (type_ref->type_ref_kind) {
-                case AST_TYPE_REF_ARRAY: {
-                    visit_node(type_ref->base_ref);
-                    if (type_ref->expression) {
-                        visit_node(type_ref->expression);
-                    }
-                }   break;
-
-                case AST_TYPE_REF_TYPEOF: {
-                    visit_node(type_ref->expression);
-                }   break;
-
-                case AST_TYPE_REF_POINTER: {
-                    visit_node(type_ref->base_ref);
-                }   break;
-
-                case AST_TYPE_REF_IDENTIFIER: {
-                    visit_node(type_ref->identifier);
-                }   break;
-
-                default: break;
             }
         }   break;
 
@@ -401,6 +379,48 @@ void ASTVisitor::visit_children(ASTNode* node) {
                 visit_node(argument);
             }
         }
+
+        case AST_TYPE: {
+            auto type = reinterpret_cast<ASTType*>(node);
+            switch (type->type_kind) {
+                case AST_TYPE_BUILTIN_POINTER: {
+                    auto pointer = reinterpret_cast<ASTPointerType*>(node);
+                    visit_node(pointer->pointee_type);
+                }   break;
+
+                case AST_TYPE_BUILTIN_ARRAY: {
+                    auto array = reinterpret_cast<ASTArrayType*>(node);
+                    visit_node(array->element_type);
+                }   break;
+
+                case AST_TYPE_PLACEHOLDER_TYPEOF: {
+                    auto type_of = reinterpret_cast<ASTTypeOfType*>(node);
+                    visit_node(type_of->expr);
+                }   break;
+
+                case AST_TYPE_PLACEHOLDER_OPAQUE: {
+                    auto opaque = reinterpret_cast<ASTOpaqueType*>(node);
+                    visit_node(opaque->identifier);
+                }   break;
+
+                case AST_TYPE_DECL_FUNC: {
+                    auto func = reinterpret_cast<ASTFuncType*>(node);
+                    for (auto parameter_type : func->parameter_types) {
+                        visit_node(parameter_type);
+                    }
+                    visit_node(func->return_type);
+                }   break;
+
+                case AST_TYPE_DECL_STRUCT: {
+                    auto struct_type = reinterpret_cast<ASTStructType*>(node);
+                    for (auto member_type : struct_type->member_types) {
+                        visit_node(member_type);
+                    }
+                }   break;
+
+                default: break;
+            }
+        }   break;
 
         default: break;
     }

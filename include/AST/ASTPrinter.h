@@ -46,7 +46,7 @@ struct ASTIdentifier;
 struct ASTUnaryExpression;
 struct ASTBinaryExpression;
 struct ASTControl;
-struct ASTTypeRef;
+struct ASTType;
 struct ASTDefer;
 struct ASTFor;
 struct ASTGuard;
@@ -86,7 +86,7 @@ private:
     void visit(const ASTUnaryExpression* node);
     void visit(const ASTBinaryExpression* node);
     void visit(const ASTControl* node);
-    void visit(const ASTTypeRef* node);
+    void visit(const ASTType* node);
     void visit(const ASTDefer* node);
     void visit(const ASTFor* node);
     void visit(const ASTGuard* node);

@@ -32,7 +32,6 @@ static size_t node_sizes[] = {
     sizeof(ASTUnaryExpression),
     sizeof(ASTBinaryExpression),
     sizeof(ASTIdentifier),
-    sizeof(ASTTypeRef),
     sizeof(ASTLiteral),
     sizeof(ASTDirective),
     sizeof(ASTLoad),
@@ -54,7 +53,27 @@ static size_t node_sizes[] = {
     sizeof(ASTLoop),
     sizeof(ASTSwitch),
     sizeof(ASTCall),
-    sizeof(ASTSubscript)
+    sizeof(ASTSubscript),
+    sizeof(ASTType),
+    sizeof(ASTBuiltinType),
+    sizeof(ASTPlaceholderType),
+    sizeof(ASTDeclType),
+    sizeof(ASTUnknownType),
+    sizeof(ASTErrorType),
+    sizeof(ASTUnresolvedType),
+    sizeof(ASTAnyType),
+    sizeof(ASTVoidType),
+    sizeof(ASTBoolType),
+    sizeof(ASTIntegerType),
+    sizeof(ASTFloatType),
+    sizeof(ASTStringType),
+    sizeof(ASTPointerType),
+    sizeof(ASTArrayType),
+    sizeof(ASTTypeOfType),
+    sizeof(ASTOpaqueType),
+    sizeof(ASTEnumType),
+    sizeof(ASTFuncType),
+    sizeof(ASTStructType)
 };
 
 ASTContext::ASTContext() {
@@ -82,6 +101,31 @@ ASTContext::ASTContext() {
     node_pages.push_back((uint8_t*)buffer);
 
     root = new (this) ASTBlock;
+
+    type_unknown = new (this) ASTUnknownType;
+    type_error = new (this) ASTErrorType;
+    type_unresolved = new (this) ASTUnresolvedType;
+    type_Any = new (this) ASTAnyType;
+    type_Void = new (this) ASTVoidType;
+    type_Bool = new (this) ASTBoolType;
+    type_UInt8 = new (this) ASTIntegerType(false, true, false, 8);
+    type_UInt16 = new (this) ASTIntegerType(false, true, false, 16);
+    type_UInt32 = new (this) ASTIntegerType(false, true, false, 32);
+    type_UInt64 = new (this) ASTIntegerType(false, true, false, 64);
+    type_UInt = nullptr; // TODO: Replace with UInt32 or UInt64 based on word size for target platform...
+    type_Int8 = new (this) ASTIntegerType(true, true, false, 8);
+    type_Int16 = new (this) ASTIntegerType(true, true, false, 16);
+    type_Int32 = new (this) ASTIntegerType(true, true, false, 32);
+    type_Int64 = new (this) ASTIntegerType(true, true, false, 64);
+    type_Int = nullptr; // TODO: Replace with Int32 or Int64 based on word size for target platform...
+    type_Float16 = new (this) ASTFloatType(AST_FLOAT_IEEE16);
+    type_Float32 = new (this) ASTFloatType(AST_FLOAT_IEEE32);
+    type_Float64 = new (this) ASTFloatType(AST_FLOAT_IEEE64);
+    type_Float80 = new (this) ASTFloatType(AST_FLOAT_IEEE80);
+    type_Float128 = new (this) ASTFloatType(AST_FLOAT_IEEE128);
+    type_Float = nullptr; // TODO: Replace with Float32 or Float64 based on word size for target platform...
+    type_String = new (this) ASTStringType;
+    type_AnyPointer = new (this) ASTPointerType(1, type_Any);
 }
 
 ASTContext::~ASTContext() {

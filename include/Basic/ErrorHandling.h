@@ -26,6 +26,8 @@
 
 #include "Basic/String.h"
 
+// TODO: Disable no return warning for unreachable and fatal_error if possible!
+
 #ifndef unreachable
 #define unreachable(__MESSAGE__) \
     __unreachable(__MESSAGE__, __FILE__, __LINE__)

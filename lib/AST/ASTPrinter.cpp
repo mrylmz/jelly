@@ -103,9 +103,6 @@ void ASTPrinter::visit(const ASTNode* node) {
         case AST_CONTROL:
             return visit(reinterpret_cast<const ASTControl*>(node));
 
-        case AST_TYPE_REF:
-            return visit(reinterpret_cast<const ASTTypeRef*>(node));
-
         case AST_DEFER:
             return visit(reinterpret_cast<const ASTDefer*>(node));
 
@@ -132,6 +129,9 @@ void ASTPrinter::visit(const ASTNode* node) {
 
         case AST_SUBSCRIPT:
             return visit(reinterpret_cast<const ASTSubscript*>(node));
+
+        case AST_TYPE:
+            return visit(reinterpret_cast<const ASTType*>(node));
 
         default:
             return;
@@ -206,6 +206,11 @@ void ASTPrinter::visit(const ASTFunc* node) {
     indentation_level += 1;
 
     print_indentation();
+    print_raw("NAME = ");
+    visit(node->name);
+    print_raw("\n");
+
+    print_indentation();
     print_raw("SIGNATURE = ");
     visit(node->signature);
     print_raw("\n");
@@ -226,18 +231,13 @@ void ASTPrinter::visit(const ASTFuncSignature* node) {
     indentation_level += 1;
 
     print_indentation();
-    print_raw("NAME = ");
-    visit(node->name);
-    print_raw("\n");
-
-    print_indentation();
     print_raw("PARAMETERS = ");
     PRINT_ARRAY(node->parameters);
     print_raw("\n");
 
     print_indentation();
     print_raw("RETURN_TYPE = ");
-    visit(node->return_type_ref);
+    visit(node->return_type);
 
     indentation_level -= 1;
     print_raw("\n");
@@ -272,7 +272,7 @@ void ASTPrinter::visit(const ASTParameter* node) {
 
     print_indentation();
     print_raw("TYPE = ");
-    visit(reinterpret_cast<const ASTNode*>(node->type_ref));
+    visit(reinterpret_cast<const ASTNode*>(node->type));
 
     indentation_level -= 1;
     print_raw("\n");
@@ -321,7 +321,7 @@ void ASTPrinter::visit(const ASTVariable* node) {
 
     print_indentation();
     print_raw("TYPE = ");
-    visit(node->type_ref);
+    visit(node->type);
     print_raw("\n");
 
     print_indentation();
@@ -475,70 +475,125 @@ void ASTPrinter::visit(const ASTControl* node) {
     print_raw(")");
 }
 
-void ASTPrinter::visit(const ASTTypeRef* node) {
+void ASTPrinter::visit(const ASTType* node) {
     print_kind(node);
     print_raw("(\n");
     indentation_level += 1;
 
     print_indentation();
-    switch (node->type_ref_kind) {
-        case AST_TYPE_REF_UNKNOWN:
-            print_raw("KIND = UNKNOWN()");
-            break;
+    switch (node->type_kind) {
+        case AST_TYPE_UNRESOLVED: {
+            print_raw("KIND = UNRESOLVED()");
+        }   break;
 
-        case AST_TYPE_REF_IDENTIFIER:
-            print_raw("KIND = ");
-            visit(reinterpret_cast<const ASTNode*>(node->identifier));
-            break;
+        case AST_TYPE_ERROR: {
+            print_raw("KIND = ERROR()");
+        }   break;
 
-        case AST_TYPE_REF_ANY:
-            print_raw("KIND = ANY()");
-            break;
+        case AST_TYPE_PLACEHOLDER_TYPEOF: {
+            auto type_of = reinterpret_cast<const ASTTypeOfType*>(node);
 
-        case AST_TYPE_REF_TYPEOF:
             print_raw("KIND = TYPEOF(\n");
             indentation_level += 1;
 
             print_indentation();
-            visit(reinterpret_cast<const ASTNode*>(node->expression));
+            visit(reinterpret_cast<const ASTNode*>(type_of->expr));
             print_raw("\n");
 
             indentation_level -= 1;
             print_indentation();
             print_raw(")");
-            break;
+        }   break;
 
-        case AST_TYPE_REF_POINTER:
+        case AST_TYPE_PLACEHOLDER_OPAQUE: {
+            auto opaque = reinterpret_cast<const ASTOpaqueType*>(node);
+
+            print_raw("KIND = ");
+            visit(reinterpret_cast<const ASTNode*>(opaque->identifier));
+        }   break;
+
+        case AST_TYPE_BUILTIN_ANY: {
+            print_raw("KIND = ANY()");
+        }   break;
+
+        case AST_TYPE_BUILTIN_VOID: {
+            print_raw("KIND = VOID()");
+        }   break;
+
+        case AST_TYPE_BUILTIN_BOOL: {
+            print_raw("KIND = BOOL()");
+        }   break;
+
+        case AST_TYPE_BUILTIN_INT: {
+            auto int_type = reinterpret_cast<const ASTIntegerType*>(node);
+            print_raw("KIND = ");
+
+            if (!int_type->is_signed) {
+                print_raw("U");
+            }
+            print_raw("INT");
+            print_raw((uint64_t)int_type->fixed_width);
+            print_raw("()");
+        }   break;
+
+        case AST_TYPE_BUILTIN_FLOAT: {
+            auto float_type = reinterpret_cast<const ASTFloatType*>(node);
+            print_raw("KIND = FLOAT");
+            print_raw((uint64_t)float_type->bit_width());
+            print_raw("()");
+        }   break;
+
+        case AST_TYPE_BUILTIN_STRING: {
+            print_raw("KIND = STRING()");
+        }   break;
+
+        case AST_TYPE_BUILTIN_POINTER: {
+            auto pointer = reinterpret_cast<const ASTPointerType*>(node);
+
             print_raw("KIND = POINTER(\n");
             indentation_level += 1;
 
             print_indentation();
-            visit(reinterpret_cast<const ASTNode*>(node->base_ref));
+            visit(reinterpret_cast<const ASTNode*>(pointer->pointee_type));
             print_raw("\n");
 
             indentation_level -= 1;
             print_indentation();
             print_raw(")");
-            break;
+        }   break;
 
-        case AST_TYPE_REF_ARRAY:
+        case AST_TYPE_BUILTIN_ARRAY: {
+            auto array = reinterpret_cast<const ASTArrayType*>(node);
+
             print_raw("KIND = ARRAY(\n");
             indentation_level += 1;
 
             print_indentation();
             print_raw("TYPE = ");
-            visit(reinterpret_cast<const ASTNode*>(node->base_ref));
+            visit(reinterpret_cast<const ASTNode*>(array->element_type));
             print_raw("\n");
 
             print_indentation();
             print_raw("SIZE = ");
-            visit(reinterpret_cast<const ASTNode*>(node->expression));
+            visit(reinterpret_cast<const ASTNode*>(array->size_expr));
             print_raw("\n");
 
             indentation_level -= 1;
             print_indentation();
             print_raw(")");
-            break;
+        }   break;
+
+        case AST_TYPE_DECL_ENUM: {
+            fatal_error("Implementation missing!");
+        }   break;
+
+        case AST_TYPE_DECL_FUNC: {
+            fatal_error("Implementation missing!");
+        }   break;
+
+        case AST_TYPE_DECL_STRUCT: {
+            fatal_error("Implementation missing!");
+        }   break;
 
         default:
             break;
@@ -826,9 +881,6 @@ void ASTPrinter::print_kind(const ASTNode* node) {
         case AST_CONTROL:
             return print_raw("AST_CONTROL");
 
-        case AST_TYPE_REF:
-            return print_raw("AST_TYPE");
-
         case AST_DEFER:
             return print_raw("AST_DEFER");
 
@@ -855,6 +907,9 @@ void ASTPrinter::print_kind(const ASTNode* node) {
 
         case AST_SUBSCRIPT:
             return print_raw("AST_SUBSCRIPT");
+
+        case AST_TYPE:
+            return print_raw("AST_TYPE");
 
         default:
             return print_raw("UNSPECIFIED");

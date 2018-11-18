@@ -45,7 +45,33 @@ struct ASTContext {
     ASTLexeme get_lexeme(const String& text);
     String    get_lexeme_text(const ASTLexeme& lexeme) const;
 
+
     ASTBlock* root;
+
+    ASTType* type_unknown;
+    ASTType* type_error;
+    ASTType* type_unresolved;
+    ASTType* type_Any;
+    ASTType* type_Void;
+    ASTType* type_Bool;
+    ASTType* type_UInt8;
+    ASTType* type_UInt16;
+    ASTType* type_UInt32;
+    ASTType* type_UInt64;
+    ASTType* type_UInt;
+    ASTType* type_Int8;
+    ASTType* type_Int16;
+    ASTType* type_Int32;
+    ASTType* type_Int64;
+    ASTType* type_Int;
+    ASTType* type_Float16;
+    ASTType* type_Float32;
+    ASTType* type_Float64;
+    ASTType* type_Float80;
+    ASTType* type_Float128;
+    ASTType* type_Float;
+    ASTType* type_String;
+    ASTType* type_AnyPointer;
 
 private:
     StringMap<int64_t, 4 * 1024> lexeme_map;
@@ -56,4 +82,5 @@ private:
     size_t       node_count;
     size_t       nodes_per_page;
     Array<void*> node_pages;
+
 };

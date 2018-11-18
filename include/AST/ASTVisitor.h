@@ -39,7 +39,6 @@ struct ASTIdentifier;
 struct ASTUnaryExpression;
 struct ASTBinaryExpression;
 struct ASTControl;
-struct ASTTypeRef;
 struct ASTDefer;
 struct ASTFor;
 struct ASTGuard;
@@ -49,6 +48,7 @@ struct ASTSwitchCase;
 struct ASTLoop;
 struct ASTCall;
 struct ASTSubscript;
+struct ASTType;
 
 struct ASTVisitor {
     virtual void pre_visit_node(ASTNode* node);
@@ -69,7 +69,6 @@ struct ASTVisitor {
     virtual void visit_unary(ASTUnaryExpression* node);
     virtual void visit_binary(ASTBinaryExpression* node);
     virtual void visit_control(ASTControl* node);
-    virtual void visit_type_ref(ASTTypeRef* node);
     virtual void visit_defer(ASTDefer* node);
     virtual void visit_for(ASTFor* node);
     virtual void visit_guard(ASTGuard* node);
@@ -79,6 +78,7 @@ struct ASTVisitor {
     virtual void visit_loop(ASTLoop* node);
     virtual void visit_call(ASTCall* node);
     virtual void visit_subscript(ASTSubscript* node);
+    virtual void visit_type(ASTType* node);
 
 private:
     void visit_children(ASTNode* node);
