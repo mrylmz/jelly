@@ -44,6 +44,13 @@ target_link_libraries (jellyParse jellyBasic jellySyntax jellyAST)
 file(GLOB TEST_HEADER_FILES     "test/*.h")
 file(GLOB TEST_SOURCE_FILES     "test/*.cpp")
 
+include(LLVM)
+
+# Reduce libraries to only required ones soon...
+llvm_map_components_to_libnames(LLVM_LIBS all)
+
+# target_link_libraries(jelly ${LLVM_LIBS})
+
 include(GoogleTest)
 
 add_executable(jellyTest 
