@@ -1,0 +1,9 @@
+ASTBlock
+| ASTFuncDecl { name = 'main' }
+  | ASTOpaqueTypeRef { typeName = 'Void' }
+  | ASTBlock
+    | ASTGuardStmt
+      | conditions
+        | ASTBoolLit { value = '1' }
+      | ASTBlock
+        | ASTReturnStmt

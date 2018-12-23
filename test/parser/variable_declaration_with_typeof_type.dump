@@ -1,0 +1,5 @@
+ASTBlock
+| ASTVarDecl { name = 'x' }
+  | ASTTypeOfTypeRef
+    | ASTBoolLit { value = '1' }
+  | ASTBoolLit { value = '0' }

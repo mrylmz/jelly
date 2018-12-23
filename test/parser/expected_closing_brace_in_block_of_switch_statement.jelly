@@ -1,7 +1,7 @@
 func main() -> Void {
-    switch {
+    switch true {
     case 0:
     case 1: return
     else:   return
-    return
+    return // expect-error: Expected statement, found ''
 }

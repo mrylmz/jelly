@@ -10,97 +10,63 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
 set(CMAKE_BUILD_TYPE Debug)
 
-include_directories(include PUBLIC)
-
-file(GLOB JELLY_HEADER_FILES    "include/*.h")
-file(GLOB JELLY_SOURCE_FILES    "src/*.cpp")
-
-add_executable       (jelly ${JELLY_HEADER_FILES} ${JELLY_SOURCE_FILES})
-target_link_libraries(jelly jellyBasic jellySyntax jellyParse)
-
-file(GLOB AST_HEADER_FILES    "include/AST/*.h")
-file(GLOB AST_SOURCE_FILES    "lib/AST/*.cpp")
-
-add_library           (jellyAST STATIC ${AST_HEADER_FILES} ${AST_SOURCE_FILES})
-target_link_libraries (jellyAST jellyBasic)
-
-file(GLOB BASIC_HEADER_FILES    "include/Basic/*.h")
-file(GLOB BASIC_SOURCE_FILES    "lib/Basic/*.cpp")
-
-add_library(jellyBasic STATIC ${BASIC_HEADER_FILES} ${BASIC_SOURCE_FILES})
-
-file(GLOB SYNTAX_HEADER_FILES   "include/Syntax/*.h")
-file(GLOB SYNTAX_SOURCE_FILES   "lib/Syntax/*.cpp")
-
-add_library           (jellySyntax STATIC ${SYNTAX_HEADER_FILES} ${SYNTAX_SOURCE_FILES})
-target_link_libraries (jellySyntax jellyBasic)
-
-file(GLOB PARSE_HEADER_FILES    "include/Parse/*.h")
-file(GLOB PARSE_SOURCE_FILES    "lib/Parse/*.cpp")
-
-add_library           (jellyParse STATIC ${PARSE_HEADER_FILES} ${PARSE_SOURCE_FILES})
-target_link_libraries (jellyParse jellyBasic jellySyntax jellyAST)
-
-file(GLOB TEST_HEADER_FILES     "test/*.h")
-file(GLOB TEST_SOURCE_FILES     "test/*.cpp")
+if(${CMAKE_BUILD_TYPE} STREQUAL Debug)
+    add_definitions(-DDEBUG)
+endif(${CMAKE_BUILD_TYPE} STREQUAL Debug)
 
 include(LLVM)
+include(GoogleTest)
+include(Benchmark)
+include(CodeCoverage)
+
+include_directories(include PUBLIC)
+
+file(GLOB JELLY_HEADER_FILES           "include/*.h")
+file(GLOB JELLY_SOURCE_FILES           "src/*.cpp")
+file(GLOB JELLY_CORE_HEADER_FILES      "include/Core/*.h")
+file(GLOB JELLY_CORE_SOURCE_FILES      "lib/*.cpp")
+file(GLOB JELLY_TEST_HEADER_FILES      "test/*.h")
+file(GLOB JELLY_TEST_SOURCE_FILES      "test/*.cpp")
+file(GLOB JELLY_BENCHMARK_SOURCE_FILES "benchmark/*.cpp")
 
 # Reduce libraries to only required ones soon...
 llvm_map_components_to_libnames(LLVM_LIBS all)
 
-# target_link_libraries(jelly ${LLVM_LIBS})
+add_executable       (jelly ${JELLY_HEADER_FILES} ${JELLY_SOURCE_FILES})
+target_link_libraries(jelly jellyCore)
 
-include(GoogleTest)
+add_library          (jellyCore STATIC ${JELLY_CORE_HEADER_FILES} ${JELLY_CORE_SOURCE_FILES})
+target_link_libraries(jellyCore ${LLVM_LIBS})
 
-add_executable(jellyTest 
-    ${HEADER_FILES}
-    ${TEST_HEADER_FILES}
-    ${TEST_SOURCE_FILES}
-)
+add_executable       (jellyTest ${HEADER_FILES} ${JELLY_TEST_HEADER_FILES} ${JELLY_TEST_SOURCE_FILES})
+target_link_libraries(jellyTest jellyCore ${LLVM_LIBS} gtest_main)
 
-target_link_libraries(jellyTest
-    jellyBasic
-    jellySyntax
-    jellyAST
-    jellyParse
-    gtest_main
-)
+add_executable       (jellyBenchmark ${HEADER_FILES} ${JELLY_BENCHMARK_SOURCE_FILES})
+target_link_libraries(jellyBenchmark jellyCore benchmark_main)
 
-include(Benchmark)
-
-file(GLOB BENCHMARK_SOURCE_FILES     "benchmark/*.cpp")
-
-add_executable(jellyBenchmark 
-    ${HEADER_FILES}
-    ${BENCHMARK_SOURCE_FILES}
-)
-
-target_link_libraries(jellyBenchmark
-    jellyBasic
-    jellySyntax
-    jellyAST
-    jellyParse
-    benchmark_main
-)
-
-include(CodeCoverage)
-
-APPEND_COVERAGE_COMPILER_FLAGS()
+append_coverage_compiler_flags()
 
 set_property(
-    TARGET jellyAST jellyBasic jellySyntax jellyParse jellyTest jellyBenchmark
+    TARGET jelly jellyCore jellyTest jellyBenchmark
     PROPERTY XCODE_ATTRIBUTE_CLANG_ENABLE_CODE_COVERAGE YES
 )
 
 set_property(
-    TARGET jellyAST jellyBasic jellySyntax jellyParse jellyTest jellyBenchmark
+    TARGET jellyCore jellyTest jellyBenchmark
     PROPERTY XCODE_ATTRIBUTE_GCC_GENERATE_TEST_COVERAGE_FILES YES
 )
 
 set_property(
-    TARGET jellyAST jellyBasic jellySyntax jellyParse jellyTest jellyBenchmark
+    TARGET jelly jellyCore jellyTest jellyBenchmark
     PROPERTY XCODE_ATTRIBUTE_GCC_INSTRUMENT_PROGRAM_FLOW_ARCS YES
+)
+
+add_custom_command(TARGET jelly POST_BUILD
+    COMMAND find . -name \"*.gcda\" -delete;
+)
+
+add_custom_command(TARGET jellyCore POST_BUILD
+    COMMAND find . -name \"*.gcda\" -delete;
 )
 
 add_custom_command(TARGET jellyTest POST_BUILD
@@ -111,7 +77,7 @@ add_custom_command(TARGET jellyBenchmark POST_BUILD
     COMMAND find . -name \"*.gcda\" -delete;
 )
 
-SETUP_TARGET_FOR_COVERAGE_GCOVR_HTML(
+setup_target_for_coverage_gcovr_html(
     NAME jellyCoverage
     EXECUTABLE jellyTest -j ${PROCESSOR_COUNT}
     DEPENDENCIES

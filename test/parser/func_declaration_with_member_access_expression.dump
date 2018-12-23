@@ -1,0 +1,7 @@
+ASTBlock
+| ASTFuncDecl { name = 'main' }
+  | ASTOpaqueTypeRef { typeName = 'Void' }
+  | ASTBlock
+    | ASTMemberAccessExpr { memberName = 'myOtherMember' }
+      | ASTMemberAccessExpr { memberName = 'myMember' }
+        | ASTIdentExpr { declName = 'myStruct' }

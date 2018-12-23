@@ -1,0 +1,1 @@
+func myFunc(a: Int, a: Int) -> Void {} // expect-error: Invalid redeclaration of 'a'

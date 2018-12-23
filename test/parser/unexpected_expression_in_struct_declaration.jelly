@@ -1,4 +1,0 @@
-struct MyStruct {
-    var x: Int
-    x = 10
-}

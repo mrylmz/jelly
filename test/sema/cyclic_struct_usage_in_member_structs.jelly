@@ -1,0 +1,11 @@
+struct RecursiveMember {
+    var recursiveMember: Pair // expect-error: Struct cannot store a variable of same type recursively
+}
+
+struct Pair {
+    var other: Other // expect-error: Struct cannot store a variable of same type recursively
+}
+
+struct Other {
+    var pair: Pair // expect-error: Struct cannot store a variable of same type recursively
+}

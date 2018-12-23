@@ -1,0 +1,8 @@
+func myFunc(condition: Bool) -> Int {
+    if condition {
+        return x // expect-error: ?
+    } 
+
+    var x: Int = 0
+    return x
+}

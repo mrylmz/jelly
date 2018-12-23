@@ -1,0 +1,5 @@
+ASTBlock
+| ASTVarDecl { name = 'myPointer' }
+  | ASTPointerTypeRef { depth = '1' }
+    | ASTOpaqueTypeRef { typeName = 'Void' }
+  | ASTNilLit

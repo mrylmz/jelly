@@ -1,0 +1,3 @@
+struct Broken {
+    var nothing: Void // expect-error: Declaration has incomplete type
+}

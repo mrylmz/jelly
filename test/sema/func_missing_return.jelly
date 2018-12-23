@@ -1,0 +1,2 @@
+func empty_func_missing_return() -> String {} // expect-error: Not all code paths return a value
+

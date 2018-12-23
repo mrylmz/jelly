@@ -1,0 +1,2 @@
+#load "load_file_duplicate.jelly" // This will not give an error due to the implementation of the test it self
+#load "load_file_duplicate.jelly" // expect-error: Cannot load source file at path 'load_file_duplicate.jelly' twice

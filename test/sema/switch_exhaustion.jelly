@@ -1,0 +1,20 @@
+enum MyEnum {
+    case zero
+    case one
+    case two
+}
+
+func exhaustiveSwitchStatement(e: MyEnum) -> Void {
+    switch e {
+        case zero: break
+        case one:  break
+        case two:  break
+    }
+}
+
+func nonExhaustiveSwitchStatement(e: MyEnum) -> Void {
+    switch e { // expect-error: Switch statement must be exhaustive
+        case zero: break
+        case one:  break
+    }
+}

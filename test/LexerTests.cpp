@@ -22,10 +22,8 @@
 // SOFTWARE.
 //
 
+#include <Core/Core.h>
 #include <gtest/gtest.h>
-#include <Basic/Basic.h>
-#include <Syntax/Syntax.h>
-#include <Parse/Parse.h>
 
 #define EXPECT_TOKEN_KINDS_EQ(__SOURCE__, ...)                           \
 {                                                                       \
@@ -34,10 +32,9 @@
         TOKEN_EOF                                                       \
     };                                                                  \
     Lexer lexer(__SOURCE__);                                            \
-    Token token;                                                        \
                                                                         \
     for (size_t i = 0; i < sizeof(kinds) / sizeof(uint32_t); i++) {     \
-        lexer.lex(token);                                               \
+        Token token = lexer.lexToken();                                 \
         EXPECT_EQ(token.kind, kinds[i]);                                \
     }                                                                   \
 }
@@ -46,13 +43,11 @@
 {                                                               \
     Operator     op;                                            \
     Lexer        lexer(__SOURCE__);                             \
-    Token        token;                                         \
-                                                                \
-    lexer.lex(token);                                           \
+    Token        token = lexer.lexToken();                      \
                                                                 \
     EXPECT_EQ(token.kind, TOKEN_OPERATOR);                      \
-    EXPECT_TRUE(lexer.get_operator(token, __OP_KIND__, op));    \
-    EXPECT_TRUE(op.is_valid());                                 \
+    EXPECT_TRUE(lexer.getOperator(token, __OP_KIND__, op));     \
+    EXPECT_TRUE(op.kind != OPERATOR_INVALID);                   \
 }
 
 TEST(Lexer, Directives) {

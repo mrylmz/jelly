@@ -1,0 +1,11 @@
+ASTBlock
+| ASTFuncDecl { name = 'main' }
+  | ASTOpaqueTypeRef { typeName = 'Void' }
+  | ASTBlock
+    | ASTIfStmt
+      | conditions
+        | ASTIdentExpr { declName = 'condition0' }
+        | ASTIdentExpr { declName = 'condition1' }
+        | ASTIdentExpr { declName = 'condition2' }
+      | ASTBlock
+      | ASTBlock

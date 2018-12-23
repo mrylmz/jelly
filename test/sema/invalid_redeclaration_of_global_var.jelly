@@ -1,0 +1,2 @@
+let m: Int = 0
+let m: Int = 1 // expect-error: Invalid redeclaration of 'm'

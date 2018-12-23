@@ -1,1 +1,1 @@
-struct Test { var x: Int var y: Int }
+struct Test { var x: Int var y: Int } // expect-error: ?

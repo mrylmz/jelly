@@ -1,4 +1,4 @@
 enum MyEnum {
-    case
+    case // expect-error: Expected identifier for name of enum element!
     case second
 }

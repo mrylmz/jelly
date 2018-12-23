@@ -1,0 +1,4 @@
+ASTBlock
+| ASTVarDecl { name = 'myVar' }
+  | ASTOpaqueTypeRef { typeName = 'Bool' }
+  | ASTBoolLit { value = '0' }

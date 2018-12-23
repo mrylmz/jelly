@@ -1,0 +1,11 @@
+ASTBlock
+| ASTFuncDecl { name = 'main' }
+  | ASTOpaqueTypeRef { typeName = 'Void' }
+  | ASTBlock
+    | ASTSwitchStmt
+      | ASTIdentExpr { declName = 'expr' }
+      | cases
+        | ASTCaseStmt { caseKind = 'case' }
+          | ASTIntLit { value = '0' }
+          | ASTBlock
+            | ASTReturnStmt

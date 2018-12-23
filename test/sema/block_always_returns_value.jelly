@@ -1,0 +1,27 @@
+func myReturningFunc(arg0: Bool, arg1: Bool, arg2: Bool, arg3: Bool, arg4: Bool) -> Int {
+    if arg0 {
+        if arg1 {
+            return 1
+        } else if arg2 {
+            if arg3 {
+                if arg4 {
+                    return 2
+                } else {
+                    if arg1 {
+                        return 3
+                    } else {
+                        return 4    
+                    }
+                }
+
+                return 5
+            } else {
+                return 6    
+            }
+        } else {
+            return 7
+        }
+    } else {
+        return 8
+    }
+}
