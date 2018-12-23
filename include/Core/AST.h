@@ -87,6 +87,8 @@ struct ASTIdentExpr;
 struct ASTTypeRef;
 struct Type;
 
+// @Incomplete store source range information in ASTNode
+
 struct ASTNode {
     ASTNodeKind kind;
     ASTNode* parent = nullptr;

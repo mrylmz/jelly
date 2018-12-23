@@ -43,7 +43,8 @@
 #define PUNCTUATION             '(': case ')': case ':': case '[': case ']': case '{': case '}': case ',' /*: case '.' is handled in lex_operator */
 #define OPERATOR                '/': case '=': case '-': case '+': case '!': case '*': case '%': case '.': case \
                                 '<': case '>': case '&': case '|': case '^': case '~': case '?'
-#define WHITESPACE_OR_NEWLINE   ' ': case '\r': case '\n': case '\t'
+#define WHITESPACE              0x09: case 0x20
+#define NEWLINE                 0x0A: case 0x0B: case 0x0C: case 0x0D
 #define ESCAPED                 '0': case '\\': case 'r': case 'n': case 't': case '"': case '\''
 
 static inline bool charIsAlphaNumeric(char character) {
@@ -82,13 +83,6 @@ static inline bool charIsOperator(char character) {
     }
 }
 
-static inline bool charIsWhitespaceOrNewline(char character) {
-    switch (character) {
-        case WHITESPACE_OR_NEWLINE: return true;
-        default:                    return false;
-    }
-}
-
 static inline bool charIsBinaryDigit(char character) {
     switch (character) {
         case BINARY_DIGIT: return true;
@@ -117,9 +111,14 @@ static inline bool charIsHexadecimalDigit(char character) {
     }
 }
 
-Lexer::Lexer(const char* buffer) :
-state({ buffer, buffer + strlen(buffer), buffer }) {
+LexerState::LexerState(const char* buffer) :
+bufferStart(buffer),
+bufferEnd(buffer + strlen(buffer)),
+bufferPtr(buffer),
+newLinePtr(buffer) {
+}
 
+Lexer::Lexer(const char* buffer) : state(buffer) {
     directives.try_emplace("#load", TOKEN_KEYWORD_LOAD);
 
     keywords.try_emplace("func", TOKEN_KEYWORD_FUNC);
@@ -204,6 +203,8 @@ state({ buffer, buffer + strlen(buffer), buffer }) {
     registerOperator(Operator(OPERATOR_POSTFIX, "()", ASSOCIATIVITY_LEFT, 1000, true));
     registerOperator(Operator(OPERATOR_POSTFIX, "[]", ASSOCIATIVITY_LEFT, 1000, true));
 
+    state.nextToken.line = 1;
+
     lexTokenImpl();
 }
 
@@ -285,6 +286,7 @@ void Lexer::registerOperatorPrecedence(Precedence precedence) {
 void Lexer::formToken(unsigned kind, const char* tokenStart) {
     state.nextToken.kind = kind;
     state.nextToken.text = llvm::StringRef(tokenStart, state.bufferPtr - tokenStart);
+    state.nextToken.column = tokenStart - state.newLinePtr;
 }
 
 bool Lexer::advanceIf(CharPredicate predicate) {
@@ -339,16 +341,33 @@ bool Lexer::skipMultilineCommentTail() {
     return false;
 }
 
+void Lexer::skipWhitespaceAndNewlines() {
+    while (state.bufferPtr != state.bufferEnd) {
+        switch (*state.bufferPtr) {
+            case WHITESPACE:
+                state.bufferPtr += 1;
+                break;
+
+            case NEWLINE:
+                state.bufferPtr += 1;
+                state.newLinePtr = state.bufferPtr;
+                state.nextToken.line += 1;
+                break;
+
+            default:
+                return;
+        }
+    }
+}
+
 void Lexer::lexTokenImpl() {
-    const char* tokenStart = state.bufferPtr;
-
     if (state.bufferPtr == state.bufferEnd) {
-        return formToken(TOKEN_EOF, tokenStart);
+        return formToken(TOKEN_EOF, state.bufferPtr);
     }
 
-    if (advanceWhile(&charIsWhitespaceOrNewline)) {
-        return lexTokenImpl();
-    }
+    skipWhitespaceAndNewlines();
+
+    const char* tokenStart = state.bufferPtr;
 
     switch (*state.bufferPtr) {
         case DECIMAL_DIGIT:
@@ -705,5 +724,6 @@ void Lexer::lexStringLiteral() {
 #undef IDENTIFIER_BODY
 #undef PUNCTUATION
 #undef OPERATOR
-#undef WHITESPACE_OR_NEWLINE
+#undef WHITESPACE
+#undef NEWLINE
 #undef ESCAPED

@@ -38,7 +38,10 @@ struct LexerState {
     const char* bufferStart;
     const char* bufferEnd;
     const char* bufferPtr;
+    const char* newLinePtr;
     Token nextToken;
+
+    LexerState(const char* buffer);
 };
 
 struct Lexer {
@@ -72,6 +75,7 @@ struct Lexer {
 
     void skipToEndOfLine();
     bool skipMultilineCommentTail();
+    void skipWhitespaceAndNewlines();
 
     void lexTokenImpl();
     void lexDirective();

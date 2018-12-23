@@ -26,8 +26,6 @@
 
 Token::Token() : kind(TOKEN_UNKNOWN) {}
 
-Token::Token(unsigned kind, llvm::StringRef text) : kind(kind), text(text) {}
-
 bool Token::is(unsigned kind) const {
     return this->kind == kind;
 }

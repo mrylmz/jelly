@@ -66,10 +66,11 @@ enum {
 
 struct Token {
     unsigned kind;
+    unsigned line;
+    unsigned column;
     llvm::StringRef text;
 
     Token();
-    Token(unsigned kind, llvm::StringRef text);
 
     bool is(unsigned kind) const;
 
