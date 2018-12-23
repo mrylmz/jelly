@@ -35,7 +35,6 @@ __Parser__->parent = __Parent__
 assert(__Parser__->parent); \
 __Parser__->parent = __Parser__->parent->parent
 
-// @Incomplete Check line-break requirements, do not allow consecutive statements on a line
 // @Incomplete Check if symbols of unary expressions are right bound ! (unexpected: ~ value, expected: ~value)
 // @Incomplete Write unit-tests for assignment of parents
 
@@ -602,7 +601,14 @@ static ASTBlock* ParseBlock(Parser* Parser, ASTContext* Context, DiagnosticEngin
     PushParent(Parser, Block);
     {
         if (!Parser->token.is('}')) {
+            unsigned line = Parser->token.line;
             while (true) {
+                if (Block->stmts.size() > 0 && line == Parser->token.line) {
+                    Parser->report(DIAG_ERROR, "Consecutive statements on a line are not allowed!");
+                    return nullptr;
+                }
+                line = Parser->token.line;
+
                 ASTStmt* Stmt = ParseStmt(Parser, Context, Diag);
                 if (Stmt == nullptr) {
                     return nullptr;
@@ -725,7 +731,13 @@ static ASTEnumDecl* ParseEnumDecl(Parser* Parser, ASTContext* Context, Diagnosti
         PushParent(Parser, Enum->block);
         {
             if (!Parser->token.is('}')) {
+                unsigned line = Parser->token.line;
                 while (true) {
+                    if (Enum->block->stmts.size() > 0 && line == Parser->token.line) {
+                        Parser->report(DIAG_ERROR, "Consecutive enum elements on a line are not allowed!");
+                        return nullptr;
+                    }
+
                     ASTEnumElementDecl* EnumElement = ParseEnumElementDecl(Parser, Context, Diag);
                     if (EnumElement == nullptr) {
                         return nullptr;
@@ -812,7 +824,6 @@ static ASTFuncDecl* ParseFuncDecl(Parser* Parser, ASTContext* Context, Diagnosti
             return nullptr;
         }
 
-        // @Refactor move this to later phases in Sema...
         for (auto Param : Func->params) {
             if (!Func->block->decls.try_emplace(Param->name.text, Param).second) {
                 Parser->report(DIAG_ERROR, "Invalid redeclaration of '{0}'", Param->name.text);
@@ -1234,11 +1245,17 @@ static ASTCaseStmt* ParseSwitchCaseStmt(Parser* Parser, ASTContext* Context, Dia
 
         PushParent(Parser, Case->block);
         {
+            unsigned line = Parser->token.line;
             do {
-
                 if (Parser->token.is(TOKEN_KEYWORD_CASE, TOKEN_KEYWORD_ELSE, '}')) {
                     break;
                 }
+
+                if (Case->block->stmts.size() > 0 && line == Parser->token.line) {
+                    Parser->report(DIAG_ERROR, "Consecutive statements on a line are not allowed!");
+                    return nullptr;
+                }
+                line = Parser->token.line;
 
                 ASTStmt* Stmt = ParseStmt(Parser, Context, Diag);
                 if (!Stmt) {
@@ -1248,7 +1265,6 @@ static ASTCaseStmt* ParseSwitchCaseStmt(Parser* Parser, ASTContext* Context, Dia
 
                 Case->block->stmts.push_back(Stmt);
 
-                // @Refactor move this to later Sema phase...
                 if (Stmt->isDecl()) {
                     auto Decl = reinterpret_cast<ASTDecl*>(Stmt);
                     if (!Case->block->decls.try_emplace(Decl->name.text, Decl).second) {
@@ -1284,7 +1300,13 @@ static ASTSwitchStmt* ParseSwitchStmt(Parser* Parser, ASTContext* Context, Diagn
         }
         ConsumeToken(Parser);
 
+        unsigned line = Parser->token.line;
         do {
+            if (Switch->cases.size() > 0 && line == Parser->token.line) {
+                Parser->report(DIAG_ERROR, "Consecutive statements on a line are not allowed!");
+                return nullptr;
+            }
+            line = Parser->token.line;
 
             ASTCaseStmt* Case = ParseSwitchCaseStmt(Parser, Context, Diag);
             if (!Case) {
@@ -1379,11 +1401,21 @@ void ParseAllTopLevelNodes(Parser* Parser, ASTContext* Context, DiagnosticEngine
 
     PushParent(Parser, Context->getRoot());
     {
+        bool checkConsecutiveTopLevelNodes = false;
+        unsigned line = Parser->token.line;
         do {
+            unsigned nodeLine = Parser->token.line;
             ASTNode* Node = ParseTopLevelNode(Parser, Context, Diag);
             if (!Node) {
                 break;
             }
+
+            if (checkConsecutiveTopLevelNodes && line == nodeLine) {
+                Parser->report(DIAG_ERROR, "Consecutive top level nodes on a line are not allowed!");
+                break;
+            }
+            checkConsecutiveTopLevelNodes = true;
+            line = nodeLine;
 
             Context->getRoot()->stmts.push_back(Node);
 

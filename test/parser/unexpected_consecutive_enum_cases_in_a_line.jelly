@@ -1,1 +1,0 @@
-enum Test { case x case y } // expect-error: ?
