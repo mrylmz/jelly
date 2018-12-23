@@ -1,0 +1,9 @@
+ASTBlock
+| ASTFuncDecl { name = 'main' }
+  | ASTOpaqueTypeRef { typeName = 'Void' }
+  | ASTBlock
+    | ASTWhileStmt
+      | conditions
+        | ASTBoolLit { value = '1' }
+      | ASTBlock
+        | ASTBreakStmt

@@ -1,0 +1,13 @@
+enum A {
+    case a = 0
+    case b = 1
+    case c
+    case d = 1 // expect-error: Invalid reuse of value 1 for different enum elements
+}
+
+enum B {
+    case a = 0
+    case b = 1
+    case c = 0 // expect-error: Invalid reuse of value 0 for different enum elements
+    case d = 1 // expect-error: Invalid reuse of value 1 for different enum elements
+}

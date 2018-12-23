@@ -1,1 +1,1 @@
-func () -> Void {}
+func () -> Void {} // expect-error: Expected identifier in function declaration!

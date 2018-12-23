@@ -1,1 +1,1 @@
-var x: Int = -10 + 
+var x: Int = -10 + // expect-error: Expected expression, found ''

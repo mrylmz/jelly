@@ -1,0 +1,6 @@
+ASTBlock
+| ASTVarDecl { name = 'x' }
+  | ASTArrayTypeRef
+    | ASTPointerTypeRef { depth = '2' }
+      | ASTOpaqueTypeRef { typeName = 'Void' }
+  | ASTNilLit

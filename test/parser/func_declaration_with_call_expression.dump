@@ -1,0 +1,6 @@
+ASTBlock
+| ASTFuncDecl { name = 'main' }
+  | ASTOpaqueTypeRef { typeName = 'Void' }
+  | ASTBlock
+    | ASTCallExpr
+      | ASTIdentExpr { declName = 'myFunc' }

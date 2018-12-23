@@ -1,2 +1,2 @@
 enum MyEnum {
-case first
+case first // expect-error: Expected '}' at end of enum declaration!

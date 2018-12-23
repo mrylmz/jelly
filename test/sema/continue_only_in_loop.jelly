@@ -1,0 +1,10 @@
+func main() -> Void {
+    while true {
+        func m() -> Void {
+            guard false else {
+                if true { continue } // expect-error: 'continue' is only allowed inside a loop
+                continue // expect-error: 'continue' is only allowed inside a loop
+            } // expect-error: Not all code paths return a value
+        }
+    }
+}

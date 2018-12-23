@@ -1,0 +1,16 @@
+ASTBlock
+| ASTFuncDecl { name = 'main' }
+  | ASTOpaqueTypeRef { typeName = 'Void' }
+  | ASTBlock
+    | ASTVarDecl { name = 'mem' }
+      | ASTPointerTypeRef { depth = '1' }
+        | ASTOpaqueTypeRef { typeName = 'Void' }
+      | ASTCallExpr
+        | ASTIdentExpr { declName = 'alloc' }
+        | args
+          | ASTIntLit { value = '10' }
+    | ASTDeferStmt
+      | ASTCallExpr
+        | ASTIdentExpr { declName = 'free' }
+        | args
+          | ASTIdentExpr { declName = 'mem' }

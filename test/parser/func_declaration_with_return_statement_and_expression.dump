@@ -1,0 +1,6 @@
+ASTBlock
+| ASTFuncDecl { name = 'main' }
+  | ASTOpaqueTypeRef { typeName = 'Int' }
+  | ASTBlock
+    | ASTReturnStmt
+      | ASTIntLit { value = '1' }

@@ -1,3 +1,3 @@
 func main() -> Void {
-    for in sequence { }
+    for in sequence { } // expect-error: Expected identifier for iterator in for-statement!
 }

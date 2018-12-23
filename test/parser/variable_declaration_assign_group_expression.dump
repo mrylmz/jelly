@@ -1,0 +1,4 @@
+ASTBlock
+| ASTVarDecl { name = 'myVar' }
+  | ASTOpaqueTypeRef { typeName = 'Int' }
+  | ASTIntLit { value = '1' }

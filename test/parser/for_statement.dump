@@ -1,0 +1,7 @@
+ASTBlock
+| ASTFuncDecl { name = 'main' }
+  | ASTOpaqueTypeRef { typeName = 'Void' }
+  | ASTBlock
+    | ASTForStmt { elementName = 'i' }
+      | ASTIdentExpr { declName = 'sequence' }
+      | ASTBlock

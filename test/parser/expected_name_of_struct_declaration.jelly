@@ -1,1 +1,1 @@
-struct { }
+struct { } // expect-error: Expected identifier for name of struct declaration!

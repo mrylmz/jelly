@@ -1,0 +1,4 @@
+ASTBlock
+| ASTVarDecl { name = 'myFloat' }
+  | ASTOpaqueTypeRef { typeName = 'Float' }
+  | ASTFloatLit { value = '3.14' }

@@ -1,0 +1,4 @@
+struct Vector {
+    var x: Float
+    var y: Float
+}

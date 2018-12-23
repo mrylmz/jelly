@@ -22,9 +22,7 @@
 // SOFTWARE.
 //
 
-#include <Basic/Basic.h>
-#include <Parse/Parse.h>
-#include <string>
+#include <Core/Core.h>
 
 int main(int argc, char** argv) {
     return 0;

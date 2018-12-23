@@ -1,0 +1,4 @@
+ASTBlock
+| ASTVarDecl { name = 'myArray' }
+  | ASTArrayTypeRef
+    | ASTOpaqueTypeRef { typeName = 'Int' }

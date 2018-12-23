@@ -1,0 +1,15 @@
+struct A {
+    var b: B // expect-error: Struct cannot store a variable of same type recursively
+}
+
+struct B {
+    var c: C // expect-error: Struct cannot store a variable of same type recursively
+}
+
+struct C {
+    var a: A // expect-error: Struct cannot store a variable of same type recursively
+}
+
+struct SelfContained {
+    var mySelf: SelfContained // expect-error: Struct cannot store a variable of same type recursively
+}
