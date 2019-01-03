@@ -46,18 +46,18 @@ workingDirectory(workingDirectory), diag(DiagnosticEngine(diagHandler)) {
     currentDirectoryStack.push_back(workingDirectory);
 }
 
-llvm::SmallString<0> CodeManager::getCurrentWorkingDirectory() {
+std::string CodeManager::getCurrentWorkingDirectory() {
     char buffer[FILENAME_MAX];
     __getCurrentWorkingDirectory(buffer, FILENAME_MAX);
-    return llvm::SmallString<0>(buffer);
+    return std::string(buffer);
 }
 
 void CodeManager::addSourceFile(llvm::StringRef sourceFilePath) {
     auto currentDirectory = currentDirectoryStack.back();
-    auto absoluteFilePath = std::string(currentDirectory).append(sourceFilePath);
+    auto absoluteFilePath = std::string(currentDirectory).append("/").append(sourceFilePath);
 
     if (!llvm::sys::fs::exists(absoluteFilePath)) {
-        diag.report(DIAG_ERROR, "File at path '{0}' doesn't exist", sourceFilePath);
+        diag.report(DIAG_ERROR, "File at path '{0}' doesn't exist", absoluteFilePath);
         return;
     }
 
@@ -95,6 +95,8 @@ void CodeManager::loadPendingSourceFiles() {
 }
 
 void CodeManager::parseAST() {
+    loadPendingSourceFiles();
+
     while (parseFileIndex < sourceContents.size()) {
         auto content = sourceContents[parseFileIndex];
         {
@@ -123,6 +125,7 @@ void CodeManager::parseAST() {
 
 void CodeManager::typecheckAST() {
     parseAST();
+    if (diag.hasErrors()) { return; }
 
     Sema sema(this);
     sema.validateAST();

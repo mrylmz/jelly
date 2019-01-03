@@ -47,9 +47,6 @@ bool Type::isIncomplete() const {
             return ArrayTy->elementType->isIncomplete();
         }
 
-        case TYPE_BUILTIN_FUNC_CAST:
-            llvm::report_fatal_error("Implementation missing!");
-
         case TYPE_DECL_ENUM:
             return false;
 

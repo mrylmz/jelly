@@ -48,7 +48,7 @@ struct CodeManager {
 
     CodeManager(std::string workingDirectory, DiagnosticHandler* diagHandler);
 
-    static llvm::SmallString<0> getCurrentWorkingDirectory();
+    static std::string getCurrentWorkingDirectory();
 
     void addSourceFile(llvm::StringRef sourceFilePath);
     void addSourceText(llvm::StringRef sourceText);

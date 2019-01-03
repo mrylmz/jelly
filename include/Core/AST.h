@@ -141,6 +141,7 @@ struct ASTBinaryExpr : public ASTExpr {
 struct ASTMemberAccessExpr : public ASTExpr {
     ASTExpr* left = nullptr;
     Lexeme memberName;
+    unsigned memberIndex = 0;
 
     ASTMemberAccessExpr() { kind = AST_MEMBER_ACCESS; }
 };
@@ -235,17 +236,14 @@ struct ASTInfixFuncDecl : public ASTFuncDecl {
 
 struct ASTOpaqueDecl : public ASTDecl {
     ASTTypeRef* typeRef = nullptr;
+    ASTExpr* assignment = nullptr;
 };
 
 struct ASTVarDecl : public ASTOpaqueDecl {
-    ASTExpr* assignment = nullptr;
-
     ASTVarDecl() { kind = AST_VAR; }
 };
 
 struct ASTLetDecl : public ASTOpaqueDecl {
-    ASTExpr* assignment = nullptr;
-
     ASTLetDecl() { kind = AST_LET; }
 };
 

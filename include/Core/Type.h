@@ -44,7 +44,6 @@ enum TypeKind : uint8_t {
     TYPE_BUILTIN_STRING,
     TYPE_BUILTIN_POINTER,
     TYPE_BUILTIN_ARRAY,
-    TYPE_BUILTIN_FUNC_CAST,
     TYPE_DECL_ENUM,
     TYPE_DECL_FUNC,
     TYPE_DECL_STRUCT,
@@ -83,14 +82,10 @@ struct BoolType : public BuiltinType {
 
 struct IntegerType : public BuiltinType {
     bool isSigned;
-    bool isFixedWidth;
-    bool isPointerWidth;
     unsigned fixedWidth;
 
-    IntegerType(bool isSigned, bool isFixedWidth, bool isPointerWidth, unsigned fixedWidth) :
+    IntegerType(bool isSigned, unsigned fixedWidth) :
     isSigned(isSigned),
-    isFixedWidth(isFixedWidth),
-    isPointerWidth(isPointerWidth),
     fixedWidth(fixedWidth) {
         kind = TYPE_BUILTIN_INT;
     }
@@ -144,7 +139,7 @@ struct BuiltinFuncType : public Type {};
 
 struct EnumType : public DeclType {
     llvm::SmallVector<ASTIntLit*, 0> memberValues;
-    llvm::APInt nextMemberValue = llvm::APInt(256, 0);
+    llvm::APInt nextMemberValue = llvm::APInt(64, 0);
 
     EnumType() { kind = TYPE_DECL_ENUM; }
 };
@@ -174,6 +169,7 @@ struct FuncType : public DeclType {
 
 struct StructType : public DeclType {
     llvm::StringMap<Type*> memberTypes;
+    llvm::StringMap<unsigned> memberIndexes;
 
     StructType() { kind = TYPE_DECL_STRUCT; }
 };

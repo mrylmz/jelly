@@ -81,7 +81,26 @@ static size_t allNodeSizes[] = {
     sizeof(ASTArrayTypeRef)
 };
 
-ASTContext::ASTContext() {
+ASTContext::ASTContext() :
+typeError(ErrorType()),
+typeAny(AnyType()),
+typeVoid(VoidType()),
+typeBool(BoolType()),
+typeUInt8(IntegerType(false, 8)),
+typeUInt16(IntegerType(false, 16)),
+typeUInt32(IntegerType(false, 32)),
+typeUInt64(IntegerType(false, 64)),
+typeInt8(IntegerType(true, 8)),
+typeInt16(IntegerType(true, 16)),
+typeInt32(IntegerType(true, 32)),
+typeInt64(IntegerType(true, 64)),
+typeFloat16(FloatType(FLOAT_IEEE16)),
+typeFloat32(FloatType(FLOAT_IEEE32)),
+typeFloat64(FloatType(FLOAT_IEEE64)),
+typeFloat80(FloatType(FLOAT_IEEE80)),
+typeFloat128(FloatType(FLOAT_IEEE128)),
+typeString(StringType()),
+typeAnyPointer(PointerType(1, &typeAny)) {
     size_t containerSize = allNodeSizes[0];
     for (auto i = 1; i < sizeof(allNodeSizes) / sizeof(size_t); i++) {
         containerSize = std::max(containerSize, allNodeSizes[i]);
@@ -107,26 +126,6 @@ ASTContext::ASTContext() {
 
     root = new (this) ASTBlock;
     root->scope.kind = SCOPE_GLOBAL;
-
-    typeError = ErrorType();
-    typeAny = AnyType();
-    typeVoid = VoidType();
-    typeBool = BoolType();
-    typeUInt8 = IntegerType(false, true, false, 8);
-    typeUInt16 = IntegerType(false, true, false, 16);
-    typeUInt32 = IntegerType(false, true, false, 32);
-    typeUInt64 = IntegerType(false, true, false, 64);
-    typeInt8 = IntegerType(true, true, false, 8);
-    typeInt16 = IntegerType(true, true, false, 16);
-    typeInt32 = IntegerType(true, true, false, 32);
-    typeInt64 = IntegerType(true, true, false, 64);
-    typeFloat16 = FloatType(FLOAT_IEEE16);
-    typeFloat32 = FloatType(FLOAT_IEEE32);
-    typeFloat64 = FloatType(FLOAT_IEEE64);
-    typeFloat80 = FloatType(FLOAT_IEEE80);
-    typeFloat128 = FloatType(FLOAT_IEEE128);
-    typeString = StringType();
-    typeAnyPointer = PointerType(1, &typeAny);
 
     types.try_emplace("Any", &typeAny);
     types.try_emplace("Void", &typeVoid);
@@ -198,6 +197,10 @@ Lexeme ASTContext::getLexeme(llvm::StringRef text) {
 
 ASTBlock* ASTContext::getRoot() {
     return root;
+}
+
+llvm::StringMap<Type*>* ASTContext::getTypes() {
+    return &types;
 }
 
 llvm::SmallVector<FuncType*, 0>* ASTContext::getBuiltinFuncTypes() {
@@ -338,14 +341,27 @@ Type* ASTContext::getFuncType(ASTFuncDecl* decl) {
     }
 
     type->returnType = decl->returnTypeRef->type;
+
+    // @Cleanup the types are only written here to get a working IRGen pass
+    if (!findTypeByName(decl->name.text)) {
+        types.insert(std::make_pair(decl->name.text, type));
+    }
+
     return type;
 }
 
-Type* ASTContext::getStructType(llvm::StringRef name, llvm::StringMap<Type*> memberTypes) {
+Type* ASTContext::getStructType(llvm::StringRef name, llvm::StringMap<Type*> memberTypes, llvm::StringMap<unsigned> memberIndexes) {
     // @Incomplete build a unique type
-    auto type = new StructType;
-    type->name = name; // @Refactor pass only a ASTStructDecl as parameter, this will also give a ASTContext stored Name
-    type->memberTypes = memberTypes;
+    auto type = findTypeByName(name);
+    if (!type) {
+        auto structType = new StructType;
+        structType->name = name; // @Refactor pass only a ASTStructDecl as parameter, this will also give a ASTContext stored Name
+        structType->memberTypes = memberTypes;
+        structType->memberIndexes = memberIndexes;
+
+        type = structType;
+        types.insert(std::make_pair(name, type));
+    }
     return type;
 }
 

@@ -36,42 +36,6 @@
 
 // @Incomplete ASTContext is leaking memory, add custom allocators for use-cases of ASTContext and refine the structure
 struct ASTContext {
-    llvm::MallocAllocator allocator;
-
-    size_t pageSize;
-    size_t nodeSize;
-    size_t nodeCount;
-    size_t nodesPerPage;
-    llvm::SmallVector<void*, 0> nodePages;
-
-    llvm::StringMap<int64_t> lexemeMap;
-    llvm::SmallVector<llvm::StringRef, 0> lexemeValues;
-
-    llvm::StringMap<Type*> types;
-    llvm::SmallVector<FuncType*, 0> builtinFuncTypes;
-
-    ASTBlock* root;
-
-    Type typeError;
-    Type typeAny;
-    Type typeVoid;
-    Type typeBool;
-    Type typeUInt8;
-    Type typeUInt16;
-    Type typeUInt32;
-    Type typeUInt64;
-    Type typeInt8;
-    Type typeInt16;
-    Type typeInt32;
-    Type typeInt64;
-    Type typeFloat16;
-    Type typeFloat32;
-    Type typeFloat64;
-    Type typeFloat80;
-    Type typeFloat128;
-    Type typeString;
-    Type typeAnyPointer;
-
     ASTContext();
     ~ASTContext();
 
@@ -80,6 +44,8 @@ struct ASTContext {
     Lexeme getLexeme(llvm::StringRef text);
 
     ASTBlock* getRoot();
+
+    llvm::StringMap<Type*>* getTypes();
     llvm::SmallVector<FuncType*, 0>* getBuiltinFuncTypes();
 
     Type* getErrorType();
@@ -109,6 +75,43 @@ struct ASTContext {
     Type* getStaticArrayType(Type* elementType, llvm::APInt size);
     Type* getDynamicArrayType(Type* elementType);
     Type* getFuncType(ASTFuncDecl* decl);
-    Type* getStructType(llvm::StringRef name, llvm::StringMap<Type*> memberTypes);
+    Type* getStructType(llvm::StringRef name, llvm::StringMap<Type*> memberTypes, llvm::StringMap<unsigned> memberIndexes);
     Type* findTypeByName(llvm::StringRef name);
+
+private:
+    llvm::MallocAllocator allocator;
+
+    size_t pageSize;
+    size_t nodeSize;
+    size_t nodeCount;
+    size_t nodesPerPage;
+    llvm::SmallVector<void*, 0> nodePages;
+
+    llvm::StringMap<int64_t> lexemeMap;
+    llvm::SmallVector<llvm::StringRef, 0> lexemeValues;
+
+    llvm::StringMap<Type*> types;
+    llvm::SmallVector<FuncType*, 0> builtinFuncTypes;
+
+    ASTBlock* root;
+
+    ErrorType typeError;
+    AnyType typeAny;
+    VoidType typeVoid;
+    BoolType typeBool;
+    IntegerType typeUInt8;
+    IntegerType typeUInt16;
+    IntegerType typeUInt32;
+    IntegerType typeUInt64;
+    IntegerType typeInt8;
+    IntegerType typeInt16;
+    IntegerType typeInt32;
+    IntegerType typeInt64;
+    FloatType typeFloat16;
+    FloatType typeFloat32;
+    FloatType typeFloat64;
+    FloatType typeFloat80;
+    FloatType typeFloat128;
+    StringType typeString;
+    PointerType typeAnyPointer;
 };

@@ -307,6 +307,7 @@ void Sema::inferTypeOfNode(ASTNode* node) {
     }
 }
 
+// @Incomplete reinfer type of literal based on the context it is used in
 void Sema::inferTypeOfLiteral(ASTLit* literal) {
     if (literal->type) { return; }
 
@@ -660,6 +661,9 @@ void Sema::typeStructDecl(ASTStructDecl* decl) {
     }
 
     llvm::StringMap<Type*> memberTypes;
+    llvm::StringMap<unsigned> memberIndexes;
+
+    unsigned memberIndex = 0;
     for (auto it = decl->block->decls.begin(); it != decl->block->decls.end(); it++) {
         auto memberDecl = it->getValue();
         inferTypeOfNode(memberDecl);
@@ -672,10 +676,14 @@ void Sema::typeStructDecl(ASTStructDecl* decl) {
         if (memberDecl->kind == AST_VAR || memberDecl->kind == AST_LET) {
             assert(memberDecl->type && "Type shouldn't be nil when written to MemberTypes!");
             memberTypes.try_emplace(memberDecl->name.text, memberDecl->type);
+            memberIndexes.try_emplace(memberDecl->name.text, memberIndex);
+            memberIndex += 1;
         }
+
+        // @Incomplete report error if member is not a var or let !
     }
 
-    decl->type = context->getStructType(decl->name.text, memberTypes);
+    decl->type = context->getStructType(decl->name.text, memberTypes, memberIndexes);
 }
 
 void Sema::typeEnumDecl(ASTEnumDecl* decl) {
@@ -1084,6 +1092,14 @@ void Sema::typeCheckBinaryExpr(ASTBinaryExpr* expr) {
 void Sema::typeCheckMemberAccessExpr(ASTMemberAccessExpr* expr) {
     if (expr->isValidated) { return; }
     defer(expr->isValidated = true);
+
+    if (expr->left->type == context->getErrorType()) {
+        return;
+    }
+
+    assert(expr->left->type->kind == TYPE_DECL_STRUCT);
+    auto structType = reinterpret_cast<StructType*>(expr->left->type);
+    expr->memberIndex = structType->memberIndexes.lookup(expr->memberName.text);
 
     // @Incomplete ...
 }
