@@ -34,12 +34,9 @@
 #include <llvm/ADT/StringMap.h>
 #include <llvm/Support/Allocator.h>
 
-// @Incomplete ASTContext is leaking memory, add custom allocators for use-cases of ASTContext and refine the structure
 struct ASTContext {
     ASTContext();
     ~ASTContext();
-
-    void* allocNode();
 
     Lexeme getLexeme(llvm::StringRef text);
 
@@ -79,21 +76,19 @@ struct ASTContext {
     Type* findTypeByName(llvm::StringRef name);
 
 private:
-    llvm::MallocAllocator allocator;
+    friend struct ASTNode;
 
-    size_t pageSize;
-    size_t nodeSize;
-    size_t nodeCount;
-    size_t nodesPerPage;
-    llvm::SmallVector<void*, 0> nodePages;
+    llvm::BumpPtrAllocator nodeAllocator;
+    llvm::BumpPtrAllocator lexemeAllocator;
 
+    ASTModule* module;
+
+    llvm::SmallVector<ASTNode*, 0> nodes;
     llvm::StringMap<int64_t> lexemeMap;
     llvm::SmallVector<llvm::StringRef, 0> lexemeValues;
 
     llvm::StringMap<Type*> types;
     llvm::SmallVector<FuncType*, 0> builtinFuncTypes;
-
-    ASTModule* module;
 
     ErrorType typeError;
     AnyType typeAny;

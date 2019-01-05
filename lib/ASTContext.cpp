@@ -28,58 +28,6 @@
 
 #include <llvm/Support/ErrorHandling.h>
 
-static size_t allNodeSizes[] = {
-    sizeof(ASTNode),
-    sizeof(ASTStmt),
-    sizeof(ASTExpr),
-    sizeof(ASTDecl),
-    sizeof(ASTUnaryExpr),
-    sizeof(ASTBinaryExpr),
-    sizeof(ASTMemberAccessExpr),
-    sizeof(ASTIdentExpr),
-    sizeof(ASTLit),
-    sizeof(ASTNilLit),
-    sizeof(ASTBoolLit),
-    sizeof(ASTIntLit),
-    sizeof(ASTFloatLit),
-    sizeof(ASTStringLit),
-    sizeof(ASTLoad),
-    sizeof(ASTBlock),
-    sizeof(ASTParamDecl),
-    sizeof(ASTFuncDecl),
-    sizeof(ASTPrefixFuncDecl),
-    sizeof(ASTInfixFuncDecl),
-    sizeof(ASTValueDecl),
-    sizeof(ASTVarDecl),
-    sizeof(ASTLetDecl),
-    sizeof(ASTStructDecl),
-    sizeof(ASTEnumElementDecl),
-    sizeof(ASTEnumDecl),
-    sizeof(ASTCtrlStmt),
-    sizeof(ASTBreakStmt),
-    sizeof(ASTContinueStmt),
-    sizeof(ASTFallthroughStmt),
-    sizeof(ASTReturnStmt),
-    sizeof(ASTDeferStmt),
-    sizeof(ASTForStmt),
-    sizeof(ASTBranchStmt),
-    sizeof(ASTGuardStmt),
-    sizeof(ASTIfStmt),
-    sizeof(ASTLoopStmt),
-    sizeof(ASTDoStmt),
-    sizeof(ASTWhileStmt),
-    sizeof(ASTCaseStmt),
-    sizeof(ASTSwitchStmt),
-    sizeof(ASTCallExpr),
-    sizeof(ASTSubscriptExpr),
-    sizeof(ASTTypeRef),
-    sizeof(ASTAnyTypeRef),
-    sizeof(ASTOpaqueTypeRef),
-    sizeof(ASTTypeOfTypeRef),
-    sizeof(ASTPointerTypeRef),
-    sizeof(ASTArrayTypeRef)
-};
-
 ASTContext::ASTContext() :
 typeError(ErrorType()),
 typeAny(AnyType()),
@@ -100,29 +48,6 @@ typeFloat80(FloatType(FLOAT_IEEE80)),
 typeFloat128(FloatType(FLOAT_IEEE128)),
 typeString(StringType()),
 typeAnyPointer(PointerType(1, &typeAny)) {
-    size_t containerSize = allNodeSizes[0];
-    for (auto i = 1; i < sizeof(allNodeSizes) / sizeof(size_t); i++) {
-        containerSize = std::max(containerSize, allNodeSizes[i]);
-    }
-
-    pageSize = sysconf(_SC_PAGESIZE);
-    nodeSize = 1;
-    while (nodeSize < containerSize) { nodeSize *= 2; }
-    nodeCount = 0;
-    nodesPerPage = pageSize / nodeSize;
-
-    while (nodesPerPage <= 0) {
-        pageSize *= 2;
-        nodesPerPage = pageSize / nodeSize;
-    }
-
-    void* buffer = malloc(pageSize);
-    if (buffer == nullptr) {
-        llvm::report_bad_alloc_error("Memory allocation failed!");
-    }
-
-    nodePages.push_back((uint8_t*)buffer);
-
     module = new (this) ASTModule;
 
     types.try_emplace("Any", &typeAny);
@@ -148,33 +73,12 @@ typeAnyPointer(PointerType(1, &typeAny)) {
 }
 
 ASTContext::~ASTContext() {
-    for (auto key : lexemeValues) {
-        allocator.Deallocate(key.begin(), key.size());
+    for (auto node : nodes) {
+        node->destroy();
     }
 
-    for (auto it = nodePages.begin(); it != nodePages.end(); it++) {
-        free(*it);
-    }
-}
-
-void* ASTContext::allocNode()  {
-    size_t pageIndex = nodeCount / nodesPerPage;
-    size_t nodeIndex = nodeCount - pageIndex * nodesPerPage;
-
-    if (pageIndex >= nodePages.size()) {
-        void* buffer = malloc(pageSize);
-        if (buffer == nullptr) {
-            llvm::report_bad_alloc_error("Memory allocation failed!");
-        }
-
-        nodePages.push_back(buffer);
-    }
-
-    uint8_t* buffer = (uint8_t*)nodePages[pageIndex];
-    uint8_t* pointer = buffer + nodeIndex * nodeSize;
-
-    nodeCount += 1;
-    return pointer;
+    nodeAllocator.Reset();
+    lexemeAllocator.Reset();
 }
 
 Lexeme ASTContext::getLexeme(llvm::StringRef text) {
@@ -186,7 +90,7 @@ Lexeme ASTContext::getLexeme(llvm::StringRef text) {
         return lexeme;
     }
 
-    lexeme.text = text.copy(allocator);
+    lexeme.text = text.copy(lexemeAllocator);
     lexeme.index = lexemeValues.size() + 1;
     lexemeValues.push_back(lexeme.text);
     lexemeMap.try_emplace(lexeme.text, lexeme.index);

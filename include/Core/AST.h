@@ -103,13 +103,14 @@ struct ASTNode {
     bool isValidated = false;
 
     ASTNode() { kind = AST_UNKNOWN; }
-
     ASTNode(ASTNode&&) = delete;
     ASTNode& operator = (ASTNode&&) = delete;
 
     void* operator new (size_t size, ASTContext* context);
     void operator delete (void* ptr) = delete;
     void operator delete [] (void* ptr) = delete;
+
+    virtual void destroy() {};
 
     bool isDecl() const;
     ASTBlock* getParentBlock();
@@ -122,6 +123,11 @@ struct ASTExpr : public ASTStmt {
     bool isConstant = false;
     Type* type = nullptr;
     llvm::SmallVector<Type*, 0> candidateTypes;
+
+    virtual void destroy() override {
+        ASTStmt::destroy();
+        candidateTypes.~SmallVector();
+    }
 };
 
 struct ASTDecl : public ASTStmt {
@@ -189,6 +195,11 @@ struct ASTIntLit : ASTLit {
     llvm::APInt value = llvm::APInt(64, 0);
 
     ASTIntLit() { kind = AST_INT_LITERAL; }
+
+    virtual void destroy() override {
+        ASTLit::destroy();
+        value.~APInt();
+    }
 };
 
 struct ASTFloatLit : ASTLit {
@@ -229,6 +240,11 @@ struct ASTBlock : public ASTNode, public DeclContext {
     llvm::SmallVector<ASTNode*, 0> stmts;
 
     ASTBlock() { kind = AST_BLOCK; }
+
+    virtual void destroy() override {
+        ASTNode::destroy();
+        stmts.~SmallVector();
+    }
 };
 
 struct ASTParamDecl : public ASTDecl {
@@ -243,6 +259,11 @@ struct ASTFuncDecl : public ASTDecl {
     ASTBlock* block = nullptr;
 
     ASTFuncDecl() { kind = AST_FUNC; }
+
+    virtual void destroy() override {
+        ASTDecl::destroy();
+        params.~SmallVector();
+    }
 };
 
 struct ASTPrefixFuncDecl : public ASTFuncDecl {
@@ -320,6 +341,11 @@ struct ASTForStmt : public ASTStmt {
 
 struct ASTBranchStmt : public ASTStmt {
     llvm::SmallVector<ASTExpr*, 0> conditions;
+
+    virtual void destroy() override {
+        ASTStmt::destroy();
+        conditions.~SmallVector();
+    }
 };
 
 struct ASTGuardStmt : public ASTBranchStmt {
@@ -377,6 +403,11 @@ struct ASTSwitchStmt : public ASTStmt {
     llvm::SmallVector<ASTCaseStmt*, 0> cases;
 
     ASTSwitchStmt() { kind = AST_SWITCH; }
+
+    virtual void destroy() override {
+        ASTStmt::destroy();
+        cases.~SmallVector();
+    }
 };
 
 struct ASTCallExpr : public ASTExpr {
@@ -384,6 +415,12 @@ struct ASTCallExpr : public ASTExpr {
     llvm::SmallVector<ASTExpr*, 0> args;
 
     ASTCallExpr() { kind = AST_CALL; }
+
+
+    virtual void destroy() override {
+        ASTExpr::destroy();
+        args.~SmallVector();
+    }
 };
 
 struct ASTSubscriptExpr : public ASTExpr {
@@ -391,6 +428,11 @@ struct ASTSubscriptExpr : public ASTExpr {
     llvm::SmallVector<ASTExpr*, 0> args;
 
     ASTSubscriptExpr() { kind = AST_SUBSCRIPT; }
+
+    virtual void destroy() override {
+        ASTExpr::destroy();
+        args.~SmallVector();
+    }
 };
 
 struct ASTTypeRef : public ASTNode {

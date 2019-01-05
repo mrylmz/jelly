@@ -26,7 +26,9 @@
 #include "Core/ASTContext.h"
 
 void* ASTNode::operator new (size_t size, ASTContext* context) {
-    return context->allocNode();
+    auto memory = context->nodeAllocator.Allocate(size, 8);
+    context->nodes.push_back(reinterpret_cast<ASTNode*>(memory));
+    return memory;
 }
 
 bool ASTNode::isDecl() const {
