@@ -27,17 +27,13 @@
 // @Refactor Rename all decls to defns because they are definitions and add decls for signatures only ...
 
 #include "Core/DeclContext.h"
+#include "Core/Lexeme.h"
 #include "Core/Operator.h"
 
 #include <llvm/ADT/APInt.h>
 #include <llvm/ADT/StringMap.h>
 #include <llvm/ADT/StringRef.h>
 #include <llvm/ADT/SmallVector.h>
-
-struct Lexeme {
-    unsigned index;
-    llvm::StringRef text;
-};
 
 enum ASTNodeKind : uint8_t {
     AST_UNKNOWN,

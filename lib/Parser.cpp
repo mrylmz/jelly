@@ -146,7 +146,7 @@ static ASTStringLit* ParseStringLiteral(Parser* Parser, ASTContext* Context, Dia
     PushParent(Parser, String);
     {
         // @Cleanup we form a lexeme here to retain memory for String->Value
-        String->value = Context->getLexeme(Parser->token.text.drop_front(1).drop_back(1)).text;
+        String->value = Context->getLexeme(Parser->token.text.drop_front(1).drop_back(1));
         ConsumeToken(Parser);
     }
     PopParent(Parser);
@@ -645,10 +645,10 @@ static ASTBlock* ParseBlock(Parser* Parser, ASTContext* Context, DiagnosticEngin
 
                 if (Stmt->isDecl()) {
                     auto Decl = reinterpret_cast<ASTDecl*>(Stmt);
-                    if (!Block->lookupDecl(Decl->name.text)) {
+                    if (!Block->lookupDecl(Decl->name)) {
                         Block->addDecl(Decl);
                     } else {
-                        Parser->report(DIAG_ERROR, "Invalid redeclaration of '{0}'", Decl->name.text);
+                        Parser->report(DIAG_ERROR, "Invalid redeclaration of '{0}'", Decl->name);
                     }
                 }
 
@@ -779,10 +779,10 @@ static ASTEnumDecl* ParseEnumDecl(Parser* Parser, ASTContext* Context, Diagnosti
                     }
 
                     Enum->block->stmts.push_back(EnumElement);
-                    if (!Enum->block->lookupDecl(EnumElement->name.text)) {
+                    if (!Enum->block->lookupDecl(EnumElement->name)) {
                         Enum->block->addDecl(EnumElement);
                     } else {
-                        Parser->report(DIAG_ERROR, "Invalid redeclaration of '{0}'", EnumElement->name.text);
+                        Parser->report(DIAG_ERROR, "Invalid redeclaration of '{0}'", EnumElement->name);
                     }
 
                     if (Parser->token.is('}')) {
@@ -863,10 +863,10 @@ static ASTFuncDecl* ParseFuncDecl(Parser* Parser, ASTContext* Context, Diagnosti
         }
 
         for (auto Param : Func->params) {
-            if (!Func->block->lookupDecl(Param->name.text)) {
+            if (!Func->block->lookupDecl(Param->name)) {
                 Func->block->addDecl(Param);
             } else {
-                Parser->report(DIAG_ERROR, "Invalid redeclaration of '{0}'", Param->name.text);
+                Parser->report(DIAG_ERROR, "Invalid redeclaration of '{0}'", Param->name);
             }
         }
     }
@@ -1322,10 +1322,10 @@ static ASTCaseStmt* ParseSwitchCaseStmt(Parser* Parser, ASTContext* Context, Dia
 
                 if (Stmt->isDecl()) {
                     auto Decl = reinterpret_cast<ASTDecl*>(Stmt);
-                    if (!Case->block->lookupDecl(Decl->name.text)) {
+                    if (!Case->block->lookupDecl(Decl->name)) {
                         Case->block->addDecl(Decl);
                     } else {
-                        Parser->report(DIAG_ERROR, "Invalid redeclaration of '{0}'", Decl->name.text);
+                        Parser->report(DIAG_ERROR, "Invalid redeclaration of '{0}'", Decl->name);
                     }
                 }
 
@@ -1481,8 +1481,8 @@ void ParseAllTopLevelNodes(Parser* Parser, ASTContext* Context, DiagnosticEngine
 
             assert(Node->isDecl());
             auto decl = reinterpret_cast<ASTDecl*>(Node);
-            if (module->lookupDecl(decl->name.text)) {
-                Parser->report(DIAG_ERROR, "Invalid redeclaration of '{0}'", decl->name.text);
+            if (module->lookupDecl(decl->name)) {
+                Parser->report(DIAG_ERROR, "Invalid redeclaration of '{0}'", decl->name);
             } else {
                 module->addDecl(decl);
             }

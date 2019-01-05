@@ -64,7 +64,7 @@ void Sema::resolveType(ASTTypeRef* typeRef) {
 
             // @Refactor Decl resolution is also used on other places extract it to a function ...
             if (!opaqueTypeRef->decl) {
-                auto decl = opaqueTypeRef->declContext->lookupDeclInHierarchy(opaqueTypeRef->typeName.text);
+                auto decl = opaqueTypeRef->declContext->lookupDeclInHierarchy(opaqueTypeRef->typeName);
                 if (decl) {
                     opaqueTypeRef->decl = decl;
                 }
@@ -76,13 +76,13 @@ void Sema::resolveType(ASTTypeRef* typeRef) {
                 return;
             }
 
-            opaqueTypeRef->type = context->findTypeByName(opaqueTypeRef->typeName.text);
+            opaqueTypeRef->type = context->findTypeByName(opaqueTypeRef->typeName);
             if (opaqueTypeRef->type) {
                 return;
             }
 
             opaqueTypeRef->type = context->getErrorType();
-            diag->report(DIAG_ERROR, "Couldn't resolve type '{0}'", opaqueTypeRef->typeName.text);
+            diag->report(DIAG_ERROR, "Couldn't resolve type '{0}'", opaqueTypeRef->typeName);
         }   return;
 
         case AST_TYPEOF_TYPE_REF: {
@@ -364,7 +364,7 @@ void Sema::inferTypeOfLetDecl(ASTLetDecl* let) {
 }
 
 void Sema::inferTypeOfIdentExpr(ASTIdentExpr* expr) {
-    auto decl = expr->declContext->lookupDeclInHierarchy(expr->declName.text);
+    auto decl = expr->declContext->lookupDeclInHierarchy(expr->declName);
     if (decl) {
         expr->decl = decl;
         inferTypeOfNode(expr->decl);
@@ -376,7 +376,7 @@ void Sema::inferTypeOfIdentExpr(ASTIdentExpr* expr) {
     for (auto it = module->declsBegin(); it != module->declsEnd(); it++) {
         if ((*it)->kind == AST_ENUM) {
             auto enumDecl = reinterpret_cast<ASTEnumDecl*>(*it);
-            auto decl = enumDecl->block->lookupDecl(expr->declName.text);
+            auto decl = enumDecl->block->lookupDecl(expr->declName);
             if (decl && decl->kind == AST_ENUM_ELEMENT) {
                 expr->decl = decl;
                 inferTypeOfNode(expr->decl);
@@ -387,7 +387,7 @@ void Sema::inferTypeOfIdentExpr(ASTIdentExpr* expr) {
     }
 
     expr->type = context->getErrorType();
-    diag->report(DIAG_ERROR, "Unresolved identifier '{0}'", expr->declName.text);
+    diag->report(DIAG_ERROR, "Unresolved identifier '{0}'", expr->declName);
 }
 
 void Sema::inferTypeOfStmts(ASTBlock* block) {
@@ -543,10 +543,10 @@ void Sema::inferTypeOfMemberAccessExpr(ASTMemberAccessExpr* expr) {
     }
 
     auto structType = reinterpret_cast<StructType*>(expr->left->type);
-    auto memberTypeIt = structType->memberTypes.find(expr->memberName.text);
+    auto memberTypeIt = structType->memberTypes.find(expr->memberName);
     if (memberTypeIt == structType->memberTypes.end()) {
         expr->type = context->getErrorType();
-        diag->report(DIAG_ERROR, "No member named '{0}' found in struct type", expr->memberName.text);
+        diag->report(DIAG_ERROR, "No member named '{0}' found in struct type", expr->memberName);
         return;
     }
 
@@ -620,7 +620,7 @@ void Sema::typePrefixFuncDecl(ASTPrefixFuncDecl* decl) {
 
     if (decl->params.size() != 1) {
         decl->type = context->getErrorType();
-        diag->report(DIAG_ERROR, "Prefix function '{0}' must contain 1 parameter", decl->name.text);
+        diag->report(DIAG_ERROR, "Prefix function '{0}' must contain 1 parameter", decl->name);
         return;
     }
 
@@ -632,7 +632,7 @@ void Sema::typeInfixFuncDecl(ASTInfixFuncDecl* decl) {
 
     if (decl->params.size() != 2) {
         decl->type = context->getErrorType();
-        diag->report(DIAG_ERROR, "Infix function '{0}' must contain 2 parameters", decl->name.text);
+        diag->report(DIAG_ERROR, "Infix function '{0}' must contain 2 parameters", decl->name);
         return;
     }
 
@@ -670,22 +670,22 @@ void Sema::typeStructDecl(ASTStructDecl* decl) {
 
         if (memberDecl->kind == AST_VAR || memberDecl->kind == AST_LET) {
             assert(memberDecl->type && "Type shouldn't be nil when written to MemberTypes!");
-            memberTypes.try_emplace(memberDecl->name.text, memberDecl->type);
-            memberIndexes.try_emplace(memberDecl->name.text, memberIndex);
+            memberTypes.try_emplace(memberDecl->name, memberDecl->type);
+            memberIndexes.try_emplace(memberDecl->name, memberIndex);
             memberIndex += 1;
         }
 
         // @Incomplete report error if member is not a var or let !
     }
 
-    auto it = context->getTypes()->find(decl->name.text);
+    auto it = context->getTypes()->find(decl->name);
     if (it != context->getTypes()->end()) {
         decl->type = context->getErrorType();
-        diag->report(DIAG_ERROR, "Invalid redeclaration of '{0}'", decl->name.text);
+        diag->report(DIAG_ERROR, "Invalid redeclaration of '{0}'", decl->name);
         return;
     }
 
-    decl->type = context->getStructType(decl->name.text, memberTypes, memberIndexes);
+    decl->type = context->getStructType(decl->name, memberTypes, memberIndexes);
 }
 
 void Sema::typeEnumDecl(ASTEnumDecl* decl) {
@@ -713,7 +713,7 @@ bool Sema::checkCyclicStorageInStructDecl(ASTStructDecl* structDecl, llvm::Small
             if (opaqueDecl->typeRef->kind == AST_OPAQUE_TYPE_REF) {
                 auto opaqueTypeRef = reinterpret_cast<ASTOpaqueTypeRef*>(opaqueDecl->typeRef);
                 if (!opaqueTypeRef->decl) {
-                    auto foundDecl = opaqueTypeRef->declContext->lookupDeclInHierarchy(opaqueTypeRef->typeName.text);
+                    auto foundDecl = opaqueTypeRef->declContext->lookupDeclInHierarchy(opaqueTypeRef->typeName);
                     if (foundDecl) {
                         opaqueTypeRef->decl = foundDecl;
                     }
@@ -900,7 +900,7 @@ void Sema::typeCheckVarDecl(ASTVarDecl* decl) {
 
         if (decl->type != decl->assignment->type && decl->assignment->type != context->getErrorType()) {
             decl->type = context->getErrorType();
-            diag->report(DIAG_ERROR, "Assignment expression of '{0}' has mismatching type", decl->name.text);
+            diag->report(DIAG_ERROR, "Assignment expression of '{0}' has mismatching type", decl->name);
         }
     }
 }
@@ -914,11 +914,11 @@ void Sema::typeCheckLetDecl(ASTLetDecl* decl) {
 
         if (decl->type != decl->assignment->type && decl->assignment->type != context->getErrorType()) {
             decl->type = context->getErrorType();
-            diag->report(DIAG_ERROR, "Assignment expression of '{0}' has mismatching type", decl->name.text);
+            diag->report(DIAG_ERROR, "Assignment expression of '{0}' has mismatching type", decl->name);
         }
     } else {
         decl->type = context->getErrorType();
-        diag->report(DIAG_ERROR, "Expected assignment expression for '{0}'", decl->name.text);
+        diag->report(DIAG_ERROR, "Expected assignment expression for '{0}'", decl->name);
     }
 }
 
@@ -952,13 +952,13 @@ void Sema::typeCheckEnumElementDecl(ASTEnumElementDecl* decl) {
     }
 
     if (!decl->parent || decl->parent->kind != AST_BLOCK) {
-        diag->report(DIAG_ERROR, "Enum element '{0}' can only be declared inside of an enum", decl->name.text);
+        diag->report(DIAG_ERROR, "Enum element '{0}' can only be declared inside of an enum", decl->name);
         return;
     }
 
     auto parentBlock = reinterpret_cast<ASTBlock*>(decl->parent);
     if (!parentBlock->parent || parentBlock->parent->kind != AST_ENUM) {
-        diag->report(DIAG_ERROR, "Enum element '{0}' can only be declared inside of an enum", decl->name.text);
+        diag->report(DIAG_ERROR, "Enum element '{0}' can only be declared inside of an enum", decl->name);
         return;
     }
 
@@ -979,7 +979,7 @@ void Sema::typeCheckEnumElementDecl(ASTEnumElementDecl* decl) {
         }
 
         if (decl->type != decl->assignment->type) {
-            diag->report(DIAG_ERROR, "Assignment expression of '{0}' has mismatching type", decl->name.text);
+            diag->report(DIAG_ERROR, "Assignment expression of '{0}' has mismatching type", decl->name);
             return;
         }
 
@@ -1095,7 +1095,7 @@ void Sema::typeCheckMemberAccessExpr(ASTMemberAccessExpr* expr) {
 
     assert(expr->left->type->kind == TYPE_DECL_STRUCT);
     auto structType = reinterpret_cast<StructType*>(expr->left->type);
-    expr->memberIndex = structType->memberIndexes.lookup(expr->memberName.text);
+    expr->memberIndex = structType->memberIndexes.lookup(expr->memberName);
 
     // @Incomplete ...
 }

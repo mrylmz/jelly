@@ -135,12 +135,12 @@ void ASTDumper::dumpBinaryExpr(ASTBinaryExpr* expr) {
 }
 
 void ASTDumper::dumpMemberAccessExpr(ASTMemberAccessExpr* expr) {
-    outputStream << "ASTMemberAccessExpr { memberName = '" << expr->memberName.text.str() << "' }\n";
+    outputStream << "ASTMemberAccessExpr { memberName = '" << expr->memberName->str() << "' }\n";
     dumpChildren({ expr->left });
 }
 
 void ASTDumper::dumpIdentExpr(ASTIdentExpr* expr) {
-    outputStream << "ASTIdentExpr { declName = '" << expr->declName.text.str() << "' }\n";
+    outputStream << "ASTIdentExpr { declName = '" << expr->declName->str() << "' }\n";
 }
 
 void ASTDumper::dumpCallExpr(ASTCallExpr* expr) {
@@ -176,18 +176,18 @@ void ASTDumper::dumpStringLiteral(ASTStringLit* literal) {
 }
 
 void ASTDumper::dumpParamDecl(ASTParamDecl* decl) {
-    outputStream << "ASTParamDecl { name = '" << decl->name.text.str() << "' }\n";
+    outputStream << "ASTParamDecl { name = '" << decl->name->str() << "' }\n";
     dumpChildren({ decl->typeRef });
 }
 
 void ASTDumper::dumpFuncDecl(ASTFuncDecl* decl) {
-    outputStream << "ASTFuncDecl { name = '" << decl->name.text.str() << "' }\n";
+    outputStream << "ASTFuncDecl { name = '" << decl->name->str() << "' }\n";
     dumpNamedList("params", decl->params);
     dumpChildren({ decl->returnTypeRef, decl->block });
 }
 
 void ASTDumper::dumpVarDecl(ASTVarDecl* decl) {
-    outputStream << "ASTVarDecl { name = '" << decl->name.text.str() << "' }\n";
+    outputStream << "ASTVarDecl { name = '" << decl->name->str() << "' }\n";
     dumpChildren({ decl->typeRef });
     if (decl->assignment) {
         dumpChildren({ decl->assignment });
@@ -195,7 +195,7 @@ void ASTDumper::dumpVarDecl(ASTVarDecl* decl) {
 }
 
 void ASTDumper::dumpLetDecl(ASTLetDecl* decl) {
-    outputStream << "ASTLetDecl { name = '" << decl->name.text.str() << "' }\n";
+    outputStream << "ASTLetDecl { name = '" << decl->name->str() << "' }\n";
     dumpChildren({ decl->typeRef });
     if (decl->assignment) {
         dumpChildren({ decl->assignment });
@@ -203,19 +203,19 @@ void ASTDumper::dumpLetDecl(ASTLetDecl* decl) {
 }
 
 void ASTDumper::dumpStructDecl(ASTStructDecl* decl) {
-    outputStream << "ASTStructDecl { name = '" << decl->name.text.str() << "' }\n";
+    outputStream << "ASTStructDecl { name = '" << decl->name->str() << "' }\n";
     dumpChildren({ decl->block });
 }
 
 void ASTDumper::dumpEnumElementDecl(ASTEnumElementDecl* decl) {
-    outputStream << "ASTEnumElementDecl { name = '" << decl->name.text.str() << "' }\n";
+    outputStream << "ASTEnumElementDecl { name = '" << decl->name->str() << "' }\n";
     if (decl->assignment) {
         dumpChildren({ decl->assignment });
     }
 }
 
 void ASTDumper::dumpEnumDecl(ASTEnumDecl* decl) {
-    outputStream << "ASTEnumDecl { name = '" << decl->name.text.str() << "' }\n";
+    outputStream << "ASTEnumDecl { name = '" << decl->name->str() << "' }\n";
     dumpChildren({ decl->block });
 }
 
@@ -244,7 +244,7 @@ void ASTDumper::dumpDeferStmt(ASTDeferStmt* stmt) {
 }
 
 void ASTDumper::dumpForStmt(ASTForStmt* stmt) {
-    outputStream << "ASTForStmt { elementName = '" << stmt->elementName.text.str() << "' }\n";
+    outputStream << "ASTForStmt { elementName = '" << stmt->elementName->str() << "' }\n";
     dumpChildren({ stmt->sequenceExpr, stmt->block });
 }
 
@@ -304,7 +304,7 @@ void ASTDumper::dumpAnyTypeRef(ASTAnyTypeRef* typeRef) {
 }
 
 void ASTDumper::dumpOpaqueTypeRef(ASTOpaqueTypeRef* typeRef) {
-    outputStream << "ASTOpaqueTypeRef { typeName = '" << typeRef->typeName.text.str() << "' }\n";
+    outputStream << "ASTOpaqueTypeRef { typeName = '" << typeRef->typeName->str() << "' }\n";
 }
 
 void ASTDumper::dumpTypeOfTypeRef(ASTTypeOfTypeRef* typeRef) {

@@ -86,14 +86,14 @@ Lexeme ASTContext::getLexeme(llvm::StringRef text) {
     lexeme.index = lexemeMap.lookup(text);
 
     if (lexeme.index > 0) {
-        lexeme.text = lexemeValues[lexeme.index - 1];
+        lexeme.data = lexemeValues[lexeme.index - 1];
         return lexeme;
     }
 
-    lexeme.text = text.copy(lexemeAllocator);
+    lexeme.data = text.copy(lexemeAllocator);
     lexeme.index = lexemeValues.size() + 1;
-    lexemeValues.push_back(lexeme.text);
-    lexemeMap.try_emplace(lexeme.text, lexeme.index);
+    lexemeValues.push_back(lexeme.data);
+    lexemeMap.try_emplace(lexeme.data, lexeme.index);
     return lexeme;
 }
 
@@ -200,7 +200,7 @@ Type* ASTContext::getAnyPointerType() {
 Type* ASTContext::getEnumType(ASTEnumDecl* decl) {
     // @Incomplete build a unique type
     auto type = new EnumType;
-    type->name = decl->name.text;
+    type->name = decl->name;
     return type;
 }
 
@@ -237,7 +237,7 @@ Type* ASTContext::getDynamicArrayType(Type* elementType) {
 Type* ASTContext::getFuncType(ASTFuncDecl* decl) {
     // @Incomplete build a unique type
     auto type = new FuncType;
-    type->name = decl->name.text;
+    type->name = decl->name;
     for (auto param : decl->params) {
         type->paramTypes.push_back(param->type);
     }
@@ -245,8 +245,8 @@ Type* ASTContext::getFuncType(ASTFuncDecl* decl) {
     type->returnType = decl->returnTypeRef->type;
 
     // @Cleanup the types are only written here to get a working IRGen pass
-    if (!findTypeByName(decl->name.text)) {
-        types.insert(std::make_pair(decl->name.text, type));
+    if (!findTypeByName(decl->name)) {
+        types.insert(std::make_pair(decl->name, type));
     }
 
     return type;
