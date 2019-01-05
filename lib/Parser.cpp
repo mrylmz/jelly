@@ -35,6 +35,14 @@ __Parser__->parent = __Parent__
 assert(__Parser__->parent); \
 __Parser__->parent = __Parser__->parent->parent
 
+#define PushDeclContext(__Parser__, __Context__)      \
+__Context__->setDeclContext(__Parser__->declContext); \
+__Parser__->declContext = __Context__
+
+#define PopDeclContext(__Parser__) \
+assert(__Parser__->declContext); \
+__Parser__->declContext = __Parser__->declContext->getDeclContext();
+
 // @Incomplete Check if symbols of unary expressions are right bound ! (unexpected: ~ value, expected: ~value)
 // @Incomplete Write unit-tests for assignment of parents
 
@@ -62,6 +70,7 @@ static ASTNilLit* ParseNilLiteral(Parser* Parser, ASTContext* Context, Diagnosti
     assert(Parser->token.is(TOKEN_KEYWORD_NIL));
 
     ASTNilLit* Nil = new (Context) ASTNilLit;
+    Nil->declContext = Parser->declContext;
     PushParent(Parser, Nil);
     PopParent(Parser);
     ConsumeToken(Parser);
@@ -73,6 +82,7 @@ static ASTBoolLit* ParseBoolLiteral(Parser* Parser, ASTContext* Context, Diagnos
     assert(Parser->token.is(TOKEN_KEYWORD_TRUE, TOKEN_KEYWORD_FALSE));
 
     ASTBoolLit* Bool = new (Context) ASTBoolLit;
+    Bool->declContext = Parser->declContext;
     PushParent(Parser, Bool);
     {
         if (Parser->token.kind == TOKEN_KEYWORD_TRUE) {
@@ -92,6 +102,7 @@ static ASTIntLit* ParseIntLiteral(Parser* Parser, ASTContext* Context, Diagnosti
     assert(Parser->token.is(TOKEN_LITERAL_INT));
 
     ASTIntLit* Int = new (Context) ASTIntLit;
+    Int->declContext = Parser->declContext;
     PushParent(Parser, Int);
     {
         if (Parser->token.text.getAsInteger(0, Int->value)) {
@@ -110,6 +121,7 @@ static ASTFloatLit* ParseFloatLiteral(Parser* Parser, ASTContext* Context, Diagn
     assert(Parser->token.kind == TOKEN_LITERAL_FLOAT);
 
     ASTFloatLit* Float = new (Context) ASTFloatLit;
+    Float->declContext = Parser->declContext;
     PushParent(Parser, Float);
     {
         if (Parser->token.text.getAsDouble(Float->value)) {
@@ -130,6 +142,7 @@ static ASTStringLit* ParseStringLiteral(Parser* Parser, ASTContext* Context, Dia
     assert(Parser->token.text.size() >= 2 && "Invalid length of string literal text, has to contain at least \"\"");
 
     ASTStringLit* String = new (Context) ASTStringLit;
+    String->declContext = Parser->declContext;
     PushParent(Parser, String);
     {
         // @Cleanup we form a lexeme here to retain memory for String->Value
@@ -153,6 +166,7 @@ static ASTIdentExpr* ParseIdent(Parser* Parser, ASTContext* Context, DiagnosticE
     if (Parser->token.kind != TOKEN_IDENTIFIER) { return nullptr; }
 
     ASTIdentExpr* Ident = new (Context) ASTIdentExpr;
+    Ident->declContext = Parser->declContext;
     PushParent(Parser, Ident);
     {
         Ident->declName = Context->getLexeme(Parser->token.text);
@@ -211,6 +225,7 @@ static ASTUnaryExpr* ParseUnaryExpr(Parser* Parser, ASTContext* Context, Diagnos
     ConsumeToken(Parser);
 
     ASTUnaryExpr* Expr = new (Context) ASTUnaryExpr;
+    Expr->declContext = Parser->declContext;
     PushParent(Parser, Expr);
     {
         Expr->op = Parser->op;
@@ -246,6 +261,7 @@ static ASTCallExpr* ParseCallExpr(Parser* Parser, ASTContext* Context, Diagnosti
     ConsumeToken(Parser);
 
     ASTCallExpr* Call = new (Context) ASTCallExpr;
+    Call->declContext = Parser->declContext;
     PushParent(Parser, Call);
     {
         // @Bug is the parent of the left broken here ???
@@ -285,6 +301,7 @@ static ASTSubscriptExpr* ParseSubscriptExpr(Parser* Parser, ASTContext* Context,
     ConsumeToken(Parser);
 
     ASTSubscriptExpr* Subscript = new (Context) ASTSubscriptExpr;
+    Subscript->declContext = Parser->declContext;
     PushParent(Parser, Subscript);
     {
         // @Bug is the parent of the left broken here ???
@@ -341,6 +358,7 @@ static ASTExpr* ParseExpr(Parser* Parser, ASTContext* Context, DiagnosticEngine*
             }
 
             ASTBinaryExpr* Right = new (Context) ASTBinaryExpr;
+            Right->declContext = Parser->declContext;
             PushParent(Parser, Right);
             PopParent(Parser);
             Right->op = Parser->op;
@@ -358,6 +376,7 @@ static ASTExpr* ParseExpr(Parser* Parser, ASTContext* Context, DiagnosticEngine*
             ConsumeToken(Parser);
 
             ASTMemberAccessExpr* Right = new (Context) ASTMemberAccessExpr;
+            Right->declContext = Parser->declContext;
             PushParent(Parser, Right);
             PopParent(Parser);
             Right->left = Left;
@@ -407,11 +426,12 @@ static ASTExpr* TryParseExpr(Parser* Parser, ASTContext* Context, DiagnosticEngi
 /// grammar: directive := load-directive
 
 /// grammar: load-directive := "#load" string-literal
-static ASTDirective* ParseLoadDirective(Parser* Parser, ASTContext* Context, DiagnosticEngine* Diag) {
+static ASTLoad* ParseLoadDirective(Parser* Parser, ASTContext* Context, DiagnosticEngine* Diag) {
     assert(Parser->token.is(TOKEN_KEYWORD_LOAD) && "Invalid token given for start of load directive!");
     ConsumeToken(Parser);
 
     ASTLoad* Load = new (Context) ASTLoad;
+    Load->declContext = Parser->declContext;
     PushParent(Parser, Load);
     {
         Load->string = ParseStringLiteral(Parser, Context, Diag);
@@ -434,6 +454,7 @@ static ASTTypeRef* ParseAnyType(Parser* Parser, ASTContext* Context) {
     ConsumeToken(Parser);
 
     auto TypeRef = new (Context) ASTAnyTypeRef;
+    TypeRef->declContext = Parser->declContext;
     PushParent(Parser, TypeRef);
     PopParent(Parser);
 
@@ -445,6 +466,7 @@ static ASTTypeRef* ParseOpaqueType(Parser* Parser, ASTContext* Context, Diagnost
     assert(Parser->token.kind == TOKEN_IDENTIFIER);
 
     auto TypeRef = new (Context) ASTOpaqueTypeRef;
+    TypeRef->declContext = Parser->declContext;
     PushParent(Parser, TypeRef);
     PopParent(Parser);
 
@@ -467,6 +489,7 @@ static ASTTypeRef* ParseTypeOfType(Parser* Parser, ASTContext* Context, Diagnost
     ConsumeToken(Parser);
 
     auto TypeRef = new (Context) ASTTypeOfTypeRef;
+    TypeRef->declContext = Parser->declContext;
     PushParent(Parser, TypeRef);
     {
         TypeRef->expr = ParseExpr(Parser, Context, Diag);
@@ -502,6 +525,7 @@ static ASTTypeRef* ParsePointerType(Parser* Parser, ASTContext* Context, Diagnos
     }
 
     auto TypeRef = new (Context) ASTPointerTypeRef;
+    TypeRef->declContext = Parser->declContext;
     PushParent(Parser, TypeRef);
     PopParent(Parser);
     TypeRef->depth = Depth;
@@ -517,6 +541,7 @@ static ASTTypeRef* ParseArrayType(Parser* Parser, ASTContext* Context, Diagnosti
     ConsumeToken(Parser);
 
     auto TypeRef = new (Context) ASTArrayTypeRef;
+    TypeRef->declContext = Parser->declContext;
     TypeRef->elementTypeRef = ElementTypeRef;
     TypeRef->elementTypeRef->parent = TypeRef;
 
@@ -596,8 +621,10 @@ static ASTBlock* ParseBlock(Parser* Parser, ASTContext* Context, DiagnosticEngin
     ConsumeToken(Parser);
 
     ASTBlock* Block = new (Context) ASTBlock;
+    Block->declContext = Parser->declContext; // @Refactor redundant storage of decl context!
     Block->scope.kind = Kind;
 
+    PushDeclContext(Parser, Block);
     PushParent(Parser, Block);
     {
         if (!Parser->token.is('}')) {
@@ -618,7 +645,9 @@ static ASTBlock* ParseBlock(Parser* Parser, ASTContext* Context, DiagnosticEngin
 
                 if (Stmt->isDecl()) {
                     auto Decl = reinterpret_cast<ASTDecl*>(Stmt);
-                    if (!Block->decls.try_emplace(Decl->name.text, Decl).second) {
+                    if (!Block->lookupDecl(Decl->name.text)) {
+                        Block->addDecl(Decl);
+                    } else {
                         Parser->report(DIAG_ERROR, "Invalid redeclaration of '{0}'", Decl->name.text);
                     }
                 }
@@ -631,6 +660,7 @@ static ASTBlock* ParseBlock(Parser* Parser, ASTContext* Context, DiagnosticEngin
         ConsumeToken(Parser);
     }
     PopParent(Parser);
+    PopDeclContext(Parser);
 
     return Block;
 }
@@ -646,6 +676,7 @@ static ASTEnumElementDecl* ParseEnumElementDecl(Parser* Parser, ASTContext* Cont
     ConsumeToken(Parser);
 
     ASTEnumElementDecl* EnumElement = new (Context) ASTEnumElementDecl;
+    EnumElement->declContext = Parser->declContext;
     PushParent(Parser, EnumElement);
     {
         if (!Parser->token.is(TOKEN_IDENTIFIER)) {
@@ -675,6 +706,7 @@ static ASTEnumElementDecl* ParseEnumElementDecl(Parser* Parser, ASTContext* Cont
 /// grammar: parameter := identifier ":" type-identifier
 static ASTParamDecl* ParseParameterDecl(Parser* Parser, ASTContext* Context, DiagnosticEngine* Diag) {
     ASTParamDecl* Parameter = new (Context) ASTParamDecl;
+    Parameter->declContext = Parser->declContext;
     PushParent(Parser, Parameter);
     {
         if (!Parser->token.is(TOKEN_IDENTIFIER)) {
@@ -710,6 +742,7 @@ static ASTEnumDecl* ParseEnumDecl(Parser* Parser, ASTContext* Context, Diagnosti
     ConsumeToken(Parser);
 
     ASTEnumDecl* Enum = new (Context) ASTEnumDecl;
+    Enum->declContext = Parser->declContext;
     PushParent(Parser, Enum);
     {
         if (!Parser->token.is(TOKEN_IDENTIFIER)) {
@@ -726,8 +759,10 @@ static ASTEnumDecl* ParseEnumDecl(Parser* Parser, ASTContext* Context, Diagnosti
         ConsumeToken(Parser);
 
         Enum->block = new (Context) ASTBlock;
+        Enum->block->declContext = Parser->declContext;
         Enum->block->scope.kind = SCOPE_ENUM;
 
+        PushDeclContext(Parser, Enum->block);
         PushParent(Parser, Enum->block);
         {
             if (!Parser->token.is('}')) {
@@ -744,8 +779,9 @@ static ASTEnumDecl* ParseEnumDecl(Parser* Parser, ASTContext* Context, Diagnosti
                     }
 
                     Enum->block->stmts.push_back(EnumElement);
-
-                    if (!Enum->block->decls.try_emplace(EnumElement->name.text, EnumElement).second) {
+                    if (!Enum->block->lookupDecl(EnumElement->name.text)) {
+                        Enum->block->addDecl(EnumElement);
+                    } else {
                         Parser->report(DIAG_ERROR, "Invalid redeclaration of '{0}'", EnumElement->name.text);
                     }
 
@@ -760,6 +796,7 @@ static ASTEnumDecl* ParseEnumDecl(Parser* Parser, ASTContext* Context, Diagnosti
             ConsumeToken(Parser);
         }
         PopParent(Parser);
+        PopDeclContext(Parser);
     }
     PopParent(Parser);
 
@@ -772,6 +809,7 @@ static ASTFuncDecl* ParseFuncDecl(Parser* Parser, ASTContext* Context, Diagnosti
     ConsumeToken(Parser);
 
     ASTFuncDecl* Func = new (Context) ASTFuncDecl;
+    Func->declContext = Parser->declContext;
     PushParent(Parser, Func);
     {
         if (!Parser->token.is(TOKEN_IDENTIFIER)) {
@@ -825,7 +863,9 @@ static ASTFuncDecl* ParseFuncDecl(Parser* Parser, ASTContext* Context, Diagnosti
         }
 
         for (auto Param : Func->params) {
-            if (!Func->block->decls.try_emplace(Param->name.text, Param).second) {
+            if (!Func->block->lookupDecl(Param->name.text)) {
+                Func->block->addDecl(Param);
+            } else {
                 Parser->report(DIAG_ERROR, "Invalid redeclaration of '{0}'", Param->name.text);
             }
         }
@@ -841,6 +881,7 @@ static ASTStructDecl* ParseStructDecl(Parser* Parser, ASTContext* Context, Diagn
     ConsumeToken(Parser);
 
     ASTStructDecl* Struct = new (Context) ASTStructDecl;
+    Struct->declContext = Parser->declContext;
     PushParent(Parser, Struct);
     {
         if (!Parser->token.is(TOKEN_IDENTIFIER)) {
@@ -867,6 +908,7 @@ static ASTVarDecl* ParseVarDecl(Parser* Parser, ASTContext* Context, DiagnosticE
     ConsumeToken(Parser);
 
     ASTVarDecl* Var = new (Context) ASTVarDecl;
+    Var->declContext = Parser->declContext;
     PushParent(Parser, Var);
     {
         if (!Parser->token.is(TOKEN_IDENTIFIER)) {
@@ -911,6 +953,7 @@ static ASTLetDecl* ParseLetDecl(Parser* Parser, ASTContext* Context, DiagnosticE
     ConsumeToken(Parser);
 
     ASTLetDecl* Let = new (Context) ASTLetDecl;
+    Let->declContext = Parser->declContext;
     PushParent(Parser, Let);
     {
         if (!Parser->token.is(TOKEN_IDENTIFIER)) {
@@ -976,6 +1019,7 @@ static ASTBreakStmt* ParseBreakStmt(Parser* Parser, ASTContext* Context, Diagnos
     ConsumeToken(Parser);
 
     ASTBreakStmt* Break = new (Context) ASTBreakStmt;
+    Break->declContext = Parser->declContext;
     PushParent(Parser, Break);
     PopParent(Parser);
     return Break;
@@ -988,6 +1032,7 @@ static ASTContinueStmt* ParseContinueStmt(Parser* Parser, ASTContext* Context, D
     ConsumeToken(Parser);
 
     ASTContinueStmt* Continue = new (Context) ASTContinueStmt;
+    Continue->declContext = Parser->declContext;
     PushParent(Parser, Continue);
     PopParent(Parser);
     return Continue;
@@ -1000,6 +1045,7 @@ static ASTFallthroughStmt* ParseFallthroughStmt(Parser* Parser, ASTContext* Cont
     ConsumeToken(Parser);
 
     ASTFallthroughStmt* Fallthrough = new (Context) ASTFallthroughStmt;
+    Fallthrough->declContext = Parser->declContext;
     PushParent(Parser, Fallthrough);
     PopParent(Parser);
     return Fallthrough;
@@ -1012,6 +1058,7 @@ static ASTReturnStmt* ParseReturnStmt(Parser* Parser, ASTContext* Context, Diagn
     ConsumeToken(Parser);
 
     ASTReturnStmt* Return = new (Context) ASTReturnStmt;
+    Return->declContext = Parser->declContext;
     PushParent(Parser, Return);
     {
         Return->expr = TryParseExpr(Parser, Context, Diag);
@@ -1027,6 +1074,7 @@ static ASTDeferStmt* ParseDeferStmt(Parser* Parser, ASTContext* Context, Diagnos
     ConsumeToken(Parser);
 
     ASTDeferStmt* Defer = new (Context) ASTDeferStmt;
+    Defer->declContext = Parser->declContext;
     PushParent(Parser, Defer);
     {
         Defer->expr = ParseExpr(Parser, Context, Diag);
@@ -1046,6 +1094,7 @@ static ASTDoStmt* ParseDoStmt(Parser* Parser, ASTContext* Context, DiagnosticEng
     ConsumeToken(Parser);
 
     ASTDoStmt* Do = new (Context) ASTDoStmt;
+    Do->declContext = Parser->declContext;
     PushParent(Parser, Do);
     {
         Do->block = ParseBlock(Parser, Context, Diag, SCOPE_LOOP);
@@ -1087,6 +1136,7 @@ static ASTForStmt* ParseForStmt(Parser* Parser, ASTContext* Context, DiagnosticE
     ConsumeToken(Parser);
 
     ASTForStmt* For = new (Context) ASTForStmt;
+    For->declContext = Parser->declContext;
     PushParent(Parser, For);
     {
         if (!Parser->token.is(TOKEN_IDENTIFIER)) {
@@ -1124,6 +1174,7 @@ static ASTGuardStmt* ParseGuardStmt(Parser* Parser, ASTContext* Context, Diagnos
     ConsumeToken(Parser);
 
     ASTGuardStmt* Guard = new (Context) ASTGuardStmt;
+    Guard->declContext = Parser->declContext;
     PushParent(Parser, Guard);
     {
         do {
@@ -1165,6 +1216,7 @@ static ASTIfStmt* ParseIfStmt(Parser* Parser, ASTContext* Context, DiagnosticEng
     ConsumeToken(Parser);
 
     ASTIfStmt* If = new (Context) ASTIfStmt;
+    If->declContext = Parser->declContext;
     PushParent(Parser, If);
     {
         do {
@@ -1220,6 +1272,7 @@ static ASTCaseStmt* ParseSwitchCaseStmt(Parser* Parser, ASTContext* Context, Dia
     }
 
     ASTCaseStmt* Case = new (Context) ASTCaseStmt;
+    Case->declContext = Parser->declContext;
     PushParent(Parser, Case);
     {
         if (Parser->token.is(TOKEN_KEYWORD_CASE)) {
@@ -1241,8 +1294,10 @@ static ASTCaseStmt* ParseSwitchCaseStmt(Parser* Parser, ASTContext* Context, Dia
         ConsumeToken(Parser);
 
         Case->block = new (Context) ASTBlock;
+        Case->block->declContext = Parser->declContext;
         Case->block->scope.kind = SCOPE_SWITCH;
 
+        PushDeclContext(Parser, Case->block);
         PushParent(Parser, Case->block);
         {
             unsigned line = Parser->token.line;
@@ -1267,7 +1322,9 @@ static ASTCaseStmt* ParseSwitchCaseStmt(Parser* Parser, ASTContext* Context, Dia
 
                 if (Stmt->isDecl()) {
                     auto Decl = reinterpret_cast<ASTDecl*>(Stmt);
-                    if (!Case->block->decls.try_emplace(Decl->name.text, Decl).second) {
+                    if (!Case->block->lookupDecl(Decl->name.text)) {
+                        Case->block->addDecl(Decl);
+                    } else {
                         Parser->report(DIAG_ERROR, "Invalid redeclaration of '{0}'", Decl->name.text);
                     }
                 }
@@ -1275,6 +1332,7 @@ static ASTCaseStmt* ParseSwitchCaseStmt(Parser* Parser, ASTContext* Context, Dia
             } while (true);
         }
         PopParent(Parser);
+        PopDeclContext(Parser);
     }
     PopParent(Parser);
 
@@ -1287,6 +1345,7 @@ static ASTSwitchStmt* ParseSwitchStmt(Parser* Parser, ASTContext* Context, Diagn
     ConsumeToken(Parser);
 
     ASTSwitchStmt* Switch = new (Context) ASTSwitchStmt;
+    Switch->declContext = Parser->declContext;
     PushParent(Parser, Switch);
     {
         Switch->expr = ParseExpr(Parser, Context, Diag);
@@ -1334,6 +1393,7 @@ static ASTWhileStmt* ParseWhileStmt(Parser* Parser, ASTContext* Context, Diagnos
     ConsumeToken(Parser);
 
     ASTWhileStmt* While = new (Context) ASTWhileStmt;
+    While->declContext = Parser->declContext;
     PushParent(Parser, While);
     {
         do {
@@ -1399,7 +1459,9 @@ ASTStmt* ParseStmt(Parser* Parser, ASTContext* Context, DiagnosticEngine* Diag) 
 void ParseAllTopLevelNodes(Parser* Parser, ASTContext* Context, DiagnosticEngine* Diag) {
     Parser->token = Parser->lexer->peekNextToken();
 
-    PushParent(Parser, Context->getRoot());
+    auto module = Context->getModule();
+    PushParent(Parser, module);
+    PushDeclContext(Parser, module);
     {
         bool checkConsecutiveTopLevelNodes = false;
         unsigned line = Parser->token.line;
@@ -1417,16 +1479,16 @@ void ParseAllTopLevelNodes(Parser* Parser, ASTContext* Context, DiagnosticEngine
             checkConsecutiveTopLevelNodes = true;
             line = nodeLine;
 
-            Context->getRoot()->stmts.push_back(Node);
-
-            if (Node->isDecl()) {
-                auto Decl = reinterpret_cast<ASTDecl*>(Node);
-                if (!Context->getRoot()->decls.try_emplace(Decl->name.text, Decl).second) {
-                    Parser->report(DIAG_ERROR, "Invalid redeclaration of '{0}'", Decl->name.text);
-                }
+            assert(Node->isDecl());
+            auto decl = reinterpret_cast<ASTDecl*>(Node);
+            if (module->lookupDecl(decl->name.text)) {
+                Parser->report(DIAG_ERROR, "Invalid redeclaration of '{0}'", decl->name.text);
+            } else {
+                module->addDecl(decl);
             }
 
         } while (true);
     }
     PopParent(Parser);
+    PopDeclContext(Parser);
 }

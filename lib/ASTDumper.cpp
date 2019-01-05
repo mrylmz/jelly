@@ -30,6 +30,27 @@
 ASTDumper::ASTDumper(std::ostream& outputStream) : outputStream(outputStream) {
 }
 
+void ASTDumper::dumpModule(ASTModule* module) {
+    outputStream << "ASTBlock\n"; // @Incomplete rename to ASTModule and update all affected unit tests
+    indentation += 1;
+
+    std::string indentText = "";
+    for (auto i = 0; i < indentation - 1; i++) {
+        indentText.append("  ");
+    }
+
+    if (indentation > 0) {
+        indentText.append("| ");
+    }
+
+    for (auto it = module->declsBegin(); it != module->declsEnd(); it++) {
+        outputStream << indentText;
+        dumpNode(*it);
+    }
+
+    indentation -= 1;
+}
+
 void ASTDumper::dumpNode(ASTNode* node) {
     assert(node);
     switch (node->kind) {

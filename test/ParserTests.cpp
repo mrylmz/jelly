@@ -78,7 +78,7 @@ TEST_P(ParserTest, run) {
 
         std::ostringstream dumpRecordContentStream;
         ASTDumper dumper(dumpRecordContentStream);
-        dumper.dumpNode(manager.context.getRoot());
+        dumper.dumpModule(manager.context.getModule());
 
         if (parameter.hasDumpRecord) {
             printf("[ RUN      ] %s\n", parameter.metadata.sourceFileName.c_str());

@@ -36,8 +36,17 @@ Sema::Sema(CodeManager* codeManager) : codeManager(codeManager), context(&codeMa
 }
 
 void Sema::validateAST() {
-    inferTypeOfNode(context->getRoot());
-    typeCheckNode(context->getRoot());
+    auto module = context->getModule();
+
+    // @Stability This should be implemented with a reverse_iterator but the std::reverse_iterator is causing an
+    //            stack memory corruption so we fallback to declsLast but comparing it to declsEnd is semantically incorrect!
+    for (auto it = module->declsLast(); it != module->declsEnd(); it--) {
+        inferTypeOfNode(*it);
+    }
+
+    for (auto it = module->declsBegin(); it != module->declsEnd(); it++) {
+        typeCheckNode(*it);
+    }
 }
 
 // @Incomplete if inner expressions contain CandidateTypes
@@ -55,15 +64,9 @@ void Sema::resolveType(ASTTypeRef* typeRef) {
 
             // @Refactor Decl resolution is also used on other places extract it to a function ...
             if (!opaqueTypeRef->decl) {
-                auto block = opaqueTypeRef->getParentBlock();
-                while (block) {
-                    auto it = block->decls.find(opaqueTypeRef->typeName.text);
-                    if (it != block->decls.end()) {
-                        opaqueTypeRef->decl = it->getValue();
-                        break;
-                    }
-
-                    block = block->getParentBlock();
+                auto decl = opaqueTypeRef->declContext->lookupDeclInHierarchy(opaqueTypeRef->typeName.text);
+                if (decl) {
+                    opaqueTypeRef->decl = decl;
                 }
             }
 
@@ -143,7 +146,6 @@ void Sema::resolveType(ASTTypeRef* typeRef) {
 
 void Sema::inferTypeOfNode(ASTNode* node) {
     switch (node->kind) {
-        case AST_LOAD:
         case AST_BREAK:
         case AST_CONTINUE:
         case AST_FALLTHROUGH:
@@ -362,26 +364,21 @@ void Sema::inferTypeOfLetDecl(ASTLetDecl* let) {
 }
 
 void Sema::inferTypeOfIdentExpr(ASTIdentExpr* expr) {
-    auto block = expr->getParentBlock();
-    while (block) {
-        auto It = block->decls.find(expr->declName.text);
-        if (It != block->decls.end()) {
-            expr->decl = It->getValue();
-            inferTypeOfNode(expr->decl);
-            expr->type = expr->decl->type;
-            return;
-        }
-
-        block = block->getParentBlock();
+    auto decl = expr->declContext->lookupDeclInHierarchy(expr->declName.text);
+    if (decl) {
+        expr->decl = decl;
+        inferTypeOfNode(expr->decl);
+        expr->type = expr->decl->type;
+        return;
     }
 
-    // @Refactor may export all enum elements to the global scope?
-    for (auto stmt : context->getRoot()->stmts) {
-        if (stmt->kind == AST_ENUM) {
-            auto enumDecl = reinterpret_cast<ASTEnumDecl*>(stmt);
-            auto it = enumDecl->block->decls.find(expr->declName.text);
-            if (it != enumDecl->block->decls.end() && it->getValue()->kind == AST_ENUM_ELEMENT) {
-                expr->decl = it->getValue();
+    auto module = context->getModule();
+    for (auto it = module->declsBegin(); it != module->declsEnd(); it++) {
+        if ((*it)->kind == AST_ENUM) {
+            auto enumDecl = reinterpret_cast<ASTEnumDecl*>(*it);
+            auto decl = enumDecl->block->lookupDecl(expr->declName.text);
+            if (decl && decl->kind == AST_ENUM_ELEMENT) {
+                expr->decl = decl;
                 inferTypeOfNode(expr->decl);
                 expr->type = expr->decl->type;
                 return;
@@ -408,11 +405,10 @@ void Sema::inferTypeOfUnaryExpr(ASTUnaryExpr* expr) {
         return;
     }
 
-    auto it = context->getRoot()->decls.find(expr->op.text);
-    if (it != context->getRoot()->decls.end()) {
-        auto decl = it->getValue();
-        if (decl->kind == AST_PREFIX_FUNC) {
-            auto funcDecl = reinterpret_cast<ASTPrefixFuncDecl*>(decl);
+    auto decl = context->getModule()->lookupDecl(expr->op.text);
+    if (decl->kind == AST_PREFIX_FUNC) {
+        auto funcDecl = reinterpret_cast<ASTPrefixFuncDecl*>(decl);
+        if (funcDecl) {
             typePrefixFuncDecl(funcDecl);
             if (funcDecl->type == context->getErrorType()) {
                 expr->type = context->getErrorType();
@@ -482,11 +478,10 @@ void Sema::inferTypeOfBinaryExpr(ASTBinaryExpr* expr) {
         return;
     }
 
-    auto it = context->getRoot()->decls.find(expr->op.text);
-    if (it != context->getRoot()->decls.end()) {
-        auto decl = it->getValue();
-        if (decl->kind == AST_INFIX_FUNC) {
-            auto funcDecl = reinterpret_cast<ASTInfixFuncDecl*>(decl);
+    auto decl = context->getModule()->lookupDecl(expr->op.text);
+    if (decl->kind == AST_INFIX_FUNC) {
+        auto funcDecl = reinterpret_cast<ASTInfixFuncDecl*>(decl);
+        if (funcDecl) {
             typeInfixFuncDecl(funcDecl);
             if (funcDecl->type == context->getErrorType()) {
                 expr->type = context->getErrorType();
@@ -664,8 +659,8 @@ void Sema::typeStructDecl(ASTStructDecl* decl) {
     llvm::StringMap<unsigned> memberIndexes;
 
     unsigned memberIndex = 0;
-    for (auto it = decl->block->decls.begin(); it != decl->block->decls.end(); it++) {
-        auto memberDecl = it->getValue();
+    for (auto it = decl->block->declsBegin(); it != decl->block->declsEnd(); it++) {
+        auto memberDecl = *it;
         inferTypeOfNode(memberDecl);
 
         if (memberDecl->type == context->getErrorType()) {
@@ -681,6 +676,13 @@ void Sema::typeStructDecl(ASTStructDecl* decl) {
         }
 
         // @Incomplete report error if member is not a var or let !
+    }
+
+    auto it = context->getTypes()->find(decl->name.text);
+    if (it != context->getTypes()->end()) {
+        decl->type = context->getErrorType();
+        diag->report(DIAG_ERROR, "Invalid redeclaration of '{0}'", decl->name.text);
+        return;
     }
 
     decl->type = context->getStructType(decl->name.text, memberTypes, memberIndexes);
@@ -704,22 +706,16 @@ void Sema::typeEnumElementDecl(ASTEnumElementDecl* decl) {
 }
 
 bool Sema::checkCyclicStorageInStructDecl(ASTStructDecl* structDecl, llvm::SmallVector<ASTStructDecl*, 0>* parentDecls) {
-    for (auto declIt = structDecl->block->decls.begin(); declIt != structDecl->block->decls.end(); declIt++) {
-        auto decl = declIt->getValue();
+    for (auto declIt = structDecl->block->declsBegin(); declIt != structDecl->block->declsEnd(); declIt++) {
+        auto decl = *declIt;
         if (decl->kind == AST_VAR || decl->kind == AST_LET) {
-            auto opaqueDecl = reinterpret_cast<ASTOpaqueDecl*>(decl);
+            auto opaqueDecl = reinterpret_cast<ASTValueDecl*>(decl);
             if (opaqueDecl->typeRef->kind == AST_OPAQUE_TYPE_REF) {
                 auto opaqueTypeRef = reinterpret_cast<ASTOpaqueTypeRef*>(opaqueDecl->typeRef);
                 if (!opaqueTypeRef->decl) {
-                    auto block = opaqueTypeRef->getParentBlock();
-                    while (block) {
-                        auto blockIt = block->decls.find(opaqueTypeRef->typeName.text);
-                        if (blockIt != block->decls.end()) {
-                            opaqueTypeRef->decl = blockIt->getValue();
-                            break;
-                        }
-
-                        block = block->getParentBlock();
+                    auto foundDecl = opaqueTypeRef->declContext->lookupDeclInHierarchy(opaqueTypeRef->typeName.text);
+                    if (foundDecl) {
+                        opaqueTypeRef->decl = foundDecl;
                     }
                 }
 

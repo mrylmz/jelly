@@ -37,9 +37,11 @@ struct ASTDumper {
 
     ASTDumper(std::ostream& outputStream);
 
-    void dumpNode(ASTNode* node);
+    void dumpModule(ASTModule* module);
 
 private:
+
+    void dumpNode(ASTNode* node);
 
     template<typename T>
     void dumpNamedList(llvm::StringRef name, llvm::SmallVector<T*, 0> list);

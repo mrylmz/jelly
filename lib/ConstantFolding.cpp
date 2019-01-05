@@ -28,7 +28,7 @@ ASTExpr* CodeManager::evaluateConstExpr(ASTExpr *expr) {
     switch (expr->kind) {
         case AST_IDENTIFIER: {
             auto ident = reinterpret_cast<ASTIdentExpr*>(expr);
-            if (ident->decl && ident->decl->kind == AST_LET && ident->decl->parent == context.getRoot()) {
+            if (ident->decl && ident->decl->kind == AST_LET && ident->decl->parent == context.getModule()) {
                 auto let = reinterpret_cast<ASTLetDecl*>(ident->decl);
                 if (!let->assignment) {
                     return nullptr;

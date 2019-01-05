@@ -32,7 +32,6 @@ static size_t allNodeSizes[] = {
     sizeof(ASTNode),
     sizeof(ASTStmt),
     sizeof(ASTExpr),
-    sizeof(ASTDirective),
     sizeof(ASTDecl),
     sizeof(ASTUnaryExpr),
     sizeof(ASTBinaryExpr),
@@ -50,7 +49,7 @@ static size_t allNodeSizes[] = {
     sizeof(ASTFuncDecl),
     sizeof(ASTPrefixFuncDecl),
     sizeof(ASTInfixFuncDecl),
-    sizeof(ASTOpaqueDecl),
+    sizeof(ASTValueDecl),
     sizeof(ASTVarDecl),
     sizeof(ASTLetDecl),
     sizeof(ASTStructDecl),
@@ -124,8 +123,7 @@ typeAnyPointer(PointerType(1, &typeAny)) {
 
     nodePages.push_back((uint8_t*)buffer);
 
-    root = new (this) ASTBlock;
-    root->scope.kind = SCOPE_GLOBAL;
+    module = new (this) ASTModule;
 
     types.try_emplace("Any", &typeAny);
     types.try_emplace("Void", &typeVoid);
@@ -195,8 +193,8 @@ Lexeme ASTContext::getLexeme(llvm::StringRef text) {
     return lexeme;
 }
 
-ASTBlock* ASTContext::getRoot() {
-    return root;
+ASTModule* ASTContext::getModule() {
+    return module;
 }
 
 llvm::StringMap<Type*>* ASTContext::getTypes() {

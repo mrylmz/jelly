@@ -26,6 +26,7 @@
 
 // @Refactor Rename all decls to defns because they are definitions and add decls for signatures only ...
 
+#include "Core/DeclContext.h"
 #include "Core/Operator.h"
 
 #include <llvm/ADT/APInt.h>
@@ -49,13 +50,14 @@ enum ASTNodeKind : uint8_t {
     AST_FUNC,
     AST_PREFIX_FUNC,
     AST_INFIX_FUNC,
-    AST_BLOCK,
     AST_PARAMETER,
     AST_STRUCT,
     AST_VAR,
     AST_LET,
     AST_ENUM,
     AST_ENUM_ELEMENT,
+    AST_MODULE,
+    AST_BLOCK,
     AST_IDENTIFIER,
     AST_UNARY,
     AST_BINARY,
@@ -92,6 +94,12 @@ struct Type;
 struct ASTNode {
     ASTNodeKind kind;
     ASTNode* parent = nullptr;
+
+    // @Refactor declContext should be removed from nodes completely because it is only required for the type resolution
+    //           by storing the current context in the Sema pass while traversing the AST it is possible to keep track
+    //           of the current context of any node by using a top down tarversal, for now we will keep this redundancy
+    //           to delay the introduction of complexity inside the sema phase...
+    DeclContext* declContext = nullptr;
     bool isValidated = false;
 
     ASTNode() { kind = AST_UNKNOWN; }
@@ -116,11 +124,23 @@ struct ASTExpr : public ASTStmt {
     llvm::SmallVector<Type*, 0> candidateTypes;
 };
 
-struct ASTDirective : public ASTNode {};
-
 struct ASTDecl : public ASTStmt {
     Lexeme name;
     Type* type = nullptr;
+    ASTDecl* nextDeclInContext = nullptr;
+    ASTDecl* previousDeclInContext = nullptr;
+};
+
+struct ASTLoad;
+struct ASTFuncDecl;
+struct ASTPrefixFuncDecl;
+struct ASTInfixFuncDecl;
+struct ASTEnumDecl;
+struct ASTStructDecl;
+struct ASTValueDecl;
+
+struct ASTModule : public ASTDecl, public DeclContext {
+    ASTModule() { kind = AST_MODULE; }
 };
 
 struct ASTUnaryExpr : public ASTExpr {
@@ -183,7 +203,7 @@ struct ASTStringLit : ASTLit {
     ASTStringLit() { kind = AST_STRING_LITERAL; }
 };
 
-struct ASTLoad : public ASTDirective {
+struct ASTLoad : public ASTDecl {
     ASTStringLit* string = nullptr;
 
     ASTLoad() { kind = AST_LOAD; }
@@ -204,10 +224,9 @@ struct Scope {
     ScopeKind kind = SCOPE_GLOBAL;
 };
 
-struct ASTBlock : ASTNode {
+struct ASTBlock : public ASTNode, public DeclContext {
     Scope scope;
     llvm::SmallVector<ASTNode*, 0> stmts;
-    llvm::StringMap<ASTDecl*> decls; // @Refactor shouldn't decls live inside of the Scope it self?
 
     ASTBlock() { kind = AST_BLOCK; }
 };
@@ -234,16 +253,16 @@ struct ASTInfixFuncDecl : public ASTFuncDecl {
     ASTInfixFuncDecl() { kind = AST_INFIX_FUNC; }
 };
 
-struct ASTOpaqueDecl : public ASTDecl {
+struct ASTValueDecl : public ASTDecl {
     ASTTypeRef* typeRef = nullptr;
     ASTExpr* assignment = nullptr;
 };
 
-struct ASTVarDecl : public ASTOpaqueDecl {
+struct ASTVarDecl : public ASTValueDecl {
     ASTVarDecl() { kind = AST_VAR; }
 };
 
-struct ASTLetDecl : public ASTOpaqueDecl {
+struct ASTLetDecl : public ASTValueDecl {
     ASTLetDecl() { kind = AST_LET; }
 };
 

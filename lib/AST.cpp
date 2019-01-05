@@ -31,6 +31,7 @@ void* ASTNode::operator new (size_t size, ASTContext* context) {
 
 bool ASTNode::isDecl() const {
     return
+    kind == AST_LOAD || 
     kind == AST_PARAMETER ||
     kind == AST_FUNC ||
     kind == AST_VAR ||

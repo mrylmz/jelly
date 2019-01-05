@@ -43,7 +43,7 @@ struct ASTContext {
 
     Lexeme getLexeme(llvm::StringRef text);
 
-    ASTBlock* getRoot();
+    ASTModule* getModule();
 
     llvm::StringMap<Type*>* getTypes();
     llvm::SmallVector<FuncType*, 0>* getBuiltinFuncTypes();
@@ -93,7 +93,7 @@ private:
     llvm::StringMap<Type*> types;
     llvm::SmallVector<FuncType*, 0> builtinFuncTypes;
 
-    ASTBlock* root;
+    ASTModule* module;
 
     ErrorType typeError;
     AnyType typeAny;
