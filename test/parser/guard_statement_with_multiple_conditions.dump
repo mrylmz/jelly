@@ -3,9 +3,10 @@ ASTBlock
   | ASTOpaqueTypeRef { typeName = 'Void' }
   | ASTBlock
     | ASTGuardStmt
-      | conditions
-        | ASTBoolLit { value = '1' }
-        | ASTBoolLit { value = '1' }
+      | ASTBinaryExpr { operator = '&&' }
+        | ASTBinaryExpr { operator = '&&' }
+          | ASTBoolLit { value = '1' }
+          | ASTBoolLit { value = '1' }
         | ASTBoolLit { value = '1' }
       | ASTBlock
         | ASTReturnStmt

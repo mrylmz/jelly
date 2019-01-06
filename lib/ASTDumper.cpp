@@ -54,7 +54,6 @@ void ASTDumper::dumpModule(ASTModule* module) {
 void ASTDumper::dumpNode(ASTNode* node) {
     assert(node);
     switch (node->kind) {
-        case AST_BLOCK:             return dumpBlock(reinterpret_cast<ASTBlock*>(node));
         case AST_LOAD:              return dumpLoad(reinterpret_cast<ASTLoad*>(node));
         case AST_UNARY:             return dumpUnaryExpr(reinterpret_cast<ASTUnaryExpr*>(node));
         case AST_BINARY:            return dumpBinaryExpr(reinterpret_cast<ASTBinaryExpr*>(node));
@@ -74,6 +73,7 @@ void ASTDumper::dumpNode(ASTNode* node) {
         case AST_STRUCT:            return dumpStructDecl(reinterpret_cast<ASTStructDecl*>(node));
         case AST_ENUM_ELEMENT:      return dumpEnumElementDecl(reinterpret_cast<ASTEnumElementDecl*>(node));
         case AST_ENUM:              return dumpEnumDecl(reinterpret_cast<ASTEnumDecl*>(node));
+        case AST_COMPOUND_STMT:     return dumpCompoundStmt(reinterpret_cast<ASTCompoundStmt*>(node));
         case AST_BREAK:             return dumpBreakStmt(reinterpret_cast<ASTBreakStmt*>(node));
         case AST_CONTINUE:          return dumpContinueStmt(reinterpret_cast<ASTContinueStmt*>(node));
         case AST_FALLTHROUGH:       return dumpFallthroughStmt(reinterpret_cast<ASTFallthroughStmt*>(node));
@@ -95,28 +95,9 @@ void ASTDumper::dumpNode(ASTNode* node) {
     }
 }
 
-void ASTDumper::dumpChildren(llvm::SmallVector<ASTNode*, 0> children) {
-    indentation += 1;
-
-    std::string indentText = "";
-    for (auto i = 0; i < indentation - 1; i++) {
-        indentText.append("  ");
-    }
-
-    if (indentation > 0) {
-        indentText.append("| ");
-    }
-
-    for (auto child : children) {
-        outputStream << indentText;
-        dumpNode(child);
-    }
-    indentation -= 1;
-}
-
-void ASTDumper::dumpBlock(ASTBlock* block) {
-    outputStream << "ASTBlock\n";
-    dumpChildren(block->stmts);
+void ASTDumper::dumpCompoundStmt(ASTCompoundStmt* stmt) {
+    outputStream << "ASTBlock\n"; // @Incomplete rename to ASTCompoundStmt
+    dumpChildren(stmt->stmts);
 }
 
 void ASTDumper::dumpLoad(ASTLoad* directive) {
@@ -183,7 +164,7 @@ void ASTDumper::dumpParamDecl(ASTParamDecl* decl) {
 void ASTDumper::dumpFuncDecl(ASTFuncDecl* decl) {
     outputStream << "ASTFuncDecl { name = '" << decl->name->str() << "' }\n";
     dumpNamedList("params", decl->params);
-    dumpChildren({ decl->returnTypeRef, decl->block });
+    dumpChildren({ decl->returnTypeRef, decl->body });
 }
 
 void ASTDumper::dumpVarDecl(ASTVarDecl* decl) {
@@ -204,7 +185,23 @@ void ASTDumper::dumpLetDecl(ASTLetDecl* decl) {
 
 void ASTDumper::dumpStructDecl(ASTStructDecl* decl) {
     outputStream << "ASTStructDecl { name = '" << decl->name->str() << "' }\n";
-    dumpChildren({ decl->block });
+
+    // @Incomplete remove ASTBlock + indentation
+    indentation += 1;
+    std::string indentText = "";
+    for (auto i = 0; i < indentation - 1; i++) {
+        indentText.append("  ");
+    }
+
+    if (indentation > 0) {
+        indentText.append("| ");
+    }
+
+    outputStream << indentText;
+    outputStream << "ASTBlock\n";
+    dumpDeclContext(decl);
+
+    indentation -= 1;
 }
 
 void ASTDumper::dumpEnumElementDecl(ASTEnumElementDecl* decl) {
@@ -216,7 +213,23 @@ void ASTDumper::dumpEnumElementDecl(ASTEnumElementDecl* decl) {
 
 void ASTDumper::dumpEnumDecl(ASTEnumDecl* decl) {
     outputStream << "ASTEnumDecl { name = '" << decl->name->str() << "' }\n";
-    dumpChildren({ decl->block });
+
+    // @Incomplete remove ASTBlock + indentation
+    indentation += 1;
+    std::string indentText = "";
+    for (auto i = 0; i < indentation - 1; i++) {
+        indentText.append("  ");
+    }
+
+    if (indentation > 0) {
+        indentText.append("| ");
+    }
+
+    outputStream << indentText;
+    outputStream << "ASTBlock\n";
+    dumpDeclContext(decl);
+
+    indentation -= 1;
 }
 
 void ASTDumper::dumpBreakStmt(ASTBreakStmt* stmt) {
@@ -245,22 +258,20 @@ void ASTDumper::dumpDeferStmt(ASTDeferStmt* stmt) {
 
 void ASTDumper::dumpForStmt(ASTForStmt* stmt) {
     outputStream << "ASTForStmt { elementName = '" << stmt->elementName->str() << "' }\n";
-    dumpChildren({ stmt->sequenceExpr, stmt->block });
+    dumpChildren({ stmt->sequenceExpr, stmt->body });
 }
 
 void ASTDumper::dumpGuardStmt(ASTGuardStmt* stmt) {
     outputStream << "ASTGuardStmt\n";
-    dumpNamedList("conditions", stmt->conditions);
-    dumpChildren({ stmt->elseBlock });
+    dumpChildren({ stmt->condition, stmt->elseStmt });
 }
 
 void ASTDumper::dumpIfStmt(ASTIfStmt* stmt) {
     outputStream << "ASTIfStmt\n";
-    dumpNamedList("conditions", stmt->conditions);
-    dumpChildren({ stmt->block });
+    dumpChildren({ stmt->condition, stmt->thenStmt });
 
     if (stmt->chainKind == AST_CHAIN_ELSE) {
-        dumpChildren({ stmt->elseBlock });
+        dumpChildren({ stmt->elseStmt });
     } else if (stmt->chainKind == AST_CHAIN_IF) {
         dumpChildren({ stmt->elseIf });
     }
@@ -268,14 +279,12 @@ void ASTDumper::dumpIfStmt(ASTIfStmt* stmt) {
 
 void ASTDumper::dumpDoStmt(ASTDoStmt* stmt) {
     outputStream << "ASTDoStmt\n";
-    dumpNamedList("conditions", stmt->conditions);
-    dumpChildren({ stmt->block });
+    dumpChildren({ stmt->condition, stmt->body });
 }
 
 void ASTDumper::dumpWhileStmt(ASTWhileStmt* stmt) {
     outputStream << "ASTWhileStmt\n";
-    dumpNamedList("conditions", stmt->conditions);
-    dumpChildren({ stmt->block });
+    dumpChildren({ stmt->condition, stmt->body });
 }
 
 void ASTDumper::dumpCaseStmt(ASTCaseStmt* stmt) {
@@ -290,7 +299,7 @@ void ASTDumper::dumpCaseStmt(ASTCaseStmt* stmt) {
     if (stmt->condition) {
         dumpChildren({ stmt->condition });
     }
-    dumpChildren({ stmt->block });
+    dumpChildren({ stmt->body });
 }
 
 void ASTDumper::dumpSwitchStmt(ASTSwitchStmt* stmt) {

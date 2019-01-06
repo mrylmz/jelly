@@ -56,9 +56,13 @@ private:
 };
 
 class DeclContext {
+    unsigned declKind;
     ASTDecl* firstDecl = nullptr;
     ASTDecl* lastDecl = nullptr;
     DeclContext* parentContext = nullptr;
+
+protected:
+    DeclContext(unsigned declKind) : declKind(declKind) {}
 
 public:
     using decl_iterator = DeclIterator;
@@ -72,7 +76,14 @@ public:
     void setDeclContext(DeclContext* declContext);
 
     void addDecl(ASTDecl* decl);
+    bool containsDecls();
     bool containsDecl(ASTDecl *decl);
     ASTDecl* lookupDecl(llvm::StringRef name);
     ASTDecl* lookupDeclInHierarchy(llvm::StringRef name);
+
+    bool isModule() const;
+    bool isEnumDecl() const;
+    bool isFuncDecl() const;
+    bool isStructDecl() const;
+    bool isCaseStmt() const;
 };

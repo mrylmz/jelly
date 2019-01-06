@@ -30,6 +30,7 @@
 #include "Core/Lexeme.h"
 #include "Core/Operator.h"
 
+#include <llvm/ADT/ArrayRef.h>
 #include <llvm/ADT/APInt.h>
 #include <llvm/ADT/StringMap.h>
 #include <llvm/ADT/StringRef.h>
@@ -53,11 +54,11 @@ enum ASTNodeKind : uint8_t {
     AST_ENUM,
     AST_ENUM_ELEMENT,
     AST_MODULE,
-    AST_BLOCK,
     AST_IDENTIFIER,
     AST_UNARY,
     AST_BINARY,
     AST_MEMBER_ACCESS,
+    AST_COMPOUND_STMT,
     AST_BREAK,
     AST_CONTINUE,
     AST_FALLTHROUGH,
@@ -80,7 +81,6 @@ enum ASTNodeKind : uint8_t {
 };
 
 struct ASTContext;
-struct ASTBlock;
 struct ASTIdentExpr;
 struct ASTTypeRef;
 struct Type;
@@ -109,7 +109,6 @@ struct ASTNode {
     virtual void destroy() {};
 
     bool isDecl() const;
-    ASTBlock* getParentBlock();
 };
 
 struct ASTStmt : public ASTNode {};
@@ -142,7 +141,7 @@ struct ASTStructDecl;
 struct ASTValueDecl;
 
 struct ASTModule : public ASTDecl, public DeclContext {
-    ASTModule() { kind = AST_MODULE; }
+    ASTModule() : DeclContext(AST_MODULE) { kind = AST_MODULE; }
 };
 
 struct ASTUnaryExpr : public ASTExpr {
@@ -216,45 +215,24 @@ struct ASTLoad : public ASTDecl {
     ASTLoad() { kind = AST_LOAD; }
 };
 
-enum ScopeKind : uint8_t {
-    SCOPE_GLOBAL,
-    SCOPE_STRUCT,
-    SCOPE_ENUM,
-    SCOPE_FUNC,
-    SCOPE_BRANCH,
-    SCOPE_LOOP,
-    SCOPE_SWITCH
-};
-
-// @Refactor move Scope to separate file and keep it small!
-struct Scope {
-    ScopeKind kind = SCOPE_GLOBAL;
-};
-
-struct ASTBlock : public ASTNode, public DeclContext {
-    Scope scope;
-    llvm::SmallVector<ASTNode*, 0> stmts;
-
-    ASTBlock() { kind = AST_BLOCK; }
-
-    virtual void destroy() override {
-        ASTNode::destroy();
-        stmts.~SmallVector();
-    }
-};
-
 struct ASTParamDecl : public ASTDecl {
     ASTTypeRef* typeRef = nullptr;
 
     ASTParamDecl() { kind = AST_PARAMETER; }
 };
 
-struct ASTFuncDecl : public ASTDecl {
+struct ASTCompoundStmt : public ASTStmt {
+    llvm::ArrayRef<ASTStmt*> stmts;
+
+    ASTCompoundStmt(ASTContext* context, llvm::ArrayRef<ASTStmt*> stmts);
+};
+
+struct ASTFuncDecl : public ASTDecl, public DeclContext {
     llvm::SmallVector<ASTParamDecl*, 0> params;
     ASTTypeRef* returnTypeRef = nullptr;
-    ASTBlock* block = nullptr;
+    ASTCompoundStmt* body = nullptr;
 
-    ASTFuncDecl() { kind = AST_FUNC; }
+    ASTFuncDecl() : DeclContext(AST_FUNC) { kind = AST_FUNC; }
 
     virtual void destroy() override {
         ASTDecl::destroy();
@@ -283,10 +261,8 @@ struct ASTLetDecl : public ASTValueDecl {
     ASTLetDecl() { kind = AST_LET; }
 };
 
-struct ASTStructDecl : public ASTDecl {
-    ASTBlock* block = nullptr;
-
-    ASTStructDecl() { kind = AST_STRUCT; }
+struct ASTStructDecl : public ASTDecl, public DeclContext {
+    ASTStructDecl() : DeclContext(AST_STRUCT) { kind = AST_STRUCT; }
 };
 
 struct ASTEnumElementDecl : public ASTDecl {
@@ -295,10 +271,8 @@ struct ASTEnumElementDecl : public ASTDecl {
     ASTEnumElementDecl() { kind = AST_ENUM_ELEMENT; }
 };
 
-struct ASTEnumDecl : public ASTDecl {
-    ASTBlock* block = nullptr;
-
-    ASTEnumDecl() { kind = AST_ENUM; }
+struct ASTEnumDecl : public ASTDecl, public DeclContext {
+    ASTEnumDecl() : DeclContext(AST_ENUM) { kind = AST_ENUM; }
 };
 
 struct ASTCtrlStmt : public ASTStmt {};
@@ -330,22 +304,17 @@ struct ASTDeferStmt : public ASTStmt {
 struct ASTForStmt : public ASTStmt {
     Lexeme elementName;
     ASTExpr* sequenceExpr = nullptr;
-    ASTBlock* block = nullptr;
+    ASTCompoundStmt* body = nullptr;
 
     ASTForStmt() { kind = AST_FOR; }
 };
 
 struct ASTBranchStmt : public ASTStmt {
-    llvm::SmallVector<ASTExpr*, 0> conditions;
-
-    virtual void destroy() override {
-        ASTStmt::destroy();
-        conditions.~SmallVector();
-    }
+    ASTExpr* condition = nullptr;
 };
 
 struct ASTGuardStmt : public ASTBranchStmt {
-    ASTBlock* elseBlock = nullptr;
+    ASTCompoundStmt* elseStmt = nullptr;
 
     ASTGuardStmt() { kind = AST_GUARD; }
 };
@@ -357,12 +326,11 @@ enum ASTChainKind : uint8_t {
 };
 
 struct ASTIfStmt : public ASTBranchStmt {
-    ASTBlock* block = nullptr;
+    ASTCompoundStmt* thenStmt = nullptr;
     ASTChainKind chainKind = AST_CHAIN_NONE;
-    bool hasElseChain = false;
 
     union {
-        ASTBlock* elseBlock;
+        ASTCompoundStmt* elseStmt;
         ASTIfStmt* elseIf;
     };
 
@@ -370,7 +338,7 @@ struct ASTIfStmt : public ASTBranchStmt {
 };
 
 struct ASTLoopStmt : public ASTBranchStmt {
-    ASTBlock* block = nullptr;
+    ASTCompoundStmt* body = nullptr;
 };
 
 struct ASTDoStmt : public ASTLoopStmt {
@@ -386,12 +354,12 @@ enum ASTCaseKind : uint8_t {
     AST_CASE_ELSE
 };
 
-struct ASTCaseStmt : public ASTStmt {
+struct ASTCaseStmt : public ASTStmt, public DeclContext {
     ASTCaseKind caseKind;
     ASTExpr* condition = nullptr;
-    ASTBlock* block = nullptr;
+    ASTCompoundStmt* body = nullptr;
 
-    ASTCaseStmt() { kind = AST_SWITCH_CASE; }
+    ASTCaseStmt() : DeclContext(AST_SWITCH_CASE) { kind = AST_SWITCH_CASE; }
 };
 
 struct ASTSwitchStmt : public ASTStmt {
@@ -411,7 +379,6 @@ struct ASTCallExpr : public ASTExpr {
     llvm::SmallVector<ASTExpr*, 0> args;
 
     ASTCallExpr() { kind = AST_CALL; }
-
 
     virtual void destroy() override {
         ASTExpr::destroy();

@@ -3,9 +3,10 @@ ASTBlock
   | ASTOpaqueTypeRef { typeName = 'Void' }
   | ASTBlock
     | ASTIfStmt
-      | conditions
-        | ASTIdentExpr { declName = 'condition0' }
-        | ASTIdentExpr { declName = 'condition1' }
+      | ASTBinaryExpr { operator = '&&' }
+        | ASTBinaryExpr { operator = '&&' }
+          | ASTIdentExpr { declName = 'condition0' }
+          | ASTIdentExpr { declName = 'condition1' }
         | ASTIdentExpr { declName = 'condition2' }
       | ASTBlock
       | ASTBlock

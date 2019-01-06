@@ -221,17 +221,17 @@ Token Lexer::peekNextToken() {
     return state.nextToken;
 }
 
-bool Lexer::getOperator(Token token, OperatorKind kind, Operator& op) {
+bool Lexer::getOperator(llvm::StringRef name, OperatorKind kind, Operator& op) {
     switch (kind) {
-        case OPERATOR_PREFIX:  return getOperator(token, op, prefixOperators);
-        case OPERATOR_INFIX:   return getOperator(token, op, infixOperators);
-        case OPERATOR_POSTFIX: return getOperator(token, op, postfixOperators);
+        case OPERATOR_PREFIX:  return getOperator(name, op, prefixOperators);
+        case OPERATOR_INFIX:   return getOperator(name, op, infixOperators);
+        case OPERATOR_POSTFIX: return getOperator(name, op, postfixOperators);
         default:               llvm_unreachable("Invalid kind given for OperatorKind!");
     }
 }
 
-bool Lexer::getOperator(Token token, Operator& op, llvm::StringMap<Operator>& operators) {
-    auto it = operators.find(token.text);
+bool Lexer::getOperator(llvm::StringRef name, Operator& op, llvm::StringMap<Operator>& operators) {
+    auto it = operators.find(name);
     if (it != operators.end()) {
         op = it->getValue();
         return true;

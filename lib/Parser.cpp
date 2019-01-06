@@ -219,7 +219,7 @@ static ASTExpr* ParseAtomExpr(Parser* Parser, ASTContext* Context, DiagnosticEng
 /// grammar: unary-expression := prefix-operator expression
 static ASTUnaryExpr* ParseUnaryExpr(Parser* Parser, ASTContext* Context, DiagnosticEngine* Diag) {
     assert(Parser->token.is(TOKEN_OPERATOR)
-           && Parser->lexer->getOperator(Parser->token, OPERATOR_PREFIX, Parser->op) // TODO: Move this out of assert, won't get compiled in release builds!
+           && Parser->lexer->getOperator(Parser->token.text, OPERATOR_PREFIX, Parser->op) // TODO: Move this out of assert, won't get compiled in release builds!
            && "Invalid token given for start of unary-expression!");
 
     ConsumeToken(Parser);
@@ -243,7 +243,7 @@ static ASTUnaryExpr* ParseUnaryExpr(Parser* Parser, ASTContext* Context, Diagnos
 /// grammar: primary-expression := unary-expression | atom-expression
 static ASTExpr* ParsePrimaryExpr(Parser* Parser, ASTContext* Context, DiagnosticEngine* Diag) {
     if (Parser->token.is(TOKEN_OPERATOR)) {
-        if (Parser->lexer->getOperator(Parser->token, OPERATOR_PREFIX, Parser->op)) {
+        if (Parser->lexer->getOperator(Parser->token.text, OPERATOR_PREFIX, Parser->op)) {
             return ParseUnaryExpr(Parser, Context, Diag);
         } else {
             Parser->report(DIAG_ERROR, "Unknown prefix operator!");
@@ -342,8 +342,8 @@ static ASTExpr* ParseExpr(Parser* Parser, ASTContext* Context, DiagnosticEngine*
         return nullptr;
     }
 
-    if (!Parser->lexer->getOperator(Parser->token, OPERATOR_INFIX, Parser->op)
-        && !Parser->lexer->getOperator(Parser->token, OPERATOR_POSTFIX, Parser->op)) {
+    if (!Parser->lexer->getOperator(Parser->token.text, OPERATOR_INFIX, Parser->op)
+        && !Parser->lexer->getOperator(Parser->token.text, OPERATOR_POSTFIX, Parser->op)) {
         return Left;
     }
 
@@ -398,8 +398,8 @@ static ASTExpr* ParseExpr(Parser* Parser, ASTContext* Context, DiagnosticEngine*
             return nullptr;
         }
 
-        if (!Parser->lexer->getOperator(Parser->token, OPERATOR_INFIX, Parser->op)
-            && !Parser->lexer->getOperator(Parser->token, OPERATOR_POSTFIX, Parser->op)) {
+        if (!Parser->lexer->getOperator(Parser->token.text, OPERATOR_INFIX, Parser->op)
+            && !Parser->lexer->getOperator(Parser->token.text, OPERATOR_POSTFIX, Parser->op)) {
             break;
         }
     }
@@ -513,7 +513,7 @@ static ASTTypeRef* ParseTypeOfType(Parser* Parser, ASTContext* Context, Diagnost
 static ASTTypeRef* ParsePointerType(Parser* Parser, ASTContext* Context, DiagnosticEngine* Diag, ASTTypeRef* PointeeTypeRef, bool* DidFail) {
     uint32_t Depth = 0;
     while (Parser->token.is(TOKEN_OPERATOR)
-           && Parser->lexer->getOperator(Parser->token, OPERATOR_POSTFIX, Parser->op)
+           && Parser->lexer->getOperator(Parser->token.text, OPERATOR_POSTFIX, Parser->op)
            && Parser->op.text.equals("*")) {
         Depth += 1;
         ConsumeToken(Parser);
@@ -612,57 +612,37 @@ static ASTTypeRef* ParseType(Parser* Parser, ASTContext* Context, DiagnosticEngi
 
 ASTStmt* ParseStmt(Parser* Parser, ASTContext* Context, DiagnosticEngine* Diag);
 
-/// grammar: block := "{" { statement } "}"
-static ASTBlock* ParseBlock(Parser* Parser, ASTContext* Context, DiagnosticEngine* Diag, ScopeKind Kind) {
+static bool ParseStmts(Parser* Parser, ASTContext* Context, DiagnosticEngine* Diag, llvm::SmallVector<ASTStmt*, 0>& stmts) {
     if (!Parser->token.is('{')) {
         Parser->report(DIAG_ERROR, "Expected '{' at start of block!");
-        return nullptr;
+        return false;
     }
     ConsumeToken(Parser);
 
-    ASTBlock* Block = new (Context) ASTBlock;
-    Block->declContext = Parser->declContext; // @Refactor redundant storage of decl context!
-    Block->scope.kind = Kind;
+    if (!Parser->token.is('}')) {
+        unsigned line = Parser->token.line;
+        while (true) {
+            if (stmts.size() > 0 && line == Parser->token.line) {
+                Parser->report(DIAG_ERROR, "Consecutive statements on a line are not allowed!");
+                return nullptr;
+            }
+            line = Parser->token.line;
 
-    PushDeclContext(Parser, Block);
-    PushParent(Parser, Block);
-    {
-        if (!Parser->token.is('}')) {
-            unsigned line = Parser->token.line;
-            while (true) {
-                if (Block->stmts.size() > 0 && line == Parser->token.line) {
-                    Parser->report(DIAG_ERROR, "Consecutive statements on a line are not allowed!");
-                    return nullptr;
-                }
-                line = Parser->token.line;
+            ASTStmt* stmt = ParseStmt(Parser, Context, Diag);
+            if (stmt == nullptr) {
+                return nullptr;
+            }
 
-                ASTStmt* Stmt = ParseStmt(Parser, Context, Diag);
-                if (Stmt == nullptr) {
-                    return nullptr;
-                }
+            stmts.push_back(stmt);
 
-                Block->stmts.push_back(Stmt);
-
-                if (Stmt->isDecl()) {
-                    auto Decl = reinterpret_cast<ASTDecl*>(Stmt);
-                    if (!Block->lookupDecl(Decl->name)) {
-                        Block->addDecl(Decl);
-                    } else {
-                        Parser->report(DIAG_ERROR, "Invalid redeclaration of '{0}'", Decl->name);
-                    }
-                }
-
-                if (Parser->token.is('}')) {
-                    break;
-                }
+            if (Parser->token.is('}')) {
+                break;
             }
         }
-        ConsumeToken(Parser);
     }
-    PopParent(Parser);
-    PopDeclContext(Parser);
+    ConsumeToken(Parser);
 
-    return Block;
+    return true;
 }
 
 // MARK: - Context Declarations
@@ -687,7 +667,7 @@ static ASTEnumElementDecl* ParseEnumElementDecl(Parser* Parser, ASTContext* Cont
         ConsumeToken(Parser);
 
         if (Parser->token.is(TOKEN_OPERATOR)
-            && Parser->lexer->getOperator(Parser->token, OPERATOR_INFIX, Parser->op)
+            && Parser->lexer->getOperator(Parser->token.text, OPERATOR_INFIX, Parser->op)
             && Parser->op.text.equals("=")) {
             ConsumeToken(Parser);
 
@@ -743,6 +723,8 @@ static ASTEnumDecl* ParseEnumDecl(Parser* Parser, ASTContext* Context, Diagnosti
 
     ASTEnumDecl* Enum = new (Context) ASTEnumDecl;
     Enum->declContext = Parser->declContext;
+
+    PushDeclContext(Parser, Enum);
     PushParent(Parser, Enum);
     {
         if (!Parser->token.is(TOKEN_IDENTIFIER)) {
@@ -758,47 +740,37 @@ static ASTEnumDecl* ParseEnumDecl(Parser* Parser, ASTContext* Context, Diagnosti
         }
         ConsumeToken(Parser);
 
-        Enum->block = new (Context) ASTBlock;
-        Enum->block->declContext = Parser->declContext;
-        Enum->block->scope.kind = SCOPE_ENUM;
+        if (!Parser->token.is('}')) {
+            unsigned line = Parser->token.line;
+            while (true) {
+                if (Enum->containsDecls() > 0 && line == Parser->token.line) {
+                    Parser->report(DIAG_ERROR, "Consecutive enum elements on a line are not allowed!");
+                    return nullptr;
+                }
 
-        PushDeclContext(Parser, Enum->block);
-        PushParent(Parser, Enum->block);
-        {
-            if (!Parser->token.is('}')) {
-                unsigned line = Parser->token.line;
-                while (true) {
-                    if (Enum->block->stmts.size() > 0 && line == Parser->token.line) {
-                        Parser->report(DIAG_ERROR, "Consecutive enum elements on a line are not allowed!");
-                        return nullptr;
-                    }
+                ASTEnumElementDecl* EnumElement = ParseEnumElementDecl(Parser, Context, Diag);
+                if (EnumElement == nullptr) {
+                    return nullptr;
+                }
 
-                    ASTEnumElementDecl* EnumElement = ParseEnumElementDecl(Parser, Context, Diag);
-                    if (EnumElement == nullptr) {
-                        return nullptr;
-                    }
+                if (!Enum->lookupDecl(EnumElement->name)) {
+                    Enum->addDecl(EnumElement);
+                } else {
+                    Parser->report(DIAG_ERROR, "Invalid redeclaration of '{0}'", EnumElement->name);
+                }
 
-                    Enum->block->stmts.push_back(EnumElement);
-                    if (!Enum->block->lookupDecl(EnumElement->name)) {
-                        Enum->block->addDecl(EnumElement);
-                    } else {
-                        Parser->report(DIAG_ERROR, "Invalid redeclaration of '{0}'", EnumElement->name);
-                    }
-
-                    if (Parser->token.is('}')) {
-                        break;
-                    } else if (!Parser->token.is(TOKEN_KEYWORD_CASE)) {
-                        Parser->report(DIAG_ERROR, "Expected '}' at end of enum declaration!");
-                        return nullptr;
-                    }
+                if (Parser->token.is('}')) {
+                    break;
+                } else if (!Parser->token.is(TOKEN_KEYWORD_CASE)) {
+                    Parser->report(DIAG_ERROR, "Expected '}' at end of enum declaration!");
+                    return nullptr;
                 }
             }
-            ConsumeToken(Parser);
         }
-        PopParent(Parser);
-        PopDeclContext(Parser);
+        ConsumeToken(Parser);
     }
     PopParent(Parser);
+    PopDeclContext(Parser);
 
     return Enum;
 }
@@ -810,6 +782,8 @@ static ASTFuncDecl* ParseFuncDecl(Parser* Parser, ASTContext* Context, Diagnosti
 
     ASTFuncDecl* Func = new (Context) ASTFuncDecl;
     Func->declContext = Parser->declContext;
+
+    PushDeclContext(Parser, Func);
     PushParent(Parser, Func);
     {
         if (!Parser->token.is(TOKEN_IDENTIFIER)) {
@@ -857,31 +831,56 @@ static ASTFuncDecl* ParseFuncDecl(Parser* Parser, ASTContext* Context, Diagnosti
             return nullptr;
         }
 
-        Func->block = ParseBlock(Parser, Context, Diag, SCOPE_FUNC);
-        if (!Func->block) {
+        llvm::SmallVector<ASTStmt*, 0> stmts;
+        if (!ParseStmts(Parser, Context, Diag, stmts)) {
             return nullptr;
         }
 
-        for (auto Param : Func->params) {
-            if (!Func->block->lookupDecl(Param->name)) {
-                Func->block->addDecl(Param);
+        for (auto param : Func->params) {
+            if (!Func->lookupDecl(param->name)) {
+                Func->addDecl(param);
             } else {
-                Parser->report(DIAG_ERROR, "Invalid redeclaration of '{0}'", Param->name);
+                Parser->report(DIAG_ERROR, "Invalid redeclaration of '{0}'", param->name);
             }
+        }
+
+        for (auto stmt : stmts) {
+            if (stmt->isDecl()) {
+                auto decl = reinterpret_cast<ASTDecl*>(stmt);
+                if (!Func->lookupDecl(decl->name)) {
+                    Func->addDecl(decl);
+                } else {
+                    Parser->report(DIAG_ERROR, "Invalid redeclaration of '{0}'", decl->name);
+                }
+            }
+        }
+
+        Func->body = new (Context) ASTCompoundStmt(Context, stmts);
+        Func->body->parent = Parser->parent;
+        Func->body->declContext = Parser->declContext;
+
+        for (auto stmt : stmts) {
+            stmt->parent = Func->body;
         }
     }
     PopParent(Parser);
+    PopDeclContext(Parser);
 
     return Func;
 }
 
-/// grammar: struct-declaration := "struct" identifier block
+/// grammar: value-declaration := var-declaration | let-declaration
+static ASTValueDecl* ParseValueDecl(Parser* Parser, ASTContext* Context, DiagnosticEngine* Diag);
+
+/// grammar: struct-declaration := "struct" identifier "{" { value-declaration } "}"
 static ASTStructDecl* ParseStructDecl(Parser* Parser, ASTContext* Context, DiagnosticEngine* Diag) {
     assert(Parser->token.is(TOKEN_KEYWORD_STRUCT) && "Invalid token given for start of struct!");
     ConsumeToken(Parser);
 
     ASTStructDecl* Struct = new (Context) ASTStructDecl;
     Struct->declContext = Parser->declContext;
+
+    PushDeclContext(Parser, Struct);
     PushParent(Parser, Struct);
     {
         if (!Parser->token.is(TOKEN_IDENTIFIER)) {
@@ -891,17 +890,47 @@ static ASTStructDecl* ParseStructDecl(Parser* Parser, ASTContext* Context, Diagn
         Struct->name = Context->getLexeme(Parser->token.text);
         ConsumeToken(Parser);
 
-        Struct->block = ParseBlock(Parser, Context, Diag, SCOPE_STRUCT);
-        if (Struct->block == nullptr) {
+        if (!Parser->token.is('{')) {
+            Parser->report(DIAG_ERROR, "Expected '{' after identifier of struct declaration!");
             return nullptr;
         }
+        ConsumeToken(Parser);
+
+        if (!Parser->token.is('}')) {
+            unsigned line = Parser->token.line;
+            while (true) {
+                if (Struct->containsDecls() && line == Parser->token.line) {
+                    Parser->report(DIAG_ERROR, "Consecutive statements on a line are not allowed!");
+                    return nullptr;
+                }
+                line = Parser->token.line;
+
+                auto decl = ParseValueDecl(Parser, Context, Diag);
+                if (!decl) {
+                    Parser->report(DIAG_ERROR, "Expected value declaration or closing '}' in struct declaration!");
+                    return nullptr;
+                }
+
+                if (!Struct->lookupDecl(decl->name)) {
+                    Struct->addDecl(decl);
+                } else {
+                    Parser->report(DIAG_ERROR, "Invalid redeclaration of '{0}'", decl->name);
+                }
+
+                if (Parser->token.is('}')) {
+                    break;
+                }
+            }
+        }
+        ConsumeToken(Parser);
     }
     PopParent(Parser);
+    PopDeclContext(Parser);
 
     return Struct;
 }
 
-/// grammar: var-declaration := ( "var" | "let" ) identifier ":" type-identifier [ "=" expression ]
+/// grammar: var-declaration := "var" identifier ":" type-identifier [ "=" expression ]
 static ASTVarDecl* ParseVarDecl(Parser* Parser, ASTContext* Context, DiagnosticEngine* Diag) {
     assert(Parser->token.is(TOKEN_KEYWORD_VAR) && "Invalid token given for start of variable-declaration!");
 
@@ -930,7 +959,7 @@ static ASTVarDecl* ParseVarDecl(Parser* Parser, ASTContext* Context, DiagnosticE
         }
 
         if (Parser->token.is(TOKEN_OPERATOR)
-            && Parser->lexer->getOperator(Parser->token, OPERATOR_INFIX, Parser->op)
+            && Parser->lexer->getOperator(Parser->token.text, OPERATOR_INFIX, Parser->op)
             && Parser->op.text.equals("=")) {
             ConsumeToken(Parser);
 
@@ -976,7 +1005,7 @@ static ASTLetDecl* ParseLetDecl(Parser* Parser, ASTContext* Context, DiagnosticE
         }
 
         if (Parser->token.is(TOKEN_OPERATOR)
-            && Parser->lexer->getOperator(Parser->token, OPERATOR_INFIX, Parser->op)
+            && Parser->lexer->getOperator(Parser->token.text, OPERATOR_INFIX, Parser->op)
             && Parser->op.text.equals("=")) {
             ConsumeToken(Parser);
 
@@ -990,6 +1019,16 @@ static ASTLetDecl* ParseLetDecl(Parser* Parser, ASTContext* Context, DiagnosticE
     PopParent(Parser);
 
     return Let;
+}
+
+static ASTValueDecl* ParseValueDecl(Parser* Parser, ASTContext* Context, DiagnosticEngine* Diag) {
+    if (Parser->token.is(TOKEN_KEYWORD_VAR)) {
+        return ParseVarDecl(Parser, Context, Diag);
+    } else if (Parser->token.is(TOKEN_KEYWORD_LET)) {
+        return ParseLetDecl(Parser, Context, Diag);
+    }
+
+    return nullptr;
 }
 
 // MARK: - Top Level Declarations
@@ -1097,9 +1136,17 @@ static ASTDoStmt* ParseDoStmt(Parser* Parser, ASTContext* Context, DiagnosticEng
     Do->declContext = Parser->declContext;
     PushParent(Parser, Do);
     {
-        Do->block = ParseBlock(Parser, Context, Diag, SCOPE_LOOP);
-        if (Do->block == nullptr) {
+        llvm::SmallVector<ASTStmt*, 0> stmts;
+        if (!ParseStmts(Parser, Context, Diag, stmts)) {
             return nullptr;
+        }
+
+        Do->body = new (Context) ASTCompoundStmt(Context, stmts);
+        Do->body->parent = Parser->parent;
+        Do->body->declContext = Parser->declContext;
+
+        for (auto stmt : Do->body->stmts) {
+            stmt->parent = Do->body;
         }
 
         if (!Parser->token.is(TOKEN_KEYWORD_WHILE)) {
@@ -1110,12 +1157,28 @@ static ASTDoStmt* ParseDoStmt(Parser* Parser, ASTContext* Context, DiagnosticEng
 
         do {
 
-            ASTExpr* Expr = ParseExpr(Parser, Context, Diag);
-            if (Expr == nullptr) {
+            ASTExpr* expr = ParseExpr(Parser, Context, Diag);
+            if (expr == nullptr) {
                 return nullptr;
             }
 
-            Do->conditions.push_back(Expr);
+            if (!Do->condition) {
+                Do->condition = expr;
+            } else {
+                auto andExpr = new (Context) ASTBinaryExpr;
+                andExpr->parent = Parser->parent;
+                andExpr->declContext = Parser->declContext;
+                andExpr->left = Do->condition;
+                andExpr->left->parent = andExpr;
+                andExpr->right = expr;
+                andExpr->right->parent = andExpr;
+
+                if (!Parser->lexer->getOperator("&&", OPERATOR_INFIX, andExpr->op)) {
+                    llvm::report_fatal_error("Internal compiler error!");
+                }
+
+                Do->condition = andExpr;
+            }
 
             if (!Parser->token.is(',')) {
                 break;
@@ -1157,9 +1220,17 @@ static ASTForStmt* ParseForStmt(Parser* Parser, ASTContext* Context, DiagnosticE
             return nullptr;
         }
 
-        For->block = ParseBlock(Parser, Context, Diag, SCOPE_LOOP);
-        if (!For->block) {
+        llvm::SmallVector<ASTStmt*, 0> stmts;
+        if (!ParseStmts(Parser, Context, Diag, stmts)) {
             return nullptr;
+        }
+
+        For->body = new (Context) ASTCompoundStmt(Context, stmts);
+        For->body->parent = Parser->parent;
+        For->body->declContext = Parser->declContext;
+
+        for (auto stmt : For->body->stmts) {
+            stmt->parent = For->body;
         }
     }
     PopParent(Parser);
@@ -1179,12 +1250,28 @@ static ASTGuardStmt* ParseGuardStmt(Parser* Parser, ASTContext* Context, Diagnos
     {
         do {
 
-            ASTExpr* Expr = ParseExpr(Parser, Context, Diag);
-            if (!Expr) {
+            ASTExpr* expr = ParseExpr(Parser, Context, Diag);
+            if (!expr) {
                 return nullptr;
             }
 
-            Guard->conditions.push_back(Expr);
+            if (!Guard->condition) {
+                Guard->condition = expr;
+            } else {
+                auto andExpr = new (Context) ASTBinaryExpr;
+                andExpr->parent = Parser->parent;
+                andExpr->declContext = Parser->declContext;
+                andExpr->left = Guard->condition;
+                andExpr->left->parent = andExpr;
+                andExpr->right = expr;
+                andExpr->right->parent = andExpr;
+
+                if (!Parser->lexer->getOperator("&&", OPERATOR_INFIX, andExpr->op)) {
+                    llvm::report_fatal_error("Internal compiler error!");
+                }
+
+                Guard->condition = andExpr;
+            }
 
             if (!Parser->token.is(',')) {
                 break;
@@ -1199,9 +1286,17 @@ static ASTGuardStmt* ParseGuardStmt(Parser* Parser, ASTContext* Context, Diagnos
         }
         ConsumeToken(Parser);
 
-        Guard->elseBlock = ParseBlock(Parser, Context, Diag, SCOPE_BRANCH);
-        if (!Guard->elseBlock) {
+        llvm::SmallVector<ASTStmt*, 0> stmts;
+        if (!ParseStmts(Parser, Context, Diag, stmts)) {
             return nullptr;
+        }
+
+        Guard->elseStmt = new (Context) ASTCompoundStmt(Context, stmts);
+        Guard->elseStmt->parent = Parser->parent;
+        Guard->elseStmt->declContext = Parser->declContext;
+
+        for (auto stmt : Guard->elseStmt->stmts) {
+            stmt->parent = Guard->elseStmt;
         }
     }
     PopParent(Parser);
@@ -1220,12 +1315,28 @@ static ASTIfStmt* ParseIfStmt(Parser* Parser, ASTContext* Context, DiagnosticEng
     PushParent(Parser, If);
     {
         do {
-            ASTExpr* Expr = ParseExpr(Parser, Context, Diag);
-            if (!Expr) {
+            ASTExpr* expr = ParseExpr(Parser, Context, Diag);
+            if (!expr) {
                 return nullptr;
             }
 
-            If->conditions.push_back(Expr);
+            if (!If->condition) {
+                If->condition = expr;
+            } else {
+                auto andExpr = new (Context) ASTBinaryExpr;
+                andExpr->parent = Parser->parent;
+                andExpr->declContext = Parser->declContext;
+                andExpr->left = If->condition;
+                andExpr->left->parent = andExpr;
+                andExpr->right = expr;
+                andExpr->right->parent = andExpr;
+
+                if (!Parser->lexer->getOperator("&&", OPERATOR_INFIX, andExpr->op)) {
+                    llvm::report_fatal_error("Internal compiler error!");
+                }
+
+                If->condition = andExpr;
+            }
 
             if (!Parser->token.is(',')) {
                 break;
@@ -1234,9 +1345,17 @@ static ASTIfStmt* ParseIfStmt(Parser* Parser, ASTContext* Context, DiagnosticEng
 
         } while (true);
 
-        If->block = ParseBlock(Parser, Context, Diag, SCOPE_BRANCH);
-        if (!If->block) {
+        llvm::SmallVector<ASTStmt*, 0> stmts;
+        if (!ParseStmts(Parser, Context, Diag, stmts)) {
             return nullptr;
+        }
+
+        If->thenStmt = new (Context) ASTCompoundStmt(Context, stmts);
+        If->thenStmt->parent = If;
+        If->thenStmt->declContext = Parser->declContext;
+
+        for (auto stmt : If->thenStmt->stmts) {
+            stmt->parent = If->thenStmt;
         }
 
         if (Parser->token.is(TOKEN_KEYWORD_ELSE)) {
@@ -1244,17 +1363,24 @@ static ASTIfStmt* ParseIfStmt(Parser* Parser, ASTContext* Context, DiagnosticEng
 
             if (Parser->token.is(TOKEN_KEYWORD_IF)) {
                 If->chainKind = AST_CHAIN_IF;
-                If->hasElseChain = true;
                 If->elseIf = ParseIfStmt(Parser, Context, Diag);
                 if (!If->elseIf) {
                     return nullptr;
                 }
             } else {
                 If->chainKind = AST_CHAIN_ELSE;
-                If->hasElseChain = true;
-                If->elseBlock = ParseBlock(Parser, Context, Diag, SCOPE_BRANCH);
-                if (!If->elseBlock) {
+
+                stmts.clear();
+                if (!ParseStmts(Parser, Context, Diag, stmts)) {
                     return nullptr;
+                }
+
+                If->elseStmt = new (Context) ASTCompoundStmt(Context, stmts);
+                If->elseStmt->parent = If;
+                If->elseStmt->declContext = Parser->declContext;
+
+                for (auto stmt : If->elseStmt->stmts) {
+                    stmt->parent = If->elseStmt;
                 }
             }
         }
@@ -1273,6 +1399,8 @@ static ASTCaseStmt* ParseSwitchCaseStmt(Parser* Parser, ASTContext* Context, Dia
 
     ASTCaseStmt* Case = new (Context) ASTCaseStmt;
     Case->declContext = Parser->declContext;
+
+    PushDeclContext(Parser, Case);
     PushParent(Parser, Case);
     {
         if (Parser->token.is(TOKEN_KEYWORD_CASE)) {
@@ -1293,12 +1421,8 @@ static ASTCaseStmt* ParseSwitchCaseStmt(Parser* Parser, ASTContext* Context, Dia
         }
         ConsumeToken(Parser);
 
-        Case->block = new (Context) ASTBlock;
-        Case->block->declContext = Parser->declContext;
-        Case->block->scope.kind = SCOPE_SWITCH;
+        llvm::SmallVector<ASTStmt*, 0> stmts;
 
-        PushDeclContext(Parser, Case->block);
-        PushParent(Parser, Case->block);
         {
             unsigned line = Parser->token.line;
             do {
@@ -1306,7 +1430,7 @@ static ASTCaseStmt* ParseSwitchCaseStmt(Parser* Parser, ASTContext* Context, Dia
                     break;
                 }
 
-                if (Case->block->stmts.size() > 0 && line == Parser->token.line) {
+                if (stmts.size() > 0 && line == Parser->token.line) {
                     Parser->report(DIAG_ERROR, "Consecutive statements on a line are not allowed!");
                     return nullptr;
                 }
@@ -1318,12 +1442,13 @@ static ASTCaseStmt* ParseSwitchCaseStmt(Parser* Parser, ASTContext* Context, Dia
                     return nullptr;
                 }
 
-                Case->block->stmts.push_back(Stmt);
+                // @Refactor if this is a decl and is added to the decl context is it still required to be part of the statements?
+                stmts.push_back(Stmt);
 
                 if (Stmt->isDecl()) {
                     auto Decl = reinterpret_cast<ASTDecl*>(Stmt);
-                    if (!Case->block->lookupDecl(Decl->name)) {
-                        Case->block->addDecl(Decl);
+                    if (!Case->lookupDecl(Decl->name)) {
+                        Case->addDecl(Decl);
                     } else {
                         Parser->report(DIAG_ERROR, "Invalid redeclaration of '{0}'", Decl->name);
                     }
@@ -1331,10 +1456,17 @@ static ASTCaseStmt* ParseSwitchCaseStmt(Parser* Parser, ASTContext* Context, Dia
 
             } while (true);
         }
-        PopParent(Parser);
-        PopDeclContext(Parser);
+
+        Case->body = new (Context) ASTCompoundStmt(Context, stmts);
+        Case->body->parent = Parser->parent;
+        Case->body->declContext = Parser->declContext;
+
+        for (auto stmt : Case->body->stmts) {
+            stmt->parent = Case->body;
+        }
     }
     PopParent(Parser);
+    PopDeclContext(Parser);
 
     return Case;
 }
@@ -1398,12 +1530,28 @@ static ASTWhileStmt* ParseWhileStmt(Parser* Parser, ASTContext* Context, Diagnos
     {
         do {
 
-            ASTExpr* Expr = ParseExpr(Parser, Context, Diag);
-            if (!Expr) {
+            ASTExpr* expr = ParseExpr(Parser, Context, Diag);
+            if (!expr) {
                 return nullptr;
             }
 
-            While->conditions.push_back(Expr);
+            if (!While->condition) {
+                While->condition = expr;
+            } else {
+                auto andExpr = new (Context) ASTBinaryExpr;
+                andExpr->parent = Parser->parent;
+                andExpr->declContext = Parser->declContext;
+                andExpr->left = While->condition;
+                andExpr->left->parent = andExpr;
+                andExpr->right = expr;
+                andExpr->right->parent = andExpr;
+
+                if (!Parser->lexer->getOperator("&&", OPERATOR_INFIX, andExpr->op)) {
+                    llvm::report_fatal_error("Internal compiler error!");
+                }
+
+                While->condition = andExpr;
+            }
 
             if (!Parser->token.is(',')) {
                 break;
@@ -1412,11 +1560,18 @@ static ASTWhileStmt* ParseWhileStmt(Parser* Parser, ASTContext* Context, Diagnos
 
         } while (true);
 
-        While->block = ParseBlock(Parser, Context, Diag, SCOPE_LOOP);
-        if (!While->block) {
+        llvm::SmallVector<ASTStmt*, 0> stmts;
+        if (!ParseStmts(Parser, Context, Diag, stmts)) {
             return nullptr;
         }
 
+        While->body = new (Context) ASTCompoundStmt(Context, stmts);
+        While->body->parent = Parser->parent;
+        While->body->declContext = Parser->declContext;
+
+        for (auto stmt : While->body->stmts) {
+            stmt->parent = While->body;
+        }
     }
     PopParent(Parser);
 

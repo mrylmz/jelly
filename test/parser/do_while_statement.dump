@@ -3,6 +3,5 @@ ASTBlock
   | ASTOpaqueTypeRef { typeName = 'Void' }
   | ASTBlock
     | ASTDoStmt
-      | conditions
-        | ASTBoolLit { value = '1' }
+      | ASTBoolLit { value = '1' }
       | ASTBlock

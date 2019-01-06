@@ -3,6 +3,5 @@ ASTBlock
   | ASTOpaqueTypeRef { typeName = 'Void' }
   | ASTBlock
     | ASTIfStmt
-      | conditions
-        | ASTIdentExpr { declName = 'condition' }
+      | ASTIdentExpr { declName = 'condition' }
       | ASTBlock

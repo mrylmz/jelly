@@ -3,7 +3,6 @@ ASTBlock
   | ASTOpaqueTypeRef { typeName = 'Void' }
   | ASTBlock
     | ASTWhileStmt
-      | conditions
-        | ASTBoolLit { value = '1' }
+      | ASTBoolLit { value = '1' }
       | ASTBlock
         | ASTContinueStmt

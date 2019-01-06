@@ -174,8 +174,8 @@ void Sema::inferTypeOfNode(ASTNode* node) {
         case AST_IDENTIFIER:
             return inferTypeOfIdentExpr(reinterpret_cast<ASTIdentExpr*>(node));
 
-        case AST_BLOCK:
-            return inferTypeOfStmts(reinterpret_cast<ASTBlock*>(node));
+        case AST_COMPOUND_STMT:
+            return inferTypeOfStmts(reinterpret_cast<ASTCompoundStmt*>(node));
 
         case AST_UNARY:
             return inferTypeOfUnaryExpr(reinterpret_cast<ASTUnaryExpr*>(node));
@@ -209,32 +209,21 @@ void Sema::inferTypeOfNode(ASTNode* node) {
 
         case AST_GUARD: {
             auto guard = reinterpret_cast<ASTGuardStmt*>(node);
-            for (auto condition : guard->conditions) {
-                inferTypeOfNode(condition);
-                if (condition->type == context->getErrorType()) {
-                    return;
-                }
-            }
-
-            inferTypeOfNode(guard->elseBlock);
+            inferTypeOfNode(guard->condition);
+            inferTypeOfNode(guard->elseStmt);
         }   return;
 
         case AST_IF: {
             auto ifStmt = reinterpret_cast<ASTIfStmt*>(node);
-            for (auto condition : ifStmt->conditions) {
-                inferTypeOfNode(condition);
-                if (condition->type == context->getErrorType()) {
-                    return;
-                }
-            }
+            inferTypeOfNode(ifStmt->condition);
 
             if (ifStmt->chainKind == AST_CHAIN_ELSE) {
-                inferTypeOfNode(ifStmt->elseBlock);
+                inferTypeOfNode(ifStmt->elseStmt);
             } else if (ifStmt->chainKind == AST_CHAIN_IF) {
                 inferTypeOfNode(ifStmt->elseIf);
             }
 
-            inferTypeOfStmts(ifStmt->block);
+            inferTypeOfStmts(ifStmt->thenStmt);
         }   return;
 
         case AST_SWITCH: {
@@ -258,29 +247,19 @@ void Sema::inferTypeOfNode(ASTNode* node) {
                 }
             }
 
-            inferTypeOfStmts(caseStmt->block);
+            inferTypeOfStmts(caseStmt->body);
         }   return;
 
         case AST_DO: {
             auto doStmt = reinterpret_cast<ASTDoStmt*>(node);
-            for (auto condition : doStmt->conditions) {
-                inferTypeOfNode(condition);
-                if (condition->type == context->getErrorType()) {
-                    return;
-                }
-            }
-            inferTypeOfStmts(doStmt->block);
+            inferTypeOfNode(doStmt->condition);
+            inferTypeOfStmts(doStmt->body);
         }   return;
 
         case AST_WHILE: {
             auto whileStmt = reinterpret_cast<ASTWhileStmt*>(node);
-            for (auto condition : whileStmt->conditions) {
-                inferTypeOfNode(condition);
-                if (condition->type == context->getErrorType()) {
-                    return;
-                }
-            }
-            inferTypeOfStmts(whileStmt->block);
+            inferTypeOfNode(whileStmt->condition);
+            inferTypeOfStmts(whileStmt->body);
         }   return;
 
         case AST_FUNC:
@@ -376,7 +355,7 @@ void Sema::inferTypeOfIdentExpr(ASTIdentExpr* expr) {
     for (auto it = module->declsBegin(); it != module->declsEnd(); it++) {
         if ((*it)->kind == AST_ENUM) {
             auto enumDecl = reinterpret_cast<ASTEnumDecl*>(*it);
-            auto decl = enumDecl->block->lookupDecl(expr->declName);
+            auto decl = enumDecl->lookupDecl(expr->declName);
             if (decl && decl->kind == AST_ENUM_ELEMENT) {
                 expr->decl = decl;
                 inferTypeOfNode(expr->decl);
@@ -390,8 +369,8 @@ void Sema::inferTypeOfIdentExpr(ASTIdentExpr* expr) {
     diag->report(DIAG_ERROR, "Unresolved identifier '{0}'", expr->declName);
 }
 
-void Sema::inferTypeOfStmts(ASTBlock* block) {
-    for (auto it = block->stmts.rbegin(); it != block->stmts.rend(); it++) {
+void Sema::inferTypeOfStmts(ASTCompoundStmt* stmt) {
+    for (auto it = stmt->stmts.rbegin(); it != stmt->stmts.rend(); it++) {
         inferTypeOfNode(*it);
     }
 }
@@ -605,7 +584,7 @@ void Sema::typeFuncDecl(ASTFuncDecl* decl) {
         }
     }
 
-    inferTypeOfStmts(decl->block);
+    inferTypeOfStmts(decl->body);
     resolveType(decl->returnTypeRef);
     if (decl->returnTypeRef->type == context->getErrorType()) {
         decl->type = context->getErrorType();
@@ -659,7 +638,7 @@ void Sema::typeStructDecl(ASTStructDecl* decl) {
     llvm::StringMap<unsigned> memberIndexes;
 
     unsigned memberIndex = 0;
-    for (auto it = decl->block->declsBegin(); it != decl->block->declsEnd(); it++) {
+    for (auto it = decl->declsLast(); it != decl->declsEnd(); it--) {
         auto memberDecl = *it;
         inferTypeOfNode(memberDecl);
 
@@ -691,7 +670,10 @@ void Sema::typeStructDecl(ASTStructDecl* decl) {
 void Sema::typeEnumDecl(ASTEnumDecl* decl) {
     if (decl->type) { return; }
 
-    inferTypeOfStmts(decl->block);
+    for (auto it = decl->declsLast(); it != decl->declsEnd(); it--) {
+        inferTypeOfNode(*it);
+    }
+
     decl->type = context->getEnumType(decl);
 }
 
@@ -706,35 +688,35 @@ void Sema::typeEnumElementDecl(ASTEnumElementDecl* decl) {
 }
 
 bool Sema::checkCyclicStorageInStructDecl(ASTStructDecl* structDecl, llvm::SmallVector<ASTStructDecl*, 0>* parentDecls) {
-    for (auto declIt = structDecl->block->declsBegin(); declIt != structDecl->block->declsEnd(); declIt++) {
-        auto decl = *declIt;
-        if (decl->kind == AST_VAR || decl->kind == AST_LET) {
-            auto opaqueDecl = reinterpret_cast<ASTValueDecl*>(decl);
-            if (opaqueDecl->typeRef->kind == AST_OPAQUE_TYPE_REF) {
-                auto opaqueTypeRef = reinterpret_cast<ASTOpaqueTypeRef*>(opaqueDecl->typeRef);
-                if (!opaqueTypeRef->decl) {
-                    auto foundDecl = opaqueTypeRef->declContext->lookupDeclInHierarchy(opaqueTypeRef->typeName);
-                    if (foundDecl) {
-                        opaqueTypeRef->decl = foundDecl;
+    for (auto it = structDecl->declsBegin(); it != structDecl->declsEnd(); it++) {
+        auto decl = *it;
+        assert(decl->kind == AST_VAR || decl->kind == AST_LET);
+
+        auto valueDecl = reinterpret_cast<ASTValueDecl*>(decl);
+        if (valueDecl->typeRef->kind == AST_OPAQUE_TYPE_REF) {
+            auto opaqueTypeRef = reinterpret_cast<ASTOpaqueTypeRef*>(valueDecl->typeRef);
+            if (!opaqueTypeRef->decl) {
+                auto foundDecl = opaqueTypeRef->declContext->lookupDeclInHierarchy(opaqueTypeRef->typeName);
+                if (foundDecl) {
+                    opaqueTypeRef->decl = foundDecl;
+                }
+            }
+
+            if (opaqueTypeRef->decl && opaqueTypeRef->decl->kind == AST_STRUCT) {
+                auto memberDecl = reinterpret_cast<ASTStructDecl*>(opaqueTypeRef->decl);
+
+                for (auto parentDecl : *parentDecls) {
+                    if (parentDecl == memberDecl) {
+                        opaqueTypeRef->type = context->getErrorType();
+                        decl->type = context->getErrorType();
+                        diag->report(DIAG_ERROR, "Struct cannot store a variable of same type recursively");
+                        return true;
                     }
                 }
 
-                if (opaqueTypeRef->decl && opaqueTypeRef->decl->kind == AST_STRUCT) {
-                    auto memberDecl = reinterpret_cast<ASTStructDecl*>(opaqueTypeRef->decl);
-
-                    for (auto parentDecl : *parentDecls) {
-                        if (parentDecl == memberDecl) {
-                            opaqueTypeRef->type = context->getErrorType();
-                            decl->type = context->getErrorType();
-                            diag->report(DIAG_ERROR, "Struct cannot store a variable of same type recursively");
-                            return true;
-                        }
-                    }
-
-                    parentDecls->push_back(memberDecl);
-                    if (checkCyclicStorageInStructDecl(memberDecl, parentDecls)) {
-                        return true;
-                    }
+                parentDecls->push_back(memberDecl);
+                if (checkCyclicStorageInStructDecl(memberDecl, parentDecls)) {
+                    return true;
                 }
             }
         }
@@ -761,7 +743,6 @@ void Sema::typeCheckNode(ASTNode* node) {
         case AST_LET:            return typeCheckLetDecl(reinterpret_cast<ASTLetDecl*>(node));
         case AST_ENUM:           return typeCheckEnumDecl(reinterpret_cast<ASTEnumDecl*>(node));
         case AST_ENUM_ELEMENT:   return typeCheckEnumElementDecl(reinterpret_cast<ASTEnumElementDecl*>(node));
-        case AST_BLOCK:          return typeCheckBlock(reinterpret_cast<ASTBlock*>(node));
         case AST_IDENTIFIER:     return typeCheckIdentExpr(reinterpret_cast<ASTIdentExpr*>(node));
         case AST_UNARY:          return typeCheckUnaryExpr(reinterpret_cast<ASTUnaryExpr*>(node));
         case AST_BINARY:         return typeCheckBinaryExpr(reinterpret_cast<ASTBinaryExpr*>(node));
@@ -800,14 +781,14 @@ void Sema::typeCheckFuncDecl(ASTFuncDecl* decl) {
         typeCheckParamDecl(paramDecl);
     }
 
-    typeCheckFuncBlock(decl);
+    typeCheckFuncBody(decl);
 }
 
-void Sema::typeCheckFuncBlock(ASTFuncDecl* decl) {
-    if (decl->block->isValidated) { return; }
-    defer(decl->block->isValidated = true);
+void Sema::typeCheckFuncBody(ASTFuncDecl* decl) {
+    if (decl->body->isValidated) { return; }
+    defer(decl->body->isValidated = true);
 
-    for (auto stmt : decl->block->stmts) {
+    for (auto stmt : decl->body->stmts) {
         bool isStmtAllowed =
         stmt->kind == AST_NIL_LITERAL ||
         stmt->kind == AST_BOOL_LITERAL ||
@@ -839,7 +820,7 @@ void Sema::typeCheckFuncBlock(ASTFuncDecl* decl) {
     }
 
     if (decl->returnTypeRef->type != context->getVoidType() && decl->returnTypeRef->type != context->getErrorType()) {
-        if (!isBlockAlwaysReturning(decl->block)) {
+        if (!isCompoundStmtAlwaysReturning(decl->body)) {
             decl->type = context->getErrorType();
             diag->report(DIAG_ERROR, "Not all code paths return a value");
         }
@@ -869,25 +850,14 @@ void Sema::typeCheckStructDecl(ASTStructDecl* decl) {
         diag->report(DIAG_ERROR, "Declaration has incomplete type");
     }
 
-    typeCheckStructBlock(decl);
+    typeCheckStructMembers(decl);
 
     // @Incomplete ...
 }
 
-void Sema::typeCheckStructBlock(ASTStructDecl* decl) {
-    if (decl->block->isValidated) { return; }
-    defer(decl->block->isValidated = true);
-
-    for (auto stmt : decl->block->stmts) {
-        bool isStmtAllowed =
-        stmt->kind == AST_VAR ||
-        stmt->kind == AST_LET;
-
-        if (!isStmtAllowed) {
-            diag->report(DIAG_ERROR, "Statement is not allowed inside of struct declaration");
-        } else {
-            typeCheckNode(stmt);
-        }
+void Sema::typeCheckStructMembers(ASTStructDecl* decl) {
+    for (auto it = decl->declsBegin(); it != decl->declsEnd(); it++) {
+        typeCheckNode(*it);
     }
 }
 
@@ -926,20 +896,11 @@ void Sema::typeCheckEnumDecl(ASTEnumDecl* decl) {
     if (decl->isValidated) { return; }
     defer(decl->isValidated = true);
 
-    typeCheckEnumBlock(decl);
-}
-
-void Sema::typeCheckEnumBlock(ASTEnumDecl* decl) {
-    if (decl->block->isValidated) { return; }
-    defer(decl->block->isValidated = true);
-
-    for (auto stmt : decl->block->stmts) {
-        if (stmt->kind == AST_ENUM_ELEMENT) {
-            auto elementDecl = reinterpret_cast<ASTEnumElementDecl*>(stmt);
-            typeCheckEnumElementDecl(elementDecl);
-        } else {
-            diag->report(DIAG_ERROR, "Only enum elements are allowed inside of enum declaration");
-        }
+    for (auto it = decl->declsBegin(); it != decl->declsEnd(); it++) {
+        auto memberDecl = *it;
+        assert(memberDecl->kind == AST_ENUM_ELEMENT);
+        auto elementDecl = reinterpret_cast<ASTEnumElementDecl*>(memberDecl);
+        typeCheckEnumElementDecl(elementDecl);
     }
 }
 
@@ -951,18 +912,12 @@ void Sema::typeCheckEnumElementDecl(ASTEnumElementDecl* decl) {
         return;
     }
 
-    if (!decl->parent || decl->parent->kind != AST_BLOCK) {
+    if (!decl->declContext->isEnumDecl()) {
         diag->report(DIAG_ERROR, "Enum element '{0}' can only be declared inside of an enum", decl->name);
         return;
     }
 
-    auto parentBlock = reinterpret_cast<ASTBlock*>(decl->parent);
-    if (!parentBlock->parent || parentBlock->parent->kind != AST_ENUM) {
-        diag->report(DIAG_ERROR, "Enum element '{0}' can only be declared inside of an enum", decl->name);
-        return;
-    }
-
-    auto enumDecl = reinterpret_cast<ASTEnumDecl*>(parentBlock->parent);
+    auto enumDecl = static_cast<ASTEnumDecl*>(decl->declContext);
     if (enumDecl->type == context->getErrorType()) {
         return;
     }
@@ -1022,37 +977,12 @@ void Sema::typeCheckEnumElementDecl(ASTEnumElementDecl* decl) {
     }
 }
 
-void Sema::typeCheckBlock(ASTBlock* block) {
-    if (block->isValidated) { return; }
-    defer(block->isValidated = true);
+void Sema::typeCheckCompoundStmt(ASTCompoundStmt* stmt) {
+    if (stmt->isValidated) { return; }
+    defer(stmt->isValidated = true);
 
-    switch (block->scope.kind) {
-        case SCOPE_STRUCT: {
-            assert(block->parent->kind == AST_STRUCT);
-            auto structDecl = reinterpret_cast<ASTStructDecl*>(block->parent);
-            return typeCheckStructBlock(structDecl);
-        }
-
-        case SCOPE_ENUM: {
-            assert(block->parent->kind == AST_ENUM);
-            auto Enum = reinterpret_cast<ASTEnumDecl*>(block->parent);
-            return typeCheckEnumBlock(Enum);
-        }
-
-        case SCOPE_FUNC: {
-            assert(block->parent->kind == AST_FUNC);
-            auto funcDecl = reinterpret_cast<ASTFuncDecl*>(block->parent);
-            return typeCheckFuncBlock(funcDecl);
-        }
-
-        case SCOPE_GLOBAL:
-        case SCOPE_BRANCH:
-        case SCOPE_LOOP:
-        case SCOPE_SWITCH:
-            for (auto stmt : block->stmts) {
-                typeCheckNode(stmt);
-            }
-            return;
+    for (auto child : stmt->stmts) {
+        typeCheckNode(child);
     }
 }
 
@@ -1148,15 +1078,18 @@ void Sema::typeCheckBreakStmt(ASTBreakStmt* stmt) {
 
     // @Refactor @EnclosingScope Temporary solution for enclosing scope handling
     bool isBreakStmtAllowed = false;
-    for (auto scopeBlock = stmt->getParentBlock(); scopeBlock; scopeBlock = scopeBlock->getParentBlock()) {
-        if (scopeBlock->scope.kind == SCOPE_LOOP || scopeBlock->scope.kind == SCOPE_SWITCH) {
+    auto parent = stmt->parent;
+    while (parent) {
+        if (parent->isDecl()) {
+            break;
+        }
+
+        if (parent->kind == AST_SWITCH || parent->kind == AST_WHILE || parent->kind == AST_DO || parent->kind == AST_FOR) {
             isBreakStmtAllowed = true;
             break;
         }
 
-        if (scopeBlock->scope.kind != SCOPE_BRANCH) {
-            break;
-        }
+        parent = parent->parent;
     }
 
     if (!isBreakStmtAllowed) {
@@ -1170,15 +1103,18 @@ void Sema::typeCheckContinueStmt(ASTContinueStmt* stmt) {
 
     // @Refactor @EnclosingScope Temporary solution for enclosing scope handling
     bool isContinueStmtAllowed = false;
-    for (auto scopeBlock = stmt->getParentBlock(); scopeBlock; scopeBlock = scopeBlock->getParentBlock()) {
-        if (scopeBlock->scope.kind == SCOPE_LOOP) {
+    auto parent = stmt->parent;
+    while (parent) {
+        if (parent->isDecl()) {
+            break;
+        }
+
+        if (parent->kind == AST_WHILE || parent->kind == AST_DO || parent->kind == AST_FOR) {
             isContinueStmtAllowed = true;
             break;
         }
 
-        if (scopeBlock->scope.kind != SCOPE_BRANCH && scopeBlock->scope.kind != SCOPE_SWITCH) {
-            break;
-        }
+        parent = parent->parent;
     }
 
     if (!isContinueStmtAllowed) {
@@ -1192,15 +1128,18 @@ void Sema::typeCheckFallthroughStmt(ASTFallthroughStmt* stmt) {
 
     // @Refactor @EnclosingScope Temporary solution for enclosing scope handling
     bool isFallthroughStmtAllowed = false;
-    for (auto scopeBlock = stmt->getParentBlock(); scopeBlock; scopeBlock = scopeBlock->getParentBlock()) {
-        if (scopeBlock->scope.kind == SCOPE_SWITCH) {
+    auto parent = stmt->parent;
+    while (parent) {
+        if (parent->isDecl()) {
+            break;
+        }
+
+        if (parent->kind == AST_SWITCH_CASE) {
             isFallthroughStmtAllowed = true;
             break;
         }
 
-        if (scopeBlock->scope.kind != SCOPE_BRANCH) {
-            break;
-        }
+        parent = parent->parent;
     }
 
     if (!isFallthroughStmtAllowed) {
@@ -1260,9 +1199,9 @@ void Sema::typeCheckGuardStmt(ASTGuardStmt* stmt) {
     defer(stmt->isValidated = true);
 
     typeCheckConditions(stmt);
-    typeCheckBlock(stmt->elseBlock);
+    typeCheckCompoundStmt(stmt->elseStmt);
 
-    if (!isBlockAlwaysReturning(stmt->elseBlock)) {
+    if (!isCompoundStmtAlwaysReturning(stmt->elseStmt)) {
         diag->report(DIAG_ERROR, "Not all code paths return a value");
     }
 }
@@ -1272,14 +1211,14 @@ void Sema::typeCheckIfStmt(ASTIfStmt* stmt) {
     defer(stmt->isValidated = true);
 
     typeCheckConditions(stmt);
-    typeCheckBlock(stmt->block);
+    typeCheckCompoundStmt(stmt->thenStmt);
 
     switch (stmt->chainKind) {
         case AST_CHAIN_NONE:
             break;
 
         case AST_CHAIN_ELSE:
-            typeCheckBlock(stmt->elseBlock);
+            typeCheckCompoundStmt(stmt->elseStmt);
             break;
 
         case AST_CHAIN_IF:
@@ -1332,11 +1271,11 @@ void Sema::typeCheckCaseStmt(ASTCaseStmt* stmt) {
         typeCheckExpr(stmt->condition);
     }
 
-    if (stmt->block->stmts.empty()) {
+    if (stmt->body->stmts.empty()) {
         diag->report(DIAG_ERROR, "Switch case should contain at least one statement");
     }
 
-    typeCheckBlock(stmt->block);
+    typeCheckCompoundStmt(stmt->body);
 
     //    auto ConstExpr = EvaluateConstExpr(Diag, Case->Condition);
     //    if (!ConstExpr) {
@@ -1367,21 +1306,19 @@ void Sema::typeCheckWhileStmt(ASTWhileStmt* stmt) {
     defer(stmt->isValidated = true);
 
     typeCheckConditions(stmt);
-    typeCheckBlock(stmt->block);
+    typeCheckCompoundStmt(stmt->body);
 }
 
 void Sema::typeCheckConditions(ASTBranchStmt* stmt) {
-    for (auto condition : stmt->conditions) {
-        typeCheckExpr(condition);
+    typeCheckExpr(stmt->condition);
 
-        if (condition->type != context->getBoolType() && condition->type != context->getErrorType()) {
-            condition->type = context->getErrorType();
-            diag->report(DIAG_ERROR, "Mismatching condition type expected 'Bool'");
-        }
+    if (stmt->condition->type != context->getBoolType() && stmt->condition->type != context->getErrorType()) {
+        stmt->condition->type = context->getErrorType();
+        diag->report(DIAG_ERROR, "Mismatching condition type expected 'Bool'");
     }
 }
 
-bool Sema::isBlockAlwaysReturning(ASTBlock* block) {
+bool Sema::isCompoundStmtAlwaysReturning(ASTCompoundStmt* stmt) {
     // @Incomplete @Stability @EnclosingScope
     // There could always be the case that the outer for-statement
     // won't be the enclosing scope of this block.
@@ -1403,31 +1340,34 @@ bool Sema::isBlockAlwaysReturning(ASTBlock* block) {
 
     // @Refactor @EnclosingScope Temporary solution for enclosing scope handling
     bool isContinueStmtAllowed = false;
-    for (auto scopeBlock = block; scopeBlock; scopeBlock = scopeBlock->getParentBlock()) {
-        if (scopeBlock->scope.kind == SCOPE_LOOP) {
+    auto parent = stmt->parent;
+    while (parent) {
+        if (parent->isDecl()) {
+            break;
+        }
+
+        if (parent->kind == AST_DO || parent->kind == AST_WHILE) {
             isContinueStmtAllowed = true;
             break;
         }
 
-        if (scopeBlock->scope.kind != SCOPE_BRANCH && scopeBlock->scope.kind != SCOPE_SWITCH) {
-            break;
-        }
+        parent = parent->parent;
     }
 
-    for (auto stmt : block->stmts) {
-        if (stmt->kind == AST_RETURN || (stmt->kind == AST_CONTINUE && isContinueStmtAllowed)) {
+    for (auto child : stmt->stmts) {
+        if (child->kind == AST_RETURN || (child->kind == AST_CONTINUE && isContinueStmtAllowed)) {
             return true;
         }
 
-        if (stmt->kind == AST_IF) {
-            auto ifStmt = reinterpret_cast<ASTIfStmt*>(stmt);
+        if (child->kind == AST_IF) {
+            auto ifStmt = reinterpret_cast<ASTIfStmt*>(child);
             if (isIfStmtAlwaysReturning(ifStmt)) {
                 return true;
             }
         }
 
-        if (stmt->kind == AST_SWITCH) {
-            auto switchStmt = reinterpret_cast<ASTSwitchStmt*>(stmt);
+        if (child->kind == AST_SWITCH) {
+            auto switchStmt = reinterpret_cast<ASTSwitchStmt*>(child);
             if (isSwitchStmtAlwaysRetuning(switchStmt)) {
                 return true;
             }
@@ -1443,16 +1383,16 @@ bool Sema::isIfStmtAlwaysReturning(ASTIfStmt* stmt) {
             return false;
 
         case AST_CHAIN_ELSE:
-            return isBlockAlwaysReturning(stmt->block) && isBlockAlwaysReturning(stmt->elseBlock);
+            return isCompoundStmtAlwaysReturning(stmt->thenStmt) && isCompoundStmtAlwaysReturning(stmt->elseStmt);
 
         case AST_CHAIN_IF:
-            return isBlockAlwaysReturning(stmt->block) && isIfStmtAlwaysReturning(stmt->elseIf);
+            return isCompoundStmtAlwaysReturning(stmt->thenStmt) && isIfStmtAlwaysReturning(stmt->elseIf);
     }
 }
 
 bool Sema::isSwitchStmtAlwaysRetuning(ASTSwitchStmt* stmt) {
     for (auto caseStmt : stmt->cases) {
-        if (!isBlockAlwaysReturning(caseStmt->block)) {
+        if (!isCompoundStmtAlwaysReturning(caseStmt->body)) {
             return false;
         }
     }

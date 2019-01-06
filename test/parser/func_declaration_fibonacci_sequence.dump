@@ -6,10 +6,9 @@ ASTBlock
   | ASTOpaqueTypeRef { typeName = 'Int' }
   | ASTBlock
     | ASTIfStmt
-      | conditions
-        | ASTBinaryExpr { operator = '<' }
-          | ASTIdentExpr { declName = 'n' }
-          | ASTIntLit { value = '2' }
+      | ASTBinaryExpr { operator = '<' }
+        | ASTIdentExpr { declName = 'n' }
+        | ASTIntLit { value = '2' }
       | ASTBlock
         | ASTReturnStmt
           | ASTIdentExpr { declName = 'n' }

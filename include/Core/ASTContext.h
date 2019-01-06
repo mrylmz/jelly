@@ -77,6 +77,7 @@ struct ASTContext {
 
 private:
     friend struct ASTNode;
+    friend struct ASTCompoundStmt;
 
     llvm::BumpPtrAllocator nodeAllocator;
     llvm::BumpPtrAllocator lexemeAllocator;

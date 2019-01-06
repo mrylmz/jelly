@@ -28,6 +28,7 @@
 
 #include <ostream>
 
+#include <llvm/ADT/ArrayRef.h>
 #include <llvm/ADT/SmallVector.h>
 #include <llvm/ADT/StringRef.h>
 
@@ -46,8 +47,51 @@ private:
     template<typename T>
     void dumpNamedList(llvm::StringRef name, llvm::SmallVector<T*, 0> list);
 
-    void dumpChildren(llvm::SmallVector<ASTNode*, 0> children);
-    void dumpBlock(ASTBlock* block);
+    void dumpChildren(llvm::SmallVector<ASTNode*, 0> children) {
+        dumpChildren(llvm::makeArrayRef(children));
+    }
+
+    template<typename T>
+    void dumpChildren(llvm::ArrayRef<T*> children) {
+        indentation += 1;
+
+        std::string indentText = "";
+        for (auto i = 0; i < indentation - 1; i++) {
+            indentText.append("  ");
+        }
+
+        if (indentation > 0) {
+            indentText.append("| ");
+        }
+
+        for (auto child : children) {
+            outputStream << indentText;
+            dumpNode(child);
+        }
+        indentation -= 1;
+    }
+
+    void dumpDeclContext(DeclContext* declContext) {
+        indentation += 1;
+
+        std::string indentText = "";
+        for (auto i = 0; i < indentation - 1; i++) {
+            indentText.append("  ");
+        }
+
+        if (indentation > 0) {
+            indentText.append("| ");
+        }
+
+        for (auto it = declContext->declsBegin(); it != declContext->declsEnd(); it++) {
+            outputStream << indentText;
+            dumpNode(*it);
+        }
+
+        indentation -= 1;
+    }
+
+    void dumpCompoundStmt(ASTCompoundStmt* stmt);
     void dumpLoad(ASTLoad* directive);
     void dumpUnaryExpr(ASTUnaryExpr* expr);
     void dumpBinaryExpr(ASTBinaryExpr* expr);

@@ -43,15 +43,7 @@ bool ASTNode::isDecl() const {
     kind == AST_ENUM;
 }
 
-ASTBlock* ASTNode::getParentBlock() {
-    auto current = parent;
-    while (current) {
-        if (current->kind == AST_BLOCK) {
-            return reinterpret_cast<ASTBlock*>(current);
-        }
-
-        current = current->parent;
-    }
-
-    return nullptr;
+ASTCompoundStmt::ASTCompoundStmt(ASTContext* context, llvm::ArrayRef<ASTStmt*> stmts) {
+    kind = AST_COMPOUND_STMT;
+    this->stmts = stmts.copy(context->nodeAllocator);
 }

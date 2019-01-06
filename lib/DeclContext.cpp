@@ -73,6 +73,10 @@ void DeclContext::addDecl(ASTDecl* decl) {
     lastDecl = decl;
 }
 
+bool DeclContext::containsDecls() {
+    return firstDecl != nullptr;
+}
+
 bool DeclContext::containsDecl(ASTDecl *decl) {
     for (auto it = declsBegin(); it != declsEnd(); it++) {
         if ((*it) == decl) {
@@ -105,4 +109,24 @@ ASTDecl* DeclContext::lookupDeclInHierarchy(llvm::StringRef name) {
     }
 
     return nullptr;
+}
+
+bool DeclContext::isModule() const {
+    return declKind == AST_MODULE;
+}
+
+bool DeclContext::isEnumDecl() const {
+    return declKind == AST_ENUM;
+}
+
+bool DeclContext::isFuncDecl() const {
+    return declKind == AST_FUNC;
+}
+
+bool DeclContext::isStructDecl() const {
+    return declKind == AST_STRUCT;
+}
+
+bool DeclContext::isCaseStmt() const {
+    return declKind == AST_SWITCH_CASE;
 }
