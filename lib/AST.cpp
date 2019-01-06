@@ -46,3 +46,22 @@ bool ASTNode::isDecl() const {
 ASTCompoundStmt::ASTCompoundStmt(ASTContext* context, llvm::ArrayRef<ASTStmt*> stmts) : ASTStmt(AST_COMPOUND_STMT) {
     this->stmts = stmts.copy(context->nodeAllocator);
 }
+
+ASTFuncDecl::ASTFuncDecl(ASTContext* context, llvm::ArrayRef<ASTParamDecl*> parameters) :
+ASTDecl(AST_FUNC),
+DeclContext(AST_FUNC) {
+    this->parameters = parameters.copy(context->nodeAllocator);
+}
+
+
+ASTSwitchStmt::ASTSwitchStmt(ASTContext* context, llvm::ArrayRef<ASTCaseStmt*> cases) : ASTStmt(AST_SWITCH) {
+    this->cases = cases.copy(context->nodeAllocator);
+}
+
+ASTCallExpr::ASTCallExpr(ASTContext* context, llvm::ArrayRef<ASTExpr*> args) : ASTExpr(AST_CALL) {
+    this->args = args.copy(context->nodeAllocator);
+}
+
+ASTSubscriptExpr::ASTSubscriptExpr(ASTContext* context, llvm::ArrayRef<ASTExpr*> arguments) : ASTExpr(AST_SUBSCRIPT) {
+    this->args = arguments.copy(context->nodeAllocator);
+}

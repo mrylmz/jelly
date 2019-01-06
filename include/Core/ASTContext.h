@@ -78,6 +78,10 @@ struct ASTContext {
 private:
     friend struct ASTNode;
     friend struct ASTCompoundStmt;
+    friend struct ASTFuncDecl;
+    friend struct ASTSwitchStmt;
+    friend struct ASTCallExpr;
+    friend struct ASTSubscriptExpr;
 
     llvm::BumpPtrAllocator nodeAllocator;
     llvm::BumpPtrAllocator lexemeAllocator;

@@ -238,7 +238,7 @@ Type* ASTContext::getFuncType(ASTFuncDecl* decl) {
     // @Incomplete build a unique type
     auto type = new FuncType;
     type->name = decl->name;
-    for (auto param : decl->params) {
+    for (auto param : decl->parameters) {
         type->paramTypes.push_back(param->type);
     }
 

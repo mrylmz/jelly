@@ -1,10 +1,9 @@
 ASTBlock
 | ASTFuncDecl { name = 'main' }
-  | params
-    | ASTParamDecl { name = 'x' }
-      | ASTOpaqueTypeRef { typeName = 'Int' }
-    | ASTParamDecl { name = 'y' }
-      | ASTOpaqueTypeRef { typeName = 'Int' }
+  | ASTParamDecl { name = 'x' }
+    | ASTOpaqueTypeRef { typeName = 'Int' }
+  | ASTParamDecl { name = 'y' }
+    | ASTOpaqueTypeRef { typeName = 'Int' }
   | ASTOpaqueTypeRef { typeName = 'Void' }
   | ASTBlock
     | ASTVarDecl { name = 'x' }

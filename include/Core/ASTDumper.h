@@ -44,9 +44,6 @@ private:
 
     void dumpNode(ASTNode* node);
 
-    template<typename T>
-    void dumpNamedList(llvm::StringRef name, llvm::SmallVector<T*, 0> list);
-
     void dumpChildren(llvm::SmallVector<ASTNode*, 0> children) {
         dumpChildren(llvm::makeArrayRef(children));
     }
@@ -129,30 +126,3 @@ private:
     void dumpPointerTypeRef(ASTPointerTypeRef* typeRef);
     void dumpArrayTypeRef(ASTArrayTypeRef* typeRef);
 };
-
-template<typename T>
-void ASTDumper::dumpNamedList(llvm::StringRef name, llvm::SmallVector<T *, 0> list) {
-    if (list.empty()) { return; }
-
-    indentation += 1;
-
-    std::string indentText = "";
-    for (auto i = 0; i < indentation - 1; i++) {
-        indentText.append("  ");
-    }
-
-    if (indentation > 0) {
-        indentText.append("| ");
-    }
-
-    outputStream << indentText << name.str() << "\n";
-    indentation += 1;
-
-    indentText.insert(0, "  ");
-    for (auto node : list) {
-        outputStream << indentText;
-        dumpNode(node);
-    }
-
-    indentation -= 2;
-}

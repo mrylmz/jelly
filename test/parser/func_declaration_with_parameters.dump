@@ -1,17 +1,16 @@
 ASTBlock
 | ASTFuncDecl { name = 'main' }
-  | params
-    | ASTParamDecl { name = 'x' }
+  | ASTParamDecl { name = 'x' }
+    | ASTOpaqueTypeRef { typeName = 'Int' }
+  | ASTParamDecl { name = 'y' }
+    | ASTArrayTypeRef
       | ASTOpaqueTypeRef { typeName = 'Int' }
-    | ASTParamDecl { name = 'y' }
-      | ASTArrayTypeRef
-        | ASTOpaqueTypeRef { typeName = 'Int' }
-    | ASTParamDecl { name = 'z' }
-      | ASTPointerTypeRef { depth = '1' }
-        | ASTOpaqueTypeRef { typeName = 'Int' }
-    | ASTParamDecl { name = 'w' }
-      | ASTArrayTypeRef
-        | ASTOpaqueTypeRef { typeName = 'Int' }
-        | ASTIntLit { value = '10' }
+  | ASTParamDecl { name = 'z' }
+    | ASTPointerTypeRef { depth = '1' }
+      | ASTOpaqueTypeRef { typeName = 'Int' }
+  | ASTParamDecl { name = 'w' }
+    | ASTArrayTypeRef
+      | ASTOpaqueTypeRef { typeName = 'Int' }
+      | ASTIntLit { value = '10' }
   | ASTOpaqueTypeRef { typeName = 'Void' }
   | ASTBlock

@@ -52,8 +52,6 @@ private:
     void inferTypeOfSubscriptExpr(ASTSubscriptExpr* expr);
 
     void typeFuncDecl(ASTFuncDecl* decl);
-    void typePrefixFuncDecl(ASTPrefixFuncDecl* decl);
-    void typeInfixFuncDecl(ASTInfixFuncDecl* decl);
     void typeParamDecl(ASTParamDecl* decl);
     void typeStructDecl(ASTStructDecl* decl);
     void typeEnumDecl(ASTEnumDecl* decl);

@@ -7,10 +7,8 @@ ASTBlock
         | ASTOpaqueTypeRef { typeName = 'Void' }
       | ASTCallExpr
         | ASTIdentExpr { declName = 'alloc' }
-        | args
-          | ASTIntLit { value = '10' }
+        | ASTIntLit { value = '10' }
     | ASTDeferStmt
       | ASTCallExpr
         | ASTIdentExpr { declName = 'free' }
-        | args
-          | ASTIdentExpr { declName = 'mem' }
+        | ASTIdentExpr { declName = 'mem' }

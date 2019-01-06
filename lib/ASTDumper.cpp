@@ -127,13 +127,13 @@ void ASTDumper::dumpIdentExpr(ASTIdentExpr* expr) {
 void ASTDumper::dumpCallExpr(ASTCallExpr* expr) {
     outputStream << "ASTCallExpr\n";
     dumpChildren({ expr->left });
-    dumpNamedList("args", expr->args);
+    dumpChildren(expr->args);
 }
 
 void ASTDumper::dumpSubscriptExpr(ASTSubscriptExpr* expr) {
     outputStream << "ASTSubscriptExpr\n";
     dumpChildren({ expr->left });
-    dumpNamedList("args", expr->args);
+    dumpChildren(expr->args);
 }
 
 void ASTDumper::dumpNilLiteral(ASTNilLit* literal) {
@@ -163,7 +163,7 @@ void ASTDumper::dumpParamDecl(ASTParamDecl* decl) {
 
 void ASTDumper::dumpFuncDecl(ASTFuncDecl* decl) {
     outputStream << "ASTFuncDecl { name = '" << decl->name->str() << "' }\n";
-    dumpNamedList("params", decl->params);
+    dumpChildren(decl->parameters);
     dumpChildren({ decl->returnTypeRef, decl->body });
 }
 
@@ -305,7 +305,7 @@ void ASTDumper::dumpCaseStmt(ASTCaseStmt* stmt) {
 void ASTDumper::dumpSwitchStmt(ASTSwitchStmt* stmt) {
     outputStream << "ASTSwitchStmt\n";
     dumpChildren({ stmt->expr });
-    dumpNamedList("cases", stmt->cases);
+    dumpChildren(stmt->cases);
 }
 
 void ASTDumper::dumpAnyTypeRef(ASTAnyTypeRef* typeRef) {

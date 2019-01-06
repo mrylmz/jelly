@@ -4,8 +4,7 @@ ASTBlock
   | ASTBlock
     | ASTSwitchStmt
       | ASTIdentExpr { declName = 'expr' }
-      | cases
-        | ASTCaseStmt { caseKind = 'case' }
-          | ASTIntLit { value = '0' }
-          | ASTBlock
-            | ASTReturnStmt
+      | ASTCaseStmt { caseKind = 'case' }
+        | ASTIntLit { value = '0' }
+        | ASTBlock
+          | ASTReturnStmt

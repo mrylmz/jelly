@@ -1,8 +1,7 @@
 ASTBlock
 | ASTFuncDecl { name = 'fibonacci' }
-  | params
-    | ASTParamDecl { name = 'n' }
-      | ASTOpaqueTypeRef { typeName = 'Int' }
+  | ASTParamDecl { name = 'n' }
+    | ASTOpaqueTypeRef { typeName = 'Int' }
   | ASTOpaqueTypeRef { typeName = 'Int' }
   | ASTBlock
     | ASTIfStmt
@@ -16,13 +15,11 @@ ASTBlock
       | ASTBinaryExpr { operator = '+' }
         | ASTCallExpr
           | ASTIdentExpr { declName = 'fibonacci' }
-          | args
-            | ASTBinaryExpr { operator = '-' }
-              | ASTIdentExpr { declName = 'n' }
-              | ASTIntLit { value = '1' }
+          | ASTBinaryExpr { operator = '-' }
+            | ASTIdentExpr { declName = 'n' }
+            | ASTIntLit { value = '1' }
         | ASTCallExpr
           | ASTIdentExpr { declName = 'fibonacci' }
-          | args
-            | ASTBinaryExpr { operator = '-' }
-              | ASTIdentExpr { declName = 'n' }
-              | ASTIntLit { value = '2' }
+          | ASTBinaryExpr { operator = '-' }
+            | ASTIdentExpr { declName = 'n' }
+            | ASTIntLit { value = '2' }

@@ -5,5 +5,4 @@ ASTBlock
     | ASTCallExpr
       | ASTSubscriptExpr
         | ASTIdentExpr { declName = 'myData' }
-        | args
-          | ASTIntLit { value = '1' }
+        | ASTIntLit { value = '1' }

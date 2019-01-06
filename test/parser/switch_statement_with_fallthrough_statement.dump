@@ -4,20 +4,19 @@ ASTBlock
   | ASTBlock
     | ASTSwitchStmt
       | ASTIdentExpr { declName = 'direction' }
-      | cases
-        | ASTCaseStmt { caseKind = 'case' }
-          | ASTIdentExpr { declName = 'north' }
-          | ASTBlock
-            | ASTFallthroughStmt
-        | ASTCaseStmt { caseKind = 'case' }
-          | ASTIdentExpr { declName = 'east' }
-          | ASTBlock
-            | ASTFallthroughStmt
-        | ASTCaseStmt { caseKind = 'case' }
-          | ASTIdentExpr { declName = 'south' }
-          | ASTBlock
-            | ASTFallthroughStmt
-        | ASTCaseStmt { caseKind = 'case' }
-          | ASTIdentExpr { declName = 'west' }
-          | ASTBlock
-            | ASTBreakStmt
+      | ASTCaseStmt { caseKind = 'case' }
+        | ASTIdentExpr { declName = 'north' }
+        | ASTBlock
+          | ASTFallthroughStmt
+      | ASTCaseStmt { caseKind = 'case' }
+        | ASTIdentExpr { declName = 'east' }
+        | ASTBlock
+          | ASTFallthroughStmt
+      | ASTCaseStmt { caseKind = 'case' }
+        | ASTIdentExpr { declName = 'south' }
+        | ASTBlock
+          | ASTFallthroughStmt
+      | ASTCaseStmt { caseKind = 'case' }
+        | ASTIdentExpr { declName = 'west' }
+        | ASTBlock
+          | ASTBreakStmt

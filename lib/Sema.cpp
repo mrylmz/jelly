@@ -52,8 +52,6 @@ void Sema::validateAST() {
     }
 }
 
-// @Incomplete if inner expressions contain CandidateTypes
-//             then outer infer func has to reduce those and report errors if neccessary
 void Sema::resolveType(ASTTypeRef* typeRef) {
     if (typeRef->type) { return; }
 
@@ -266,13 +264,9 @@ void Sema::inferTypeOfNode(ASTNode* node) {
         }   return;
 
         case AST_FUNC:
-            return typeFuncDecl(reinterpret_cast<ASTFuncDecl*>(node));
-
         case AST_PREFIX_FUNC:
-            return typePrefixFuncDecl(reinterpret_cast<ASTPrefixFuncDecl*>(node));
-
         case AST_INFIX_FUNC:
-            return typeInfixFuncDecl(reinterpret_cast<ASTInfixFuncDecl*>(node));
+            return typeFuncDecl(reinterpret_cast<ASTFuncDecl*>(node));
 
         case AST_PARAMETER:
             return typeParamDecl(reinterpret_cast<ASTParamDecl*>(node));
@@ -326,7 +320,6 @@ void Sema::inferTypeOfVarDecl(ASTVarDecl* var) {
 
     if (var->assignment) {
         inferTypeOfNode(var->assignment);
-        assert(var->assignment->candidateTypes.empty() && "Type inference feature is not fully implemented");
     }
 
     resolveType(var->typeRef);
@@ -338,7 +331,6 @@ void Sema::inferTypeOfLetDecl(ASTLetDecl* let) {
 
     if (let->assignment) {
         inferTypeOfNode(let->assignment);
-        assert(let->assignment->candidateTypes.empty() && "Type inference feature is not fully implemented");
     }
 
     resolveType(let->typeRef);
@@ -379,7 +371,7 @@ void Sema::inferTypeOfStmts(ASTCompoundStmt* stmt) {
 }
 
 void Sema::inferTypeOfUnaryExpr(ASTUnaryExpr* expr) {
-    if (expr->type || !expr->candidateTypes.empty()) { return; }
+    if (expr->type) { return; }
 
     inferTypeOfNode(expr->right);
     if (expr->right->type == context->getErrorType()) {
@@ -388,69 +380,26 @@ void Sema::inferTypeOfUnaryExpr(ASTUnaryExpr* expr) {
     }
 
     auto decl = context->getModule()->lookupDecl(expr->op.text);
-    if (decl->kind == AST_PREFIX_FUNC) {
-        auto funcDecl = reinterpret_cast<ASTPrefixFuncDecl*>(decl);
-        if (funcDecl) {
-            typePrefixFuncDecl(funcDecl);
-            if (funcDecl->type == context->getErrorType()) {
-                expr->type = context->getErrorType();
-                return;
-            }
-
-            assert(funcDecl->params.size() == 1 && "Wellformed ASTPrefixFuncDecl can only contain 1 parameter!");
-            if (funcDecl->params[0]->type == expr->right->type) {
-                expr->candidateTypes.push_back(funcDecl->type);
-            }
-        }
-    }
-
-    // @Incomplete this can become relevant soon if function overloading is implemented...
-//    for (auto it = context->getRoot()->decls.begin(); it != context->getRoot()->decls.end(); it++) {
-//        auto decl = it->getValue();
-//        if (decl->kind != AST_PREFIX_FUNC) { continue; }
-//
-//        auto prefixFuncDecl = reinterpret_cast<ASTPrefixFuncDecl*>(decl);
-//        typePrefixFuncDecl(prefixFuncDecl);
-//
-//        if (prefixFuncDecl->params.size() != 1) { continue; }
-//        if (prefixFuncDecl->params[0]->type != expr->right->type) { continue; }
-//
-//        expr->candidateTypes.push_back(prefixFuncDecl->type);
-//    }
-//
-//    for (auto funcType : *context->getBuiltinFuncTypes()) {
-//        if (funcType->name != expr->op.text) { continue; }
-//        if (funcType->paramTypes.size() != 1) { continue; }
-//        if (funcType->paramTypes[0] != expr->right->type) { continue; }
-//
-//        expr->candidateTypes.push_back(funcType);
-//    }
-
-    if (expr->candidateTypes.empty()) {
-        expr->type = context->getErrorType();
-        diag->report(DIAG_ERROR, "Couldn't resolve prefix function '{0}'", expr->op.text);
-        return;
-    }
-
-    if (expr->candidateTypes.size() == 1) {
-        expr->type = expr->candidateTypes[0];
-        return;
-    }
-
-    llvm::SetVector<Type*> returnTypes;
-    for (auto candidateType : expr->candidateTypes) {
-        if (returnTypes.count(candidateType)) {
+    if (decl->isPrefixFunc()) {
+        auto funcDecl = reinterpret_cast<ASTFuncDecl*>(decl);
+        typeFuncDecl(funcDecl);
+        if (funcDecl->type == context->getErrorType()) {
             expr->type = context->getErrorType();
-            diag->report(DIAG_ERROR, "Type of '{0}' is ambigous in this context", expr->op.text);
             return;
         }
 
-        returnTypes.insert(candidateType);
+        assert(funcDecl->parameters.size() == 1 && "Wellformed ASTPrefixFuncDecl can only contain 1 parameter!");
+        if (funcDecl->parameters[0]->type == expr->right->type) {
+            expr->type = funcDecl->type;
+        } else {
+            expr->type = context->getErrorType();
+            diag->report(DIAG_ERROR, "Couldn't resolve prefix function '{0}'", expr->op.text);
+        }
     }
 }
 
 void Sema::inferTypeOfBinaryExpr(ASTBinaryExpr* expr) {
-    if (expr->type || !expr->candidateTypes.empty()) { return; }
+    if (expr->type) { return; }
 
     inferTypeOfNode(expr->left);
     inferTypeOfNode(expr->right);
@@ -461,51 +410,21 @@ void Sema::inferTypeOfBinaryExpr(ASTBinaryExpr* expr) {
     }
 
     auto decl = context->getModule()->lookupDecl(expr->op.text);
-    if (decl->kind == AST_INFIX_FUNC) {
-        auto funcDecl = reinterpret_cast<ASTInfixFuncDecl*>(decl);
-        if (funcDecl) {
-            typeInfixFuncDecl(funcDecl);
-            if (funcDecl->type == context->getErrorType()) {
-                expr->type = context->getErrorType();
-                return;
-            }
-
-            assert(funcDecl->params.size() == 2 && "Wellformed ASTInfixFuncDecl can only contain 2 parameters!");
-            if (funcDecl->params[0]->type == expr->left->type && funcDecl->params[1]->type == expr->right->type) {
-                expr->candidateTypes.push_back(funcDecl->type);
-            }
-        }
-    }
-
-//    for (auto funcType : *context->getBuiltinFuncTypes()) {
-//        if (funcType->name != expr->op.text) { continue; }
-//        if (funcType->paramTypes.size() != 2) { continue; }
-//        if (funcType->paramTypes[0] != expr->left->type) { continue; }
-//        if (funcType->paramTypes[1] != expr->right->type) { continue; }
-//
-//        expr->candidateTypes.push_back(funcType);
-//    }
-
-    if (expr->candidateTypes.empty()) {
-        expr->type = context->getErrorType();
-        diag->report(DIAG_ERROR, "Couldn't resolve infix function '{0}'", expr->op.text);
-        return;
-    }
-
-    if (expr->candidateTypes.size() == 1) {
-        expr->type = expr->candidateTypes[0];
-        return;
-    }
-
-    llvm::SetVector<Type*> returnTypes;
-    for (auto candidateType : expr->candidateTypes) {
-        if (returnTypes.count(candidateType)) {
+    if (decl->isInfixFunc()) {
+        auto funcDecl = reinterpret_cast<ASTFuncDecl*>(decl);
+        typeFuncDecl(funcDecl);
+        if (funcDecl->type == context->getErrorType()) {
             expr->type = context->getErrorType();
-            diag->report(DIAG_ERROR, "Type of '{0}' is ambigous in this context", expr->op.text);
             return;
         }
 
-        returnTypes.insert(candidateType);
+        assert(funcDecl->parameters.size() == 2 && "Wellformed ASTInfixFuncDecl can only contain 2 parameters!");
+        if (funcDecl->parameters[0]->type == expr->left->type && funcDecl->parameters[1]->type == expr->right->type) {
+            expr->type = funcDecl->type;
+        } else {
+            expr->type = context->getErrorType();
+            diag->report(DIAG_ERROR, "Couldn't resolve infix function '{0}'", expr->op.text);
+        }
     }
 }
 
@@ -547,8 +466,6 @@ void Sema::inferTypeOfCallExpr(ASTCallExpr* expr) {
         return;
     }
 
-    // @Incomplete expr->left could contain candidateTypes which could be filtered based on argument types...
-
     if (expr->left->type->kind != TYPE_DECL_FUNC) {
         expr->type = context->getErrorType();
         diag->report(DIAG_ERROR, "Cannot call a non function type");
@@ -562,8 +479,6 @@ void Sema::inferTypeOfCallExpr(ASTCallExpr* expr) {
             expr->type = context->getErrorType();
             return;
         }
-
-        // @Incomplete infer types of arguments top-down if candidateTypes has size > 1
     }
 
     expr->type = funcType->returnType;
@@ -578,7 +493,19 @@ void Sema::inferTypeOfSubscriptExpr(ASTSubscriptExpr* expr) {
 void Sema::typeFuncDecl(ASTFuncDecl* decl) {
     if (decl->type) { return; }
 
-    for (auto paramDecl : decl->params) {
+    if (decl->isPrefixFunc() && decl->parameters.size() != 1) {
+        decl->type = context->getErrorType();
+        diag->report(DIAG_ERROR, "Prefix function '{0}' must contain 1 parameter", decl->name);
+        return;
+    }
+
+    if (decl->isInfixFunc() && decl->parameters.size() != 2) {
+        decl->type = context->getErrorType();
+        diag->report(DIAG_ERROR, "Infix function '{0}' must contain 2 parameters", decl->name);
+        return;
+    }
+
+    for (auto paramDecl : decl->parameters) {
         typeParamDecl(paramDecl);
 
         if (paramDecl->type == context->getErrorType()) {
@@ -595,30 +522,6 @@ void Sema::typeFuncDecl(ASTFuncDecl* decl) {
     }
 
     decl->type = context->getFuncType(decl);
-}
-
-void Sema::typePrefixFuncDecl(ASTPrefixFuncDecl* decl) {
-    if (decl->type) { return; }
-
-    if (decl->params.size() != 1) {
-        decl->type = context->getErrorType();
-        diag->report(DIAG_ERROR, "Prefix function '{0}' must contain 1 parameter", decl->name);
-        return;
-    }
-
-    typeFuncDecl(decl);
-}
-
-void Sema::typeInfixFuncDecl(ASTInfixFuncDecl* decl) {
-    if (decl->type) { return; }
-
-    if (decl->params.size() != 2) {
-        decl->type = context->getErrorType();
-        diag->report(DIAG_ERROR, "Infix function '{0}' must contain 2 parameters", decl->name);
-        return;
-    }
-
-    typeFuncDecl(decl);
 }
 
 void Sema::typeParamDecl(ASTParamDecl* decl) {
@@ -779,7 +682,7 @@ void Sema::typeCheckFuncDecl(ASTFuncDecl* decl) {
         diag->report(DIAG_ERROR, "Declaration has incomplete type");
     }
 
-    for (auto paramDecl : decl->params) {
+    for (auto paramDecl : decl->parameters) {
         typeCheckParamDecl(paramDecl);
     }
 

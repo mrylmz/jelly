@@ -24,17 +24,13 @@
 
 #pragma once
 
-// @Refactor Rename all decls to defns because they are definitions and add decls for signatures only ...
-
 #include "Core/DeclContext.h"
 #include "Core/Lexeme.h"
 #include "Core/Operator.h"
 
 #include <llvm/ADT/ArrayRef.h>
 #include <llvm/ADT/APInt.h>
-#include <llvm/ADT/StringMap.h>
 #include <llvm/ADT/StringRef.h>
-#include <llvm/ADT/SmallVector.h>
 
 enum ASTNodeKind : uint8_t {
     AST_LOAD,
@@ -109,6 +105,10 @@ struct ASTNode {
     void operator delete (void* ptr) = delete;
     void operator delete [] (void* ptr) = delete;
 
+    // @Refactor The destroy method is currently only used for freeing of APInt
+    //           refactor the usage of APInt so that this can be deleted!
+    //           The ASTContext is storing every node which is created
+    //           to just call empty -destroy methods!
     virtual void destroy() {};
 
     bool isDecl() const;
@@ -122,14 +122,8 @@ struct ASTExpr : public ASTStmt {
     bool isCheckedConstant = false;
     bool isConstant = false;
     Type* type = nullptr;
-    llvm::SmallVector<Type*, 0> candidateTypes;
 
     ASTExpr(ASTNodeKind kind) : ASTStmt(kind) {}
-
-    virtual void destroy() override {
-        ASTStmt::destroy();
-        candidateTypes.~SmallVector();
-    }
 };
 
 struct ASTDecl : public ASTStmt {
@@ -139,6 +133,10 @@ struct ASTDecl : public ASTStmt {
     ASTDecl* previousDeclInContext = nullptr;
 
     ASTDecl(ASTNodeKind kind) : ASTStmt(kind) {}
+
+    bool isFunc() const { return kind == AST_FUNC || kind == AST_PREFIX_FUNC || kind == AST_INFIX_FUNC; }
+    bool isPrefixFunc() const { return kind == AST_PREFIX_FUNC; }
+    bool isInfixFunc() const { return kind == AST_INFIX_FUNC; }
 };
 
 struct ASTLoad;
@@ -239,24 +237,15 @@ struct ASTCompoundStmt : public ASTStmt {
 };
 
 struct ASTFuncDecl : public ASTDecl, public DeclContext {
-    llvm::SmallVector<ASTParamDecl*, 0> params;
+    llvm::ArrayRef<ASTParamDecl*> parameters;
     ASTTypeRef* returnTypeRef = nullptr;
     ASTCompoundStmt* body = nullptr;
 
-    ASTFuncDecl(ASTNodeKind kind = AST_FUNC) : ASTDecl(kind), DeclContext(kind) { }
+    ASTFuncDecl(ASTContext* context, llvm::ArrayRef<ASTParamDecl*> parameters);
 
-    virtual void destroy() override {
-        ASTDecl::destroy();
-        params.~SmallVector();
-    }
-};
-
-struct ASTPrefixFuncDecl : public ASTFuncDecl {
-    ASTPrefixFuncDecl() : ASTFuncDecl(AST_PREFIX_FUNC) { }
-};
-
-struct ASTInfixFuncDecl : public ASTFuncDecl {
-    ASTInfixFuncDecl() : ASTFuncDecl(AST_INFIX_FUNC) { }
+    bool isGlobalFunc() const { return kind == AST_FUNC; }
+    bool isPrefixFunc() const { return kind == AST_PREFIX_FUNC; }
+    bool isInfixFunc() const { return kind == AST_INFIX_FUNC; }
 };
 
 struct ASTValueDecl : public ASTDecl {
@@ -383,38 +372,23 @@ struct ASTCaseStmt : public ASTStmt, public DeclContext {
 
 struct ASTSwitchStmt : public ASTStmt {
     ASTExpr* expr = nullptr;
-    llvm::SmallVector<ASTCaseStmt*, 0> cases;
+    llvm::ArrayRef<ASTCaseStmt*> cases;
 
-    ASTSwitchStmt() : ASTStmt(AST_SWITCH) { }
-
-    virtual void destroy() override {
-        ASTStmt::destroy();
-        cases.~SmallVector();
-    }
+    ASTSwitchStmt(ASTContext* context, llvm::ArrayRef<ASTCaseStmt*> cases);
 };
 
 struct ASTCallExpr : public ASTExpr {
     ASTExpr* left = nullptr;
-    llvm::SmallVector<ASTExpr*, 0> args;
+    llvm::ArrayRef<ASTExpr*> args;
 
-    ASTCallExpr() : ASTExpr(AST_CALL) { }
-
-    virtual void destroy() override {
-        ASTExpr::destroy();
-        args.~SmallVector();
-    }
+    ASTCallExpr(ASTContext* context, llvm::ArrayRef<ASTExpr*> args);
 };
 
 struct ASTSubscriptExpr : public ASTExpr {
     ASTExpr* left = nullptr;
-    llvm::SmallVector<ASTExpr*, 0> args;
+    llvm::ArrayRef<ASTExpr*> args;
 
-    ASTSubscriptExpr() : ASTExpr(AST_SUBSCRIPT) { }
-
-    virtual void destroy() override {
-        ASTExpr::destroy();
-        args.~SmallVector();
-    }
+    ASTSubscriptExpr(ASTContext* context, llvm::ArrayRef<ASTExpr*> arguments);
 };
 
 struct ASTTypeRef : public ASTNode {
