@@ -31,9 +31,6 @@
 #include <llvm/ADT/StringMap.h>
 #include <llvm/ADT/SmallVector.h>
 
-struct ASTDecl;
-struct ASTIntLit;
-
 enum TypeKind : uint8_t {
     TYPE_ERROR,
     TYPE_BUILTIN_ANY,

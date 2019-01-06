@@ -43,7 +43,6 @@ bool ASTNode::isDecl() const {
     kind == AST_ENUM;
 }
 
-ASTCompoundStmt::ASTCompoundStmt(ASTContext* context, llvm::ArrayRef<ASTStmt*> stmts) {
-    kind = AST_COMPOUND_STMT;
+ASTCompoundStmt::ASTCompoundStmt(ASTContext* context, llvm::ArrayRef<ASTStmt*> stmts) : ASTStmt(AST_COMPOUND_STMT) {
     this->stmts = stmts.copy(context->nodeAllocator);
 }

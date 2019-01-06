@@ -32,7 +32,10 @@
 // @Stability Add a strict pattern if all invalid nodes will get the ErrorType assigned or not (See TypeResolution)
 // @Incomplete Add value categories for assignments see like (prvalue, xvalue, and lvalue) in c++
 
-Sema::Sema(CodeManager* codeManager) : codeManager(codeManager), context(&codeManager->context), diag(&codeManager->diag) {
+Sema::Sema(CodeManager* codeManager) :
+codeManager(codeManager),
+context(&codeManager->context),
+diag(&codeManager->diag) {
 }
 
 void Sema::validateAST() {
@@ -696,7 +699,7 @@ bool Sema::checkCyclicStorageInStructDecl(ASTStructDecl* structDecl, llvm::Small
         if (valueDecl->typeRef->kind == AST_OPAQUE_TYPE_REF) {
             auto opaqueTypeRef = reinterpret_cast<ASTOpaqueTypeRef*>(valueDecl->typeRef);
             if (!opaqueTypeRef->decl) {
-                auto foundDecl = opaqueTypeRef->declContext->lookupDeclInHierarchy(opaqueTypeRef->typeName);
+                auto foundDecl = structDecl->lookupDeclInHierarchy(opaqueTypeRef->typeName);
                 if (foundDecl) {
                     opaqueTypeRef->decl = foundDecl;
                 }
@@ -729,7 +732,6 @@ void Sema::typeCheckNode(ASTNode* node) {
     defer(node->isValidated = true);
 
     switch (node->kind) {
-        case AST_UNKNOWN:        return llvm::report_fatal_error("Internal compiler error!");
         case AST_LOAD:           return;
         case AST_NIL_LITERAL:    return;
         case AST_BOOL_LITERAL:   return;

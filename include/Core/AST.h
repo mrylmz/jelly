@@ -37,7 +37,6 @@
 #include <llvm/ADT/SmallVector.h>
 
 enum ASTNodeKind : uint8_t {
-    AST_UNKNOWN,
     AST_LOAD,
     AST_NIL_LITERAL,
     AST_BOOL_LITERAL,
@@ -98,7 +97,11 @@ struct ASTNode {
     DeclContext* declContext = nullptr;
     bool isValidated = false;
 
-    ASTNode() { kind = AST_UNKNOWN; }
+    ASTNode(ASTNodeKind kind) {
+        this->kind = kind;
+    }
+
+    ASTNode() = delete;
     ASTNode(ASTNode&&) = delete;
     ASTNode& operator = (ASTNode&&) = delete;
 
@@ -111,13 +114,17 @@ struct ASTNode {
     bool isDecl() const;
 };
 
-struct ASTStmt : public ASTNode {};
+struct ASTStmt : public ASTNode {
+    ASTStmt(ASTNodeKind kind) : ASTNode(kind) {}
+};
 
 struct ASTExpr : public ASTStmt {
     bool isCheckedConstant = false;
     bool isConstant = false;
     Type* type = nullptr;
     llvm::SmallVector<Type*, 0> candidateTypes;
+
+    ASTExpr(ASTNodeKind kind) : ASTStmt(kind) {}
 
     virtual void destroy() override {
         ASTStmt::destroy();
@@ -130,6 +137,8 @@ struct ASTDecl : public ASTStmt {
     Type* type = nullptr;
     ASTDecl* nextDeclInContext = nullptr;
     ASTDecl* previousDeclInContext = nullptr;
+
+    ASTDecl(ASTNodeKind kind) : ASTStmt(kind) {}
 };
 
 struct ASTLoad;
@@ -141,14 +150,14 @@ struct ASTStructDecl;
 struct ASTValueDecl;
 
 struct ASTModule : public ASTDecl, public DeclContext {
-    ASTModule() : DeclContext(AST_MODULE) { kind = AST_MODULE; }
+    ASTModule() : ASTDecl(AST_MODULE), DeclContext(AST_MODULE) { }
 };
 
 struct ASTUnaryExpr : public ASTExpr {
     Operator op;
     ASTExpr* right = nullptr;
 
-    ASTUnaryExpr() { kind = AST_UNARY; }
+    ASTUnaryExpr() : ASTExpr(AST_UNARY) { }
 };
 
 struct ASTBinaryExpr : public ASTExpr {
@@ -156,7 +165,7 @@ struct ASTBinaryExpr : public ASTExpr {
     ASTExpr* left = nullptr;
     ASTExpr* right = nullptr;
 
-    ASTBinaryExpr() { kind = AST_BINARY; }
+    ASTBinaryExpr() : ASTExpr(AST_BINARY) { }
 };
 
 struct ASTMemberAccessExpr : public ASTExpr {
@@ -164,32 +173,34 @@ struct ASTMemberAccessExpr : public ASTExpr {
     Lexeme memberName;
     unsigned memberIndex = 0;
 
-    ASTMemberAccessExpr() { kind = AST_MEMBER_ACCESS; }
+    ASTMemberAccessExpr() : ASTExpr(AST_MEMBER_ACCESS) { }
 };
 
 struct ASTIdentExpr : public ASTExpr {
     Lexeme declName;
     ASTDecl* decl = nullptr;
 
-    ASTIdentExpr() { kind = AST_IDENTIFIER; }
+    ASTIdentExpr() : ASTExpr(AST_IDENTIFIER) { }
 };
 
-struct ASTLit : public ASTExpr {};
+struct ASTLit : public ASTExpr {
+    ASTLit(ASTNodeKind kind) : ASTExpr(kind) {}
+};
 
 struct ASTNilLit : ASTLit {
-    ASTNilLit() { kind = AST_NIL_LITERAL; }
+    ASTNilLit() : ASTLit(AST_NIL_LITERAL) { }
 };
 
 struct ASTBoolLit : ASTLit {
     bool value = false;
 
-    ASTBoolLit() { kind = AST_BOOL_LITERAL; }
+    ASTBoolLit() : ASTLit(AST_BOOL_LITERAL) { }
 };
 
 struct ASTIntLit : ASTLit {
     llvm::APInt value = llvm::APInt(64, 0);
 
-    ASTIntLit() { kind = AST_INT_LITERAL; }
+    ASTIntLit() : ASTLit(AST_INT_LITERAL) { }
 
     virtual void destroy() override {
         ASTLit::destroy();
@@ -200,25 +211,25 @@ struct ASTIntLit : ASTLit {
 struct ASTFloatLit : ASTLit {
     double value = 0;
 
-    ASTFloatLit() { kind = AST_FLOAT_LITERAL; }
+    ASTFloatLit() : ASTLit(AST_FLOAT_LITERAL) { }
 };
 
 struct ASTStringLit : ASTLit {
     llvm::StringRef value;
 
-    ASTStringLit() { kind = AST_STRING_LITERAL; }
+    ASTStringLit() : ASTLit(AST_STRING_LITERAL) { }
 };
 
 struct ASTLoad : public ASTDecl {
     ASTStringLit* string = nullptr;
 
-    ASTLoad() { kind = AST_LOAD; }
+    ASTLoad() : ASTDecl(AST_LOAD) { }
 };
 
 struct ASTParamDecl : public ASTDecl {
     ASTTypeRef* typeRef = nullptr;
 
-    ASTParamDecl() { kind = AST_PARAMETER; }
+    ASTParamDecl() : ASTDecl(AST_PARAMETER) { }
 };
 
 struct ASTCompoundStmt : public ASTStmt {
@@ -232,7 +243,7 @@ struct ASTFuncDecl : public ASTDecl, public DeclContext {
     ASTTypeRef* returnTypeRef = nullptr;
     ASTCompoundStmt* body = nullptr;
 
-    ASTFuncDecl() : DeclContext(AST_FUNC) { kind = AST_FUNC; }
+    ASTFuncDecl(ASTNodeKind kind = AST_FUNC) : ASTDecl(kind), DeclContext(kind) { }
 
     virtual void destroy() override {
         ASTDecl::destroy();
@@ -241,64 +252,68 @@ struct ASTFuncDecl : public ASTDecl, public DeclContext {
 };
 
 struct ASTPrefixFuncDecl : public ASTFuncDecl {
-    ASTPrefixFuncDecl() { kind = AST_PREFIX_FUNC; }
+    ASTPrefixFuncDecl() : ASTFuncDecl(AST_PREFIX_FUNC) { }
 };
 
 struct ASTInfixFuncDecl : public ASTFuncDecl {
-    ASTInfixFuncDecl() { kind = AST_INFIX_FUNC; }
+    ASTInfixFuncDecl() : ASTFuncDecl(AST_INFIX_FUNC) { }
 };
 
 struct ASTValueDecl : public ASTDecl {
     ASTTypeRef* typeRef = nullptr;
     ASTExpr* assignment = nullptr;
+
+    ASTValueDecl(ASTNodeKind kind) : ASTDecl(kind) {}
 };
 
 struct ASTVarDecl : public ASTValueDecl {
-    ASTVarDecl() { kind = AST_VAR; }
+    ASTVarDecl() : ASTValueDecl(AST_VAR) { }
 };
 
 struct ASTLetDecl : public ASTValueDecl {
-    ASTLetDecl() { kind = AST_LET; }
+    ASTLetDecl() : ASTValueDecl(AST_LET) { }
 };
 
 struct ASTStructDecl : public ASTDecl, public DeclContext {
-    ASTStructDecl() : DeclContext(AST_STRUCT) { kind = AST_STRUCT; }
+    ASTStructDecl() : ASTDecl(AST_STRUCT), DeclContext(AST_STRUCT) { }
 };
 
 struct ASTEnumElementDecl : public ASTDecl {
     ASTExpr* assignment = nullptr;
 
-    ASTEnumElementDecl() { kind = AST_ENUM_ELEMENT; }
+    ASTEnumElementDecl() : ASTDecl(AST_ENUM_ELEMENT) { }
 };
 
 struct ASTEnumDecl : public ASTDecl, public DeclContext {
-    ASTEnumDecl() : DeclContext(AST_ENUM) { kind = AST_ENUM; }
+    ASTEnumDecl() : ASTDecl(AST_ENUM), DeclContext(AST_ENUM) { }
 };
 
-struct ASTCtrlStmt : public ASTStmt {};
+struct ASTCtrlStmt : public ASTStmt {
+    ASTCtrlStmt(ASTNodeKind kind) : ASTStmt(kind) {}
+};
 
 struct ASTBreakStmt : ASTCtrlStmt {
-    ASTBreakStmt() { kind = AST_BREAK; }
+    ASTBreakStmt() : ASTCtrlStmt(AST_BREAK) { }
 };
 
 struct ASTContinueStmt : ASTCtrlStmt {
-    ASTContinueStmt() { kind = AST_CONTINUE; }
+    ASTContinueStmt() : ASTCtrlStmt(AST_CONTINUE) { }
 };
 
 struct ASTFallthroughStmt : ASTCtrlStmt {
-    ASTFallthroughStmt() { kind = AST_FALLTHROUGH; }
+    ASTFallthroughStmt() : ASTCtrlStmt(AST_FALLTHROUGH) { }
 };
 
 struct ASTReturnStmt : ASTCtrlStmt {
     ASTExpr* expr = nullptr;
 
-    ASTReturnStmt() { kind = AST_RETURN; }
+    ASTReturnStmt() : ASTCtrlStmt(AST_RETURN) { }
 };
 
 struct ASTDeferStmt : public ASTStmt {
     ASTExpr* expr = nullptr;
 
-    ASTDeferStmt() { kind = AST_DEFER; }
+    ASTDeferStmt() : ASTStmt(AST_DEFER) { }
 };
 
 struct ASTForStmt : public ASTStmt {
@@ -306,17 +321,19 @@ struct ASTForStmt : public ASTStmt {
     ASTExpr* sequenceExpr = nullptr;
     ASTCompoundStmt* body = nullptr;
 
-    ASTForStmt() { kind = AST_FOR; }
+    ASTForStmt() : ASTStmt(AST_FOR) { }
 };
 
 struct ASTBranchStmt : public ASTStmt {
     ASTExpr* condition = nullptr;
+
+    ASTBranchStmt(ASTNodeKind kind) : ASTStmt(kind) { }
 };
 
 struct ASTGuardStmt : public ASTBranchStmt {
     ASTCompoundStmt* elseStmt = nullptr;
 
-    ASTGuardStmt() { kind = AST_GUARD; }
+    ASTGuardStmt() : ASTBranchStmt(AST_GUARD) { }
 };
 
 enum ASTChainKind : uint8_t {
@@ -334,19 +351,21 @@ struct ASTIfStmt : public ASTBranchStmt {
         ASTIfStmt* elseIf;
     };
 
-    ASTIfStmt() { kind = AST_IF; }
+    ASTIfStmt() : ASTBranchStmt(AST_IF) { }
 };
 
 struct ASTLoopStmt : public ASTBranchStmt {
     ASTCompoundStmt* body = nullptr;
+
+    ASTLoopStmt(ASTNodeKind kind) : ASTBranchStmt(kind) { }
 };
 
 struct ASTDoStmt : public ASTLoopStmt {
-    ASTDoStmt() { kind = AST_DO; }
+    ASTDoStmt() : ASTLoopStmt(AST_DO) { }
 };
 
 struct ASTWhileStmt : public ASTLoopStmt {
-    ASTWhileStmt() { kind = AST_WHILE; }
+    ASTWhileStmt() : ASTLoopStmt(AST_WHILE) { }
 };
 
 enum ASTCaseKind : uint8_t {
@@ -359,14 +378,14 @@ struct ASTCaseStmt : public ASTStmt, public DeclContext {
     ASTExpr* condition = nullptr;
     ASTCompoundStmt* body = nullptr;
 
-    ASTCaseStmt() : DeclContext(AST_SWITCH_CASE) { kind = AST_SWITCH_CASE; }
+    ASTCaseStmt() : ASTStmt(AST_SWITCH_CASE), DeclContext(AST_SWITCH_CASE) { }
 };
 
 struct ASTSwitchStmt : public ASTStmt {
     ASTExpr* expr = nullptr;
     llvm::SmallVector<ASTCaseStmt*, 0> cases;
 
-    ASTSwitchStmt() { kind = AST_SWITCH; }
+    ASTSwitchStmt() : ASTStmt(AST_SWITCH) { }
 
     virtual void destroy() override {
         ASTStmt::destroy();
@@ -378,7 +397,7 @@ struct ASTCallExpr : public ASTExpr {
     ASTExpr* left = nullptr;
     llvm::SmallVector<ASTExpr*, 0> args;
 
-    ASTCallExpr() { kind = AST_CALL; }
+    ASTCallExpr() : ASTExpr(AST_CALL) { }
 
     virtual void destroy() override {
         ASTExpr::destroy();
@@ -390,7 +409,7 @@ struct ASTSubscriptExpr : public ASTExpr {
     ASTExpr* left = nullptr;
     llvm::SmallVector<ASTExpr*, 0> args;
 
-    ASTSubscriptExpr() { kind = AST_SUBSCRIPT; }
+    ASTSubscriptExpr() : ASTExpr(AST_SUBSCRIPT) { }
 
     virtual void destroy() override {
         ASTExpr::destroy();
@@ -400,35 +419,37 @@ struct ASTSubscriptExpr : public ASTExpr {
 
 struct ASTTypeRef : public ASTNode {
     Type* type = nullptr;
+
+    ASTTypeRef(ASTNodeKind kind) : ASTNode(kind) { }
 };
 
 struct ASTAnyTypeRef : public ASTTypeRef {
-    ASTAnyTypeRef() { kind = AST_ANY_TYPE_REF; }
+    ASTAnyTypeRef() : ASTTypeRef(AST_ANY_TYPE_REF) { }
 };
 
 struct ASTOpaqueTypeRef : public ASTTypeRef {
     Lexeme typeName;
     ASTDecl* decl = nullptr;
 
-    ASTOpaqueTypeRef() { kind = AST_OPAQUE_TYPE_REF; }
+    ASTOpaqueTypeRef() : ASTTypeRef(AST_OPAQUE_TYPE_REF) { }
 };
 
 struct ASTTypeOfTypeRef : public ASTTypeRef {
     ASTExpr* expr = nullptr;
 
-    ASTTypeOfTypeRef() { kind = AST_TYPEOF_TYPE_REF; }
+    ASTTypeOfTypeRef() : ASTTypeRef(AST_TYPEOF_TYPE_REF) { }
 };
 
 struct ASTPointerTypeRef : public ASTTypeRef {
     ASTTypeRef* pointeeTypeRef = nullptr;
     unsigned depth = 0;
 
-    ASTPointerTypeRef() { kind = AST_POINTER_TYPE_REF; }
+    ASTPointerTypeRef() : ASTTypeRef(AST_POINTER_TYPE_REF) { }
 };
 
 struct ASTArrayTypeRef : public ASTTypeRef {
     ASTTypeRef* elementTypeRef = nullptr;
     ASTExpr* sizeExpr = nullptr;
 
-    ASTArrayTypeRef() { kind = AST_ARRAY_TYPE_REF; }
+    ASTArrayTypeRef() : ASTTypeRef(AST_ARRAY_TYPE_REF) { }
 };
