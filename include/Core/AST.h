@@ -127,28 +127,92 @@ struct ASTExpr : public ASTStmt {
 };
 
 struct ASTDecl : public ASTStmt {
-    Lexeme name;
-    Type* type = nullptr;
     ASTDecl* nextDeclInContext = nullptr;
     ASTDecl* previousDeclInContext = nullptr;
 
     ASTDecl(ASTNodeKind kind) : ASTStmt(kind) {}
+
+    bool isNamedDecl() const {
+        return kind == AST_MODULE
+        || kind == AST_ENUM
+        || kind == AST_ENUM_ELEMENT
+        || kind == AST_FUNC
+        || kind == AST_PARAMETER
+        || kind == AST_STRUCT
+        || kind == AST_VAR
+        || kind == AST_LET;
+    }
 
     bool isFunc() const { return kind == AST_FUNC || kind == AST_PREFIX_FUNC || kind == AST_INFIX_FUNC; }
     bool isPrefixFunc() const { return kind == AST_PREFIX_FUNC; }
     bool isInfixFunc() const { return kind == AST_INFIX_FUNC; }
 };
 
-struct ASTLoad;
-struct ASTFuncDecl;
-struct ASTPrefixFuncDecl;
-struct ASTInfixFuncDecl;
-struct ASTEnumDecl;
-struct ASTStructDecl;
-struct ASTValueDecl;
+struct ASTLoadDirective : public ASTDecl {
+    llvm::StringRef loadFilePath;
 
-struct ASTModule : public ASTDecl, public DeclContext {
-    ASTModule() : ASTDecl(AST_MODULE), DeclContext(AST_MODULE) { }
+    ASTLoadDirective(ASTContext* context, llvm::StringRef loadFilePath);
+};
+
+struct ASTNamedDecl : public ASTDecl {
+    Lexeme name;
+    Type* type = nullptr;
+
+    ASTNamedDecl(ASTNodeKind kind) : ASTDecl(kind) {}
+};
+
+struct ASTModuleDecl : public ASTNamedDecl, public DeclContext {
+    ASTModuleDecl() : ASTNamedDecl(AST_MODULE), DeclContext(AST_MODULE) { }
+};
+
+struct ASTParamDecl;
+struct ASTCompoundStmt;
+
+struct ASTEnumElementDecl : public ASTNamedDecl {
+    ASTExpr* assignment = nullptr;
+
+    ASTEnumElementDecl() : ASTNamedDecl(AST_ENUM_ELEMENT) { }
+};
+
+struct ASTEnumDecl : public ASTNamedDecl, public DeclContext {
+    ASTEnumDecl() : ASTNamedDecl(AST_ENUM), DeclContext(AST_ENUM) { }
+};
+
+struct ASTFuncDecl : public ASTNamedDecl, public DeclContext {
+    llvm::ArrayRef<ASTParamDecl*> parameters;
+    ASTTypeRef* returnTypeRef = nullptr;
+    ASTCompoundStmt* body = nullptr;
+
+    ASTFuncDecl(ASTContext* context, llvm::ArrayRef<ASTParamDecl*> parameters);
+
+    bool isGlobalFunc() const { return kind == AST_FUNC; }
+    bool isPrefixFunc() const { return kind == AST_PREFIX_FUNC; }
+    bool isInfixFunc() const { return kind == AST_INFIX_FUNC; }
+};
+
+struct ASTValueDecl : public ASTNamedDecl {
+    ASTTypeRef* typeRef = nullptr;
+    ASTExpr* assignment = nullptr;
+
+    ASTValueDecl(ASTNodeKind kind) : ASTNamedDecl(kind) {}
+};
+
+struct ASTVarDecl : public ASTValueDecl {
+    ASTVarDecl() : ASTValueDecl(AST_VAR) { }
+};
+
+struct ASTLetDecl : public ASTValueDecl {
+    ASTLetDecl() : ASTValueDecl(AST_LET) { }
+};
+
+struct ASTStructDecl : public ASTNamedDecl, public DeclContext {
+    ASTStructDecl() : ASTNamedDecl(AST_STRUCT), DeclContext(AST_STRUCT) { }
+};
+
+struct ASTParamDecl : public ASTNamedDecl {
+    ASTTypeRef* typeRef = nullptr;
+
+    ASTParamDecl() : ASTNamedDecl(AST_PARAMETER) { }
 };
 
 struct ASTUnaryExpr : public ASTExpr {
@@ -176,7 +240,7 @@ struct ASTMemberAccessExpr : public ASTExpr {
 
 struct ASTIdentExpr : public ASTExpr {
     Lexeme declName;
-    ASTDecl* decl = nullptr;
+    ASTNamedDecl* decl = nullptr;
 
     ASTIdentExpr() : ASTExpr(AST_IDENTIFIER) { }
 };
@@ -218,63 +282,10 @@ struct ASTStringLit : ASTLit {
     ASTStringLit() : ASTLit(AST_STRING_LITERAL) { }
 };
 
-struct ASTLoad : public ASTDecl {
-    ASTStringLit* string = nullptr;
-
-    ASTLoad() : ASTDecl(AST_LOAD) { }
-};
-
-struct ASTParamDecl : public ASTDecl {
-    ASTTypeRef* typeRef = nullptr;
-
-    ASTParamDecl() : ASTDecl(AST_PARAMETER) { }
-};
-
 struct ASTCompoundStmt : public ASTStmt {
     llvm::ArrayRef<ASTStmt*> stmts;
 
     ASTCompoundStmt(ASTContext* context, llvm::ArrayRef<ASTStmt*> stmts);
-};
-
-struct ASTFuncDecl : public ASTDecl, public DeclContext {
-    llvm::ArrayRef<ASTParamDecl*> parameters;
-    ASTTypeRef* returnTypeRef = nullptr;
-    ASTCompoundStmt* body = nullptr;
-
-    ASTFuncDecl(ASTContext* context, llvm::ArrayRef<ASTParamDecl*> parameters);
-
-    bool isGlobalFunc() const { return kind == AST_FUNC; }
-    bool isPrefixFunc() const { return kind == AST_PREFIX_FUNC; }
-    bool isInfixFunc() const { return kind == AST_INFIX_FUNC; }
-};
-
-struct ASTValueDecl : public ASTDecl {
-    ASTTypeRef* typeRef = nullptr;
-    ASTExpr* assignment = nullptr;
-
-    ASTValueDecl(ASTNodeKind kind) : ASTDecl(kind) {}
-};
-
-struct ASTVarDecl : public ASTValueDecl {
-    ASTVarDecl() : ASTValueDecl(AST_VAR) { }
-};
-
-struct ASTLetDecl : public ASTValueDecl {
-    ASTLetDecl() : ASTValueDecl(AST_LET) { }
-};
-
-struct ASTStructDecl : public ASTDecl, public DeclContext {
-    ASTStructDecl() : ASTDecl(AST_STRUCT), DeclContext(AST_STRUCT) { }
-};
-
-struct ASTEnumElementDecl : public ASTDecl {
-    ASTExpr* assignment = nullptr;
-
-    ASTEnumElementDecl() : ASTDecl(AST_ENUM_ELEMENT) { }
-};
-
-struct ASTEnumDecl : public ASTDecl, public DeclContext {
-    ASTEnumDecl() : ASTDecl(AST_ENUM), DeclContext(AST_ENUM) { }
 };
 
 struct ASTCtrlStmt : public ASTStmt {
@@ -403,7 +414,7 @@ struct ASTAnyTypeRef : public ASTTypeRef {
 
 struct ASTOpaqueTypeRef : public ASTTypeRef {
     Lexeme typeName;
-    ASTDecl* decl = nullptr;
+    ASTNamedDecl* decl = nullptr;
 
     ASTOpaqueTypeRef() : ASTTypeRef(AST_OPAQUE_TYPE_REF) { }
 };

@@ -107,8 +107,8 @@ void CodeManager::parseAST() {
             auto module = context.getModule();
             for (auto it = module->declsBegin() + preprocessDeclIndex; it != module->declsEnd(); it++) {
                 if ((*it)->kind == AST_LOAD) {
-                    auto load = reinterpret_cast<ASTLoad*>(*it);
-                    addSourceFile(load->string->value);
+                    auto loadDirective = reinterpret_cast<ASTLoadDirective*>(*it);
+                    addSourceFile(loadDirective->loadFilePath);
                     if (diag.hasErrors()) {
                         return;
                     }

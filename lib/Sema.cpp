@@ -66,8 +66,8 @@ void Sema::resolveType(ASTTypeRef* typeRef) {
             // @Refactor Decl resolution is also used on other places extract it to a function ...
             if (!opaqueTypeRef->decl) {
                 auto decl = opaqueTypeRef->declContext->lookupDeclInHierarchy(opaqueTypeRef->typeName);
-                if (decl) {
-                    opaqueTypeRef->decl = decl;
+                if (decl && decl->isNamedDecl()) {
+                    opaqueTypeRef->decl = reinterpret_cast<ASTNamedDecl*>(decl);
                 }
             }
 
@@ -339,8 +339,8 @@ void Sema::inferTypeOfLetDecl(ASTLetDecl* let) {
 
 void Sema::inferTypeOfIdentExpr(ASTIdentExpr* expr) {
     auto decl = expr->declContext->lookupDeclInHierarchy(expr->declName);
-    if (decl) {
-        expr->decl = decl;
+    if (decl && decl->isNamedDecl()) {
+        expr->decl = reinterpret_cast<ASTNamedDecl*>(decl);
         inferTypeOfNode(expr->decl);
         expr->type = expr->decl->type;
         return;
@@ -351,8 +351,9 @@ void Sema::inferTypeOfIdentExpr(ASTIdentExpr* expr) {
         if ((*it)->kind == AST_ENUM) {
             auto enumDecl = reinterpret_cast<ASTEnumDecl*>(*it);
             auto decl = enumDecl->lookupDecl(expr->declName);
-            if (decl && decl->kind == AST_ENUM_ELEMENT) {
-                expr->decl = decl;
+            if (decl) {
+                assert(decl->kind == AST_ENUM_ELEMENT);
+                expr->decl = reinterpret_cast<ASTEnumElementDecl*>(decl);
                 inferTypeOfNode(expr->decl);
                 expr->type = expr->decl->type;
                 return;
@@ -545,7 +546,8 @@ void Sema::typeStructDecl(ASTStructDecl* decl) {
 
     unsigned memberIndex = 0;
     for (auto it = decl->declsLast(); it != decl->declsEnd(); it--) {
-        auto memberDecl = *it;
+        assert((*it)->kind == AST_VAR || (*it)->kind == AST_LET);
+        auto memberDecl = reinterpret_cast<ASTValueDecl*>(*it);
         inferTypeOfNode(memberDecl);
 
         if (memberDecl->type == context->getErrorType()) {
@@ -595,16 +597,16 @@ void Sema::typeEnumElementDecl(ASTEnumElementDecl* decl) {
 
 bool Sema::checkCyclicStorageInStructDecl(ASTStructDecl* structDecl, llvm::SmallVector<ASTStructDecl*, 0>* parentDecls) {
     for (auto it = structDecl->declsBegin(); it != structDecl->declsEnd(); it++) {
-        auto decl = *it;
-        assert(decl->kind == AST_VAR || decl->kind == AST_LET);
+        assert((*it)->kind == AST_VAR || (*it)->kind == AST_LET);
+        auto decl = reinterpret_cast<ASTValueDecl*>(*it);
 
         auto valueDecl = reinterpret_cast<ASTValueDecl*>(decl);
         if (valueDecl->typeRef->kind == AST_OPAQUE_TYPE_REF) {
             auto opaqueTypeRef = reinterpret_cast<ASTOpaqueTypeRef*>(valueDecl->typeRef);
             if (!opaqueTypeRef->decl) {
                 auto foundDecl = structDecl->lookupDeclInHierarchy(opaqueTypeRef->typeName);
-                if (foundDecl) {
-                    opaqueTypeRef->decl = foundDecl;
+                if (foundDecl && foundDecl->isNamedDecl()) {
+                    opaqueTypeRef->decl = reinterpret_cast<ASTNamedDecl*>(foundDecl);
                 }
             }
 

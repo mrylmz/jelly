@@ -40,7 +40,7 @@ struct ASTContext {
 
     Lexeme getLexeme(llvm::StringRef text);
 
-    ASTModule* getModule();
+    ASTModuleDecl* getModule();
 
     llvm::StringMap<Type*>* getTypes();
     llvm::SmallVector<FuncType*, 0>* getBuiltinFuncTypes();
@@ -82,11 +82,12 @@ private:
     friend struct ASTSwitchStmt;
     friend struct ASTCallExpr;
     friend struct ASTSubscriptExpr;
+    friend struct ASTLoadDirective;
 
     llvm::BumpPtrAllocator nodeAllocator;
     llvm::BumpPtrAllocator lexemeAllocator;
 
-    ASTModule* module;
+    ASTModuleDecl* module;
 
     llvm::SmallVector<ASTNode*, 0> nodes;
     llvm::StringMap<int64_t> lexemeMap;

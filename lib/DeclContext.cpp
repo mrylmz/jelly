@@ -89,8 +89,11 @@ bool DeclContext::containsDecl(ASTDecl *decl) {
 
 ASTDecl* DeclContext::lookupDecl(llvm::StringRef name) {
     for (auto it = declsBegin(); it != declsEnd(); it++) {
-        if ((*it)->name == name) {
-            return *it;
+        if ((*it)->isNamedDecl()) {
+            auto decl = reinterpret_cast<ASTNamedDecl*>(*it);
+            if (decl->name == name) {
+                return decl;
+            }
         }
     }
 

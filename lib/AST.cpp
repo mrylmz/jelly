@@ -48,7 +48,7 @@ ASTCompoundStmt::ASTCompoundStmt(ASTContext* context, llvm::ArrayRef<ASTStmt*> s
 }
 
 ASTFuncDecl::ASTFuncDecl(ASTContext* context, llvm::ArrayRef<ASTParamDecl*> parameters) :
-ASTDecl(AST_FUNC),
+ASTNamedDecl(AST_FUNC),
 DeclContext(AST_FUNC) {
     this->parameters = parameters.copy(context->nodeAllocator);
 }
@@ -64,4 +64,8 @@ ASTCallExpr::ASTCallExpr(ASTContext* context, llvm::ArrayRef<ASTExpr*> args) : A
 
 ASTSubscriptExpr::ASTSubscriptExpr(ASTContext* context, llvm::ArrayRef<ASTExpr*> arguments) : ASTExpr(AST_SUBSCRIPT) {
     this->args = arguments.copy(context->nodeAllocator);
+}
+
+ASTLoadDirective::ASTLoadDirective(ASTContext* context, llvm::StringRef loadFilePath) : ASTDecl(AST_LOAD) {
+    this->loadFilePath = loadFilePath.copy(context->nodeAllocator);
 }

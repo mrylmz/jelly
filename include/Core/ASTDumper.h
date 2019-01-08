@@ -38,7 +38,7 @@ struct ASTDumper {
 
     ASTDumper(std::ostream& outputStream);
 
-    void dumpModule(ASTModule* module);
+    void dumpModule(ASTModuleDecl* module);
 
 private:
 
@@ -89,7 +89,7 @@ private:
     }
 
     void dumpCompoundStmt(ASTCompoundStmt* stmt);
-    void dumpLoad(ASTLoad* directive);
+    void dumpLoad(ASTLoadDirective* directive);
     void dumpUnaryExpr(ASTUnaryExpr* expr);
     void dumpBinaryExpr(ASTBinaryExpr* expr);
     void dumpMemberAccessExpr(ASTMemberAccessExpr* expr);

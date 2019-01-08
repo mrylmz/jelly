@@ -48,7 +48,7 @@ typeFloat80(FloatType(FLOAT_IEEE80)),
 typeFloat128(FloatType(FLOAT_IEEE128)),
 typeString(StringType()),
 typeAnyPointer(PointerType(1, &typeAny)) {
-    module = new (this) ASTModule;
+    module = new (this) ASTModuleDecl;
 
     types.try_emplace("Any", &typeAny);
     types.try_emplace("Void", &typeVoid);
@@ -97,7 +97,7 @@ Lexeme ASTContext::getLexeme(llvm::StringRef text) {
     return lexeme;
 }
 
-ASTModule* ASTContext::getModule() {
+ASTModuleDecl* ASTContext::getModule() {
     return module;
 }
 

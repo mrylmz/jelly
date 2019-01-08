@@ -30,7 +30,7 @@
 ASTDumper::ASTDumper(std::ostream& outputStream) : outputStream(outputStream) {
 }
 
-void ASTDumper::dumpModule(ASTModule* module) {
+void ASTDumper::dumpModule(ASTModuleDecl* module) {
     outputStream << "ASTBlock\n"; // @Incomplete rename to ASTModule and update all affected unit tests
     indentation += 1;
 
@@ -54,7 +54,7 @@ void ASTDumper::dumpModule(ASTModule* module) {
 void ASTDumper::dumpNode(ASTNode* node) {
     assert(node);
     switch (node->kind) {
-        case AST_LOAD:              return dumpLoad(reinterpret_cast<ASTLoad*>(node));
+        case AST_LOAD:              return dumpLoad(reinterpret_cast<ASTLoadDirective*>(node));
         case AST_UNARY:             return dumpUnaryExpr(reinterpret_cast<ASTUnaryExpr*>(node));
         case AST_BINARY:            return dumpBinaryExpr(reinterpret_cast<ASTBinaryExpr*>(node));
         case AST_MEMBER_ACCESS:     return dumpMemberAccessExpr(reinterpret_cast<ASTMemberAccessExpr*>(node));
@@ -100,9 +100,8 @@ void ASTDumper::dumpCompoundStmt(ASTCompoundStmt* stmt) {
     dumpChildren(stmt->stmts);
 }
 
-void ASTDumper::dumpLoad(ASTLoad* directive) {
-    outputStream << "ASTLoad\n";
-    dumpChildren({ directive->string });
+void ASTDumper::dumpLoad(ASTLoadDirective* directive) {
+    outputStream << "ASTLoad { loadFilePath = '" << directive->loadFilePath.str() << "' }\n";
 }
 
 void ASTDumper::dumpUnaryExpr(ASTUnaryExpr* expr) {

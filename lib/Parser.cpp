@@ -422,23 +422,25 @@ static ASTExpr* TryParseExpr(Parser* Parser, ASTContext* Context, DiagnosticEngi
 /// grammar: directive := load-directive
 
 /// grammar: load-directive := "#load" string-literal
-static ASTLoad* ParseLoadDirective(Parser* Parser, ASTContext* Context, DiagnosticEngine* Diag) {
+static ASTLoadDirective* ParseLoadDirective(Parser* Parser, ASTContext* Context, DiagnosticEngine* Diag) {
     assert(Parser->token.is(TOKEN_KEYWORD_LOAD) && "Invalid token given for start of load directive!");
     ConsumeToken(Parser);
 
-    ASTLoad* Load = new (Context) ASTLoad;
-    Load->declContext = Parser->declContext;
-    PushParent(Parser, Load);
-    {
-        Load->string = ParseStringLiteral(Parser, Context, Diag);
-        if (!Load->string) {
-            Parser->report(DIAG_ERROR, "Expected string literal after load directive!");
-            return nullptr;
-        }
+    if (Parser->token.kind != TOKEN_LITERAL_STRING) {
+        Parser->report(DIAG_ERROR, "Expected string literal after load directive!");
+        return nullptr;
     }
-    PopParent(Parser);
 
-    return Load;
+    assert(Parser->token.text.size() >= 2 && "Invalid length of string literal text, has to contain at least \"\"");
+
+    auto loadFilePath = Parser->token.text.drop_front(1).drop_back(1);
+    ASTLoadDirective* loadDirective = new (Context) ASTLoadDirective(Context, loadFilePath);
+    loadDirective->declContext = Parser->declContext;
+    loadDirective->parent = Parser->parent;
+
+    ConsumeToken(Parser);
+
+    return loadDirective;
 }
 
 // MARK: - Types
@@ -849,10 +851,15 @@ static ASTFuncDecl* ParseFuncDecl(Parser* Parser, ASTContext* Context, Diagnosti
         for (auto stmt : stmts) {
             if (stmt->isDecl()) {
                 auto decl = reinterpret_cast<ASTDecl*>(stmt);
-                if (!Func->lookupDecl(decl->name)) {
-                    Func->addDecl(decl);
+                if (decl->isNamedDecl()) {
+                    auto namedDecl = reinterpret_cast<ASTNamedDecl*>(decl);
+                    if (!Func->lookupDecl(namedDecl->name)) {
+                        Func->addDecl(namedDecl);
+                    } else {
+                        Parser->report(DIAG_ERROR, "Invalid redeclaration of '{0}'", namedDecl->name);
+                    }
                 } else {
-                    Parser->report(DIAG_ERROR, "Invalid redeclaration of '{0}'", decl->name);
+                    Func->addDecl(decl);
                 }
             }
         }
@@ -1449,10 +1456,15 @@ static ASTCaseStmt* ParseSwitchCaseStmt(Parser* Parser, ASTContext* Context, Dia
 
                 if (Stmt->isDecl()) {
                     auto Decl = reinterpret_cast<ASTDecl*>(Stmt);
-                    if (!Case->lookupDecl(Decl->name)) {
-                        Case->addDecl(Decl);
+                    if (Decl->isNamedDecl()) {
+                        auto namedDecl = reinterpret_cast<ASTNamedDecl*>(Decl);
+                        if (!Case->lookupDecl(namedDecl->name)) {
+                            Case->addDecl(namedDecl);
+                        } else {
+                            Parser->report(DIAG_ERROR, "Invalid redeclaration of '{0}'", namedDecl->name);
+                        }
                     } else {
-                        Parser->report(DIAG_ERROR, "Invalid redeclaration of '{0}'", Decl->name);
+                        Case->addDecl(Decl);
                     }
                 }
 
@@ -1642,8 +1654,13 @@ void ParseAllTopLevelNodes(Parser* Parser, ASTContext* Context, DiagnosticEngine
 
             assert(Node->isDecl());
             auto decl = reinterpret_cast<ASTDecl*>(Node);
-            if (module->lookupDecl(decl->name)) {
-                Parser->report(DIAG_ERROR, "Invalid redeclaration of '{0}'", decl->name);
+            if (decl->isNamedDecl()) {
+                auto namedDecl = reinterpret_cast<ASTNamedDecl*>(decl);
+                if (module->lookupDecl(namedDecl->name)) {
+                    Parser->report(DIAG_ERROR, "Invalid redeclaration of '{0}'", namedDecl->name);
+                } else {
+                    module->addDecl(namedDecl);
+                }
             } else {
                 module->addDecl(decl);
             }
