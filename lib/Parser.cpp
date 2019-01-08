@@ -25,6 +25,7 @@
 #include "Core/Defer.h"
 #include "Core/Parser.h"
 
+#include <llvm/ADT/SmallVector.h>
 #include <llvm/Support/ErrorHandling.h>
 
 #define PushParent(__Parser__, __Parent__) \
@@ -259,37 +260,39 @@ static ASTCallExpr* ParseCallExpr(Parser* Parser, ASTContext* Context, Diagnosti
     assert(Parser->token.is('(') && "Invalid token given for start of call-expression");
     ConsumeToken(Parser);
 
-    llvm::SmallVector<ASTExpr*, 0> arguments;
-    if (!Parser->token.is(')')) {
-        while (true) {
-            ASTExpr* argument = ParseExpr(Parser, Context, Diag);
-            if (argument == nullptr) {
-                return nullptr;
+    ASTCallExpr* callExpr = new (Context) ASTCallExpr;
+    callExpr->left = Left; // @Bug is the parent of the left broken here ???
+    callExpr->declContext = Parser->declContext;
+
+    PushParent(Parser, callExpr);
+    {
+        llvm::SmallVector<ASTExpr*, 0> arguments;
+        if (!Parser->token.is(')')) {
+            while (true) {
+                ASTExpr* argument = ParseExpr(Parser, Context, Diag);
+                if (argument == nullptr) {
+                    return nullptr;
+                }
+
+                arguments.push_back(argument);
+
+                if (Parser->token.is(')')) {
+                    break;
+                } else if (!Parser->token.is(',')) {
+                    Parser->report(DIAG_ERROR, "Expected ')' or ',' in argument list of call-expression!");
+                    return nullptr;
+                }
+
+                ConsumeToken(Parser);
             }
-
-            arguments.push_back(argument);
-
-            if (Parser->token.is(')')) {
-                break;
-            } else if (!Parser->token.is(',')) {
-                Parser->report(DIAG_ERROR, "Expected ')' or ',' in argument list of call-expression!");
-                return nullptr;
-            }
-
-            ConsumeToken(Parser);
         }
+        ConsumeToken(Parser);
+
+        callExpr->args = llvm::makeArrayRef(arguments).copy(Context->nodeAllocator);
     }
-    ConsumeToken(Parser);
+    PopParent(Parser);
 
-    ASTCallExpr* Call = new (Context) ASTCallExpr(Context, arguments);
-    Call->left = Left; // @Bug is the parent of the left broken here ???
-    Call->declContext = Parser->declContext;
-
-    for (auto argument : arguments) {
-        argument->parent = Call;
-    }
-
-    return Call;
+    return callExpr;
 }
 
 /// grammar: subscript-expression := expression "[" [ expression { "," expression } ] "]"
@@ -297,35 +300,37 @@ static ASTSubscriptExpr* ParseSubscriptExpr(Parser* Parser, ASTContext* Context,
     assert(Parser->token.is('[') && "Invalid token given for start of call-expression");
     ConsumeToken(Parser);
 
-    llvm::SmallVector<ASTExpr*, 0> arguments;
-    if (!Parser->token.is(']')) {
-        while (true) {
-            ASTExpr* argument = ParseExpr(Parser, Context, Diag);
-            if (argument == nullptr) {
-                return nullptr;
-            }
-
-            arguments.push_back(argument);
-
-            if (Parser->token.is(']')) {
-                break;
-            } else if (!Parser->token.is(',')) {
-                Parser->report(DIAG_ERROR, "Expected ']' or ',' in argument list of subscript-expression!");
-                return nullptr;
-            }
-
-            ConsumeToken(Parser);
-        }
-    }
-    ConsumeToken(Parser);
-
-    ASTSubscriptExpr* Subscript = new (Context) ASTSubscriptExpr(Context, arguments);
+    ASTSubscriptExpr* Subscript = new (Context) ASTSubscriptExpr;
     Subscript->left = Left; // @Bug is the parent of the left broken here ???
     Subscript->declContext = Parser->declContext;
 
-    for (auto argument : arguments) {
-        argument->parent = Subscript;
+    PushParent(Parser, Subscript);
+    {
+        llvm::SmallVector<ASTExpr*, 0> arguments;
+        if (!Parser->token.is(']')) {
+            while (true) {
+                ASTExpr* argument = ParseExpr(Parser, Context, Diag);
+                if (argument == nullptr) {
+                    return nullptr;
+                }
+
+                arguments.push_back(argument);
+
+                if (Parser->token.is(']')) {
+                    break;
+                } else if (!Parser->token.is(',')) {
+                    Parser->report(DIAG_ERROR, "Expected ']' or ',' in argument list of subscript-expression!");
+                    return nullptr;
+                }
+
+                ConsumeToken(Parser);
+            }
+        }
+        ConsumeToken(Parser);
+
+        Subscript->args = llvm::makeArrayRef(arguments).copy(Context->nodeAllocator);
     }
+    PopParent(Parser);
 
     return Subscript;
 }
@@ -433,10 +438,10 @@ static ASTLoadDirective* ParseLoadDirective(Parser* Parser, ASTContext* Context,
 
     assert(Parser->token.text.size() >= 2 && "Invalid length of string literal text, has to contain at least \"\"");
 
-    auto loadFilePath = Parser->token.text.drop_front(1).drop_back(1);
-    ASTLoadDirective* loadDirective = new (Context) ASTLoadDirective(Context, loadFilePath);
+    ASTLoadDirective* loadDirective = new (Context) ASTLoadDirective;
     loadDirective->declContext = Parser->declContext;
     loadDirective->parent = Parser->parent;
+    loadDirective->loadFilePath = Context->getLexeme(Parser->token.text.drop_front(1).drop_back(1));
 
     ConsumeToken(Parser);
 
@@ -610,37 +615,49 @@ static ASTTypeRef* ParseType(Parser* Parser, ASTContext* Context, DiagnosticEngi
 
 ASTStmt* ParseStmt(Parser* Parser, ASTContext* Context, DiagnosticEngine* Diag);
 
-static bool ParseStmts(Parser* Parser, ASTContext* Context, DiagnosticEngine* Diag, llvm::SmallVector<ASTStmt*, 0>& stmts) {
+// grammar: compound-statement := '{' { statement } '}'
+static ASTCompoundStmt* ParseCompoundStmt(Parser* Parser, ASTContext* Context, DiagnosticEngine* Diag) {
     if (!Parser->token.is('{')) {
         Parser->report(DIAG_ERROR, "Expected '{' at start of block!");
-        return false;
+        return nullptr;
     }
     ConsumeToken(Parser);
 
-    if (!Parser->token.is('}')) {
-        unsigned line = Parser->token.line;
-        while (true) {
-            if (stmts.size() > 0 && line == Parser->token.line) {
-                Parser->report(DIAG_ERROR, "Consecutive statements on a line are not allowed!");
-                return nullptr;
-            }
-            line = Parser->token.line;
+    auto compoundStmt = new (Context) ASTCompoundStmt;
+    compoundStmt->declContext = Parser->declContext;
 
-            ASTStmt* stmt = ParseStmt(Parser, Context, Diag);
-            if (stmt == nullptr) {
-                return nullptr;
-            }
+    PushParent(Parser, compoundStmt);
+    {
+        llvm::SmallVector<ASTStmt*, 0> stmts;
 
-            stmts.push_back(stmt);
+        if (!Parser->token.is('}')) {
+            unsigned line = Parser->token.line;
+            while (true) {
+                if (stmts.size() > 0 && line == Parser->token.line) {
+                    Parser->report(DIAG_ERROR, "Consecutive statements on a line are not allowed!");
+                    return nullptr;
+                }
+                line = Parser->token.line;
 
-            if (Parser->token.is('}')) {
-                break;
+                ASTStmt* stmt = ParseStmt(Parser, Context, Diag);
+                if (stmt == nullptr) {
+                    return nullptr;
+                }
+
+                stmts.push_back(stmt);
+
+                if (Parser->token.is('}')) {
+                    break;
+                }
             }
         }
-    }
-    ConsumeToken(Parser);
+        ConsumeToken(Parser);
 
-    return true;
+        compoundStmt->stmts = llvm::makeArrayRef(stmts).copy(Context->nodeAllocator);
+    }
+    PopParent(Parser);
+
+    return compoundStmt;
 }
 
 // MARK: - Context Declarations
@@ -778,77 +795,73 @@ static ASTFuncDecl* ParseFuncDecl(Parser* Parser, ASTContext* Context, Diagnosti
     assert(Parser->token.is(TOKEN_KEYWORD_FUNC) && "Invalid token given for start of func declaration!");
     ConsumeToken(Parser);
 
-    if (!Parser->token.is(TOKEN_IDENTIFIER)) {
-        Parser->report(DIAG_ERROR, "Expected identifier in function declaration!");
-        return nullptr;
-    }
-    auto name = Context->getLexeme(Parser->token.text);
-    ConsumeToken(Parser);
-
-    if (!Parser->token.is('(')) {
-        Parser->report(DIAG_ERROR, "Expected '(' in parameter list of function declaration!");
-        return nullptr;
-    }
-    ConsumeToken(Parser);
-
-    llvm::SmallVector<ASTParamDecl*, 0> parameters;
-    if (!Parser->token.is(')')) {
-        while (true) {
-            ASTParamDecl* parameter = ParseParameterDecl(Parser, Context, Diag);
-            if (parameter == nullptr) {
-                return nullptr;
-            }
-
-            parameters.push_back(parameter);
-
-            if (Parser->token.is(')')) {
-                break;
-            } else if (!Parser->token.is(',')) {
-                Parser->report(DIAG_ERROR, "Expected ')' or ',' in parameter list of function declaration!");
-                return nullptr;
-            }
-            ConsumeToken(Parser);
-        }
-    }
-    ConsumeToken(Parser);
-
-    if (!Parser->token.is(TOKEN_ARROW)) {
-        Parser->report(DIAG_ERROR, "Expected '->' in function declaration!");
-        return nullptr;
-    }
-    ConsumeToken(Parser);
-
-    ASTFuncDecl* Func = new (Context) ASTFuncDecl(Context, parameters);
-    Func->name = name;
+    ASTFuncDecl* Func = new (Context) ASTFuncDecl;
     Func->declContext = Parser->declContext;
-
-    for (auto parameter : parameters) {
-        parameter->parent = Func;
-    }
 
     PushDeclContext(Parser, Func);
     PushParent(Parser, Func);
     {
-        Func->returnTypeRef = ParseType(Parser, Context, Diag);
-        if (!Func->returnTypeRef) {
-//            Parser->report(DIAG_ERROR, "Expected return type of function declaration!");
+        if (!Parser->token.is(TOKEN_IDENTIFIER)) {
+            Parser->report(DIAG_ERROR, "Expected identifier in function declaration!");
             return nullptr;
         }
+        Func->name = Context->getLexeme(Parser->token.text);
+        ConsumeToken(Parser);
 
-        llvm::SmallVector<ASTStmt*, 0> stmts;
-        if (!ParseStmts(Parser, Context, Diag, stmts)) {
+        if (!Parser->token.is('(')) {
+            Parser->report(DIAG_ERROR, "Expected '(' in parameter list of function declaration!");
             return nullptr;
         }
+        ConsumeToken(Parser);
 
-        for (auto param : Func->parameters) {
-            if (!Func->lookupDecl(param->name)) {
-                Func->addDecl(param);
+        llvm::SmallVector<ASTParamDecl*, 0> parameters;
+        if (!Parser->token.is(')')) {
+            while (true) {
+                ASTParamDecl* parameter = ParseParameterDecl(Parser, Context, Diag);
+                if (parameter == nullptr) {
+                    return nullptr;
+                }
+
+                parameters.push_back(parameter);
+
+                if (Parser->token.is(')')) {
+                    break;
+                } else if (!Parser->token.is(',')) {
+                    Parser->report(DIAG_ERROR, "Expected ')' or ',' in parameter list of function declaration!");
+                    return nullptr;
+                }
+                ConsumeToken(Parser);
+            }
+        }
+        ConsumeToken(Parser);
+
+        Func->parameters = llvm::makeArrayRef(parameters).copy(Context->nodeAllocator);
+
+        for (auto parameter : Func->parameters) {
+            if (!Func->lookupDecl(parameter->name)) {
+                Func->addDecl(parameter);
             } else {
-                Parser->report(DIAG_ERROR, "Invalid redeclaration of '{0}'", param->name);
+                Parser->report(DIAG_ERROR, "Invalid redeclaration of '{0}'", parameter->name);
             }
         }
 
-        for (auto stmt : stmts) {
+        if (!Parser->token.is(TOKEN_ARROW)) {
+            Parser->report(DIAG_ERROR, "Expected '->' in function declaration!");
+            return nullptr;
+        }
+        ConsumeToken(Parser);
+
+        Func->returnTypeRef = ParseType(Parser, Context, Diag);
+        if (!Func->returnTypeRef) {
+            return nullptr;
+        }
+
+        Func->body = ParseCompoundStmt(Parser, Context, Diag);
+        if (!Func->body) {
+            return nullptr;
+        }
+
+        for (auto stmt : Func->body->stmts) {
             if (stmt->isDecl()) {
                 auto decl = reinterpret_cast<ASTDecl*>(stmt);
                 if (decl->isNamedDecl()) {
@@ -862,14 +875,6 @@ static ASTFuncDecl* ParseFuncDecl(Parser* Parser, ASTContext* Context, Diagnosti
                     Func->addDecl(decl);
                 }
             }
-        }
-
-        Func->body = new (Context) ASTCompoundStmt(Context, stmts);
-        Func->body->parent = Parser->parent;
-        Func->body->declContext = Parser->declContext;
-
-        for (auto stmt : stmts) {
-            stmt->parent = Func->body;
         }
     }
     PopParent(Parser);
@@ -1097,17 +1102,9 @@ static ASTDoStmt* ParseDoStmt(Parser* Parser, ASTContext* Context, DiagnosticEng
     Do->declContext = Parser->declContext;
     PushParent(Parser, Do);
     {
-        llvm::SmallVector<ASTStmt*, 0> stmts;
-        if (!ParseStmts(Parser, Context, Diag, stmts)) {
+        Do->body = ParseCompoundStmt(Parser, Context, Diag);
+        if (!Do->body) {
             return nullptr;
-        }
-
-        Do->body = new (Context) ASTCompoundStmt(Context, stmts);
-        Do->body->parent = Parser->parent;
-        Do->body->declContext = Parser->declContext;
-
-        for (auto stmt : Do->body->stmts) {
-            stmt->parent = Do->body;
         }
 
         if (!Parser->token.is(TOKEN_KEYWORD_WHILE)) {
@@ -1181,17 +1178,9 @@ static ASTForStmt* ParseForStmt(Parser* Parser, ASTContext* Context, DiagnosticE
             return nullptr;
         }
 
-        llvm::SmallVector<ASTStmt*, 0> stmts;
-        if (!ParseStmts(Parser, Context, Diag, stmts)) {
+        For->body = ParseCompoundStmt(Parser, Context, Diag);
+        if (!For->body) {
             return nullptr;
-        }
-
-        For->body = new (Context) ASTCompoundStmt(Context, stmts);
-        For->body->parent = Parser->parent;
-        For->body->declContext = Parser->declContext;
-
-        for (auto stmt : For->body->stmts) {
-            stmt->parent = For->body;
         }
     }
     PopParent(Parser);
@@ -1247,17 +1236,9 @@ static ASTGuardStmt* ParseGuardStmt(Parser* Parser, ASTContext* Context, Diagnos
         }
         ConsumeToken(Parser);
 
-        llvm::SmallVector<ASTStmt*, 0> stmts;
-        if (!ParseStmts(Parser, Context, Diag, stmts)) {
+        Guard->elseStmt = ParseCompoundStmt(Parser, Context, Diag);
+        if (!Guard->elseStmt) {
             return nullptr;
-        }
-
-        Guard->elseStmt = new (Context) ASTCompoundStmt(Context, stmts);
-        Guard->elseStmt->parent = Parser->parent;
-        Guard->elseStmt->declContext = Parser->declContext;
-
-        for (auto stmt : Guard->elseStmt->stmts) {
-            stmt->parent = Guard->elseStmt;
         }
     }
     PopParent(Parser);
@@ -1306,17 +1287,9 @@ static ASTIfStmt* ParseIfStmt(Parser* Parser, ASTContext* Context, DiagnosticEng
 
         } while (true);
 
-        llvm::SmallVector<ASTStmt*, 0> stmts;
-        if (!ParseStmts(Parser, Context, Diag, stmts)) {
+        If->thenStmt = ParseCompoundStmt(Parser, Context, Diag);
+        if (!If->thenStmt) {
             return nullptr;
-        }
-
-        If->thenStmt = new (Context) ASTCompoundStmt(Context, stmts);
-        If->thenStmt->parent = If;
-        If->thenStmt->declContext = Parser->declContext;
-
-        for (auto stmt : If->thenStmt->stmts) {
-            stmt->parent = If->thenStmt;
         }
 
         if (Parser->token.is(TOKEN_KEYWORD_ELSE)) {
@@ -1330,18 +1303,9 @@ static ASTIfStmt* ParseIfStmt(Parser* Parser, ASTContext* Context, DiagnosticEng
                 }
             } else {
                 If->chainKind = AST_CHAIN_ELSE;
-
-                stmts.clear();
-                if (!ParseStmts(Parser, Context, Diag, stmts)) {
+                If->elseStmt = ParseCompoundStmt(Parser, Context, Diag);
+                if (!If->elseStmt) {
                     return nullptr;
-                }
-
-                If->elseStmt = new (Context) ASTCompoundStmt(Context, stmts);
-                If->elseStmt->parent = If;
-                If->elseStmt->declContext = Parser->declContext;
-
-                for (auto stmt : If->elseStmt->stmts) {
-                    stmt->parent = If->elseStmt;
                 }
             }
         }
@@ -1382,9 +1346,12 @@ static ASTCaseStmt* ParseSwitchCaseStmt(Parser* Parser, ASTContext* Context, Dia
         }
         ConsumeToken(Parser);
 
-        llvm::SmallVector<ASTStmt*, 0> stmts;
+        Case->body = new (Context) ASTCompoundStmt;
+        Case->body->declContext = Parser->declContext;
 
+        PushParent(Parser, Case->body);
         {
+            llvm::SmallVector<ASTStmt*, 0> stmts;
             unsigned line = Parser->token.line;
             do {
                 if (Parser->token.is(TOKEN_KEYWORD_CASE, TOKEN_KEYWORD_ELSE, '}')) {
@@ -1397,17 +1364,17 @@ static ASTCaseStmt* ParseSwitchCaseStmt(Parser* Parser, ASTContext* Context, Dia
                 }
                 line = Parser->token.line;
 
-                ASTStmt* Stmt = ParseStmt(Parser, Context, Diag);
-                if (!Stmt) {
+                ASTStmt* stmt = ParseStmt(Parser, Context, Diag);
+                if (!stmt) {
                     Parser->report(DIAG_ERROR, "Expected statement in switch-case!");
                     return nullptr;
                 }
 
                 // @Refactor if this is a decl and is added to the decl context is it still required to be part of the statements?
-                stmts.push_back(Stmt);
+                stmts.push_back(stmt);
 
-                if (Stmt->isDecl()) {
-                    auto Decl = reinterpret_cast<ASTDecl*>(Stmt);
+                if (stmt->isDecl()) {
+                    auto Decl = reinterpret_cast<ASTDecl*>(stmt);
                     if (Decl->isNamedDecl()) {
                         auto namedDecl = reinterpret_cast<ASTNamedDecl*>(Decl);
                         if (!Case->lookupDecl(namedDecl->name)) {
@@ -1421,15 +1388,10 @@ static ASTCaseStmt* ParseSwitchCaseStmt(Parser* Parser, ASTContext* Context, Dia
                 }
 
             } while (true);
-        }
 
-        Case->body = new (Context) ASTCompoundStmt(Context, stmts);
-        Case->body->parent = Parser->parent;
-        Case->body->declContext = Parser->declContext;
-
-        for (auto stmt : Case->body->stmts) {
-            stmt->parent = Case->body;
+            Case->body->stmts = llvm::makeArrayRef(stmts).copy(Context->nodeAllocator);
         }
+        PopParent(Parser);
     }
     PopParent(Parser);
     PopDeclContext(Parser);
@@ -1442,49 +1404,49 @@ static ASTSwitchStmt* ParseSwitchStmt(Parser* Parser, ASTContext* Context, Diagn
     assert(Parser->token.is(TOKEN_KEYWORD_SWITCH) && "Invalid token given for start of switch-statement!");
     ConsumeToken(Parser);
 
-    auto expr = ParseExpr(Parser, Context, Diag);
-    if (!expr) {
-        return nullptr;
-    }
-
-    if (!Parser->token.is('{')) {
-        Parser->report(DIAG_ERROR, "Expected '{' after expression in switch-statement!");
-        return nullptr;
-    }
-    ConsumeToken(Parser);
-
-    llvm::SmallVector<ASTCaseStmt*, 0> cases;
-    unsigned line = Parser->token.line;
-    do {
-        if (cases.size() > 0 && line == Parser->token.line) {
-            Parser->report(DIAG_ERROR, "Consecutive statements on a line are not allowed!");
-            return nullptr;
-        }
-        line = Parser->token.line;
-
-        ASTCaseStmt* caseStmt = ParseSwitchCaseStmt(Parser, Context, Diag);
-        if (!caseStmt) {
-            return nullptr;
-        }
-
-        cases.push_back(caseStmt);
-
-        if (Parser->token.is('}')) {
-            break;
-        }
-
-    } while (true);
-
-    ConsumeToken(Parser);
-
-    ASTSwitchStmt* Switch = new (Context) ASTSwitchStmt(Context, cases);
-    Switch->expr = expr;
+    ASTSwitchStmt* Switch = new (Context) ASTSwitchStmt;
     Switch->declContext = Parser->declContext;
 
-    expr->parent = Switch;
-    for (auto caseStmt : cases) {
-        caseStmt->parent = Switch;
+    PushParent(Parser, Switch);
+    {
+        Switch->expr = ParseExpr(Parser, Context, Diag);
+        if (!Switch->expr) {
+            return nullptr;
+        }
+
+        if (!Parser->token.is('{')) {
+            Parser->report(DIAG_ERROR, "Expected '{' after expression in switch-statement!");
+            return nullptr;
+        }
+        ConsumeToken(Parser);
+
+        llvm::SmallVector<ASTCaseStmt*, 0> cases;
+        unsigned line = Parser->token.line;
+        do {
+            if (cases.size() > 0 && line == Parser->token.line) {
+                Parser->report(DIAG_ERROR, "Consecutive statements on a line are not allowed!");
+                return nullptr;
+            }
+            line = Parser->token.line;
+
+            ASTCaseStmt* caseStmt = ParseSwitchCaseStmt(Parser, Context, Diag);
+            if (!caseStmt) {
+                return nullptr;
+            }
+
+            cases.push_back(caseStmt);
+
+            if (Parser->token.is('}')) {
+                break;
+            }
+
+        } while (true);
+
+        ConsumeToken(Parser);
+
+        Switch->cases = llvm::makeArrayRef(cases).copy(Context->nodeAllocator);
     }
+    PopParent(Parser);
 
     return Switch;
 }
@@ -1530,17 +1492,9 @@ static ASTWhileStmt* ParseWhileStmt(Parser* Parser, ASTContext* Context, Diagnos
 
         } while (true);
 
-        llvm::SmallVector<ASTStmt*, 0> stmts;
-        if (!ParseStmts(Parser, Context, Diag, stmts)) {
+        While->body = ParseCompoundStmt(Parser, Context, Diag);
+        if (!While->body) {
             return nullptr;
-        }
-
-        While->body = new (Context) ASTCompoundStmt(Context, stmts);
-        While->body->parent = Parser->parent;
-        While->body->declContext = Parser->declContext;
-
-        for (auto stmt : While->body->stmts) {
-            stmt->parent = While->body;
         }
     }
     PopParent(Parser);

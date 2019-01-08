@@ -41,30 +41,3 @@ bool ASTNode::isDecl() const {
     kind == AST_ENUM_ELEMENT_DECL ||
     kind == AST_ENUM_DECL;
 }
-
-ASTCompoundStmt::ASTCompoundStmt(ASTContext* context, llvm::ArrayRef<ASTStmt*> stmts) : ASTStmt(AST_COMPOUND_STMT) {
-    this->stmts = stmts.copy(context->nodeAllocator);
-}
-
-ASTFuncDecl::ASTFuncDecl(ASTContext* context, llvm::ArrayRef<ASTParamDecl*> parameters) :
-ASTNamedDecl(AST_FUNC_DECL),
-DeclContext(AST_FUNC_DECL) {
-    this->parameters = parameters.copy(context->nodeAllocator);
-}
-
-
-ASTSwitchStmt::ASTSwitchStmt(ASTContext* context, llvm::ArrayRef<ASTCaseStmt*> cases) : ASTStmt(AST_SWITCH) {
-    this->cases = cases.copy(context->nodeAllocator);
-}
-
-ASTCallExpr::ASTCallExpr(ASTContext* context, llvm::ArrayRef<ASTExpr*> args) : ASTExpr(AST_CALL) {
-    this->args = args.copy(context->nodeAllocator);
-}
-
-ASTSubscriptExpr::ASTSubscriptExpr(ASTContext* context, llvm::ArrayRef<ASTExpr*> arguments) : ASTExpr(AST_SUBSCRIPT) {
-    this->args = arguments.copy(context->nodeAllocator);
-}
-
-ASTLoadDirective::ASTLoadDirective(ASTContext* context, llvm::StringRef loadFilePath) : ASTDecl(AST_LOAD_DIRECTIVE) {
-    this->loadFilePath = loadFilePath.copy(context->nodeAllocator);
-}

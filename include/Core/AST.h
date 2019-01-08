@@ -156,7 +156,7 @@ struct ASTDecl : public ASTStmt {
 struct ASTLoadDirective : public ASTDecl {
     llvm::StringRef loadFilePath;
 
-    ASTLoadDirective(ASTContext* context, llvm::StringRef loadFilePath);
+    ASTLoadDirective() : ASTDecl(AST_LOAD_DIRECTIVE) {}
 };
 
 struct ASTNamedDecl : public ASTDecl {
@@ -188,7 +188,7 @@ struct ASTFuncDecl : public ASTNamedDecl, public DeclContext {
     ASTTypeRef* returnTypeRef = nullptr;
     ASTCompoundStmt* body = nullptr;
 
-    ASTFuncDecl(ASTContext* context, llvm::ArrayRef<ASTParamDecl*> parameters);
+    ASTFuncDecl() : ASTNamedDecl(AST_FUNC_DECL), DeclContext(AST_FUNC_DECL) { }
 };
 
 struct ASTValueDecl : public ASTNamedDecl {
@@ -279,7 +279,7 @@ struct ASTStringLit : ASTLit {
 struct ASTCompoundStmt : public ASTStmt {
     llvm::ArrayRef<ASTStmt*> stmts;
 
-    ASTCompoundStmt(ASTContext* context, llvm::ArrayRef<ASTStmt*> stmts);
+    ASTCompoundStmt() : ASTStmt(AST_COMPOUND_STMT) { }
 };
 
 struct ASTCtrlStmt : public ASTStmt {
@@ -379,21 +379,21 @@ struct ASTSwitchStmt : public ASTStmt {
     ASTExpr* expr = nullptr;
     llvm::ArrayRef<ASTCaseStmt*> cases;
 
-    ASTSwitchStmt(ASTContext* context, llvm::ArrayRef<ASTCaseStmt*> cases);
+    ASTSwitchStmt() : ASTStmt(AST_SWITCH) { }
 };
 
 struct ASTCallExpr : public ASTExpr {
     ASTExpr* left = nullptr;
     llvm::ArrayRef<ASTExpr*> args;
 
-    ASTCallExpr(ASTContext* context, llvm::ArrayRef<ASTExpr*> args);
+    ASTCallExpr() : ASTExpr(AST_CALL) { }
 };
 
 struct ASTSubscriptExpr : public ASTExpr {
     ASTExpr* left = nullptr;
     llvm::ArrayRef<ASTExpr*> args;
 
-    ASTSubscriptExpr(ASTContext* context, llvm::ArrayRef<ASTExpr*> arguments);
+    ASTSubscriptExpr() : ASTExpr(AST_SUBSCRIPT) { }
 };
 
 struct ASTTypeRef : public ASTNode {

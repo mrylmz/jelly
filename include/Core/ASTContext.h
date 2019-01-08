@@ -75,16 +75,11 @@ struct ASTContext {
     Type* getStructType(llvm::StringRef name, llvm::StringMap<Type*> memberTypes, llvm::StringMap<unsigned> memberIndexes);
     Type* findTypeByName(llvm::StringRef name);
 
+    llvm::BumpPtrAllocator nodeAllocator;
+
 private:
     friend struct ASTNode;
-    friend struct ASTCompoundStmt;
-    friend struct ASTFuncDecl;
-    friend struct ASTSwitchStmt;
-    friend struct ASTCallExpr;
-    friend struct ASTSubscriptExpr;
-    friend struct ASTLoadDirective;
 
-    llvm::BumpPtrAllocator nodeAllocator;
     llvm::BumpPtrAllocator lexemeAllocator;
 
     ASTModuleDecl* module;
