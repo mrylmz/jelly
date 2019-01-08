@@ -51,7 +51,7 @@ struct DiagnosticHandler {
 
 struct DiagnosticEngine {
     DiagnosticHandler* handler;
-    uint64_t reportedCount[DIAG_LEVEL_COUNT];
+    uint64_t reportedCount[DIAG_LEVEL_COUNT] = {};
 
     DiagnosticEngine(DiagnosticHandler* handler);
     ~DiagnosticEngine();
