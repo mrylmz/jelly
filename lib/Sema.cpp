@@ -261,8 +261,6 @@ void Sema::inferTypeOfNode(ASTNode* node) {
         }   return;
 
         case AST_FUNC_DECL:
-        case AST_PREFIX_FUNC:
-        case AST_INFIX_FUNC:
             return typeFuncDecl(reinterpret_cast<ASTFuncDecl*>(node));
 
         case AST_PARAM_DECL:
@@ -367,7 +365,7 @@ void Sema::inferTypeOfUnaryExpr(ASTUnaryExpr* expr) {
     }
 
     auto decl = context->getModule()->lookupDecl(expr->op.text);
-    if (decl->isPrefixFunc()) {
+    if (decl->isFunc() && decl->hasModifierPrefix()) {
         auto funcDecl = reinterpret_cast<ASTFuncDecl*>(decl);
         typeFuncDecl(funcDecl);
         if (funcDecl->type == context->getErrorType()) {
@@ -397,7 +395,7 @@ void Sema::inferTypeOfBinaryExpr(ASTBinaryExpr* expr) {
     }
 
     auto decl = context->getModule()->lookupDecl(expr->op.text);
-    if (decl->isInfixFunc()) {
+    if (decl->isFunc() && decl->hasModifierInfix()) {
         auto funcDecl = reinterpret_cast<ASTFuncDecl*>(decl);
         typeFuncDecl(funcDecl);
         if (funcDecl->type == context->getErrorType()) {
@@ -480,13 +478,13 @@ void Sema::inferTypeOfSubscriptExpr(ASTSubscriptExpr* expr) {
 void Sema::typeFuncDecl(ASTFuncDecl* decl) {
     if (decl->type) { return; }
 
-    if (decl->isPrefixFunc() && decl->parameters.size() != 1) {
+    if (decl->hasModifierPrefix() && decl->parameters.size() != 1) {
         decl->type = context->getErrorType();
         diag->report(DIAG_ERROR, "Prefix function '{0}' must contain 1 parameter", decl->name);
         return;
     }
 
-    if (decl->isInfixFunc() && decl->parameters.size() != 2) {
+    if (decl->hasModifierInfix() && decl->parameters.size() != 2) {
         decl->type = context->getErrorType();
         diag->report(DIAG_ERROR, "Infix function '{0}' must contain 2 parameters", decl->name);
         return;

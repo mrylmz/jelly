@@ -123,7 +123,7 @@ bool DeclContext::isEnumDecl() const {
 }
 
 bool DeclContext::isFuncDecl() const {
-    return declKind == AST_FUNC_DECL || declKind == AST_PREFIX_FUNC || declKind == AST_INFIX_FUNC;
+    return declKind == AST_FUNC_DECL;
 }
 
 bool DeclContext::isStructDecl() const {

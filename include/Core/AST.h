@@ -40,8 +40,6 @@ enum ASTNodeKind : uint8_t {
     AST_FLOAT_LITERAL,
     AST_STRING_LITERAL,
     AST_FUNC_DECL,
-    AST_PREFIX_FUNC,
-    AST_INFIX_FUNC,
     AST_PARAM_DECL,
     AST_STRUCT_DECL,
     AST_VALUE_DECL,
@@ -125,11 +123,18 @@ struct ASTExpr : public ASTStmt {
     ASTExpr(ASTNodeKind kind) : ASTStmt(kind) {}
 };
 
+enum ASTDeclModifier : uint8_t {
+    AST_DECL_MODIFIER_NONE   = 0,
+    AST_DECL_MODIFIER_PREFIX = 1 << 0,
+    AST_DECL_MODIFIER_INFIX  = 1 << 1,
+};
+
 struct ASTDecl : public ASTStmt {
+    ASTDeclModifier modifier;
     ASTDecl* nextDeclInContext = nullptr;
     ASTDecl* previousDeclInContext = nullptr;
 
-    ASTDecl(ASTNodeKind kind) : ASTStmt(kind) {}
+    ASTDecl(ASTNodeKind kind, ASTDeclModifier modifier = AST_DECL_MODIFIER_NONE) : ASTStmt(kind), modifier(modifier) {}
 
     bool isNamedDecl() const {
         return kind == AST_MODULE_DECL
@@ -141,9 +146,11 @@ struct ASTDecl : public ASTStmt {
         || kind == AST_VALUE_DECL;
     }
 
-    bool isFunc() const { return kind == AST_FUNC_DECL || kind == AST_PREFIX_FUNC || kind == AST_INFIX_FUNC; }
-    bool isPrefixFunc() const { return kind == AST_PREFIX_FUNC; }
-    bool isInfixFunc() const { return kind == AST_INFIX_FUNC; }
+    bool hasModifier() const { return modifier != AST_DECL_MODIFIER_NONE; }
+    bool hasModifierPrefix() const { return (modifier & AST_DECL_MODIFIER_PREFIX) > 0; }
+    bool hasModifierInfix() const { return (modifier & AST_DECL_MODIFIER_INFIX) > 0; }
+
+    bool isFunc() const { return kind == AST_FUNC_DECL; }
 };
 
 struct ASTLoadDirective : public ASTDecl {
@@ -182,10 +189,6 @@ struct ASTFuncDecl : public ASTNamedDecl, public DeclContext {
     ASTCompoundStmt* body = nullptr;
 
     ASTFuncDecl(ASTContext* context, llvm::ArrayRef<ASTParamDecl*> parameters);
-
-    bool isGlobalFunc() const { return kind == AST_FUNC_DECL; }
-    bool isPrefixFunc() const { return kind == AST_PREFIX_FUNC; }
-    bool isInfixFunc() const { return kind == AST_INFIX_FUNC; }
 };
 
 struct ASTValueDecl : public ASTNamedDecl {
