@@ -939,21 +939,26 @@ static ASTStructDecl* ParseStructDecl(Parser* Parser, ASTContext* Context, Diagn
     return Struct;
 }
 
+/// grammar: value-declaration := var-declaration | let-declaration
 /// grammar: var-declaration := "var" identifier ":" type-identifier [ "=" expression ]
-static ASTVarDecl* ParseVarDecl(Parser* Parser, ASTContext* Context, DiagnosticEngine* Diag) {
-    assert(Parser->token.is(TOKEN_KEYWORD_VAR) && "Invalid token given for start of variable-declaration!");
+/// grammar: let-declaration := "let" identifier ":" type-identifier [ "=" expression ]
+static ASTValueDecl* ParseValueDecl(Parser* Parser, ASTContext* Context, DiagnosticEngine* Diag) {
+    if (!Parser->token.is(TOKEN_KEYWORD_VAR, TOKEN_KEYWORD_LET)) {
+        return nullptr;
+    }
 
+    bool isConstant = Parser->token.is(TOKEN_KEYWORD_LET);
     ConsumeToken(Parser);
 
-    ASTVarDecl* Var = new (Context) ASTVarDecl;
-    Var->declContext = Parser->declContext;
-    PushParent(Parser, Var);
+    ASTValueDecl* decl = new (Context) ASTValueDecl(isConstant);
+    decl->declContext = Parser->declContext;
+    PushParent(Parser, decl);
     {
         if (!Parser->token.is(TOKEN_IDENTIFIER)) {
             Parser->report(DIAG_ERROR, "Expected identifier for name of variable declaration!");
             return nullptr;
         }
-        Var->name = Context->getLexeme(Parser->token.text);
+        decl->name = Context->getLexeme(Parser->token.text);
         ConsumeToken(Parser);
 
         if (!Parser->token.is(':')) {
@@ -962,8 +967,8 @@ static ASTVarDecl* ParseVarDecl(Parser* Parser, ASTContext* Context, DiagnosticE
         }
         ConsumeToken(Parser);
 
-        Var->typeRef = ParseType(Parser, Context, Diag);
-        if (Var->typeRef == nullptr) {
+        decl->typeRef = ParseType(Parser, Context, Diag);
+        if (decl->typeRef == nullptr) {
             return nullptr;
         }
 
@@ -972,8 +977,8 @@ static ASTVarDecl* ParseVarDecl(Parser* Parser, ASTContext* Context, DiagnosticE
             && Parser->op.text.equals("=")) {
             ConsumeToken(Parser);
 
-            Var->assignment = ParseExpr(Parser, Context, Diag);
-            if (Var->assignment == nullptr) {
+            decl->initializer = ParseExpr(Parser, Context, Diag);
+            if (decl->initializer == nullptr) {
                 return nullptr;
             }
         }
@@ -981,63 +986,7 @@ static ASTVarDecl* ParseVarDecl(Parser* Parser, ASTContext* Context, DiagnosticE
     }
     PopParent(Parser);
 
-    return Var;
-}
-
-/// grammar: let-declaration := "let" identifier ":" type-identifier [ "=" expression ]
-static ASTLetDecl* ParseLetDecl(Parser* Parser, ASTContext* Context, DiagnosticEngine* Diag) {
-    assert(Parser->token.is(TOKEN_KEYWORD_LET) && "Invalid token given for start of const-declaration!");
-
-    ConsumeToken(Parser);
-
-    ASTLetDecl* Let = new (Context) ASTLetDecl;
-    Let->declContext = Parser->declContext;
-    PushParent(Parser, Let);
-    {
-        if (!Parser->token.is(TOKEN_IDENTIFIER)) {
-            Parser->report(DIAG_ERROR, "Expected identifier for name of const declaration!");
-            return nullptr;
-        }
-        Let->name = Context->getLexeme(Parser->token.text);
-        ConsumeToken(Parser);
-
-        if (!Parser->token.is(':')) {
-            Parser->report(DIAG_ERROR, "Expected ':' after const name identifier!");
-            return nullptr;
-        }
-        ConsumeToken(Parser);
-
-        Let->typeRef = ParseType(Parser, Context, Diag);
-        if (!Let->typeRef) {
-            Parser->report(DIAG_ERROR, "Expected type of const declaration!");
-            return nullptr;
-        }
-
-        if (Parser->token.is(TOKEN_OPERATOR)
-            && Parser->lexer->getOperator(Parser->token.text, OPERATOR_INFIX, Parser->op)
-            && Parser->op.text.equals("=")) {
-            ConsumeToken(Parser);
-
-            Let->assignment = ParseExpr(Parser, Context, Diag);
-            if (!Let->assignment) {
-                return nullptr;
-            }
-        }
-
-    }
-    PopParent(Parser);
-
-    return Let;
-}
-
-static ASTValueDecl* ParseValueDecl(Parser* Parser, ASTContext* Context, DiagnosticEngine* Diag) {
-    if (Parser->token.is(TOKEN_KEYWORD_VAR)) {
-        return ParseVarDecl(Parser, Context, Diag);
-    } else if (Parser->token.is(TOKEN_KEYWORD_LET)) {
-        return ParseLetDecl(Parser, Context, Diag);
-    }
-
-    return nullptr;
+    return decl;
 }
 
 // MARK: - Top Level Declarations
@@ -1049,8 +998,11 @@ ASTNode* ParseTopLevelNode(Parser* Parser, ASTContext* Context, DiagnosticEngine
         case TOKEN_KEYWORD_ENUM:   return ParseEnumDecl(Parser, Context, Diag);
         case TOKEN_KEYWORD_FUNC:   return ParseFuncDecl(Parser, Context, Diag);
         case TOKEN_KEYWORD_STRUCT: return ParseStructDecl(Parser, Context, Diag);
-        case TOKEN_KEYWORD_VAR:    return ParseVarDecl(Parser, Context, Diag);
-        case TOKEN_KEYWORD_LET:    return ParseLetDecl(Parser, Context, Diag);
+
+        case TOKEN_KEYWORD_VAR:
+        case TOKEN_KEYWORD_LET:
+            return ParseValueDecl(Parser, Context, Diag);
+
         case TOKEN_EOF:            return nullptr;
         default:
             Parser->report(DIAG_ERROR, "Unexpected token found expected top level declaration!");
@@ -1606,8 +1558,11 @@ ASTStmt* ParseStmt(Parser* Parser, ASTContext* Context, DiagnosticEngine* Diag) 
         case TOKEN_KEYWORD_ENUM:        return ParseEnumDecl(Parser, Context, Diag);
         case TOKEN_KEYWORD_FUNC:        return ParseFuncDecl(Parser, Context, Diag);
         case TOKEN_KEYWORD_STRUCT:      return ParseStructDecl(Parser, Context, Diag);
-        case TOKEN_KEYWORD_VAR:         return ParseVarDecl(Parser, Context, Diag);
-        case TOKEN_KEYWORD_LET:         return ParseLetDecl(Parser, Context, Diag);
+
+        case TOKEN_KEYWORD_VAR:
+        case TOKEN_KEYWORD_LET:
+            return ParseValueDecl(Parser, Context, Diag);
+
         case TOKEN_KEYWORD_BREAK:       return ParseBreakStmt(Parser, Context, Diag);
         case TOKEN_KEYWORD_CONTINUE:    return ParseContinueStmt(Parser, Context, Diag);
         case TOKEN_KEYWORD_FALLTHROUGH: return ParseFallthroughStmt(Parser, Context, Diag);

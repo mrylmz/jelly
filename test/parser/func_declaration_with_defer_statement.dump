@@ -2,7 +2,7 @@ ASTBlock
 | ASTFuncDecl { name = 'main' }
   | ASTOpaqueTypeRef { typeName = 'Void' }
   | ASTBlock
-    | ASTVarDecl { name = 'mem' }
+    | ASTValueDecl { name = 'mem', isConstant = 0 }
       | ASTPointerTypeRef { depth = '1' }
         | ASTOpaqueTypeRef { typeName = 'Void' }
       | ASTCallExpr

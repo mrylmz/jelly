@@ -28,14 +28,14 @@ ASTExpr* CodeManager::evaluateConstExpr(ASTExpr *expr) {
     switch (expr->kind) {
         case AST_IDENTIFIER: {
             auto ident = reinterpret_cast<ASTIdentExpr*>(expr);
-            if (ident->decl && ident->decl->kind == AST_LET && ident->decl->parent == context.getModule()) {
-                auto let = reinterpret_cast<ASTLetDecl*>(ident->decl);
-                if (!let->assignment) {
+            if (ident->decl && ident->decl->kind == AST_VALUE_DECL && ident->decl->parent == context.getModule()) {
+                auto valueDecl = reinterpret_cast<ASTValueDecl*>(ident->decl);
+                if (!valueDecl->isConstant || !valueDecl->initializer) {
                     return nullptr;
                 }
 
                 // @Stability this may could fall into infinite recursion if the assignment is refering to the same ASTIdentExpr ?!
-                return evaluateConstExpr(let->assignment);
+                return evaluateConstExpr(valueDecl->initializer);
             }
         }   break;
 

@@ -54,7 +54,7 @@ void ASTDumper::dumpModule(ASTModuleDecl* module) {
 void ASTDumper::dumpNode(ASTNode* node) {
     assert(node);
     switch (node->kind) {
-        case AST_LOAD:              return dumpLoad(reinterpret_cast<ASTLoadDirective*>(node));
+        case AST_LOAD_DIRECTIVE:    return dumpLoad(reinterpret_cast<ASTLoadDirective*>(node));
         case AST_UNARY:             return dumpUnaryExpr(reinterpret_cast<ASTUnaryExpr*>(node));
         case AST_BINARY:            return dumpBinaryExpr(reinterpret_cast<ASTBinaryExpr*>(node));
         case AST_MEMBER_ACCESS:     return dumpMemberAccessExpr(reinterpret_cast<ASTMemberAccessExpr*>(node));
@@ -66,13 +66,12 @@ void ASTDumper::dumpNode(ASTNode* node) {
         case AST_INT_LITERAL:       return dumpIntLiteral(reinterpret_cast<ASTIntLit*>(node));
         case AST_FLOAT_LITERAL:     return dumpFloatLiteral(reinterpret_cast<ASTFloatLit*>(node));
         case AST_STRING_LITERAL:    return dumpStringLiteral(reinterpret_cast<ASTStringLit*>(node));
-        case AST_PARAMETER:         return dumpParamDecl(reinterpret_cast<ASTParamDecl*>(node));
-        case AST_FUNC:              return dumpFuncDecl(reinterpret_cast<ASTFuncDecl*>(node));
-        case AST_VAR:               return dumpVarDecl(reinterpret_cast<ASTVarDecl*>(node));
-        case AST_LET:               return dumpLetDecl(reinterpret_cast<ASTLetDecl*>(node));
-        case AST_STRUCT:            return dumpStructDecl(reinterpret_cast<ASTStructDecl*>(node));
-        case AST_ENUM_ELEMENT:      return dumpEnumElementDecl(reinterpret_cast<ASTEnumElementDecl*>(node));
-        case AST_ENUM:              return dumpEnumDecl(reinterpret_cast<ASTEnumDecl*>(node));
+        case AST_PARAM_DECL:        return dumpParamDecl(reinterpret_cast<ASTParamDecl*>(node));
+        case AST_FUNC_DECL:         return dumpFuncDecl(reinterpret_cast<ASTFuncDecl*>(node));
+        case AST_VALUE_DECL:        return dumpValueDecl(reinterpret_cast<ASTValueDecl*>(node));
+        case AST_STRUCT_DECL:       return dumpStructDecl(reinterpret_cast<ASTStructDecl*>(node));
+        case AST_ENUM_ELEMENT_DECL: return dumpEnumElementDecl(reinterpret_cast<ASTEnumElementDecl*>(node));
+        case AST_ENUM_DECL:         return dumpEnumDecl(reinterpret_cast<ASTEnumDecl*>(node));
         case AST_COMPOUND_STMT:     return dumpCompoundStmt(reinterpret_cast<ASTCompoundStmt*>(node));
         case AST_BREAK:             return dumpBreakStmt(reinterpret_cast<ASTBreakStmt*>(node));
         case AST_CONTINUE:          return dumpContinueStmt(reinterpret_cast<ASTContinueStmt*>(node));
@@ -166,19 +165,11 @@ void ASTDumper::dumpFuncDecl(ASTFuncDecl* decl) {
     dumpChildren({ decl->returnTypeRef, decl->body });
 }
 
-void ASTDumper::dumpVarDecl(ASTVarDecl* decl) {
-    outputStream << "ASTVarDecl { name = '" << decl->name->str() << "' }\n";
+void ASTDumper::dumpValueDecl(ASTValueDecl* decl) {
+    outputStream << "ASTValueDecl { name = '" << decl->name->str() << "', isConstant = " << decl->isConstant << " }\n";
     dumpChildren({ decl->typeRef });
-    if (decl->assignment) {
-        dumpChildren({ decl->assignment });
-    }
-}
-
-void ASTDumper::dumpLetDecl(ASTLetDecl* decl) {
-    outputStream << "ASTLetDecl { name = '" << decl->name->str() << "' }\n";
-    dumpChildren({ decl->typeRef });
-    if (decl->assignment) {
-        dumpChildren({ decl->assignment });
+    if (decl->initializer) {
+        dumpChildren({ decl->initializer });
     }
 }
 

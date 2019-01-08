@@ -1,5 +1,5 @@
 ASTBlock
-| ASTVarDecl { name = 'myArray' }
+| ASTValueDecl { name = 'myArray', isConstant = 0 }
   | ASTArrayTypeRef
     | ASTOpaqueTypeRef { typeName = 'Bool' }
     | ASTIntLit { value = '1234' }

@@ -41,8 +41,7 @@ private:
 
     void inferTypeOfNode(ASTNode* node);
     void inferTypeOfLiteral(ASTLit* literal);
-    void inferTypeOfVarDecl(ASTVarDecl* var);
-    void inferTypeOfLetDecl(ASTLetDecl* let);
+    void inferTypeOfValueDecl(ASTValueDecl* var);
     void inferTypeOfIdentExpr(ASTIdentExpr* expr);
     void inferTypeOfStmts(ASTCompoundStmt* stmt);
     void inferTypeOfUnaryExpr(ASTUnaryExpr* expr);
@@ -65,8 +64,7 @@ private:
     void typeCheckParamDecl(ASTParamDecl* decl);
     void typeCheckStructDecl(ASTStructDecl* decl);
     void typeCheckStructMembers(ASTStructDecl* decl);
-    void typeCheckVarDecl(ASTVarDecl* decl);
-    void typeCheckLetDecl(ASTLetDecl* decl);
+    void typeCheckValueDecl(ASTValueDecl* decl);
     void typeCheckEnumDecl(ASTEnumDecl* decl);
     void typeCheckEnumElementDecl(ASTEnumElementDecl* decl);
     void typeCheckCompoundStmt(ASTCompoundStmt* stmt);

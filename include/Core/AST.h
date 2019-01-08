@@ -33,22 +33,21 @@
 #include <llvm/ADT/StringRef.h>
 
 enum ASTNodeKind : uint8_t {
-    AST_LOAD,
+    AST_LOAD_DIRECTIVE,
     AST_NIL_LITERAL,
     AST_BOOL_LITERAL,
     AST_INT_LITERAL,
     AST_FLOAT_LITERAL,
     AST_STRING_LITERAL,
-    AST_FUNC,
+    AST_FUNC_DECL,
     AST_PREFIX_FUNC,
     AST_INFIX_FUNC,
-    AST_PARAMETER,
-    AST_STRUCT,
-    AST_VAR,
-    AST_LET,
-    AST_ENUM,
-    AST_ENUM_ELEMENT,
-    AST_MODULE,
+    AST_PARAM_DECL,
+    AST_STRUCT_DECL,
+    AST_VALUE_DECL,
+    AST_ENUM_DECL,
+    AST_ENUM_ELEMENT_DECL,
+    AST_MODULE_DECL,
     AST_IDENTIFIER,
     AST_UNARY,
     AST_BINARY,
@@ -133,17 +132,16 @@ struct ASTDecl : public ASTStmt {
     ASTDecl(ASTNodeKind kind) : ASTStmt(kind) {}
 
     bool isNamedDecl() const {
-        return kind == AST_MODULE
-        || kind == AST_ENUM
-        || kind == AST_ENUM_ELEMENT
-        || kind == AST_FUNC
-        || kind == AST_PARAMETER
-        || kind == AST_STRUCT
-        || kind == AST_VAR
-        || kind == AST_LET;
+        return kind == AST_MODULE_DECL
+        || kind == AST_ENUM_DECL
+        || kind == AST_ENUM_ELEMENT_DECL
+        || kind == AST_FUNC_DECL
+        || kind == AST_PARAM_DECL
+        || kind == AST_STRUCT_DECL
+        || kind == AST_VALUE_DECL;
     }
 
-    bool isFunc() const { return kind == AST_FUNC || kind == AST_PREFIX_FUNC || kind == AST_INFIX_FUNC; }
+    bool isFunc() const { return kind == AST_FUNC_DECL || kind == AST_PREFIX_FUNC || kind == AST_INFIX_FUNC; }
     bool isPrefixFunc() const { return kind == AST_PREFIX_FUNC; }
     bool isInfixFunc() const { return kind == AST_INFIX_FUNC; }
 };
@@ -162,7 +160,7 @@ struct ASTNamedDecl : public ASTDecl {
 };
 
 struct ASTModuleDecl : public ASTNamedDecl, public DeclContext {
-    ASTModuleDecl() : ASTNamedDecl(AST_MODULE), DeclContext(AST_MODULE) { }
+    ASTModuleDecl() : ASTNamedDecl(AST_MODULE_DECL), DeclContext(AST_MODULE_DECL) { }
 };
 
 struct ASTParamDecl;
@@ -171,11 +169,11 @@ struct ASTCompoundStmt;
 struct ASTEnumElementDecl : public ASTNamedDecl {
     ASTExpr* assignment = nullptr;
 
-    ASTEnumElementDecl() : ASTNamedDecl(AST_ENUM_ELEMENT) { }
+    ASTEnumElementDecl() : ASTNamedDecl(AST_ENUM_ELEMENT_DECL) { }
 };
 
 struct ASTEnumDecl : public ASTNamedDecl, public DeclContext {
-    ASTEnumDecl() : ASTNamedDecl(AST_ENUM), DeclContext(AST_ENUM) { }
+    ASTEnumDecl() : ASTNamedDecl(AST_ENUM_DECL), DeclContext(AST_ENUM_DECL) { }
 };
 
 struct ASTFuncDecl : public ASTNamedDecl, public DeclContext {
@@ -185,34 +183,27 @@ struct ASTFuncDecl : public ASTNamedDecl, public DeclContext {
 
     ASTFuncDecl(ASTContext* context, llvm::ArrayRef<ASTParamDecl*> parameters);
 
-    bool isGlobalFunc() const { return kind == AST_FUNC; }
+    bool isGlobalFunc() const { return kind == AST_FUNC_DECL; }
     bool isPrefixFunc() const { return kind == AST_PREFIX_FUNC; }
     bool isInfixFunc() const { return kind == AST_INFIX_FUNC; }
 };
 
 struct ASTValueDecl : public ASTNamedDecl {
     ASTTypeRef* typeRef = nullptr;
-    ASTExpr* assignment = nullptr;
+    ASTExpr* initializer = nullptr;
+    bool isConstant;
 
-    ASTValueDecl(ASTNodeKind kind) : ASTNamedDecl(kind) {}
-};
-
-struct ASTVarDecl : public ASTValueDecl {
-    ASTVarDecl() : ASTValueDecl(AST_VAR) { }
-};
-
-struct ASTLetDecl : public ASTValueDecl {
-    ASTLetDecl() : ASTValueDecl(AST_LET) { }
+    ASTValueDecl(bool isConstant) : ASTNamedDecl(AST_VALUE_DECL), isConstant(isConstant) {}
 };
 
 struct ASTStructDecl : public ASTNamedDecl, public DeclContext {
-    ASTStructDecl() : ASTNamedDecl(AST_STRUCT), DeclContext(AST_STRUCT) { }
+    ASTStructDecl() : ASTNamedDecl(AST_STRUCT_DECL), DeclContext(AST_STRUCT_DECL) { }
 };
 
 struct ASTParamDecl : public ASTNamedDecl {
     ASTTypeRef* typeRef = nullptr;
 
-    ASTParamDecl() : ASTNamedDecl(AST_PARAMETER) { }
+    ASTParamDecl() : ASTNamedDecl(AST_PARAM_DECL) { }
 };
 
 struct ASTUnaryExpr : public ASTExpr {

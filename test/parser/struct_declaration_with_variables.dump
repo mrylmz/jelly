@@ -1,24 +1,24 @@
 ASTBlock
 | ASTStructDecl { name = 'MyStruct' }
   | ASTBlock
-    | ASTLetDecl { name = 'a' }
+    | ASTValueDecl { name = 'a', isConstant = 1 }
       | ASTPointerTypeRef { depth = '1' }
         | ASTOpaqueTypeRef { typeName = 'Void' }
-    | ASTVarDecl { name = 'b' }
+    | ASTValueDecl { name = 'b', isConstant = 0 }
       | ASTOpaqueTypeRef { typeName = 'Bool' }
-    | ASTLetDecl { name = 'c' }
+    | ASTValueDecl { name = 'c', isConstant = 1 }
       | ASTArrayTypeRef
         | ASTOpaqueTypeRef { typeName = 'Int64' }
-    | ASTVarDecl { name = 'd' }
+    | ASTValueDecl { name = 'd', isConstant = 0 }
       | ASTArrayTypeRef
         | ASTOpaqueTypeRef { typeName = 'Float32' }
         | ASTIntLit { value = '4' }
-    | ASTLetDecl { name = 'e' }
+    | ASTValueDecl { name = 'e', isConstant = 1 }
       | ASTArrayTypeRef
         | ASTOpaqueTypeRef { typeName = 'Float64' }
         | ASTBinaryExpr { operator = '*' }
           | ASTIntLit { value = '4' }
           | ASTIntLit { value = '4' }
-    | ASTVarDecl { name = 'a_copy' }
+    | ASTValueDecl { name = 'a_copy', isConstant = 0 }
       | ASTTypeOfTypeRef
         | ASTIdentExpr { declName = 'a' }

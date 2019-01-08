@@ -115,19 +115,19 @@ ASTDecl* DeclContext::lookupDeclInHierarchy(llvm::StringRef name) {
 }
 
 bool DeclContext::isModule() const {
-    return declKind == AST_MODULE;
+    return declKind == AST_MODULE_DECL;
 }
 
 bool DeclContext::isEnumDecl() const {
-    return declKind == AST_ENUM;
+    return declKind == AST_ENUM_DECL;
 }
 
 bool DeclContext::isFuncDecl() const {
-    return declKind == AST_FUNC || declKind == AST_PREFIX_FUNC || declKind == AST_INFIX_FUNC;
+    return declKind == AST_FUNC_DECL || declKind == AST_PREFIX_FUNC || declKind == AST_INFIX_FUNC;
 }
 
 bool DeclContext::isStructDecl() const {
-    return declKind == AST_STRUCT;
+    return declKind == AST_STRUCT_DECL;
 }
 
 bool DeclContext::isCaseStmt() const {

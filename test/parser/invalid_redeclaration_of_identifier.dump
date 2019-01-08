@@ -6,5 +6,5 @@ ASTBlock
     | ASTOpaqueTypeRef { typeName = 'Int' }
   | ASTOpaqueTypeRef { typeName = 'Void' }
   | ASTBlock
-    | ASTVarDecl { name = 'x' }
+    | ASTValueDecl { name = 'x', isConstant = 0 }
       | ASTOpaqueTypeRef { typeName = 'Int' }

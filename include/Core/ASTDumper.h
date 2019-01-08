@@ -103,8 +103,7 @@ private:
     void dumpStringLiteral(ASTStringLit* literal);
     void dumpParamDecl(ASTParamDecl* decl);
     void dumpFuncDecl(ASTFuncDecl* decl);
-    void dumpVarDecl(ASTVarDecl* decl);
-    void dumpLetDecl(ASTLetDecl* decl);
+    void dumpValueDecl(ASTValueDecl* decl);
     void dumpStructDecl(ASTStructDecl* decl);
     void dumpEnumElementDecl(ASTEnumElementDecl* decl);
     void dumpEnumDecl(ASTEnumDecl* decl);

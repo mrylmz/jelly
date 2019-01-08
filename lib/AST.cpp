@@ -33,14 +33,13 @@ void* ASTNode::operator new (size_t size, ASTContext* context) {
 
 bool ASTNode::isDecl() const {
     return
-    kind == AST_LOAD || 
-    kind == AST_PARAMETER ||
-    kind == AST_FUNC ||
-    kind == AST_VAR ||
-    kind == AST_LET ||
-    kind == AST_STRUCT ||
-    kind == AST_ENUM_ELEMENT ||
-    kind == AST_ENUM;
+    kind == AST_LOAD_DIRECTIVE || 
+    kind == AST_PARAM_DECL ||
+    kind == AST_FUNC_DECL ||
+    kind == AST_VALUE_DECL ||
+    kind == AST_STRUCT_DECL ||
+    kind == AST_ENUM_ELEMENT_DECL ||
+    kind == AST_ENUM_DECL;
 }
 
 ASTCompoundStmt::ASTCompoundStmt(ASTContext* context, llvm::ArrayRef<ASTStmt*> stmts) : ASTStmt(AST_COMPOUND_STMT) {
@@ -48,8 +47,8 @@ ASTCompoundStmt::ASTCompoundStmt(ASTContext* context, llvm::ArrayRef<ASTStmt*> s
 }
 
 ASTFuncDecl::ASTFuncDecl(ASTContext* context, llvm::ArrayRef<ASTParamDecl*> parameters) :
-ASTNamedDecl(AST_FUNC),
-DeclContext(AST_FUNC) {
+ASTNamedDecl(AST_FUNC_DECL),
+DeclContext(AST_FUNC_DECL) {
     this->parameters = parameters.copy(context->nodeAllocator);
 }
 
@@ -66,6 +65,6 @@ ASTSubscriptExpr::ASTSubscriptExpr(ASTContext* context, llvm::ArrayRef<ASTExpr*>
     this->args = arguments.copy(context->nodeAllocator);
 }
 
-ASTLoadDirective::ASTLoadDirective(ASTContext* context, llvm::StringRef loadFilePath) : ASTDecl(AST_LOAD) {
+ASTLoadDirective::ASTLoadDirective(ASTContext* context, llvm::StringRef loadFilePath) : ASTDecl(AST_LOAD_DIRECTIVE) {
     this->loadFilePath = loadFilePath.copy(context->nodeAllocator);
 }
