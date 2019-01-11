@@ -71,7 +71,8 @@ struct ASTContext {
     Type* getPointerType(Type* pointeeType, uint64_t depth);
     Type* getStaticArrayType(Type* elementType, llvm::APInt size);
     Type* getDynamicArrayType(Type* elementType);
-    Type* getFuncType(ASTFuncDecl* decl);
+    FuncType* getFuncType(ASTFuncDecl* decl);
+    FuncType* getFuncType(llvm::StringRef name, llvm::SmallVector<Type*, 0> paramTypes, Type* returnType);
     Type* getStructType(llvm::StringRef name, llvm::StringMap<Type*> memberTypes, llvm::StringMap<unsigned> memberIndexes);
     Type* findTypeByName(llvm::StringRef name);
 
@@ -81,6 +82,7 @@ private:
     friend struct ASTNode;
 
     llvm::BumpPtrAllocator lexemeAllocator;
+    llvm::BumpPtrAllocator typeAllocator;
 
     ASTModuleDecl* module;
 
@@ -110,4 +112,8 @@ private:
     FloatType typeFloat128;
     StringType typeString;
     PointerType typeAnyPointer;
+    BuiltinOperationType typeAssignmentOp;
+
+    BuiltinPrefixFuncType* createBuiltinPrefixFuncType(llvm::StringRef name, Type* paramType, Type* returnType);
+    BuiltinInfixFuncType* createBuiltinInfixFuncType(llvm::StringRef name, Type* lhsParamType, Type* rhsParamType, Type* returnType);
 };

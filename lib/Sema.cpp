@@ -30,7 +30,6 @@
 #include <llvm/ADT/SetVector.h>
 
 // @Stability Add a strict pattern if all invalid nodes will get the ErrorType assigned or not (See TypeResolution)
-// @Incomplete Add value categories for assignments see like (prvalue, xvalue, and lvalue) in c++
 
 Sema::Sema(CodeManager* codeManager) :
 codeManager(codeManager),
@@ -364,22 +363,12 @@ void Sema::inferTypeOfUnaryExpr(ASTUnaryExpr* expr) {
         return;
     }
 
-    auto decl = context->getModule()->lookupDecl(expr->op.text);
-    if (decl->isFunc() && decl->hasModifierPrefix()) {
-        auto funcDecl = reinterpret_cast<ASTFuncDecl*>(decl);
-        typeFuncDecl(funcDecl);
-        if (funcDecl->type == context->getErrorType()) {
-            expr->type = context->getErrorType();
-            return;
-        }
-
-        assert(funcDecl->parameters.size() == 1 && "Wellformed ASTPrefixFuncDecl can only contain 1 parameter!");
-        if (funcDecl->parameters[0]->type == expr->right->type) {
-            expr->type = funcDecl->type;
-        } else {
-            expr->type = context->getErrorType();
-            diag->report(DIAG_ERROR, "Couldn't resolve prefix function '{0}'", expr->op.text);
-        }
+    auto type = context->getTypes()->lookup(expr->op.text);
+    if (type && type->isBuiltinPrefixFunc()) {
+        expr->type = type;
+    } else {
+        expr->type = context->getErrorType();
+        diag->report(DIAG_ERROR, "Couldn't resolve prefix function '{0}'", expr->op.text);
     }
 }
 
@@ -394,22 +383,12 @@ void Sema::inferTypeOfBinaryExpr(ASTBinaryExpr* expr) {
         return;
     }
 
-    auto decl = context->getModule()->lookupDecl(expr->op.text);
-    if (decl->isFunc() && decl->hasModifierInfix()) {
-        auto funcDecl = reinterpret_cast<ASTFuncDecl*>(decl);
-        typeFuncDecl(funcDecl);
-        if (funcDecl->type == context->getErrorType()) {
-            expr->type = context->getErrorType();
-            return;
-        }
-
-        assert(funcDecl->parameters.size() == 2 && "Wellformed ASTInfixFuncDecl can only contain 2 parameters!");
-        if (funcDecl->parameters[0]->type == expr->left->type && funcDecl->parameters[1]->type == expr->right->type) {
-            expr->type = funcDecl->type;
-        } else {
-            expr->type = context->getErrorType();
-            diag->report(DIAG_ERROR, "Couldn't resolve infix function '{0}'", expr->op.text);
-        }
+    auto type = context->getTypes()->lookup(expr->op.text);
+    if (type && (type->isBuiltinInfixFunc() || type->isBuiltinOperation())) {
+        expr->type = type;
+    } else {
+        expr->type = context->getErrorType();
+        diag->report(DIAG_ERROR, "Couldn't resolve infix function '{0}'", expr->op.text);
     }
 }
 
@@ -477,18 +456,6 @@ void Sema::inferTypeOfSubscriptExpr(ASTSubscriptExpr* expr) {
 
 void Sema::typeFuncDecl(ASTFuncDecl* decl) {
     if (decl->type) { return; }
-
-    if (decl->hasModifierPrefix() && decl->parameters.size() != 1) {
-        decl->type = context->getErrorType();
-        diag->report(DIAG_ERROR, "Prefix function '{0}' must contain 1 parameter", decl->name);
-        return;
-    }
-
-    if (decl->hasModifierInfix() && decl->parameters.size() != 2) {
-        decl->type = context->getErrorType();
-        diag->report(DIAG_ERROR, "Infix function '{0}' must contain 2 parameters", decl->name);
-        return;
-    }
 
     for (auto paramDecl : decl->parameters) {
         typeParamDecl(paramDecl);
@@ -868,6 +835,8 @@ void Sema::typeCheckIdentExpr(ASTIdentExpr* expr) {
     // @Incomplete ...
 }
 
+// @Incomplete unary and binary expressions always require a return type,
+//             it would make sense to substitute them into call expressions
 void Sema::typeCheckUnaryExpr(ASTUnaryExpr* expr) {
     if (expr->isValidated) { return; }
     defer(expr->isValidated = true);
@@ -876,7 +845,14 @@ void Sema::typeCheckUnaryExpr(ASTUnaryExpr* expr) {
         return;
     }
 
-    llvm::report_fatal_error("Implementation missing!");
+    assert(expr->type->isBuiltinPrefixFunc());
+    auto type = reinterpret_cast<BuiltinPrefixFuncType*>(expr->type);
+    assert(type->paramTypes.size() == 1);
+
+    if (expr->right->type != type->paramTypes[0]) {
+        expr->type = context->getErrorType();
+        diag->report(DIAG_ERROR, "Mismatching type for unary expression!");
+    }
 }
 
 void Sema::typeCheckBinaryExpr(ASTBinaryExpr* expr) {
@@ -887,7 +863,35 @@ void Sema::typeCheckBinaryExpr(ASTBinaryExpr* expr) {
         return;
     }
 
-    llvm::report_fatal_error("Implementation missing!");
+    if (expr->isAssignment() && !isExprLValue(expr->left)) {
+        expr->type = context->getErrorType();
+        diag->report(DIAG_ERROR, "Left hand side of assignment expression is not assignable!");
+    }
+
+    if (expr->type->isBuiltinInfixFunc()) {
+        auto type = reinterpret_cast<BuiltinInfixFuncType*>(expr->type);
+        assert(type->paramTypes.size() == 2);
+
+        if (expr->left->type != type->paramTypes[0]) {
+            expr->type = context->getErrorType();
+            diag->report(DIAG_ERROR, "Mismatching type for left expression of binary expression!");
+        }
+
+        if (expr->right->type != type->paramTypes[1]) {
+            expr->type = context->getErrorType();
+            diag->report(DIAG_ERROR, "Mismatching type for right expression of binary expression!");
+        }
+    } else if (expr->type->isBuiltinOperation()) {
+        auto opType = reinterpret_cast<BuiltinOperationType*>(expr->type);
+        switch (opType->op) {
+            case BUILTIN_ASSIGNMENT_OPERATION:
+                if (expr->left->type != expr->right->type) {
+                    expr->type = context->getErrorType();
+                    diag->report(DIAG_ERROR, "Mismatching type for right expression of binary expression!");
+                }
+                break;
+        }
+    }
 }
 
 void Sema::typeCheckMemberAccessExpr(ASTMemberAccessExpr* expr) {
@@ -1054,8 +1058,17 @@ void Sema::typeCheckReturnStmt(ASTReturnStmt* stmt) {
         return;
     }
 
-    if (stmt->expr && enclosingFuncDecl->returnTypeRef->type != stmt->expr->type) {
-        diag->report(DIAG_ERROR, "Type mismatch in return statement");
+    if (stmt->expr) {
+        // @Refactor substitute unary and binary expressions to calls to reduce complexity in Sema
+        auto type = stmt->expr->type;
+        if (stmt->expr->type->isBuiltinPrefixFunc()) {
+            type = reinterpret_cast<BuiltinPrefixFuncType*>(stmt->expr->type)->returnType;
+        }
+
+        if (enclosingFuncDecl->returnTypeRef->type != type) {
+            diag->report(DIAG_ERROR, "Type mismatch in return statement");
+        }
+
     } else if (!stmt->expr && enclosingFuncDecl->returnTypeRef->type != context->getVoidType()) {
         diag->report(DIAG_ERROR, "Expected expression after return statement");
     }
@@ -1322,4 +1335,48 @@ void Sema::checkIsSwitchStmtExhaustive(ASTSwitchStmt* stmt) {
             diag->report(DIAG_ERROR, "Switch statement must be exhaustive");
         }
     }
+}
+
+bool Sema::isExprLValue(ASTExpr* expr) {
+    assert(!expr->type->isIncomplete());
+
+    // We do not allow unary, binary and call expressions to be assignable even if they would be valid lvalues
+    if (expr->kind == AST_NIL_LITERAL ||
+        expr->kind == AST_BOOL_LITERAL ||
+        expr->kind == AST_INT_LITERAL ||
+        expr->kind == AST_FLOAT_LITERAL ||
+        expr->kind == AST_STRING_LITERAL ||
+        expr->kind == AST_UNARY ||
+        expr->kind == AST_BINARY ||
+        expr->kind == AST_CALL) {
+        return false;
+    }
+
+    if (expr->kind == AST_IDENTIFIER) {
+        auto identExpr = reinterpret_cast<ASTIdentExpr*>(expr);
+        if (identExpr->decl->kind == AST_VALUE_DECL) {
+            auto valueDecl = reinterpret_cast<ASTValueDecl*>(identExpr->decl);
+            return !valueDecl->isConstant;
+        }
+        return false;
+    }
+
+    if (expr->kind == AST_MEMBER_ACCESS) {
+        auto memberAccessExpr = reinterpret_cast<ASTMemberAccessExpr*>(expr);
+        if (!isExprLValue(memberAccessExpr->left)) {
+            return false;
+        }
+
+        // @Incomplete resolve declaration of member in member access expression
+//        if (memberAccessExpr->memberDecl->kind == AST_VALUE_DECL) {
+//            auto valueDecl = reinterpret_cast<ASTValueDecl*>(memberAccessExpr->memberDecl);
+//            return !valueDecl->isConstant;
+//        }
+        llvm::report_fatal_error("Implementation missing!");
+        return false;
+    }
+
+    // @Incomplete Add subscript expression assignment support and define grammar
+
+    llvm::report_fatal_error("Implementation missing!");
 }

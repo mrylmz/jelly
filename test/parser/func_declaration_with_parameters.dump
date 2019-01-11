@@ -1,4 +1,4 @@
-ASTBlock
+ASTModule
 | ASTFuncDecl { name = 'main' }
   | ASTParamDecl { name = 'x' }
     | ASTOpaqueTypeRef { typeName = 'Int' }
@@ -13,4 +13,4 @@ ASTBlock
       | ASTOpaqueTypeRef { typeName = 'Int' }
       | ASTIntLit { value = '10' }
   | ASTOpaqueTypeRef { typeName = 'Void' }
-  | ASTBlock
+  | ASTCompoundStmt

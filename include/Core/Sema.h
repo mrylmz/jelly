@@ -93,4 +93,5 @@ private:
     bool isIfStmtAlwaysReturning(ASTIfStmt* stmt);
     bool isSwitchStmtAlwaysRetuning(ASTSwitchStmt* stmt);
     void checkIsSwitchStmtExhaustive(ASTSwitchStmt* stmt);
+    bool isExprLValue(ASTExpr* expr);
 };

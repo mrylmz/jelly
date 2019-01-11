@@ -1,4 +1,4 @@
-ASTBlock
+ASTModule
 | ASTValueDecl { name = 'myPointer', isConstant = 0 }
   | ASTPointerTypeRef { depth = '1' }
     | ASTOpaqueTypeRef { typeName = 'Void' }

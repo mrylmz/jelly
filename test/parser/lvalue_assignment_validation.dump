@@ -1,0 +1,52 @@
+ASTModule
+| ASTFuncDecl { name = 'zero' }
+  | ASTOpaqueTypeRef { typeName = 'Int' }
+  | ASTCompoundStmt
+    | ASTReturnStmt
+      | ASTIntLit { value = '0' }
+| ASTFuncDecl { name = 'lvalue_assignment_validation' }
+  | ASTOpaqueTypeRef { typeName = 'Void' }
+  | ASTCompoundStmt
+    | ASTValueDecl { name = 'x', isConstant = 0 }
+      | ASTOpaqueTypeRef { typeName = 'Int' }
+      | ASTIntLit { value = '0' }
+    | ASTValueDecl { name = 'y', isConstant = 1 }
+      | ASTOpaqueTypeRef { typeName = 'Int' }
+      | ASTIntLit { value = '0' }
+    | ASTBinaryExpr { operator = '=' }
+      | ASTNilLit
+      | ASTNilLit
+    | ASTBinaryExpr { operator = '=' }
+      | ASTBoolLit { value = '1' }
+      | ASTBoolLit { value = '0' }
+    | ASTBinaryExpr { operator = '=' }
+      | ASTBoolLit { value = '0' }
+      | ASTBoolLit { value = '1' }
+    | ASTBinaryExpr { operator = '=' }
+      | ASTUnaryExpr { operator = '!' }
+        | ASTBoolLit { value = '1' }
+      | ASTBoolLit { value = '1' }
+    | ASTBinaryExpr { operator = '=' }
+      | ASTIntLit { value = '123' }
+      | ASTIntLit { value = '456' }
+    | ASTBinaryExpr { operator = '=' }
+      | ASTFloatLit { value = '1' }
+      | ASTFloatLit { value = '2' }
+    | ASTBinaryExpr { operator = '=' }
+      | ASTStringLit { value = 'Hello' }
+      | ASTStringLit { value = 'World' }
+    | ASTBinaryExpr { operator = '=' }
+      | ASTBinaryExpr { operator = '*' }
+        | ASTIntLit { value = '1' }
+        | ASTIntLit { value = '1' }
+      | ASTIntLit { value = '2' }
+    | ASTBinaryExpr { operator = '=' }
+      | ASTCallExpr
+        | ASTIdentExpr { declName = 'zero' }
+      | ASTIntLit { value = '3' }
+    | ASTBinaryExpr { operator = '=' }
+      | ASTIdentExpr { declName = 'x' }
+      | ASTIntLit { value = '10' }
+    | ASTBinaryExpr { operator = '=' }
+      | ASTIdentExpr { declName = 'y' }
+      | ASTIntLit { value = '10' }

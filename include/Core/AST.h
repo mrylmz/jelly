@@ -33,6 +33,7 @@
 #include <llvm/ADT/StringRef.h>
 
 enum ASTNodeKind : uint8_t {
+    AST_UNINITIALIZED,
     AST_LOAD_DIRECTIVE,
     AST_NIL_LITERAL,
     AST_BOOL_LITERAL,
@@ -50,6 +51,8 @@ enum ASTNodeKind : uint8_t {
     AST_UNARY,
     AST_BINARY,
     AST_MEMBER_ACCESS,
+    AST_CALL,
+    AST_SUBSCRIPT,
     AST_COMPOUND_STMT,
     AST_BREAK,
     AST_CONTINUE,
@@ -63,8 +66,6 @@ enum ASTNodeKind : uint8_t {
     AST_SWITCH_CASE,
     AST_DO,
     AST_WHILE,
-    AST_CALL,
-    AST_SUBSCRIPT,
     AST_ANY_TYPE_REF,
     AST_OPAQUE_TYPE_REF,
     AST_TYPEOF_TYPE_REF,
@@ -123,18 +124,11 @@ struct ASTExpr : public ASTStmt {
     ASTExpr(ASTNodeKind kind) : ASTStmt(kind) {}
 };
 
-enum ASTDeclModifier : uint8_t {
-    AST_DECL_MODIFIER_NONE   = 0,
-    AST_DECL_MODIFIER_PREFIX = 1 << 0,
-    AST_DECL_MODIFIER_INFIX  = 1 << 1,
-};
-
 struct ASTDecl : public ASTStmt {
-    ASTDeclModifier modifier;
     ASTDecl* nextDeclInContext = nullptr;
     ASTDecl* previousDeclInContext = nullptr;
 
-    ASTDecl(ASTNodeKind kind, ASTDeclModifier modifier = AST_DECL_MODIFIER_NONE) : ASTStmt(kind), modifier(modifier) {}
+    ASTDecl(ASTNodeKind kind) : ASTStmt(kind) {}
 
     bool isNamedDecl() const {
         return kind == AST_MODULE_DECL
@@ -145,10 +139,6 @@ struct ASTDecl : public ASTStmt {
         || kind == AST_STRUCT_DECL
         || kind == AST_VALUE_DECL;
     }
-
-    bool hasModifier() const { return modifier != AST_DECL_MODIFIER_NONE; }
-    bool hasModifierPrefix() const { return (modifier & AST_DECL_MODIFIER_PREFIX) > 0; }
-    bool hasModifierInfix() const { return (modifier & AST_DECL_MODIFIER_INFIX) > 0; }
 
     bool isFunc() const { return kind == AST_FUNC_DECL; }
 };
@@ -222,14 +212,8 @@ struct ASTBinaryExpr : public ASTExpr {
     ASTExpr* right = nullptr;
 
     ASTBinaryExpr() : ASTExpr(AST_BINARY) { }
-};
 
-struct ASTMemberAccessExpr : public ASTExpr {
-    ASTExpr* left = nullptr;
-    Lexeme memberName;
-    unsigned memberIndex = 0;
-
-    ASTMemberAccessExpr() : ASTExpr(AST_MEMBER_ACCESS) { }
+    bool isAssignment() const { return op.isAssignment; }
 };
 
 struct ASTIdentExpr : public ASTExpr {
@@ -237,6 +221,29 @@ struct ASTIdentExpr : public ASTExpr {
     ASTNamedDecl* decl = nullptr;
 
     ASTIdentExpr() : ASTExpr(AST_IDENTIFIER) { }
+};
+
+struct ASTMemberAccessExpr : public ASTExpr {
+    ASTExpr* left = nullptr;
+    Lexeme memberName;
+    ASTDecl* memberDecl = nullptr;
+    unsigned memberIndex = 0;
+
+    ASTMemberAccessExpr() : ASTExpr(AST_MEMBER_ACCESS) { }
+};
+
+struct ASTCallExpr : public ASTExpr {
+    ASTExpr* left = nullptr;
+    llvm::ArrayRef<ASTExpr*> args;
+
+    ASTCallExpr() : ASTExpr(AST_CALL) { }
+};
+
+struct ASTSubscriptExpr : public ASTExpr {
+    ASTExpr* left = nullptr;
+    llvm::ArrayRef<ASTExpr*> args;
+
+    ASTSubscriptExpr() : ASTExpr(AST_SUBSCRIPT) { }
 };
 
 struct ASTLit : public ASTExpr {
@@ -380,20 +387,6 @@ struct ASTSwitchStmt : public ASTStmt {
     llvm::ArrayRef<ASTCaseStmt*> cases;
 
     ASTSwitchStmt() : ASTStmt(AST_SWITCH) { }
-};
-
-struct ASTCallExpr : public ASTExpr {
-    ASTExpr* left = nullptr;
-    llvm::ArrayRef<ASTExpr*> args;
-
-    ASTCallExpr() : ASTExpr(AST_CALL) { }
-};
-
-struct ASTSubscriptExpr : public ASTExpr {
-    ASTExpr* left = nullptr;
-    llvm::ArrayRef<ASTExpr*> args;
-
-    ASTSubscriptExpr() : ASTExpr(AST_SUBSCRIPT) { }
 };
 
 struct ASTTypeRef : public ASTNode {

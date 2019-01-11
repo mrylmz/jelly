@@ -1,0 +1,3 @@
+func not(value: Bool) -> Bool {
+    return !value
+}

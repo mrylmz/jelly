@@ -1,2 +1,2 @@
-ASTBlock
+ASTModule
 | ASTLoad { loadFilePath = 'path/to/source/file.jelly' }

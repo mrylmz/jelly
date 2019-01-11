@@ -1,24 +1,23 @@
-ASTBlock
+ASTModule
 | ASTStructDecl { name = 'MyStruct' }
-  | ASTBlock
-    | ASTValueDecl { name = 'a', isConstant = 1 }
-      | ASTPointerTypeRef { depth = '1' }
-        | ASTOpaqueTypeRef { typeName = 'Void' }
-    | ASTValueDecl { name = 'b', isConstant = 0 }
-      | ASTOpaqueTypeRef { typeName = 'Bool' }
-    | ASTValueDecl { name = 'c', isConstant = 1 }
-      | ASTArrayTypeRef
-        | ASTOpaqueTypeRef { typeName = 'Int64' }
-    | ASTValueDecl { name = 'd', isConstant = 0 }
-      | ASTArrayTypeRef
-        | ASTOpaqueTypeRef { typeName = 'Float32' }
+  | ASTValueDecl { name = 'a', isConstant = 1 }
+    | ASTPointerTypeRef { depth = '1' }
+      | ASTOpaqueTypeRef { typeName = 'Void' }
+  | ASTValueDecl { name = 'b', isConstant = 0 }
+    | ASTOpaqueTypeRef { typeName = 'Bool' }
+  | ASTValueDecl { name = 'c', isConstant = 1 }
+    | ASTArrayTypeRef
+      | ASTOpaqueTypeRef { typeName = 'Int64' }
+  | ASTValueDecl { name = 'd', isConstant = 0 }
+    | ASTArrayTypeRef
+      | ASTOpaqueTypeRef { typeName = 'Float32' }
+      | ASTIntLit { value = '4' }
+  | ASTValueDecl { name = 'e', isConstant = 1 }
+    | ASTArrayTypeRef
+      | ASTOpaqueTypeRef { typeName = 'Float64' }
+      | ASTBinaryExpr { operator = '*' }
         | ASTIntLit { value = '4' }
-    | ASTValueDecl { name = 'e', isConstant = 1 }
-      | ASTArrayTypeRef
-        | ASTOpaqueTypeRef { typeName = 'Float64' }
-        | ASTBinaryExpr { operator = '*' }
-          | ASTIntLit { value = '4' }
-          | ASTIntLit { value = '4' }
-    | ASTValueDecl { name = 'a_copy', isConstant = 0 }
-      | ASTTypeOfTypeRef
-        | ASTIdentExpr { declName = 'a' }
+        | ASTIntLit { value = '4' }
+  | ASTValueDecl { name = 'a_copy', isConstant = 0 }
+    | ASTTypeOfTypeRef
+      | ASTIdentExpr { declName = 'a' }

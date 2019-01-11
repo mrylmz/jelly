@@ -1,6 +1,6 @@
-ASTBlock
+ASTModule
 | ASTFuncDecl { name = 'main' }
   | ASTOpaqueTypeRef { typeName = 'Void' }
-  | ASTBlock
+  | ASTCompoundStmt
     | ASTCallExpr
       | ASTIdentExpr { declName = 'myFunc' }

@@ -1,7 +1,7 @@
-ASTBlock
+ASTModule
 | ASTFuncDecl { name = 'main' }
   | ASTOpaqueTypeRef { typeName = 'Void' }
-  | ASTBlock
+  | ASTCompoundStmt
     | ASTIfStmt
       | ASTIdentExpr { declName = 'condition' }
-      | ASTBlock
+      | ASTCompoundStmt

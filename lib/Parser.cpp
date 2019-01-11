@@ -217,6 +217,8 @@ static ASTExpr* ParseAtomExpr(Parser* Parser, ASTContext* Context, DiagnosticEng
     }
 }
 
+static ASTExpr* ParsePrimaryExpr(Parser* Parser, ASTContext* Context, DiagnosticEngine* Diag);
+
 /// grammar: unary-expression := prefix-operator expression
 static ASTUnaryExpr* ParseUnaryExpr(Parser* Parser, ASTContext* Context, DiagnosticEngine* Diag) {
     assert(Parser->token.is(TOKEN_OPERATOR)
@@ -230,7 +232,7 @@ static ASTUnaryExpr* ParseUnaryExpr(Parser* Parser, ASTContext* Context, Diagnos
     PushParent(Parser, Expr);
     {
         Expr->op = Parser->op;
-        Expr->right = ParseExpr(Parser, Context, Diag);
+        Expr->right = ParsePrimaryExpr(Parser, Context, Diag);
 
         if (Expr->right == nullptr) {
             return nullptr;
@@ -360,8 +362,7 @@ static ASTExpr* ParseExpr(Parser* Parser, ASTContext* Context, DiagnosticEngine*
 
             ASTBinaryExpr* Right = new (Context) ASTBinaryExpr;
             Right->declContext = Parser->declContext;
-            PushParent(Parser, Right);
-            PopParent(Parser);
+            Right->parent = Parser->parent;
             Right->op = Parser->op;
             Right->left = Left;
             Left->parent = Right;
@@ -391,7 +392,10 @@ static ASTExpr* ParseExpr(Parser* Parser, ASTContext* Context, DiagnosticEngine*
             ConsumeToken(Parser);
 
             Left = Right;
-        } else if (Parser->op.text.equals("()")) {
+
+        }
+        // @Bug postfix expressions should always be parsed as primary expressions without precedence!
+        else if (Parser->op.text.equals("()")) {
             Left = ParseCallExpr(Parser, Context, Diag, Left);
         } else if (Parser->op.text.equals("[]")) {
             Left = ParseSubscriptExpr(Parser, Context, Diag, Left);
@@ -973,7 +977,7 @@ static ASTValueDecl* ParseValueDecl(Parser* Parser, ASTContext* Context, Diagnos
         ConsumeToken(Parser);
 
         decl->typeRef = ParseType(Parser, Context, Diag);
-        if (decl->typeRef == nullptr) {
+        if (!decl->typeRef) {
             return nullptr;
         }
 
@@ -983,7 +987,7 @@ static ASTValueDecl* ParseValueDecl(Parser* Parser, ASTContext* Context, Diagnos
             ConsumeToken(Parser);
 
             decl->initializer = ParseExpr(Parser, Context, Diag);
-            if (decl->initializer == nullptr) {
+            if (!decl->initializer) {
                 return nullptr;
             }
         }

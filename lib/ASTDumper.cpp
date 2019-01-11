@@ -31,24 +31,8 @@ ASTDumper::ASTDumper(std::ostream& outputStream) : outputStream(outputStream) {
 }
 
 void ASTDumper::dumpModule(ASTModuleDecl* module) {
-    outputStream << "ASTBlock\n"; // @Incomplete rename to ASTModule and update all affected unit tests
-    indentation += 1;
-
-    std::string indentText = "";
-    for (auto i = 0; i < indentation - 1; i++) {
-        indentText.append("  ");
-    }
-
-    if (indentation > 0) {
-        indentText.append("| ");
-    }
-
-    for (auto it = module->declsBegin(); it != module->declsEnd(); it++) {
-        outputStream << indentText;
-        dumpNode(*it);
-    }
-
-    indentation -= 1;
+    outputStream << "ASTModule\n";
+    dumpDeclContext(module);
 }
 
 void ASTDumper::dumpNode(ASTNode* node) {
@@ -95,7 +79,7 @@ void ASTDumper::dumpNode(ASTNode* node) {
 }
 
 void ASTDumper::dumpCompoundStmt(ASTCompoundStmt* stmt) {
-    outputStream << "ASTBlock\n"; // @Incomplete rename to ASTCompoundStmt
+    outputStream << "ASTCompoundStmt\n";
     dumpChildren(stmt->stmts);
 }
 
@@ -175,23 +159,7 @@ void ASTDumper::dumpValueDecl(ASTValueDecl* decl) {
 
 void ASTDumper::dumpStructDecl(ASTStructDecl* decl) {
     outputStream << "ASTStructDecl { name = '" << decl->name->str() << "' }\n";
-
-    // @Incomplete remove ASTBlock + indentation
-    indentation += 1;
-    std::string indentText = "";
-    for (auto i = 0; i < indentation - 1; i++) {
-        indentText.append("  ");
-    }
-
-    if (indentation > 0) {
-        indentText.append("| ");
-    }
-
-    outputStream << indentText;
-    outputStream << "ASTBlock\n";
     dumpDeclContext(decl);
-
-    indentation -= 1;
 }
 
 void ASTDumper::dumpEnumElementDecl(ASTEnumElementDecl* decl) {
@@ -203,23 +171,7 @@ void ASTDumper::dumpEnumElementDecl(ASTEnumElementDecl* decl) {
 
 void ASTDumper::dumpEnumDecl(ASTEnumDecl* decl) {
     outputStream << "ASTEnumDecl { name = '" << decl->name->str() << "' }\n";
-
-    // @Incomplete remove ASTBlock + indentation
-    indentation += 1;
-    std::string indentText = "";
-    for (auto i = 0; i < indentation - 1; i++) {
-        indentText.append("  ");
-    }
-
-    if (indentation > 0) {
-        indentText.append("| ");
-    }
-
-    outputStream << indentText;
-    outputStream << "ASTBlock\n";
     dumpDeclContext(decl);
-
-    indentation -= 1;
 }
 
 void ASTDumper::dumpBreakStmt(ASTBreakStmt* stmt) {

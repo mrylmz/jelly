@@ -1,6 +1,6 @@
-ASTBlock
+ASTModule
 | ASTFuncDecl { name = 'main' }
   | ASTOpaqueTypeRef { typeName = 'Int' }
-  | ASTBlock
+  | ASTCompoundStmt
     | ASTReturnStmt
       | ASTIntLit { value = '1' }

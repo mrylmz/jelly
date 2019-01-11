@@ -1,11 +1,11 @@
-ASTBlock
+ASTModule
 | ASTFuncDecl { name = 'main' }
   | ASTOpaqueTypeRef { typeName = 'Void' }
-  | ASTBlock
+  | ASTCompoundStmt
     | ASTIfStmt
       | ASTBinaryExpr { operator = '&&' }
         | ASTBinaryExpr { operator = '&&' }
           | ASTIdentExpr { declName = 'condition0' }
           | ASTIdentExpr { declName = 'condition1' }
         | ASTIdentExpr { declName = 'condition2' }
-      | ASTBlock
+      | ASTCompoundStmt

@@ -1,18 +1,18 @@
-ASTBlock
+ASTModule
 | ASTFuncDecl { name = 'main' }
   | ASTOpaqueTypeRef { typeName = 'Void' }
-  | ASTBlock
+  | ASTCompoundStmt
     | ASTSwitchStmt
       | ASTIdentExpr { declName = 'expr' }
       | ASTCaseStmt { caseKind = 'case' }
         | ASTIntLit { value = '0' }
-        | ASTBlock
+        | ASTCompoundStmt
           | ASTReturnStmt
       | ASTCaseStmt { caseKind = 'case' }
         | ASTIntLit { value = '1' }
-        | ASTBlock
+        | ASTCompoundStmt
           | ASTReturnStmt
       | ASTCaseStmt { caseKind = 'case' }
         | ASTIntLit { value = '2' }
-        | ASTBlock
+        | ASTCompoundStmt
           | ASTReturnStmt

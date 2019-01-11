@@ -151,57 +151,16 @@ Lexer::Lexer(const char* buffer) : state(buffer) {
     keywords.try_emplace("typeof", TOKEN_KEYWORD_TYPEOF);
     // TODO: [1] Reserve Builtin types as keywords !!!
 
-    registerOperator(Operator(OPERATOR_PREFIX, "!"));
-    registerOperator(Operator(OPERATOR_PREFIX, "~"));
-    registerOperator(Operator(OPERATOR_PREFIX, "+"));
-    registerOperator(Operator(OPERATOR_PREFIX, "-"));
+#define PREFIX_OPERATOR(__SYMBOL__) \
+    registerOperator(Operator(OPERATOR_PREFIX, __SYMBOL__));
 
-    registerOperator(Operator(OPERATOR_INFIX, "<<",  ASSOCIATIVITY_NONE, 900));
-    registerOperator(Operator(OPERATOR_INFIX, ">>",  ASSOCIATIVITY_NONE, 900));
+#define INFIX_OPERATOR(__SYMBOL__, __ASSOCIATIVITY__, __PRECEDENCE__, __CAN_HAVE_ARGS__, __IS_ASSIGNMENT__) \
+    registerOperator(Operator(OPERATOR_INFIX, __SYMBOL__, __ASSOCIATIVITY__, __PRECEDENCE__, __CAN_HAVE_ARGS__, __IS_ASSIGNMENT__));
 
-    registerOperator(Operator(OPERATOR_INFIX, "*",   ASSOCIATIVITY_LEFT, 800));
-    registerOperator(Operator(OPERATOR_INFIX, "/",   ASSOCIATIVITY_LEFT, 800));
-    registerOperator(Operator(OPERATOR_INFIX, "%",   ASSOCIATIVITY_LEFT, 800));
-    registerOperator(Operator(OPERATOR_INFIX, "&",   ASSOCIATIVITY_LEFT, 800));
+#define POSTFIX_OPERATOR(__SYMBOL__, __ASSOCIATIVITY__, __PRECEDENCE__, __CAN_HAVE_ARGS__, __IS_ASSIGNMENT__) \
+    registerOperator(Operator(OPERATOR_POSTFIX, __SYMBOL__, __ASSOCIATIVITY__, __PRECEDENCE__, __CAN_HAVE_ARGS__, __IS_ASSIGNMENT__));
 
-    registerOperator(Operator(OPERATOR_INFIX, "+",   ASSOCIATIVITY_LEFT, 700));
-    registerOperator(Operator(OPERATOR_INFIX, "-",   ASSOCIATIVITY_LEFT, 700));
-    registerOperator(Operator(OPERATOR_INFIX, "|",   ASSOCIATIVITY_LEFT, 700));
-    registerOperator(Operator(OPERATOR_INFIX, "^",   ASSOCIATIVITY_LEFT, 700));
-
-    registerOperator(Operator(OPERATOR_INFIX, "..<", ASSOCIATIVITY_NONE, 600));
-    registerOperator(Operator(OPERATOR_INFIX, "...", ASSOCIATIVITY_NONE, 600));
-
-    registerOperator(Operator(OPERATOR_INFIX, "is",  ASSOCIATIVITY_LEFT, 500));
-    registerOperator(Operator(OPERATOR_INFIX, "as",  ASSOCIATIVITY_LEFT, 500));
-
-    registerOperator(Operator(OPERATOR_INFIX, "<",   ASSOCIATIVITY_NONE, 400));
-    registerOperator(Operator(OPERATOR_INFIX, "<=",  ASSOCIATIVITY_NONE, 400));
-    registerOperator(Operator(OPERATOR_INFIX, ">",   ASSOCIATIVITY_NONE, 400));
-    registerOperator(Operator(OPERATOR_INFIX, ">=",  ASSOCIATIVITY_NONE, 400));
-    registerOperator(Operator(OPERATOR_INFIX, "==",  ASSOCIATIVITY_NONE, 400));
-    registerOperator(Operator(OPERATOR_INFIX, "!=",  ASSOCIATIVITY_NONE, 400));
-
-    registerOperator(Operator(OPERATOR_INFIX, "&&",  ASSOCIATIVITY_LEFT, 300));
-
-    registerOperator(Operator(OPERATOR_INFIX, "||",  ASSOCIATIVITY_LEFT, 200));
-
-    registerOperator(Operator(OPERATOR_INFIX, "=",   ASSOCIATIVITY_RIGHT, 100));
-    registerOperator(Operator(OPERATOR_INFIX, "*=",  ASSOCIATIVITY_RIGHT, 100));
-    registerOperator(Operator(OPERATOR_INFIX, "/=",  ASSOCIATIVITY_RIGHT, 100));
-    registerOperator(Operator(OPERATOR_INFIX, "%=",  ASSOCIATIVITY_RIGHT, 100));
-    registerOperator(Operator(OPERATOR_INFIX, "+=",  ASSOCIATIVITY_RIGHT, 100));
-    registerOperator(Operator(OPERATOR_INFIX, "-=",  ASSOCIATIVITY_RIGHT, 100));
-    registerOperator(Operator(OPERATOR_INFIX, "<<=", ASSOCIATIVITY_RIGHT, 100));
-    registerOperator(Operator(OPERATOR_INFIX, ">>=", ASSOCIATIVITY_RIGHT, 100));
-    registerOperator(Operator(OPERATOR_INFIX, "&=",  ASSOCIATIVITY_RIGHT, 100));
-    registerOperator(Operator(OPERATOR_INFIX, "|=",  ASSOCIATIVITY_RIGHT, 100));
-    registerOperator(Operator(OPERATOR_INFIX, "^=",  ASSOCIATIVITY_RIGHT, 100));
-
-    registerOperator(Operator(OPERATOR_POSTFIX, ".",  ASSOCIATIVITY_LEFT, 1000, false));
-    registerOperator(Operator(OPERATOR_POSTFIX, "*",  ASSOCIATIVITY_LEFT, 1000, false));
-    registerOperator(Operator(OPERATOR_POSTFIX, "()", ASSOCIATIVITY_LEFT, 1000, true));
-    registerOperator(Operator(OPERATOR_POSTFIX, "[]", ASSOCIATIVITY_LEFT, 1000, true));
+#include "Core/Operators.def"
 
     state.nextToken.line = 1;
 

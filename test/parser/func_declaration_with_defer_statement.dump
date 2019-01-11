@@ -1,7 +1,7 @@
-ASTBlock
+ASTModule
 | ASTFuncDecl { name = 'main' }
   | ASTOpaqueTypeRef { typeName = 'Void' }
-  | ASTBlock
+  | ASTCompoundStmt
     | ASTValueDecl { name = 'mem', isConstant = 0 }
       | ASTPointerTypeRef { depth = '1' }
         | ASTOpaqueTypeRef { typeName = 'Void' }

@@ -1,14 +1,14 @@
-ASTBlock
+ASTModule
 | ASTFuncDecl { name = 'fibonacci' }
   | ASTParamDecl { name = 'n' }
     | ASTOpaqueTypeRef { typeName = 'Int' }
   | ASTOpaqueTypeRef { typeName = 'Int' }
-  | ASTBlock
+  | ASTCompoundStmt
     | ASTIfStmt
       | ASTBinaryExpr { operator = '<' }
         | ASTIdentExpr { declName = 'n' }
         | ASTIntLit { value = '2' }
-      | ASTBlock
+      | ASTCompoundStmt
         | ASTReturnStmt
           | ASTIdentExpr { declName = 'n' }
     | ASTReturnStmt

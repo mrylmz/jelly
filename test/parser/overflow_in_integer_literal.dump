@@ -1,4 +1,4 @@
-ASTBlock
+ASTModule
 | ASTValueDecl { name = 'x', isConstant = 0 }
   | ASTOpaqueTypeRef { typeName = 'Int' }
   | ASTIntLit { value = '991829381928391829389128391823981928391283918239812938' }

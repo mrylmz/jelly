@@ -47,7 +47,8 @@ typeFloat64(FloatType(FLOAT_IEEE64)),
 typeFloat80(FloatType(FLOAT_IEEE80)),
 typeFloat128(FloatType(FLOAT_IEEE128)),
 typeString(StringType()),
-typeAnyPointer(PointerType(1, &typeAny)) {
+typeAnyPointer(PointerType(1, &typeAny)),
+typeAssignmentOp(BuiltinOperationType(BUILTIN_ASSIGNMENT_OPERATION)) {
     module = new (this) ASTModuleDecl;
 
     types.try_emplace("Any", &typeAny);
@@ -70,6 +71,30 @@ typeAnyPointer(PointerType(1, &typeAny)) {
     types.try_emplace("Float128", &typeFloat128);
     types.try_emplace("Float", &typeFloat64);
     types.try_emplace("String", &typeString);
+
+    // @Incomplete add function overloading to support all trivia integer types with typed backend names
+
+    types.try_emplace("!", createBuiltinPrefixFuncType("logicalNot", getBoolType(), getBoolType()));
+    types.try_emplace("~", createBuiltinPrefixFuncType("bitwiseNot", getIntType(), getIntType()));
+    types.try_emplace("<<", createBuiltinInfixFuncType("bitwiseLeftShift", getIntType(), getIntType(), getIntType()));
+    types.try_emplace(">>", createBuiltinInfixFuncType("bitwiseRightShift", getIntType(), getIntType(), getIntType()));
+    types.try_emplace("*", createBuiltinInfixFuncType("multiply", getIntType(), getIntType(), getIntType()));
+    types.try_emplace("/", createBuiltinInfixFuncType("divide", getIntType(), getIntType(), getIntType()));
+    types.try_emplace("%", createBuiltinInfixFuncType("modulo", getIntType(), getIntType(), getIntType()));
+    types.try_emplace("&", createBuiltinInfixFuncType("bitwiseAnd", getIntType(), getIntType(), getIntType()));
+    types.try_emplace("+", createBuiltinInfixFuncType("add", getIntType(), getIntType(), getIntType()));
+    types.try_emplace("-", createBuiltinInfixFuncType("subtract", getIntType(), getIntType(), getIntType()));
+    types.try_emplace("|", createBuiltinInfixFuncType("bitwiseOr", getIntType(), getIntType(), getIntType()));
+    types.try_emplace("^", createBuiltinInfixFuncType("bitwiseXor", getIntType(), getIntType(), getIntType()));
+    types.try_emplace("<", createBuiltinInfixFuncType("lessThan", getIntType(), getIntType(), getIntType()));
+    types.try_emplace("<=", createBuiltinInfixFuncType("lessThanEqual", getIntType(), getIntType(), getIntType()));
+    types.try_emplace(">", createBuiltinInfixFuncType("greaterThan", getIntType(), getIntType(), getIntType()));
+    types.try_emplace(">=", createBuiltinInfixFuncType("greaterThanEqual", getIntType(), getIntType(), getIntType()));
+    types.try_emplace("==", createBuiltinInfixFuncType("equal", getIntType(), getIntType(), getIntType()));
+    types.try_emplace("!=", createBuiltinInfixFuncType("notEqual", getIntType(), getIntType(), getIntType()));
+    types.try_emplace("&&", createBuiltinInfixFuncType("logicalAnd", getBoolType(), getBoolType(), getBoolType()));
+    types.try_emplace("||", createBuiltinInfixFuncType("logicalOr", getBoolType(), getBoolType(), getBoolType()));
+    types.try_emplace("=", &typeAssignmentOp);
 }
 
 ASTContext::~ASTContext() {
@@ -234,7 +259,7 @@ Type* ASTContext::getDynamicArrayType(Type* elementType) {
     return type;
 }
 
-Type* ASTContext::getFuncType(ASTFuncDecl* decl) {
+FuncType* ASTContext::getFuncType(ASTFuncDecl* decl) {
     // @Incomplete build a unique type
     auto type = new FuncType;
     type->name = decl->name;
@@ -247,6 +272,21 @@ Type* ASTContext::getFuncType(ASTFuncDecl* decl) {
     // @Cleanup the types are only written here to get a working IRGen pass
     if (!findTypeByName(decl->name)) {
         types.insert(std::make_pair(decl->name, type));
+    }
+
+    return type;
+}
+
+FuncType* ASTContext::getFuncType(llvm::StringRef name, llvm::SmallVector<Type*, 0> paramTypes, Type* returnType) {
+    // @Incomplete build a unique type
+    auto type = new FuncType;
+    type->name = name;
+    type->paramTypes = paramTypes; // paramTypes.copy(typeAllocator);
+    type->returnType = returnType;
+
+    // @Cleanup the types are only written here to get a working IRGen pass
+    if (!findTypeByName(name)) {
+        types.insert(std::make_pair(name, type));
     }
 
     return type;
@@ -273,4 +313,21 @@ Type* ASTContext::findTypeByName(llvm::StringRef name) {
         return it->getValue();
     }
     return nullptr;
+}
+
+BuiltinPrefixFuncType* ASTContext::createBuiltinPrefixFuncType(llvm::StringRef name, Type* paramType, Type* returnType) {
+    auto type = new BuiltinPrefixFuncType;
+    type->name = name;
+    type->paramTypes.push_back(paramType);
+    type->returnType = returnType;
+    return type;
+}
+
+BuiltinInfixFuncType* ASTContext::createBuiltinInfixFuncType(llvm::StringRef name, Type* lhsParamType, Type* rhsParamType, Type* returnType) {
+    auto type = new BuiltinInfixFuncType;
+    type->name = name;
+    type->paramTypes.push_back(lhsParamType);
+    type->paramTypes.push_back(rhsParamType);
+    type->returnType = returnType;
+    return type;
 }

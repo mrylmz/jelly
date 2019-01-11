@@ -1,4 +1,4 @@
-ASTBlock
+ASTModule
 | ASTValueDecl { name = 'x', isConstant = 0 }
   | ASTOpaqueTypeRef { typeName = 'Int' }
   | ASTUnaryExpr { operator = '-' }

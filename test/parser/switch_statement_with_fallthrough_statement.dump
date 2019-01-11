@@ -1,22 +1,22 @@
-ASTBlock
+ASTModule
 | ASTFuncDecl { name = 'main' }
   | ASTOpaqueTypeRef { typeName = 'Void' }
-  | ASTBlock
+  | ASTCompoundStmt
     | ASTSwitchStmt
       | ASTIdentExpr { declName = 'direction' }
       | ASTCaseStmt { caseKind = 'case' }
         | ASTIdentExpr { declName = 'north' }
-        | ASTBlock
+        | ASTCompoundStmt
           | ASTFallthroughStmt
       | ASTCaseStmt { caseKind = 'case' }
         | ASTIdentExpr { declName = 'east' }
-        | ASTBlock
+        | ASTCompoundStmt
           | ASTFallthroughStmt
       | ASTCaseStmt { caseKind = 'case' }
         | ASTIdentExpr { declName = 'south' }
-        | ASTBlock
+        | ASTCompoundStmt
           | ASTFallthroughStmt
       | ASTCaseStmt { caseKind = 'case' }
         | ASTIdentExpr { declName = 'west' }
-        | ASTBlock
+        | ASTCompoundStmt
           | ASTBreakStmt
