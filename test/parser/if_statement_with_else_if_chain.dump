@@ -1,15 +1,16 @@
-ASTBlock
+ASTModule
 | ASTFuncDecl { name = 'main' }
   | ASTOpaqueTypeRef { typeName = 'Void' }
-  | ASTBlock
+  | ASTCompoundStmt
     | ASTIfStmt
-      | conditions
-        | ASTIdentExpr { declName = 'condition0' }
-        | ASTIdentExpr { declName = 'condition1' }
-        | ASTIdentExpr { declName = 'condition2' }
-      | ASTBlock
-      | ASTIfStmt
-        | conditions
+      | ASTBinaryExpr { operator = '&&' }
+        | ASTBinaryExpr { operator = '&&' }
           | ASTIdentExpr { declName = 'condition0' }
           | ASTIdentExpr { declName = 'condition1' }
-        | ASTBlock
+        | ASTIdentExpr { declName = 'condition2' }
+      | ASTCompoundStmt
+      | ASTIfStmt
+        | ASTBinaryExpr { operator = '&&' }
+          | ASTIdentExpr { declName = 'condition0' }
+          | ASTIdentExpr { declName = 'condition1' }
+        | ASTCompoundStmt

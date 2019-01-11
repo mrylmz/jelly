@@ -1,11 +1,10 @@
-ASTBlock
+ASTModule
 | ASTFuncDecl { name = 'main' }
-  | params
-    | ASTParamDecl { name = 'x' }
-      | ASTOpaqueTypeRef { typeName = 'Int' }
-    | ASTParamDecl { name = 'y' }
-      | ASTOpaqueTypeRef { typeName = 'Int' }
+  | ASTParamDecl { name = 'x' }
+    | ASTOpaqueTypeRef { typeName = 'Int' }
+  | ASTParamDecl { name = 'y' }
+    | ASTOpaqueTypeRef { typeName = 'Int' }
   | ASTOpaqueTypeRef { typeName = 'Void' }
-  | ASTBlock
-    | ASTVarDecl { name = 'x' }
+  | ASTCompoundStmt
+    | ASTValueDecl { name = 'x', isConstant = 0 }
       | ASTOpaqueTypeRef { typeName = 'Int' }

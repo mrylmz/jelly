@@ -57,7 +57,7 @@ void CodeManager::addSourceFile(llvm::StringRef sourceFilePath) {
     auto absoluteFilePath = std::string(currentDirectory).append("/").append(sourceFilePath);
 
     if (!llvm::sys::fs::exists(absoluteFilePath)) {
-        diag.report(DIAG_ERROR, "File at path '{0}' doesn't exist", absoluteFilePath);
+        diag.report(DIAG_ERROR, "File at path '{0}' doesn't exist", sourceFilePath);
         return;
     }
 
@@ -104,17 +104,17 @@ void CodeManager::parseAST() {
             Parser parser(&lexer, &context, &diag);
             parser.parseAllTopLevelNodes();
 
-            while (preprocessNodeIndex < context.getRoot()->stmts.size()) {
-                auto node = context.getRoot()->stmts[preprocessNodeIndex];
-                if (node->kind == AST_LOAD) {
-                    auto load = reinterpret_cast<ASTLoad*>(node);
-                    addSourceFile(load->string->value);
+            auto module = context.getModule();
+            for (auto it = module->declsBegin() + preprocessDeclIndex; it != module->declsEnd(); it++) {
+                if ((*it)->kind == AST_LOAD_DIRECTIVE) {
+                    auto loadDirective = reinterpret_cast<ASTLoadDirective*>(*it);
+                    addSourceFile(loadDirective->loadFilePath);
                     if (diag.hasErrors()) {
                         return;
                     }
                 }
 
-                preprocessNodeIndex += 1;
+                preprocessDeclIndex += 1;
             }
         }
         parseFileIndex += 1;

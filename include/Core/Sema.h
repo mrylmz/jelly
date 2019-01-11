@@ -41,10 +41,9 @@ private:
 
     void inferTypeOfNode(ASTNode* node);
     void inferTypeOfLiteral(ASTLit* literal);
-    void inferTypeOfVarDecl(ASTVarDecl* var);
-    void inferTypeOfLetDecl(ASTLetDecl* let);
+    void inferTypeOfValueDecl(ASTValueDecl* var);
     void inferTypeOfIdentExpr(ASTIdentExpr* expr);
-    void inferTypeOfStmts(ASTBlock* block);
+    void inferTypeOfStmts(ASTCompoundStmt* stmt);
     void inferTypeOfUnaryExpr(ASTUnaryExpr* expr);
     void inferTypeOfBinaryExpr(ASTBinaryExpr* expr);
     void inferTypeOfMemberAccessExpr(ASTMemberAccessExpr* expr);
@@ -52,8 +51,6 @@ private:
     void inferTypeOfSubscriptExpr(ASTSubscriptExpr* expr);
 
     void typeFuncDecl(ASTFuncDecl* decl);
-    void typePrefixFuncDecl(ASTPrefixFuncDecl* decl);
-    void typeInfixFuncDecl(ASTInfixFuncDecl* decl);
     void typeParamDecl(ASTParamDecl* decl);
     void typeStructDecl(ASTStructDecl* decl);
     void typeEnumDecl(ASTEnumDecl* decl);
@@ -63,16 +60,14 @@ private:
 
     void typeCheckNode(ASTNode* node);
     void typeCheckFuncDecl(ASTFuncDecl* decl);
-    void typeCheckFuncBlock(ASTFuncDecl* decl);
+    void typeCheckFuncBody(ASTFuncDecl* decl);
     void typeCheckParamDecl(ASTParamDecl* decl);
     void typeCheckStructDecl(ASTStructDecl* decl);
-    void typeCheckStructBlock(ASTStructDecl* decl);
-    void typeCheckVarDecl(ASTVarDecl* decl);
-    void typeCheckLetDecl(ASTLetDecl* decl);
+    void typeCheckStructMembers(ASTStructDecl* decl);
+    void typeCheckValueDecl(ASTValueDecl* decl);
     void typeCheckEnumDecl(ASTEnumDecl* decl);
-    void typeCheckEnumBlock(ASTEnumDecl* decl);
     void typeCheckEnumElementDecl(ASTEnumElementDecl* decl);
-    void typeCheckBlock(ASTBlock* block);
+    void typeCheckCompoundStmt(ASTCompoundStmt* stmt);
     void typeCheckIdentExpr(ASTIdentExpr* expr);
     void typeCheckUnaryExpr(ASTUnaryExpr* expr);
     void typeCheckBinaryExpr(ASTBinaryExpr* expr);
@@ -94,8 +89,9 @@ private:
     void typeCheckWhileStmt(ASTWhileStmt* stmt);
     void typeCheckConditions(ASTBranchStmt* stmt);
 
-    bool isBlockAlwaysReturning(ASTBlock* block);
+    bool isCompoundStmtAlwaysReturning(ASTCompoundStmt* stmt);
     bool isIfStmtAlwaysReturning(ASTIfStmt* stmt);
     bool isSwitchStmtAlwaysRetuning(ASTSwitchStmt* stmt);
     void checkIsSwitchStmtExhaustive(ASTSwitchStmt* stmt);
+    bool isExprLValue(ASTExpr* expr);
 };

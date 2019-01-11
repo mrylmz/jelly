@@ -1,0 +1,85 @@
+//
+// MIT License
+//
+// Copyright (c) 2019 Murat Yilmaz
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+//
+
+#include "Core/Operator.h"
+
+#ifndef PREFIX_OPERATOR
+#define PREFIX_OPERATOR(__SYMBOL__)
+#endif
+
+#ifndef INFIX_OPERATOR
+#define INFIX_OPERATOR(__SYMBOL__, __ASSOCIATIVITY__, __PRECEDENCE__, __CAN_HAVE_ARGS__, __IS_ASSIGNMENT__)
+#endif
+
+#ifndef POSTFIX_OPERATOR
+#define POSTFIX_OPERATOR(__SYMBOL__, __ASSOCIATIVITY__, __PRECEDENCE__, __CAN_HAVE_ARGS__, __IS_ASSIGNMENT__)
+#endif
+
+PREFIX_OPERATOR("!")
+PREFIX_OPERATOR("~")
+PREFIX_OPERATOR("+")
+PREFIX_OPERATOR("-")
+
+INFIX_OPERATOR("<<",   ASSOCIATIVITY_NONE,  900,  false, false)
+INFIX_OPERATOR(">>",   ASSOCIATIVITY_NONE,  900,  false, false)
+INFIX_OPERATOR("*",    ASSOCIATIVITY_LEFT,  800,  false, false)
+INFIX_OPERATOR("/",    ASSOCIATIVITY_LEFT,  800,  false, false)
+INFIX_OPERATOR("%",    ASSOCIATIVITY_LEFT,  800,  false, false)
+INFIX_OPERATOR("&",    ASSOCIATIVITY_LEFT,  800,  false, false)
+INFIX_OPERATOR("+",    ASSOCIATIVITY_LEFT,  700,  false, false)
+INFIX_OPERATOR("-",    ASSOCIATIVITY_LEFT,  700,  false, false)
+INFIX_OPERATOR("|",    ASSOCIATIVITY_LEFT,  700,  false, false)
+INFIX_OPERATOR("^",    ASSOCIATIVITY_LEFT,  700,  false, false)
+INFIX_OPERATOR("..<",  ASSOCIATIVITY_NONE,  600,  false, false)
+INFIX_OPERATOR("...",  ASSOCIATIVITY_NONE,  600,  false, false)
+INFIX_OPERATOR("is",   ASSOCIATIVITY_LEFT,  500,  false, false)
+INFIX_OPERATOR("as",   ASSOCIATIVITY_LEFT,  500,  false, false)
+INFIX_OPERATOR("<",    ASSOCIATIVITY_NONE,  400,  false, false)
+INFIX_OPERATOR("<=",   ASSOCIATIVITY_NONE,  400,  false, false)
+INFIX_OPERATOR(">",    ASSOCIATIVITY_NONE,  400,  false, false)
+INFIX_OPERATOR(">=",   ASSOCIATIVITY_NONE,  400,  false, false)
+INFIX_OPERATOR("==",   ASSOCIATIVITY_NONE,  400,  false, false)
+INFIX_OPERATOR("!=",   ASSOCIATIVITY_NONE,  400,  false, false)
+INFIX_OPERATOR("&&",   ASSOCIATIVITY_LEFT,  300,  false, false)
+INFIX_OPERATOR("||",   ASSOCIATIVITY_LEFT,  200,  false, false)
+INFIX_OPERATOR("=",    ASSOCIATIVITY_RIGHT, 100,  false, true)
+INFIX_OPERATOR("*=",   ASSOCIATIVITY_RIGHT, 100,  false, true)
+INFIX_OPERATOR("/=",   ASSOCIATIVITY_RIGHT, 100,  false, true)
+INFIX_OPERATOR("%=",   ASSOCIATIVITY_RIGHT, 100,  false, true)
+INFIX_OPERATOR("+=",   ASSOCIATIVITY_RIGHT, 100,  false, true)
+INFIX_OPERATOR("-=",   ASSOCIATIVITY_RIGHT, 100,  false, true)
+INFIX_OPERATOR("<<=",  ASSOCIATIVITY_RIGHT, 100,  false, true)
+INFIX_OPERATOR(">>=",  ASSOCIATIVITY_RIGHT, 100,  false, true)
+INFIX_OPERATOR("&=",   ASSOCIATIVITY_RIGHT, 100,  false, true)
+INFIX_OPERATOR("|=",   ASSOCIATIVITY_RIGHT, 100,  false, true)
+INFIX_OPERATOR("^=",   ASSOCIATIVITY_RIGHT, 100,  false, true)
+
+POSTFIX_OPERATOR(".",  ASSOCIATIVITY_LEFT, 1000, false, false)
+POSTFIX_OPERATOR("*",  ASSOCIATIVITY_LEFT, 1000, false, false)
+POSTFIX_OPERATOR("()", ASSOCIATIVITY_LEFT, 1000, true,  false)
+POSTFIX_OPERATOR("[]", ASSOCIATIVITY_LEFT, 1000, true,  false)
+
+#undef PREFIX_OPERATOR
+#undef INFIX_OPERATOR
+#undef POSTFIX_OPERATOR

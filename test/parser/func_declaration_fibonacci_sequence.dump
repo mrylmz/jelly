@@ -1,29 +1,25 @@
-ASTBlock
+ASTModule
 | ASTFuncDecl { name = 'fibonacci' }
-  | params
-    | ASTParamDecl { name = 'n' }
-      | ASTOpaqueTypeRef { typeName = 'Int' }
+  | ASTParamDecl { name = 'n' }
+    | ASTOpaqueTypeRef { typeName = 'Int' }
   | ASTOpaqueTypeRef { typeName = 'Int' }
-  | ASTBlock
+  | ASTCompoundStmt
     | ASTIfStmt
-      | conditions
-        | ASTBinaryExpr { operator = '<' }
-          | ASTIdentExpr { declName = 'n' }
-          | ASTIntLit { value = '2' }
-      | ASTBlock
+      | ASTBinaryExpr { operator = '<' }
+        | ASTIdentExpr { declName = 'n' }
+        | ASTIntLit { value = '2' }
+      | ASTCompoundStmt
         | ASTReturnStmt
           | ASTIdentExpr { declName = 'n' }
     | ASTReturnStmt
       | ASTBinaryExpr { operator = '+' }
         | ASTCallExpr
           | ASTIdentExpr { declName = 'fibonacci' }
-          | args
-            | ASTBinaryExpr { operator = '-' }
-              | ASTIdentExpr { declName = 'n' }
-              | ASTIntLit { value = '1' }
+          | ASTBinaryExpr { operator = '-' }
+            | ASTIdentExpr { declName = 'n' }
+            | ASTIntLit { value = '1' }
         | ASTCallExpr
           | ASTIdentExpr { declName = 'fibonacci' }
-          | args
-            | ASTBinaryExpr { operator = '-' }
-              | ASTIdentExpr { declName = 'n' }
-              | ASTIntLit { value = '2' }
+          | ASTBinaryExpr { operator = '-' }
+            | ASTIdentExpr { declName = 'n' }
+            | ASTIntLit { value = '2' }

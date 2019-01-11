@@ -1,5 +1,5 @@
-ASTBlock
-| ASTVarDecl { name = 'x' }
+ASTModule
+| ASTValueDecl { name = 'x', isConstant = 0 }
   | ASTOpaqueTypeRef { typeName = 'Int' }
   | ASTUnaryExpr { operator = '-' }
     | ASTIntLit { value = '10' }

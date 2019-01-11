@@ -1,9 +1,8 @@
-ASTBlock
+ASTModule
 | ASTFuncDecl { name = 'main' }
   | ASTOpaqueTypeRef { typeName = 'Void' }
-  | ASTBlock
+  | ASTCompoundStmt
     | ASTGuardStmt
-      | conditions
-        | ASTBoolLit { value = '1' }
-      | ASTBlock
+      | ASTBoolLit { value = '1' }
+      | ASTCompoundStmt
         | ASTReturnStmt

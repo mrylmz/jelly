@@ -1,7 +1,7 @@
 //
 // MIT License
 //
-// Copyright (c) 2018 Murat Yilmaz
+// Copyright (c) 2019 Murat Yilmaz
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -22,15 +22,23 @@
 // SOFTWARE.
 //
 
-#include "Core/Operator.h"
+#pragma once
 
-Operator::Operator() :
-kind(OPERATOR_INVALID),
-associativity(ASSOCIATIVITY_NONE),
-precedence(250),
-canHaveArgs(false) {
-}
+#include <llvm/ADT/StringRef.h>
 
-Operator::Operator(OperatorKind kind, llvm::StringRef text, Associativity associativity, uint32_t precedence, bool canHaveArgs) :
-kind(kind), text(text), associativity(associativity), precedence(precedence), canHaveArgs(canHaveArgs) {
-}
+struct ASTContext;
+
+class Lexeme {
+    friend struct ASTContext;
+
+    unsigned index = 0;
+    llvm::StringRef data;
+
+public:
+    operator llvm::StringRef() const { return data; }
+    llvm::StringRef* operator->() { return &data; }
+
+    inline bool operator == (Lexeme rhs) { return index == rhs.index; }
+};
+
+

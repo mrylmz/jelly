@@ -26,29 +26,18 @@
 #include "Core/ASTContext.h"
 
 void* ASTNode::operator new (size_t size, ASTContext* context) {
-    return context->allocNode();
+    auto memory = context->nodeAllocator.Allocate(size, 8);
+    context->nodes.push_back(reinterpret_cast<ASTNode*>(memory));
+    return memory;
 }
 
 bool ASTNode::isDecl() const {
     return
-    kind == AST_PARAMETER ||
-    kind == AST_FUNC ||
-    kind == AST_VAR ||
-    kind == AST_LET ||
-    kind == AST_STRUCT ||
-    kind == AST_ENUM_ELEMENT ||
-    kind == AST_ENUM;
-}
-
-ASTBlock* ASTNode::getParentBlock() {
-    auto current = parent;
-    while (current) {
-        if (current->kind == AST_BLOCK) {
-            return reinterpret_cast<ASTBlock*>(current);
-        }
-
-        current = current->parent;
-    }
-
-    return nullptr;
+    kind == AST_LOAD_DIRECTIVE || 
+    kind == AST_PARAM_DECL ||
+    kind == AST_FUNC_DECL ||
+    kind == AST_VALUE_DECL ||
+    kind == AST_STRUCT_DECL ||
+    kind == AST_ENUM_ELEMENT_DECL ||
+    kind == AST_ENUM_DECL;
 }

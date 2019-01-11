@@ -1,5 +1,5 @@
-ASTBlock
-| ASTVarDecl { name = 'x' }
+ASTModule
+| ASTValueDecl { name = 'x', isConstant = 0 }
   | ASTTypeOfTypeRef
     | ASTBoolLit { value = '1' }
   | ASTBoolLit { value = '0' }

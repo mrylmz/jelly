@@ -41,7 +41,7 @@ struct CodeManager {
 
     unsigned bufferFilePathIndex = 0;
     unsigned parseFileIndex = 0;
-    unsigned preprocessNodeIndex = 0;
+    unsigned preprocessDeclIndex = 0;
 
     ASTContext context;
     DiagnosticEngine diag;

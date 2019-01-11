@@ -1,12 +1,11 @@
-ASTBlock
+ASTModule
 | ASTEnumDecl { name = 'Direction' }
-  | ASTBlock
-    | ASTEnumElementDecl { name = 'north' }
-      | ASTIntLit { value = '1' }
-    | ASTEnumElementDecl { name = 'east' }
+  | ASTEnumElementDecl { name = 'north' }
+    | ASTIntLit { value = '1' }
+  | ASTEnumElementDecl { name = 'east' }
+    | ASTIntLit { value = '2' }
+  | ASTEnumElementDecl { name = 'south' }
+  | ASTEnumElementDecl { name = 'west' }
+    | ASTBinaryExpr { operator = '*' }
       | ASTIntLit { value = '2' }
-    | ASTEnumElementDecl { name = 'south' }
-    | ASTEnumElementDecl { name = 'west' }
-      | ASTBinaryExpr { operator = '*' }
-        | ASTIntLit { value = '2' }
-        | ASTIntLit { value = '2' }
+      | ASTIntLit { value = '2' }

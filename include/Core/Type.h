@@ -31,9 +31,6 @@
 #include <llvm/ADT/StringMap.h>
 #include <llvm/ADT/SmallVector.h>
 
-struct ASTDecl;
-struct ASTIntLit;
-
 enum TypeKind : uint8_t {
     TYPE_ERROR,
     TYPE_BUILTIN_ANY,
@@ -44,6 +41,10 @@ enum TypeKind : uint8_t {
     TYPE_BUILTIN_STRING,
     TYPE_BUILTIN_POINTER,
     TYPE_BUILTIN_ARRAY,
+    TYPE_BUILTIN_OPERATION,
+    TYPE_BUILTIN_FUNC,
+    TYPE_BUILTIN_PREFIX_FUNC,
+    TYPE_BUILTIN_INFIX_FUNC,
     TYPE_DECL_ENUM,
     TYPE_DECL_FUNC,
     TYPE_DECL_STRUCT,
@@ -56,6 +57,10 @@ struct Type {
     TypeKind kind = TYPE_ERROR;
 
     bool isIncomplete() const;
+
+    bool isBuiltinPrefixFunc() const { return kind == TYPE_BUILTIN_PREFIX_FUNC; }
+    bool isBuiltinInfixFunc() const { return kind == TYPE_BUILTIN_INFIX_FUNC; }
+    bool isBuiltinOperation() const { return kind == TYPE_BUILTIN_OPERATION; }
 };
 
 struct BuiltinType : public Type {};
@@ -134,14 +139,18 @@ struct ArrayType : public Type {
     ArrayType() { kind = TYPE_BUILTIN_ARRAY; }
 };
 
-// @Incomplete Add builtin types as wrapper for llvm functions
-struct BuiltinFuncType : public Type {};
-
 struct EnumType : public DeclType {
     llvm::SmallVector<ASTIntLit*, 0> memberValues;
     llvm::APInt nextMemberValue = llvm::APInt(64, 0);
 
     EnumType() { kind = TYPE_DECL_ENUM; }
+};
+
+struct StructType : public DeclType {
+    llvm::StringMap<Type*> memberTypes;
+    llvm::StringMap<unsigned> memberIndexes;
+
+    StructType() { kind = TYPE_DECL_STRUCT; }
 };
 
 enum CallingConvention : uint8_t {
@@ -167,9 +176,26 @@ struct FuncType : public DeclType {
     FuncType() { kind = TYPE_DECL_FUNC; }
 };
 
-struct StructType : public DeclType {
-    llvm::StringMap<Type*> memberTypes;
-    llvm::StringMap<unsigned> memberIndexes;
+enum BuiltinOperation : uint8_t {
+    BUILTIN_ASSIGNMENT_OPERATION
+};
 
-    StructType() { kind = TYPE_DECL_STRUCT; }
+struct BuiltinOperationType : public Type {
+    BuiltinOperation op;
+    BuiltinOperationType(BuiltinOperation op) : op(op) {
+        kind = TYPE_BUILTIN_OPERATION;
+    }
+};
+
+// @Incomplete Add builtin types as wrapper for llvm functions
+struct BuiltinFuncType : public FuncType {
+    BuiltinFuncType() { kind = TYPE_BUILTIN_FUNC; }
+};
+
+struct BuiltinPrefixFuncType : public BuiltinFuncType {
+    BuiltinPrefixFuncType() { kind = TYPE_BUILTIN_PREFIX_FUNC; }
+};
+
+struct BuiltinInfixFuncType : public BuiltinFuncType {
+    BuiltinInfixFuncType() { kind = TYPE_BUILTIN_INFIX_FUNC; }
 };

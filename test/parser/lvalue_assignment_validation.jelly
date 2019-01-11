@@ -1,0 +1,20 @@
+func zero() -> Int {
+    return 0
+}
+
+func lvalue_assignment_validation() -> Void {
+    var x: Int = 0
+    let y: Int = 0
+
+    nil = nil
+    true = false
+    false = true
+    !true = true
+    123 = 456
+    1.0 = 2.0
+    "Hello" = "World"
+    1 * 1 = 2
+    zero() = 3
+    x = 10
+    y = 10
+}

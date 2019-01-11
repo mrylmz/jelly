@@ -28,6 +28,7 @@
 
 #include <ostream>
 
+#include <llvm/ADT/ArrayRef.h>
 #include <llvm/ADT/SmallVector.h>
 #include <llvm/ADT/StringRef.h>
 
@@ -37,16 +38,58 @@ struct ASTDumper {
 
     ASTDumper(std::ostream& outputStream);
 
-    void dumpNode(ASTNode* node);
+    void dumpModule(ASTModuleDecl* module);
 
 private:
 
-    template<typename T>
-    void dumpNamedList(llvm::StringRef name, llvm::SmallVector<T*, 0> list);
+    void dumpNode(ASTNode* node);
 
-    void dumpChildren(llvm::SmallVector<ASTNode*, 0> children);
-    void dumpBlock(ASTBlock* block);
-    void dumpLoad(ASTLoad* directive);
+    void dumpChildren(llvm::SmallVector<ASTNode*, 0> children) {
+        dumpChildren(llvm::makeArrayRef(children));
+    }
+
+    template<typename T>
+    void dumpChildren(llvm::ArrayRef<T*> children) {
+        indentation += 1;
+
+        std::string indentText = "";
+        for (auto i = 0; i < indentation - 1; i++) {
+            indentText.append("  ");
+        }
+
+        if (indentation > 0) {
+            indentText.append("| ");
+        }
+
+        for (auto child : children) {
+            outputStream << indentText;
+            dumpNode(child);
+        }
+        indentation -= 1;
+    }
+
+    void dumpDeclContext(DeclContext* declContext) {
+        indentation += 1;
+
+        std::string indentText = "";
+        for (auto i = 0; i < indentation - 1; i++) {
+            indentText.append("  ");
+        }
+
+        if (indentation > 0) {
+            indentText.append("| ");
+        }
+
+        for (auto it = declContext->declsBegin(); it != declContext->declsEnd(); it++) {
+            outputStream << indentText;
+            dumpNode(*it);
+        }
+
+        indentation -= 1;
+    }
+
+    void dumpCompoundStmt(ASTCompoundStmt* stmt);
+    void dumpLoad(ASTLoadDirective* directive);
     void dumpUnaryExpr(ASTUnaryExpr* expr);
     void dumpBinaryExpr(ASTBinaryExpr* expr);
     void dumpMemberAccessExpr(ASTMemberAccessExpr* expr);
@@ -60,8 +103,7 @@ private:
     void dumpStringLiteral(ASTStringLit* literal);
     void dumpParamDecl(ASTParamDecl* decl);
     void dumpFuncDecl(ASTFuncDecl* decl);
-    void dumpVarDecl(ASTVarDecl* decl);
-    void dumpLetDecl(ASTLetDecl* decl);
+    void dumpValueDecl(ASTValueDecl* decl);
     void dumpStructDecl(ASTStructDecl* decl);
     void dumpEnumElementDecl(ASTEnumElementDecl* decl);
     void dumpEnumDecl(ASTEnumDecl* decl);
@@ -83,30 +125,3 @@ private:
     void dumpPointerTypeRef(ASTPointerTypeRef* typeRef);
     void dumpArrayTypeRef(ASTArrayTypeRef* typeRef);
 };
-
-template<typename T>
-void ASTDumper::dumpNamedList(llvm::StringRef name, llvm::SmallVector<T *, 0> list) {
-    if (list.empty()) { return; }
-
-    indentation += 1;
-
-    std::string indentText = "";
-    for (auto i = 0; i < indentation - 1; i++) {
-        indentText.append("  ");
-    }
-
-    if (indentation > 0) {
-        indentText.append("| ");
-    }
-
-    outputStream << indentText << name.str() << "\n";
-    indentation += 1;
-
-    indentText.insert(0, "  ");
-    for (auto node : list) {
-        outputStream << indentText;
-        dumpNode(node);
-    }
-
-    indentation -= 2;
-}

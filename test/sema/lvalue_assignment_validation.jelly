@@ -1,0 +1,20 @@
+func zero() -> Int {
+    return 0
+}
+
+func lvalue_assignment_validation() -> Void {
+    var x: Int = 0
+    let y: Int = 0
+
+    nil = nil // expect-error: Left hand side of assignment expression is not assignable!
+    true = false // expect-error: Left hand side of assignment expression is not assignable!
+    false = true // expect-error: Left hand side of assignment expression is not assignable!
+    !true = true // expect-error: Left hand side of assignment expression is not assignable!
+    123 = 456 // expect-error: Left hand side of assignment expression is not assignable!
+    1.0 = 2.0 // expect-error: Left hand side of assignment expression is not assignable!
+    "Hello" = "World" // expect-error: Left hand side of assignment expression is not assignable!
+    1 * 1 = 2 // expect-error: Left hand side of assignment expression is not assignable!
+    zero() = 3 // expect-error: Left hand side of assignment expression is not assignable!
+    x = 10 // ok
+    y = 10 // expect-error: Left hand side of assignment expression is not assignable!
+}

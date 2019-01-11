@@ -39,6 +39,7 @@ struct Parser {
     ASTContext* context;
     DiagnosticEngine* diag;
     ASTNode* parent = nullptr;
+    DeclContext* declContext = nullptr;
     Operator op;
     Token token;
     bool silentErrors = false;

@@ -1,3 +1,2 @@
-ASTBlock
+ASTModule
 | ASTStructDecl { name = 'Empty' }
-  | ASTBlock

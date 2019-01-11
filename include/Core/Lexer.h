@@ -59,8 +59,8 @@ struct Lexer {
     Token lexToken();
     Token peekNextToken();
 
-    bool getOperator(Token token, OperatorKind kind, Operator& op);
-    bool getOperator(Token token, Operator& op, llvm::StringMap<Operator>& operators);
+    bool getOperator(llvm::StringRef name, OperatorKind kind, Operator& op);
+    bool getOperator(llvm::StringRef name, Operator& op, llvm::StringMap<Operator>& operators);
     bool hasOperator(llvm::StringRef text);
     Precedence getOperatorPrecedenceBefore(Precedence precedence);
 

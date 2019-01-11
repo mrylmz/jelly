@@ -35,6 +35,10 @@ bool Type::isIncomplete() const {
         case TYPE_BUILTIN_INT:
         case TYPE_BUILTIN_FLOAT:
         case TYPE_BUILTIN_STRING:
+        case TYPE_BUILTIN_FUNC:
+        case TYPE_BUILTIN_PREFIX_FUNC:
+        case TYPE_BUILTIN_INFIX_FUNC:
+        case TYPE_BUILTIN_OPERATION:
             return false;
 
         case TYPE_BUILTIN_POINTER: {

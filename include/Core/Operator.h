@@ -48,11 +48,14 @@ struct Operator {
     Associativity associativity;
     Precedence precedence;
     bool canHaveArgs; // @Refactor remove this ...
+    bool isAssignment;
 
-    Operator();
-    Operator(OperatorKind kind,
-             llvm::StringRef text,
+    Operator(OperatorKind kind = OPERATOR_INVALID,
+             llvm::StringRef text = {},
              Associativity associativity = ASSOCIATIVITY_NONE,
              unsigned precedence = 250,
-             bool canHaveArgs = false);
+             bool canHaveArgs = false,
+             bool isAssignment = false) :
+    kind(kind), text(text), associativity(associativity), precedence(precedence), canHaveArgs(canHaveArgs),
+    isAssignment(isAssignment) {}
 };

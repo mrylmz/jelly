@@ -34,16 +34,13 @@
 #include <llvm/ADT/StringMap.h>
 #include <llvm/Support/Allocator.h>
 
-// @Incomplete ASTContext is leaking memory, add custom allocators for use-cases of ASTContext and refine the structure
 struct ASTContext {
     ASTContext();
     ~ASTContext();
 
-    void* allocNode();
-
     Lexeme getLexeme(llvm::StringRef text);
 
-    ASTBlock* getRoot();
+    ASTModuleDecl* getModule();
 
     llvm::StringMap<Type*>* getTypes();
     llvm::SmallVector<FuncType*, 0>* getBuiltinFuncTypes();
@@ -74,26 +71,27 @@ struct ASTContext {
     Type* getPointerType(Type* pointeeType, uint64_t depth);
     Type* getStaticArrayType(Type* elementType, llvm::APInt size);
     Type* getDynamicArrayType(Type* elementType);
-    Type* getFuncType(ASTFuncDecl* decl);
+    FuncType* getFuncType(ASTFuncDecl* decl);
+    FuncType* getFuncType(llvm::StringRef name, llvm::SmallVector<Type*, 0> paramTypes, Type* returnType);
     Type* getStructType(llvm::StringRef name, llvm::StringMap<Type*> memberTypes, llvm::StringMap<unsigned> memberIndexes);
     Type* findTypeByName(llvm::StringRef name);
 
+    llvm::BumpPtrAllocator nodeAllocator;
+
 private:
-    llvm::MallocAllocator allocator;
+    friend struct ASTNode;
 
-    size_t pageSize;
-    size_t nodeSize;
-    size_t nodeCount;
-    size_t nodesPerPage;
-    llvm::SmallVector<void*, 0> nodePages;
+    llvm::BumpPtrAllocator lexemeAllocator;
+    llvm::BumpPtrAllocator typeAllocator;
 
+    ASTModuleDecl* module;
+
+    llvm::SmallVector<ASTNode*, 0> nodes;
     llvm::StringMap<int64_t> lexemeMap;
     llvm::SmallVector<llvm::StringRef, 0> lexemeValues;
 
     llvm::StringMap<Type*> types;
     llvm::SmallVector<FuncType*, 0> builtinFuncTypes;
-
-    ASTBlock* root;
 
     ErrorType typeError;
     AnyType typeAny;
@@ -114,4 +112,8 @@ private:
     FloatType typeFloat128;
     StringType typeString;
     PointerType typeAnyPointer;
+    BuiltinOperationType typeAssignmentOp;
+
+    BuiltinPrefixFuncType* createBuiltinPrefixFuncType(llvm::StringRef name, Type* paramType, Type* returnType);
+    BuiltinInfixFuncType* createBuiltinInfixFuncType(llvm::StringRef name, Type* lhsParamType, Type* rhsParamType, Type* returnType);
 };

@@ -1,9 +1,8 @@
-ASTBlock
+ASTModule
 | ASTFuncDecl { name = 'main' }
   | ASTOpaqueTypeRef { typeName = 'Void' }
-  | ASTBlock
+  | ASTCompoundStmt
     | ASTCallExpr
       | ASTSubscriptExpr
         | ASTIdentExpr { declName = 'myData' }
-        | args
-          | ASTIntLit { value = '1' }
+        | ASTIntLit { value = '1' }

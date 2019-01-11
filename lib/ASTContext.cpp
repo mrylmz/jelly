@@ -28,59 +28,6 @@
 
 #include <llvm/Support/ErrorHandling.h>
 
-static size_t allNodeSizes[] = {
-    sizeof(ASTNode),
-    sizeof(ASTStmt),
-    sizeof(ASTExpr),
-    sizeof(ASTDirective),
-    sizeof(ASTDecl),
-    sizeof(ASTUnaryExpr),
-    sizeof(ASTBinaryExpr),
-    sizeof(ASTMemberAccessExpr),
-    sizeof(ASTIdentExpr),
-    sizeof(ASTLit),
-    sizeof(ASTNilLit),
-    sizeof(ASTBoolLit),
-    sizeof(ASTIntLit),
-    sizeof(ASTFloatLit),
-    sizeof(ASTStringLit),
-    sizeof(ASTLoad),
-    sizeof(ASTBlock),
-    sizeof(ASTParamDecl),
-    sizeof(ASTFuncDecl),
-    sizeof(ASTPrefixFuncDecl),
-    sizeof(ASTInfixFuncDecl),
-    sizeof(ASTOpaqueDecl),
-    sizeof(ASTVarDecl),
-    sizeof(ASTLetDecl),
-    sizeof(ASTStructDecl),
-    sizeof(ASTEnumElementDecl),
-    sizeof(ASTEnumDecl),
-    sizeof(ASTCtrlStmt),
-    sizeof(ASTBreakStmt),
-    sizeof(ASTContinueStmt),
-    sizeof(ASTFallthroughStmt),
-    sizeof(ASTReturnStmt),
-    sizeof(ASTDeferStmt),
-    sizeof(ASTForStmt),
-    sizeof(ASTBranchStmt),
-    sizeof(ASTGuardStmt),
-    sizeof(ASTIfStmt),
-    sizeof(ASTLoopStmt),
-    sizeof(ASTDoStmt),
-    sizeof(ASTWhileStmt),
-    sizeof(ASTCaseStmt),
-    sizeof(ASTSwitchStmt),
-    sizeof(ASTCallExpr),
-    sizeof(ASTSubscriptExpr),
-    sizeof(ASTTypeRef),
-    sizeof(ASTAnyTypeRef),
-    sizeof(ASTOpaqueTypeRef),
-    sizeof(ASTTypeOfTypeRef),
-    sizeof(ASTPointerTypeRef),
-    sizeof(ASTArrayTypeRef)
-};
-
 ASTContext::ASTContext() :
 typeError(ErrorType()),
 typeAny(AnyType()),
@@ -100,32 +47,9 @@ typeFloat64(FloatType(FLOAT_IEEE64)),
 typeFloat80(FloatType(FLOAT_IEEE80)),
 typeFloat128(FloatType(FLOAT_IEEE128)),
 typeString(StringType()),
-typeAnyPointer(PointerType(1, &typeAny)) {
-    size_t containerSize = allNodeSizes[0];
-    for (auto i = 1; i < sizeof(allNodeSizes) / sizeof(size_t); i++) {
-        containerSize = std::max(containerSize, allNodeSizes[i]);
-    }
-
-    pageSize = sysconf(_SC_PAGESIZE);
-    nodeSize = 1;
-    while (nodeSize < containerSize) { nodeSize *= 2; }
-    nodeCount = 0;
-    nodesPerPage = pageSize / nodeSize;
-
-    while (nodesPerPage <= 0) {
-        pageSize *= 2;
-        nodesPerPage = pageSize / nodeSize;
-    }
-
-    void* buffer = malloc(pageSize);
-    if (buffer == nullptr) {
-        llvm::report_bad_alloc_error("Memory allocation failed!");
-    }
-
-    nodePages.push_back((uint8_t*)buffer);
-
-    root = new (this) ASTBlock;
-    root->scope.kind = SCOPE_GLOBAL;
+typeAnyPointer(PointerType(1, &typeAny)),
+typeAssignmentOp(BuiltinOperationType(BUILTIN_ASSIGNMENT_OPERATION)) {
+    module = new (this) ASTModuleDecl;
 
     types.try_emplace("Any", &typeAny);
     types.try_emplace("Void", &typeVoid);
@@ -147,36 +71,39 @@ typeAnyPointer(PointerType(1, &typeAny)) {
     types.try_emplace("Float128", &typeFloat128);
     types.try_emplace("Float", &typeFloat64);
     types.try_emplace("String", &typeString);
+
+    // @Incomplete add function overloading to support all trivia integer types with typed backend names
+
+    types.try_emplace("!", createBuiltinPrefixFuncType("logicalNot", getBoolType(), getBoolType()));
+    types.try_emplace("~", createBuiltinPrefixFuncType("bitwiseNot", getIntType(), getIntType()));
+    types.try_emplace("<<", createBuiltinInfixFuncType("bitwiseLeftShift", getIntType(), getIntType(), getIntType()));
+    types.try_emplace(">>", createBuiltinInfixFuncType("bitwiseRightShift", getIntType(), getIntType(), getIntType()));
+    types.try_emplace("*", createBuiltinInfixFuncType("multiply", getIntType(), getIntType(), getIntType()));
+    types.try_emplace("/", createBuiltinInfixFuncType("divide", getIntType(), getIntType(), getIntType()));
+    types.try_emplace("%", createBuiltinInfixFuncType("modulo", getIntType(), getIntType(), getIntType()));
+    types.try_emplace("&", createBuiltinInfixFuncType("bitwiseAnd", getIntType(), getIntType(), getIntType()));
+    types.try_emplace("+", createBuiltinInfixFuncType("add", getIntType(), getIntType(), getIntType()));
+    types.try_emplace("-", createBuiltinInfixFuncType("subtract", getIntType(), getIntType(), getIntType()));
+    types.try_emplace("|", createBuiltinInfixFuncType("bitwiseOr", getIntType(), getIntType(), getIntType()));
+    types.try_emplace("^", createBuiltinInfixFuncType("bitwiseXor", getIntType(), getIntType(), getIntType()));
+    types.try_emplace("<", createBuiltinInfixFuncType("lessThan", getIntType(), getIntType(), getIntType()));
+    types.try_emplace("<=", createBuiltinInfixFuncType("lessThanEqual", getIntType(), getIntType(), getIntType()));
+    types.try_emplace(">", createBuiltinInfixFuncType("greaterThan", getIntType(), getIntType(), getIntType()));
+    types.try_emplace(">=", createBuiltinInfixFuncType("greaterThanEqual", getIntType(), getIntType(), getIntType()));
+    types.try_emplace("==", createBuiltinInfixFuncType("equal", getIntType(), getIntType(), getIntType()));
+    types.try_emplace("!=", createBuiltinInfixFuncType("notEqual", getIntType(), getIntType(), getIntType()));
+    types.try_emplace("&&", createBuiltinInfixFuncType("logicalAnd", getBoolType(), getBoolType(), getBoolType()));
+    types.try_emplace("||", createBuiltinInfixFuncType("logicalOr", getBoolType(), getBoolType(), getBoolType()));
+    types.try_emplace("=", &typeAssignmentOp);
 }
 
 ASTContext::~ASTContext() {
-    for (auto key : lexemeValues) {
-        allocator.Deallocate(key.begin(), key.size());
+    for (auto node : nodes) {
+        node->destroy();
     }
 
-    for (auto it = nodePages.begin(); it != nodePages.end(); it++) {
-        free(*it);
-    }
-}
-
-void* ASTContext::allocNode()  {
-    size_t pageIndex = nodeCount / nodesPerPage;
-    size_t nodeIndex = nodeCount - pageIndex * nodesPerPage;
-
-    if (pageIndex >= nodePages.size()) {
-        void* buffer = malloc(pageSize);
-        if (buffer == nullptr) {
-            llvm::report_bad_alloc_error("Memory allocation failed!");
-        }
-
-        nodePages.push_back(buffer);
-    }
-
-    uint8_t* buffer = (uint8_t*)nodePages[pageIndex];
-    uint8_t* pointer = buffer + nodeIndex * nodeSize;
-
-    nodeCount += 1;
-    return pointer;
+    nodeAllocator.Reset();
+    lexemeAllocator.Reset();
 }
 
 Lexeme ASTContext::getLexeme(llvm::StringRef text) {
@@ -184,19 +111,19 @@ Lexeme ASTContext::getLexeme(llvm::StringRef text) {
     lexeme.index = lexemeMap.lookup(text);
 
     if (lexeme.index > 0) {
-        lexeme.text = lexemeValues[lexeme.index - 1];
+        lexeme.data = lexemeValues[lexeme.index - 1];
         return lexeme;
     }
 
-    lexeme.text = text.copy(allocator);
+    lexeme.data = text.copy(lexemeAllocator);
     lexeme.index = lexemeValues.size() + 1;
-    lexemeValues.push_back(lexeme.text);
-    lexemeMap.try_emplace(lexeme.text, lexeme.index);
+    lexemeValues.push_back(lexeme.data);
+    lexemeMap.try_emplace(lexeme.data, lexeme.index);
     return lexeme;
 }
 
-ASTBlock* ASTContext::getRoot() {
-    return root;
+ASTModuleDecl* ASTContext::getModule() {
+    return module;
 }
 
 llvm::StringMap<Type*>* ASTContext::getTypes() {
@@ -298,7 +225,7 @@ Type* ASTContext::getAnyPointerType() {
 Type* ASTContext::getEnumType(ASTEnumDecl* decl) {
     // @Incomplete build a unique type
     auto type = new EnumType;
-    type->name = decl->name.text;
+    type->name = decl->name;
     return type;
 }
 
@@ -332,19 +259,34 @@ Type* ASTContext::getDynamicArrayType(Type* elementType) {
     return type;
 }
 
-Type* ASTContext::getFuncType(ASTFuncDecl* decl) {
+FuncType* ASTContext::getFuncType(ASTFuncDecl* decl) {
     // @Incomplete build a unique type
     auto type = new FuncType;
-    type->name = decl->name.text;
-    for (auto param : decl->params) {
+    type->name = decl->name;
+    for (auto param : decl->parameters) {
         type->paramTypes.push_back(param->type);
     }
 
     type->returnType = decl->returnTypeRef->type;
 
     // @Cleanup the types are only written here to get a working IRGen pass
-    if (!findTypeByName(decl->name.text)) {
-        types.insert(std::make_pair(decl->name.text, type));
+    if (!findTypeByName(decl->name)) {
+        types.insert(std::make_pair(decl->name, type));
+    }
+
+    return type;
+}
+
+FuncType* ASTContext::getFuncType(llvm::StringRef name, llvm::SmallVector<Type*, 0> paramTypes, Type* returnType) {
+    // @Incomplete build a unique type
+    auto type = new FuncType;
+    type->name = name;
+    type->paramTypes = paramTypes; // paramTypes.copy(typeAllocator);
+    type->returnType = returnType;
+
+    // @Cleanup the types are only written here to get a working IRGen pass
+    if (!findTypeByName(name)) {
+        types.insert(std::make_pair(name, type));
     }
 
     return type;
@@ -371,4 +313,21 @@ Type* ASTContext::findTypeByName(llvm::StringRef name) {
         return it->getValue();
     }
     return nullptr;
+}
+
+BuiltinPrefixFuncType* ASTContext::createBuiltinPrefixFuncType(llvm::StringRef name, Type* paramType, Type* returnType) {
+    auto type = new BuiltinPrefixFuncType;
+    type->name = name;
+    type->paramTypes.push_back(paramType);
+    type->returnType = returnType;
+    return type;
+}
+
+BuiltinInfixFuncType* ASTContext::createBuiltinInfixFuncType(llvm::StringRef name, Type* lhsParamType, Type* rhsParamType, Type* returnType) {
+    auto type = new BuiltinInfixFuncType;
+    type->name = name;
+    type->paramTypes.push_back(lhsParamType);
+    type->paramTypes.push_back(rhsParamType);
+    type->returnType = returnType;
+    return type;
 }

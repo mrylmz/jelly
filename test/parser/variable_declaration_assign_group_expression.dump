@@ -1,4 +1,4 @@
-ASTBlock
-| ASTVarDecl { name = 'myVar' }
+ASTModule
+| ASTValueDecl { name = 'myVar', isConstant = 0 }
   | ASTOpaqueTypeRef { typeName = 'Int' }
   | ASTIntLit { value = '1' }

@@ -46,7 +46,7 @@
     Token        token = lexer.lexToken();                      \
                                                                 \
     EXPECT_EQ(token.kind, TOKEN_OPERATOR);                      \
-    EXPECT_TRUE(lexer.getOperator(token, __OP_KIND__, op));     \
+    EXPECT_TRUE(lexer.getOperator(token.text, __OP_KIND__, op));\
     EXPECT_TRUE(op.kind != OPERATOR_INVALID);                   \
 }
 

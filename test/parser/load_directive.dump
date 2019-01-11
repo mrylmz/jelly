@@ -1,3 +1,2 @@
-ASTBlock
-| ASTLoad
-  | ASTStringLit { value = 'path/to/source/file.jelly' }
+ASTModule
+| ASTLoad { loadFilePath = 'path/to/source/file.jelly' }

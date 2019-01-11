@@ -1,11 +1,12 @@
-ASTBlock
+ASTModule
 | ASTFuncDecl { name = 'main' }
   | ASTOpaqueTypeRef { typeName = 'Void' }
-  | ASTBlock
+  | ASTCompoundStmt
     | ASTGuardStmt
-      | conditions
+      | ASTBinaryExpr { operator = '&&' }
+        | ASTBinaryExpr { operator = '&&' }
+          | ASTBoolLit { value = '1' }
+          | ASTBoolLit { value = '1' }
         | ASTBoolLit { value = '1' }
-        | ASTBoolLit { value = '1' }
-        | ASTBoolLit { value = '1' }
-      | ASTBlock
+      | ASTCompoundStmt
         | ASTReturnStmt
