@@ -26,6 +26,7 @@
 
 #include "Core/ASTContext.h"
 #include "Core/Diagnostic.h"
+#include "Core/SourceManager.h"
 
 #include <string>
 
@@ -34,30 +35,27 @@
 #include <llvm/ADT/StringRef.h>
 
 struct CodeManager {
-    std::string workingDirectory;
-    llvm::SmallVector<std::string, 0> currentDirectoryStack;
+    SourceManager sourceManager;
     llvm::SmallVector<std::string, 0> sourceFilePaths;
-    llvm::SmallVector<std::string, 0> sourceContents;
+    llvm::SmallVector<SourceBuffer, 0> sourceBuffers;
 
-    unsigned bufferFilePathIndex = 0;
     unsigned parseFileIndex = 0;
     unsigned preprocessDeclIndex = 0;
 
     ASTContext context;
     DiagnosticEngine diag;
 
-    CodeManager(std::string workingDirectory, DiagnosticHandler* diagHandler);
-
-    static std::string getCurrentWorkingDirectory();
+    CodeManager(DiagnosticHandler* diagHandler);
 
     void addSourceFile(llvm::StringRef sourceFilePath);
     void addSourceText(llvm::StringRef sourceText);
-
-    void loadPendingSourceFiles();
 
     void parseAST();
     void printAST();
     void typecheckAST();
 
     ASTExpr* evaluateConstExpr(ASTExpr* expr);
+
+private:
+    std::string getNativePath(llvm::StringRef path);
 };

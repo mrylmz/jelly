@@ -36,5 +36,6 @@
 #include "Core/Operator.h"
 #include "Core/Parser.h"
 #include "Core/Sema.h"
+#include "Core/SourceManager.h"
 #include "Core/Token.h"
 #include "Core/Type.h"

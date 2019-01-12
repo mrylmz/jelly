@@ -32,75 +32,48 @@
 #include <fstream>
 #include <llvm/Support/ErrorHandling.h>
 #include <llvm/Support/FileSystem.h>
+#include <llvm/Support/Path.h>
 
-#ifdef WINDOWS
-#include <direct.h>
-#define __getCurrentWorkingDirectory _getcwd
-#else
-#include <unistd.h>
-#define __getCurrentWorkingDirectory getcwd
-#endif
+CodeManager::CodeManager(DiagnosticHandler* diagHandler) : diag(DiagnosticEngine(diagHandler)) {}
 
-CodeManager::CodeManager(std::string workingDirectory, DiagnosticHandler* diagHandler) :
-workingDirectory(workingDirectory), diag(DiagnosticEngine(diagHandler)) {
-    currentDirectoryStack.push_back(workingDirectory);
-}
-
-std::string CodeManager::getCurrentWorkingDirectory() {
-    char buffer[FILENAME_MAX];
-    __getCurrentWorkingDirectory(buffer, FILENAME_MAX);
-    return std::string(buffer);
+std::string CodeManager::getNativePath(llvm::StringRef path) {
+    llvm::SmallVector<char, 64> buffer(path.begin(), path.end());
+    llvm::sys::path::native(buffer);
+    return std::string(buffer.begin(), buffer.size());
 }
 
 void CodeManager::addSourceFile(llvm::StringRef sourceFilePath) {
-    auto currentDirectory = currentDirectoryStack.back();
-    auto absoluteFilePath = std::string(currentDirectory).append("/").append(sourceFilePath);
-
-    if (!llvm::sys::fs::exists(absoluteFilePath)) {
-        diag.report(DIAG_ERROR, "File at path '{0}' doesn't exist", sourceFilePath);
-        return;
-    }
-
     for (auto filePath : sourceFilePaths) {
-        if (filePath == absoluteFilePath) {
+        if (filePath == sourceFilePath) {
             return diag.report(DIAG_ERROR, "Cannot load source file at path '{0}' twice", sourceFilePath);
         }
     }
+    sourceFilePaths.push_back(sourceFilePath);
 
-    sourceFilePaths.push_back(absoluteFilePath);
+    auto buffer = sourceManager.addIncludeFile(sourceFilePath);
+    if (!buffer.isValid()) {
+        diag.report(DIAG_ERROR, "Couldn't load file at path '{0}'", sourceFilePath);
+        return;
+    }
+
+    sourceBuffers.push_back(buffer);
 }
 
 void CodeManager::addSourceText(llvm::StringRef sourceText) {
-    sourceContents.push_back(sourceText);
-}
-
-void CodeManager::loadPendingSourceFiles() {
-    while (bufferFilePathIndex < sourceFilePaths.size()) {
-        auto filePath = sourceFilePaths[bufferFilePathIndex];
-        {
-            std::fstream file;
-            file.open(filePath, std::fstream::in);
-
-            if (file.is_open() && file.good()) {
-                std::string content = { std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>() };
-                sourceContents.push_back(content);
-            } else {
-                diag.report(DIAG_ERROR, "Couldn't load contents of file at path '{0}'", filePath);
-            }
-
-            file.close();
-        }
-        bufferFilePathIndex += 1;
+    auto buffer = sourceManager.addSourceBuffer(sourceText);
+    if (!buffer.isValid()) {
+        diag.report(DIAG_ERROR, "Couldn't add source text to CodeManager!");
+        return;
     }
+
+    sourceBuffers.push_back(buffer);
 }
 
 void CodeManager::parseAST() {
-    loadPendingSourceFiles();
-
-    while (parseFileIndex < sourceContents.size()) {
-        auto content = sourceContents[parseFileIndex];
+    while (parseFileIndex < sourceBuffers.size()) {
+        auto buffer = sourceBuffers[parseFileIndex];
         {
-            Lexer lexer(content.c_str());
+            Lexer lexer(buffer);
             Parser parser(&lexer, &context, &diag);
             parser.parseAllTopLevelNodes();
 
@@ -108,7 +81,11 @@ void CodeManager::parseAST() {
             for (auto it = module->declsBegin() + preprocessDeclIndex; it != module->declsEnd(); it++) {
                 if ((*it)->kind == AST_LOAD_DIRECTIVE) {
                     auto loadDirective = reinterpret_cast<ASTLoadDirective*>(*it);
-                    addSourceFile(loadDirective->loadFilePath);
+                    auto loadFilePath = getNativePath(loadDirective->loadFilePath);
+
+                    // @Incomplete Add source location information of ASTLoadDirective and enable includes of local files in subdirectories
+                    addSourceFile(loadFilePath);
+
                     if (diag.hasErrors()) {
                         return;
                     }
@@ -118,8 +95,6 @@ void CodeManager::parseAST() {
             }
         }
         parseFileIndex += 1;
-
-        loadPendingSourceFiles();
     }
 }
 

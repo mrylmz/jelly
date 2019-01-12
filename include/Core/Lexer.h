@@ -24,8 +24,9 @@
 
 #pragma once
 
-#include "Core/Token.h"
 #include "Core/Operator.h"
+#include "Core/SourceManager.h"
+#include "Core/Token.h"
 
 #include <set>
 
@@ -42,6 +43,7 @@ struct LexerState {
     Token nextToken;
 
     LexerState(const char* buffer);
+    LexerState(SourceBuffer buffer);
 };
 
 struct Lexer {
@@ -54,7 +56,10 @@ struct Lexer {
     std::set<Precedence, std::less<Precedence>> operatorPrecedenceSet;
 
     Lexer(const char* buffer);
+    Lexer(SourceBuffer buffer);
     Lexer(const Lexer&) = delete;
+
+    void init();
 
     Token lexToken();
     Token peekNextToken();

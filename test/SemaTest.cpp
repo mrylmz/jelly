@@ -32,6 +32,9 @@ class SemaTest : public testing::TestWithParam<FileTestMetadata> {
 
 TEST_P(SemaTest, run) {
     auto parameter = GetParam();
+
+    SourceManager::setWorkingDirectory(parameter.workingDirectory);
+
     printf("[   TEST   ] %s\n", parameter.sourceFileName.c_str());
 
     if (!parameter.errorReports.empty()) {
@@ -42,7 +45,7 @@ TEST_P(SemaTest, run) {
         FAIL();
     } else {
         FileTestDiagnosticHandler diagHandler(parameter);
-        CodeManager manager(parameter.workingDirectory, &diagHandler);
+        CodeManager manager(&diagHandler);
         manager.addSourceText(parameter.sourceFileContent);
         manager.typecheckAST();
     }

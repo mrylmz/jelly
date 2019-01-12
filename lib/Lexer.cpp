@@ -118,7 +118,22 @@ bufferPtr(buffer),
 newLinePtr(buffer) {
 }
 
+LexerState::LexerState(SourceBuffer buffer) :
+bufferStart(buffer.getBufferStart()),
+bufferEnd(buffer.getBufferEnd()),
+bufferPtr(buffer.getBufferStart()),
+newLinePtr(buffer.getBufferStart()) {
+}
+
 Lexer::Lexer(const char* buffer) : state(buffer) {
+    init();
+}
+
+Lexer::Lexer(SourceBuffer buffer) : state(buffer) {
+    init();
+}
+
+void Lexer::init() {
     directives.try_emplace("#load", TOKEN_KEYWORD_LOAD);
 
     keywords.try_emplace("func", TOKEN_KEYWORD_FUNC);
@@ -152,13 +167,13 @@ Lexer::Lexer(const char* buffer) : state(buffer) {
     // TODO: [1] Reserve Builtin types as keywords !!!
 
 #define PREFIX_OPERATOR(__SYMBOL__) \
-    registerOperator(Operator(OPERATOR_PREFIX, __SYMBOL__));
+registerOperator(Operator(OPERATOR_PREFIX, __SYMBOL__));
 
 #define INFIX_OPERATOR(__SYMBOL__, __ASSOCIATIVITY__, __PRECEDENCE__, __CAN_HAVE_ARGS__, __IS_ASSIGNMENT__) \
-    registerOperator(Operator(OPERATOR_INFIX, __SYMBOL__, __ASSOCIATIVITY__, __PRECEDENCE__, __CAN_HAVE_ARGS__, __IS_ASSIGNMENT__));
+registerOperator(Operator(OPERATOR_INFIX, __SYMBOL__, __ASSOCIATIVITY__, __PRECEDENCE__, __CAN_HAVE_ARGS__, __IS_ASSIGNMENT__));
 
 #define POSTFIX_OPERATOR(__SYMBOL__, __ASSOCIATIVITY__, __PRECEDENCE__, __CAN_HAVE_ARGS__, __IS_ASSIGNMENT__) \
-    registerOperator(Operator(OPERATOR_POSTFIX, __SYMBOL__, __ASSOCIATIVITY__, __PRECEDENCE__, __CAN_HAVE_ARGS__, __IS_ASSIGNMENT__));
+registerOperator(Operator(OPERATOR_POSTFIX, __SYMBOL__, __ASSOCIATIVITY__, __PRECEDENCE__, __CAN_HAVE_ARGS__, __IS_ASSIGNMENT__));
 
 #include "Core/Operators.def"
 

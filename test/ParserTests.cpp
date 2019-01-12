@@ -72,7 +72,7 @@ TEST_P(ParserTest, run) {
         FAIL();
     } else {
         FileTestDiagnosticHandler diagHandler(parameter.metadata);
-        CodeManager manager(parameter.metadata.workingDirectory, &diagHandler);
+        CodeManager manager(&diagHandler);
         manager.addSourceText(parameter.metadata.sourceFileContent);
         manager.parseAST();
 
