@@ -27,6 +27,7 @@
 #include "Core/AST.h"
 #include "Core/ASTContext.h"
 #include "Core/ASTDumper.h"
+#include "Core/ASTMangler.h"
 #include "Core/CodeManager.h"
 #include "Core/Defer.h"
 #include "Core/Diagnostic.h"

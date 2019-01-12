@@ -1,7 +1,7 @@
 //
 // MIT License
 //
-// Copyright (c) 2018 Murat Yilmaz
+// Copyright (c) 2019 Murat Yilmaz
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -22,10 +22,23 @@
 // SOFTWARE.
 //
 
-#include "Core/Token.h"
+#pragma once
 
-Token::Token() : kind(TOKEN_UNKNOWN) {}
+#include "Core/Type.h"
 
-bool Token::is(unsigned kind) const {
-    return this->kind == kind;
-}
+#include <string>
+
+struct ASTNamedDecl;
+
+class ASTMangler {
+
+    std::string getDeclKindPrefix(ASTNamedDecl* decl);
+    std::string getMangledDeclName(ASTNamedDecl* decl);
+    std::string getTypeKindPrefix(TypeKind kind);
+
+public:
+    ASTMangler() {}
+
+    std::string mangleDecl(ASTNamedDecl* decl);
+    std::string mangleType(Type* type);
+};

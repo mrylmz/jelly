@@ -83,6 +83,5 @@ unsigned FloatType::bitWidth() const {
         case FLOAT_IEEE64:  return 64;
         case FLOAT_IEEE80:  return 80;
         case FLOAT_IEEE128: return 128;
-        case FLOAT_PPC128:  return 128;
     }
 }

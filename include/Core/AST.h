@@ -110,6 +110,16 @@ struct ASTNode {
     virtual void destroy() {};
 
     bool isDecl() const;
+
+    bool isNamedDecl() const {
+        return kind == AST_MODULE_DECL
+        || kind == AST_PARAM_DECL
+        || kind == AST_ENUM_DECL
+        || kind == AST_ENUM_ELEMENT_DECL
+        || kind == AST_FUNC_DECL
+        || kind == AST_VALUE_DECL
+        || kind == AST_STRUCT_DECL;
+    }
 };
 
 struct ASTStmt : public ASTNode {

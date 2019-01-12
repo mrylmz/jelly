@@ -101,8 +101,7 @@ enum FloatKind : uint8_t {
     FLOAT_IEEE32,
     FLOAT_IEEE64,
     FLOAT_IEEE80,
-    FLOAT_IEEE128,
-    FLOAT_PPC128
+    FLOAT_IEEE128
 };
 
 struct FloatType : public BuiltinType {

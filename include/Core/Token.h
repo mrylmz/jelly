@@ -70,9 +70,11 @@ struct Token {
     unsigned column;
     llvm::StringRef text;
 
-    Token();
+    Token() : kind(TOKEN_UNKNOWN) {}
 
-    bool is(unsigned kind) const;
+    bool is(unsigned kind) const {
+        return this->kind == kind;
+    }
 
     template <typename ...T>
     bool is(unsigned kind1, unsigned kind2, T... kinds) const {
