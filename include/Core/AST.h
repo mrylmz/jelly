@@ -28,9 +28,7 @@
 #include "Core/Lexeme.h"
 #include "Core/Operator.h"
 
-#include <llvm/ADT/ArrayRef.h>
-#include <llvm/ADT/APInt.h>
-#include <llvm/ADT/StringRef.h>
+#include <Basic/Basic.h>
 
 enum ASTNodeKind : uint8_t {
     AST_UNINITIALIZED,
@@ -154,7 +152,7 @@ struct ASTDecl : public ASTStmt {
 };
 
 struct ASTLoadDirective : public ASTDecl {
-    llvm::StringRef loadFilePath;
+    jelly::StringRef loadFilePath;
 
     ASTLoadDirective() : ASTDecl(AST_LOAD_DIRECTIVE) {}
 };
@@ -184,7 +182,7 @@ struct ASTEnumDecl : public ASTNamedDecl, public DeclContext {
 };
 
 struct ASTFuncDecl : public ASTNamedDecl, public DeclContext {
-    llvm::ArrayRef<ASTParamDecl*> parameters;
+    jelly::ArrayRef<ASTParamDecl*> parameters;
     ASTTypeRef* returnTypeRef = nullptr;
     ASTCompoundStmt* body = nullptr;
 
@@ -244,14 +242,14 @@ struct ASTMemberAccessExpr : public ASTExpr {
 
 struct ASTCallExpr : public ASTExpr {
     ASTExpr* left = nullptr;
-    llvm::ArrayRef<ASTExpr*> args;
+    jelly::ArrayRef<ASTExpr*> args;
 
     ASTCallExpr() : ASTExpr(AST_CALL) { }
 };
 
 struct ASTSubscriptExpr : public ASTExpr {
     ASTExpr* left = nullptr;
-    llvm::ArrayRef<ASTExpr*> args;
+    jelly::ArrayRef<ASTExpr*> args;
 
     ASTSubscriptExpr() : ASTExpr(AST_SUBSCRIPT) { }
 };
@@ -271,7 +269,7 @@ struct ASTBoolLit : ASTLit {
 };
 
 struct ASTIntLit : ASTLit {
-    llvm::APInt value = llvm::APInt(64, 0);
+    jelly::APInt value = jelly::APInt(64, 0);
 
     ASTIntLit() : ASTLit(AST_INT_LITERAL) { }
 
@@ -288,13 +286,13 @@ struct ASTFloatLit : ASTLit {
 };
 
 struct ASTStringLit : ASTLit {
-    llvm::StringRef value;
+    jelly::StringRef value;
 
     ASTStringLit() : ASTLit(AST_STRING_LITERAL) { }
 };
 
 struct ASTCompoundStmt : public ASTStmt {
-    llvm::ArrayRef<ASTStmt*> stmts;
+    jelly::ArrayRef<ASTStmt*> stmts;
 
     ASTCompoundStmt() : ASTStmt(AST_COMPOUND_STMT) { }
 };
@@ -394,7 +392,7 @@ struct ASTCaseStmt : public ASTStmt, public DeclContext {
 
 struct ASTSwitchStmt : public ASTStmt {
     ASTExpr* expr = nullptr;
-    llvm::ArrayRef<ASTCaseStmt*> cases;
+    jelly::ArrayRef<ASTCaseStmt*> cases;
 
     ASTSwitchStmt() : ASTStmt(AST_SWITCH) { }
 };

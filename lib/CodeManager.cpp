@@ -30,19 +30,16 @@
 #include <stdio.h>
 #include <iostream>
 #include <fstream>
-#include <llvm/Support/ErrorHandling.h>
-#include <llvm/Support/FileSystem.h>
-#include <llvm/Support/Path.h>
 
 CodeManager::CodeManager(DiagnosticHandler* diagHandler) : diag(DiagnosticEngine(diagHandler)) {}
 
-std::string CodeManager::getNativePath(llvm::StringRef path) {
-    llvm::SmallVector<char, 64> buffer(path.begin(), path.end());
-    llvm::sys::path::native(buffer);
+std::string CodeManager::getNativePath(jelly::StringRef path) {
+    jelly::SmallVector<char, 64> buffer(path.begin(), path.end());
+    jelly::native(buffer);
     return std::string(buffer.begin(), buffer.size());
 }
 
-void CodeManager::addSourceFile(llvm::StringRef sourceFilePath) {
+void CodeManager::addSourceFile(jelly::StringRef sourceFilePath) {
     for (auto filePath : sourceFilePaths) {
         if (filePath == sourceFilePath) {
             return diag.report(DIAG_ERROR, "Cannot load source file at path '{0}' twice", sourceFilePath);
@@ -59,7 +56,7 @@ void CodeManager::addSourceFile(llvm::StringRef sourceFilePath) {
     sourceBuffers.push_back(buffer);
 }
 
-void CodeManager::addSourceText(llvm::StringRef sourceText) {
+void CodeManager::addSourceText(jelly::StringRef sourceText) {
     auto buffer = sourceManager.addSourceBuffer(sourceText);
     if (!buffer.isValid()) {
         diag.report(DIAG_ERROR, "Couldn't add source text to CodeManager!");

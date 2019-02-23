@@ -1,7 +1,7 @@
 //
 // MIT License
 //
-// Copyright (c) 2018 Murat Yilmaz
+// Copyright (c) 2019 Murat Yilmaz
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -22,19 +22,32 @@
 // SOFTWARE.
 //
 
-#pragma once
+#include "Basic/SourceBuffer.h"
 
-#include "Core/AST.h"
-#include "Core/ASTContext.h"
-#include "Core/ASTDumper.h"
-#include "Core/ASTMangler.h"
-#include "Core/CodeManager.h"
-#include "Core/Defer.h"
-#include "Core/Diagnostic.h"
-#include "Core/Lexer.h"
-#include "Core/Macros.h"
-#include "Core/Operator.h"
-#include "Core/Parser.h"
-#include "Core/Sema.h"
-#include "Core/Token.h"
-#include "Core/Type.h"
+using namespace jelly;
+
+SourceBuffer::SourceBuffer(const char* bufferStart, const char* bufferEnd, unsigned bufferId) :
+bufferStart(bufferStart),
+bufferEnd(bufferEnd),
+bufferId(bufferId) {
+}
+
+bool SourceBuffer::isValid() const {
+    return bufferId > 0;
+}
+
+const char* SourceBuffer::getBufferStart() const {
+    return bufferStart;
+}
+
+const char* SourceBuffer::getBufferEnd() const {
+    return bufferEnd;
+}
+
+size_t SourceBuffer::getBufferSize() const {
+    return bufferEnd - bufferStart;
+}
+
+StringRef SourceBuffer::getBuffer() const {
+    return StringRef(bufferStart, getBufferSize());
+}

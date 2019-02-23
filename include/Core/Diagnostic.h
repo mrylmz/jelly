@@ -25,8 +25,7 @@
 #pragma once
 
 #include <string>
-#include <llvm/Support/Format.h>
-#include <llvm/Support/FormatVariadic.h>
+#include <Basic/Basic.h>
 
 // @Refactor may remove DiagnosticEngine entirely and move API to CodeManager
 
@@ -64,7 +63,7 @@ struct DiagnosticEngine {
     void report(DiagnosticLevel level, const char* format, Args&&... args) {
         Diagnostic diagnostic = {
             level,
-            llvm::formatv(format, args...)
+            jelly::formatv(format, args...)
         };
         reportedCount[level] += 1;
         handler->handle(diagnostic);

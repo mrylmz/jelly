@@ -25,7 +25,7 @@
 #pragma once
 
 #include <stddef.h>
-#include <llvm/ADT/StringRef.h>
+#include <Basic/Basic.h>
 
 enum Associativity : uint8_t {
     ASSOCIATIVITY_NONE,
@@ -44,14 +44,14 @@ typedef unsigned Precedence;
 
 struct Operator {
     OperatorKind kind;
-    llvm::StringRef text;
+    jelly::StringRef text;
     Associativity associativity;
     Precedence precedence;
     bool canHaveArgs; // @Refactor remove this ...
     bool isAssignment;
 
     Operator(OperatorKind kind = OPERATOR_INVALID,
-             llvm::StringRef text = {},
+             jelly::StringRef text = {},
              Associativity associativity = ASSOCIATIVITY_NONE,
              unsigned precedence = 250,
              bool canHaveArgs = false,

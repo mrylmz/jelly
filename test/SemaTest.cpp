@@ -33,7 +33,7 @@ class SemaTest : public testing::TestWithParam<FileTestMetadata> {
 TEST_P(SemaTest, run) {
     auto parameter = GetParam();
 
-    SourceManager::setWorkingDirectory(parameter.workingDirectory);
+    jelly::SourceManager::setWorkingDirectory(parameter.workingDirectory);
 
     printf("[   TEST   ] %s\n", parameter.sourceFileName.c_str());
 

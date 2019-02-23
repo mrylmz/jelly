@@ -25,9 +25,6 @@
 #include "Core/Defer.h"
 #include "Core/Parser.h"
 
-#include <llvm/ADT/SmallVector.h>
-#include <llvm/Support/ErrorHandling.h>
-
 #define PushParent(__Parser__, __Parent__) \
 __Parent__->parent = __Parser__->parent; \
 __Parser__->parent = __Parent__
@@ -268,7 +265,7 @@ static ASTCallExpr* ParseCallExpr(Parser* Parser, ASTContext* Context, Diagnosti
 
     PushParent(Parser, callExpr);
     {
-        llvm::SmallVector<ASTExpr*, 0> arguments;
+        jelly::SmallVector<ASTExpr*, 0> arguments;
         if (!Parser->token.is(')')) {
             while (true) {
                 ASTExpr* argument = ParseExpr(Parser, Context, Diag);
@@ -290,7 +287,7 @@ static ASTCallExpr* ParseCallExpr(Parser* Parser, ASTContext* Context, Diagnosti
         }
         ConsumeToken(Parser);
 
-        callExpr->args = llvm::makeArrayRef(arguments).copy(Context->nodeAllocator);
+        callExpr->args = jelly::makeArrayRef(arguments).copy(Context->nodeAllocator);
     }
     PopParent(Parser);
 
@@ -308,7 +305,7 @@ static ASTSubscriptExpr* ParseSubscriptExpr(Parser* Parser, ASTContext* Context,
 
     PushParent(Parser, Subscript);
     {
-        llvm::SmallVector<ASTExpr*, 0> arguments;
+        jelly::SmallVector<ASTExpr*, 0> arguments;
         if (!Parser->token.is(']')) {
             while (true) {
                 ASTExpr* argument = ParseExpr(Parser, Context, Diag);
@@ -330,7 +327,7 @@ static ASTSubscriptExpr* ParseSubscriptExpr(Parser* Parser, ASTContext* Context,
         }
         ConsumeToken(Parser);
 
-        Subscript->args = llvm::makeArrayRef(arguments).copy(Context->nodeAllocator);
+        Subscript->args = jelly::makeArrayRef(arguments).copy(Context->nodeAllocator);
     }
     PopParent(Parser);
 
@@ -632,7 +629,7 @@ static ASTCompoundStmt* ParseCompoundStmt(Parser* Parser, ASTContext* Context, D
 
     PushParent(Parser, compoundStmt);
     {
-        llvm::SmallVector<ASTStmt*, 0> stmts;
+        jelly::SmallVector<ASTStmt*, 0> stmts;
 
         if (!Parser->token.is('}')) {
             unsigned line = Parser->token.line;
@@ -657,7 +654,7 @@ static ASTCompoundStmt* ParseCompoundStmt(Parser* Parser, ASTContext* Context, D
         }
         ConsumeToken(Parser);
 
-        compoundStmt->stmts = llvm::makeArrayRef(stmts).copy(Context->nodeAllocator);
+        compoundStmt->stmts = jelly::makeArrayRef(stmts).copy(Context->nodeAllocator);
     }
     PopParent(Parser);
 
@@ -818,7 +815,7 @@ static ASTFuncDecl* ParseFuncDecl(Parser* Parser, ASTContext* Context, Diagnosti
         }
         ConsumeToken(Parser);
 
-        llvm::SmallVector<ASTParamDecl*, 0> parameters;
+        jelly::SmallVector<ASTParamDecl*, 0> parameters;
         if (!Parser->token.is(')')) {
             while (true) {
                 ASTParamDecl* parameter = ParseParameterDecl(Parser, Context, Diag);
@@ -839,7 +836,7 @@ static ASTFuncDecl* ParseFuncDecl(Parser* Parser, ASTContext* Context, Diagnosti
         }
         ConsumeToken(Parser);
 
-        Func->parameters = llvm::makeArrayRef(parameters).copy(Context->nodeAllocator);
+        Func->parameters = jelly::makeArrayRef(parameters).copy(Context->nodeAllocator);
 
         for (auto parameter : Func->parameters) {
             if (!Func->lookupDecl(parameter->name)) {
@@ -1136,7 +1133,7 @@ static ASTDoStmt* ParseDoStmt(Parser* Parser, ASTContext* Context, DiagnosticEng
                 andExpr->right->parent = andExpr;
 
                 if (!Parser->lexer->getOperator("&&", OPERATOR_INFIX, andExpr->op)) {
-                    llvm::report_fatal_error("Internal compiler error!");
+                    jelly::report_fatal_error("Internal compiler error!");
                 }
 
                 Do->condition = andExpr;
@@ -1221,7 +1218,7 @@ static ASTGuardStmt* ParseGuardStmt(Parser* Parser, ASTContext* Context, Diagnos
                 andExpr->right->parent = andExpr;
 
                 if (!Parser->lexer->getOperator("&&", OPERATOR_INFIX, andExpr->op)) {
-                    llvm::report_fatal_error("Internal compiler error!");
+                    jelly::report_fatal_error("Internal compiler error!");
                 }
 
                 Guard->condition = andExpr;
@@ -1278,7 +1275,7 @@ static ASTIfStmt* ParseIfStmt(Parser* Parser, ASTContext* Context, DiagnosticEng
                 andExpr->right->parent = andExpr;
 
                 if (!Parser->lexer->getOperator("&&", OPERATOR_INFIX, andExpr->op)) {
-                    llvm::report_fatal_error("Internal compiler error!");
+                    jelly::report_fatal_error("Internal compiler error!");
                 }
 
                 If->condition = andExpr;
@@ -1355,7 +1352,7 @@ static ASTCaseStmt* ParseSwitchCaseStmt(Parser* Parser, ASTContext* Context, Dia
 
         PushParent(Parser, Case->body);
         {
-            llvm::SmallVector<ASTStmt*, 0> stmts;
+            jelly::SmallVector<ASTStmt*, 0> stmts;
             unsigned line = Parser->token.line;
             do {
                 if (Parser->token.is(TOKEN_KEYWORD_CASE, TOKEN_KEYWORD_ELSE, '}')) {
@@ -1393,7 +1390,7 @@ static ASTCaseStmt* ParseSwitchCaseStmt(Parser* Parser, ASTContext* Context, Dia
 
             } while (true);
 
-            Case->body->stmts = llvm::makeArrayRef(stmts).copy(Context->nodeAllocator);
+            Case->body->stmts = jelly::makeArrayRef(stmts).copy(Context->nodeAllocator);
         }
         PopParent(Parser);
     }
@@ -1424,7 +1421,7 @@ static ASTSwitchStmt* ParseSwitchStmt(Parser* Parser, ASTContext* Context, Diagn
         }
         ConsumeToken(Parser);
 
-        llvm::SmallVector<ASTCaseStmt*, 0> cases;
+        jelly::SmallVector<ASTCaseStmt*, 0> cases;
         unsigned line = Parser->token.line;
         do {
             if (cases.size() > 0 && line == Parser->token.line) {
@@ -1448,7 +1445,7 @@ static ASTSwitchStmt* ParseSwitchStmt(Parser* Parser, ASTContext* Context, Diagn
 
         ConsumeToken(Parser);
 
-        Switch->cases = llvm::makeArrayRef(cases).copy(Context->nodeAllocator);
+        Switch->cases = jelly::makeArrayRef(cases).copy(Context->nodeAllocator);
     }
     PopParent(Parser);
 
@@ -1483,7 +1480,7 @@ static ASTWhileStmt* ParseWhileStmt(Parser* Parser, ASTContext* Context, Diagnos
                 andExpr->right->parent = andExpr;
 
                 if (!Parser->lexer->getOperator("&&", OPERATOR_INFIX, andExpr->op)) {
-                    llvm::report_fatal_error("Internal compiler error!");
+                    jelly::report_fatal_error("Internal compiler error!");
                 }
 
                 While->condition = andExpr;

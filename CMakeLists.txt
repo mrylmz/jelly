@@ -21,6 +21,8 @@ include(CodeCoverage)
 
 include_directories(include PUBLIC)
 
+file(GLOB JELLY_BASIC_HEADER_FILES     "include/Basic/*.h")
+file(GLOB JELLY_BASIC_SOURCE_FILES     "lib/Basic/*.cpp")
 file(GLOB JELLY_HEADER_FILES           "include/*.h")
 file(GLOB JELLY_SOURCE_FILES           "src/*.cpp")
 file(GLOB JELLY_CORE_HEADER_FILES      "include/Core/*.h")
@@ -35,33 +37,40 @@ llvm_map_components_to_libnames(LLVM_LIBS all)
 add_executable       (jelly ${JELLY_HEADER_FILES} ${JELLY_SOURCE_FILES})
 target_link_libraries(jelly jellyCore)
 
+add_library          (jellyBasic STATIC ${JELLY_BASIC_HEADER_FILES} ${JELLY_BASIC_SOURCE_FILES})
+target_link_libraries(jellyBasic ${LLVM_LIBS})
+
 add_library          (jellyCore STATIC ${JELLY_CORE_HEADER_FILES} ${JELLY_CORE_SOURCE_FILES})
-target_link_libraries(jellyCore ${LLVM_LIBS})
+target_link_libraries(jellyCore jellyBasic ${LLVM_LIBS})
 
 add_executable       (jellyTest ${HEADER_FILES} ${JELLY_TEST_HEADER_FILES} ${JELLY_TEST_SOURCE_FILES})
-target_link_libraries(jellyTest jellyCore ${LLVM_LIBS} gtest_main)
+target_link_libraries(jellyTest jellyBasic jellyCore ${LLVM_LIBS} gtest_main)
 
 add_executable       (jellyBenchmark ${HEADER_FILES} ${JELLY_BENCHMARK_SOURCE_FILES})
-target_link_libraries(jellyBenchmark jellyCore benchmark_main)
+target_link_libraries(jellyBenchmark jellyBasic jellyCore benchmark_main)
 
 append_coverage_compiler_flags()
 
 set_property(
-    TARGET jelly jellyCore jellyTest jellyBenchmark
+    TARGET jelly jellyBasic jellyCore jellyTest jellyBenchmark
     PROPERTY XCODE_ATTRIBUTE_CLANG_ENABLE_CODE_COVERAGE YES
 )
 
 set_property(
-    TARGET jellyCore jellyTest jellyBenchmark
+    TARGET jellyBasic jellyCore jellyTest jellyBenchmark
     PROPERTY XCODE_ATTRIBUTE_GCC_GENERATE_TEST_COVERAGE_FILES YES
 )
 
 set_property(
-    TARGET jelly jellyCore jellyTest jellyBenchmark
+    TARGET jelly jellyBasic jellyCore jellyTest jellyBenchmark
     PROPERTY XCODE_ATTRIBUTE_GCC_INSTRUMENT_PROGRAM_FLOW_ARCS YES
 )
 
 add_custom_command(TARGET jelly POST_BUILD
+    COMMAND find . -name \"*.gcda\" -delete;
+)
+
+add_custom_command(TARGET jellyBasic POST_BUILD
     COMMAND find . -name \"*.gcda\" -delete;
 )
 

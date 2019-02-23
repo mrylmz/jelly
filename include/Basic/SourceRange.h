@@ -1,7 +1,7 @@
 //
 // MIT License
 //
-// Copyright (c) 2018 Murat Yilmaz
+// Copyright (c) 2019 Murat Yilmaz
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -24,17 +24,23 @@
 
 #pragma once
 
-#include "Core/AST.h"
-#include "Core/ASTContext.h"
-#include "Core/ASTDumper.h"
-#include "Core/ASTMangler.h"
-#include "Core/CodeManager.h"
-#include "Core/Defer.h"
-#include "Core/Diagnostic.h"
-#include "Core/Lexer.h"
-#include "Core/Macros.h"
-#include "Core/Operator.h"
-#include "Core/Parser.h"
-#include "Core/Sema.h"
-#include "Core/Token.h"
-#include "Core/Type.h"
+#include "Basic/SourceLocation.h"
+
+namespace jelly {
+
+    class SourceRange {
+        SourceLocation start;
+        SourceLocation end;
+
+    public:
+        SourceRange();
+        SourceRange(SourceLocation location);
+        SourceRange(SourceLocation start, SourceLocation end);
+
+        bool isValid() const;
+        bool contains(SourceLocation location) const;
+
+        bool operator == (const SourceRange &rhs) const;
+        bool operator != (const SourceRange &rhs) const;
+    };
+}

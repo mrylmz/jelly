@@ -24,9 +24,6 @@
 
 #include "Core/Lexer.h"
 
-#include <llvm/ADT/StringRef.h>
-#include <llvm/Support/ErrorHandling.h>
-
 // @Incomplete Add UTF-8 support
 // @Incomplete Lex leading and trailing trivia(s)
 
@@ -118,7 +115,7 @@ bufferPtr(buffer),
 newLinePtr(buffer) {
 }
 
-LexerState::LexerState(SourceBuffer buffer) :
+LexerState::LexerState(jelly::SourceBuffer buffer) :
 bufferStart(buffer.getBufferStart()),
 bufferEnd(buffer.getBufferEnd()),
 bufferPtr(buffer.getBufferStart()),
@@ -129,7 +126,7 @@ Lexer::Lexer(const char* buffer) : state(buffer) {
     init();
 }
 
-Lexer::Lexer(SourceBuffer buffer) : state(buffer) {
+Lexer::Lexer(jelly::SourceBuffer buffer) : state(buffer) {
     init();
 }
 
@@ -195,7 +192,7 @@ Token Lexer::peekNextToken() {
     return state.nextToken;
 }
 
-bool Lexer::getOperator(llvm::StringRef name, OperatorKind kind, Operator& op) {
+bool Lexer::getOperator(jelly::StringRef name, OperatorKind kind, Operator& op) {
     switch (kind) {
         case OPERATOR_PREFIX:  return getOperator(name, op, prefixOperators);
         case OPERATOR_INFIX:   return getOperator(name, op, infixOperators);
@@ -204,7 +201,7 @@ bool Lexer::getOperator(llvm::StringRef name, OperatorKind kind, Operator& op) {
     }
 }
 
-bool Lexer::getOperator(llvm::StringRef name, Operator& op, llvm::StringMap<Operator>& operators) {
+bool Lexer::getOperator(jelly::StringRef name, Operator& op, jelly::StringMap<Operator>& operators) {
     auto it = operators.find(name);
     if (it != operators.end()) {
         op = it->getValue();
@@ -214,7 +211,7 @@ bool Lexer::getOperator(llvm::StringRef name, Operator& op, llvm::StringMap<Oper
     return false;
 }
 
-bool Lexer::hasOperator(llvm::StringRef text) {
+bool Lexer::hasOperator(jelly::StringRef text) {
     return prefixOperators.count(text) > 0 || infixOperators.count(text) > 0 || postfixOperators.count(text) > 0;
 }
 
@@ -236,7 +233,7 @@ void Lexer::registerOperator(Operator op) {
     }
 }
 
-void Lexer::registerOperator(Operator op, llvm::StringMap<Operator>& operators) {
+void Lexer::registerOperator(Operator op, jelly::StringMap<Operator>& operators) {
     assert(!op.text.equals("->") && "'->' is reserved and cannot be added as operator!");
     assert(!op.text.equals("//") && "'//' is reserved and cannot be added as operator!");
     assert(!op.text.equals("/*") && "'/*' is reserved and cannot be added as operator!");
@@ -247,7 +244,7 @@ void Lexer::registerOperator(Operator op, llvm::StringMap<Operator>& operators) 
     assert(success && "Overriding operators is not allowed!");
 
     if (!success) {
-        llvm::report_fatal_error("Internal compiler error!");
+        jelly::report_fatal_error("Internal compiler error!");
     }
 
     registerOperatorPrecedence(op.precedence);
@@ -259,7 +256,7 @@ void Lexer::registerOperatorPrecedence(Precedence precedence) {
 
 void Lexer::formToken(unsigned kind, const char* tokenStart) {
     state.nextToken.kind = kind;
-    state.nextToken.text = llvm::StringRef(tokenStart, state.bufferPtr - tokenStart);
+    state.nextToken.text = jelly::StringRef(tokenStart, state.bufferPtr - tokenStart);
     state.nextToken.column = tokenStart - state.newLinePtr;
 }
 
@@ -399,7 +396,7 @@ void Lexer::lexDirective() {
         return formToken(TOKEN_UNKNOWN, tokenStart);
     }
 
-    llvm::StringRef text(tokenStart, state.bufferPtr - tokenStart);
+    jelly::StringRef text(tokenStart, state.bufferPtr - tokenStart);
 
     auto it = directives.find(text);
     if (it == directives.end()) {
@@ -416,7 +413,7 @@ void Lexer::lexIdentifierOrKeyword() {
 
     advanceWhile(&charIsContinuationOfIdentifier);
 
-    llvm::StringRef text(tokenStart, state.bufferPtr - tokenStart);
+    jelly::StringRef text(tokenStart, state.bufferPtr - tokenStart);
 
     auto it = keywords.find(text);
     if (it == keywords.end()) {
@@ -455,7 +452,7 @@ void Lexer::lexOperator() {
 
     bool found;
     do {
-        llvm::StringRef text(tokenStart, state.bufferPtr - tokenStart);
+        jelly::StringRef text(tokenStart, state.bufferPtr - tokenStart);
         found = hasOperator(text);
         state.bufferPtr -= 1;
     } while (state.bufferPtr != tokenStart && !found);

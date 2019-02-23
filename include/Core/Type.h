@@ -26,11 +26,6 @@
 
 #include "Core/AST.h"
 
-#include <llvm/ADT/APInt.h>
-#include <llvm/ADT/StringRef.h>
-#include <llvm/ADT/StringMap.h>
-#include <llvm/ADT/SmallVector.h>
-
 enum TypeKind : uint8_t {
     TYPE_ERROR,
     TYPE_BUILTIN_ANY,
@@ -66,7 +61,7 @@ struct Type {
 struct BuiltinType : public Type {};
 
 struct DeclType : public Type {
-    llvm::StringRef name;
+    jelly::StringRef name;
 };
 
 struct ErrorType : public Type {
@@ -132,22 +127,22 @@ struct PointerType : public BuiltinType {
 
 struct ArrayType : public Type {
     bool isStatic = false;
-    llvm::APInt size = llvm::APInt(256, 0);
+    jelly::APInt size = jelly::APInt(256, 0);
     Type* elementType = nullptr;
 
     ArrayType() { kind = TYPE_BUILTIN_ARRAY; }
 };
 
 struct EnumType : public DeclType {
-    llvm::SmallVector<ASTIntLit*, 0> memberValues;
-    llvm::APInt nextMemberValue = llvm::APInt(64, 0);
+    jelly::SmallVector<ASTIntLit*, 0> memberValues;
+    jelly::APInt nextMemberValue = jelly::APInt(64, 0);
 
     EnumType() { kind = TYPE_DECL_ENUM; }
 };
 
 struct StructType : public DeclType {
-    llvm::StringMap<Type*> memberTypes;
-    llvm::StringMap<unsigned> memberIndexes;
+    jelly::StringMap<Type*> memberTypes;
+    jelly::StringMap<unsigned> memberIndexes;
 
     StructType() { kind = TYPE_DECL_STRUCT; }
 };
@@ -169,7 +164,7 @@ enum CallingConvention : uint8_t {
 
 struct FuncType : public DeclType {
     CallingConvention cc = CALLING_CONVENTION_DEFAULT;
-    llvm::SmallVector<Type*, 0> paramTypes;
+    jelly::SmallVector<Type*, 0> paramTypes;
     Type* returnType = nullptr;
 
     FuncType() { kind = TYPE_DECL_FUNC; }

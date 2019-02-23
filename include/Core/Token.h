@@ -24,8 +24,6 @@
 
 #pragma once
 
-#include <llvm/ADT/StringRef.h>
-
 // @Refactor replace reserved ASCII tokens with named enum cases to reduce the size of a Token
 enum {
     // 0 - 256 reserved for character tokens
@@ -68,7 +66,7 @@ struct Token {
     unsigned kind;
     unsigned line;
     unsigned column;
-    llvm::StringRef text;
+    jelly::StringRef text;
 
     Token() : kind(TOKEN_UNKNOWN) {}
 

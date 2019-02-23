@@ -25,13 +25,11 @@
 #pragma once
 
 #include "Core/Operator.h"
-#include "Core/SourceManager.h"
 #include "Core/Token.h"
 
 #include <set>
 
-#include <llvm/ADT/SmallVector.h>
-#include <llvm/ADT/StringMap.h>
+#include <Basic/Basic.h>
 
 typedef bool (*CharPredicate)(char character);
 
@@ -43,20 +41,20 @@ struct LexerState {
     Token nextToken;
 
     LexerState(const char* buffer);
-    LexerState(SourceBuffer buffer);
+    LexerState(jelly::SourceBuffer buffer);
 };
 
 struct Lexer {
     LexerState state;
-    llvm::StringMap<uint32_t> directives;
-    llvm::StringMap<uint32_t> keywords;
-    llvm::StringMap<Operator> prefixOperators;
-    llvm::StringMap<Operator> infixOperators;
-    llvm::StringMap<Operator> postfixOperators;
+    jelly::StringMap<uint32_t> directives;
+    jelly::StringMap<uint32_t> keywords;
+    jelly::StringMap<Operator> prefixOperators;
+    jelly::StringMap<Operator> infixOperators;
+    jelly::StringMap<Operator> postfixOperators;
     std::set<Precedence, std::less<Precedence>> operatorPrecedenceSet;
 
     Lexer(const char* buffer);
-    Lexer(SourceBuffer buffer);
+    Lexer(jelly::SourceBuffer buffer);
     Lexer(const Lexer&) = delete;
 
     void init();
@@ -64,13 +62,13 @@ struct Lexer {
     Token lexToken();
     Token peekNextToken();
 
-    bool getOperator(llvm::StringRef name, OperatorKind kind, Operator& op);
-    bool getOperator(llvm::StringRef name, Operator& op, llvm::StringMap<Operator>& operators);
-    bool hasOperator(llvm::StringRef text);
+    bool getOperator(jelly::StringRef name, OperatorKind kind, Operator& op);
+    bool getOperator(jelly::StringRef name, Operator& op, jelly::StringMap<Operator>& operators);
+    bool hasOperator(jelly::StringRef text);
     Precedence getOperatorPrecedenceBefore(Precedence precedence);
 
     void registerOperator(Operator op);
-    void registerOperator(Operator op, llvm::StringMap<Operator>& operators);
+    void registerOperator(Operator op, jelly::StringMap<Operator>& operators);
     void registerOperatorPrecedence(Precedence precedence);
 
     void formToken(unsigned kind, const char* tokenStart);

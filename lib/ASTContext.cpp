@@ -26,8 +26,6 @@
 
 #include <unistd.h>
 
-#include <llvm/Support/ErrorHandling.h>
-
 ASTContext::ASTContext() :
 typeError(ErrorType()),
 typeAny(AnyType()),
@@ -106,7 +104,7 @@ ASTContext::~ASTContext() {
     lexemeAllocator.Reset();
 }
 
-Lexeme ASTContext::getLexeme(llvm::StringRef text) {
+Lexeme ASTContext::getLexeme(jelly::StringRef text) {
     Lexeme lexeme;
     lexeme.index = lexemeMap.lookup(text);
 
@@ -126,11 +124,11 @@ ASTModuleDecl* ASTContext::getModule() {
     return module;
 }
 
-llvm::StringMap<Type*>* ASTContext::getTypes() {
+jelly::StringMap<Type*>* ASTContext::getTypes() {
     return &types;
 }
 
-llvm::SmallVector<FuncType*, 0>* ASTContext::getBuiltinFuncTypes() {
+jelly::SmallVector<FuncType*, 0>* ASTContext::getBuiltinFuncTypes() {
     return &builtinFuncTypes;
 }
 
@@ -242,7 +240,7 @@ Type* ASTContext::getPointerType(Type* pointeeType, uint64_t depth) {
     return type;
 }
 
-Type* ASTContext::getStaticArrayType(Type* elementType, llvm::APInt size) {
+Type* ASTContext::getStaticArrayType(Type* elementType, jelly::APInt size) {
     // @Incomplete build a unique type
     auto type = new ArrayType;
     type->isStatic = true;
@@ -277,7 +275,7 @@ FuncType* ASTContext::getFuncType(ASTFuncDecl* decl) {
     return type;
 }
 
-FuncType* ASTContext::getFuncType(llvm::StringRef name, llvm::SmallVector<Type*, 0> paramTypes, Type* returnType) {
+FuncType* ASTContext::getFuncType(jelly::StringRef name, jelly::SmallVector<Type*, 0> paramTypes, Type* returnType) {
     // @Incomplete build a unique type
     auto type = new FuncType;
     type->name = name;
@@ -292,7 +290,7 @@ FuncType* ASTContext::getFuncType(llvm::StringRef name, llvm::SmallVector<Type*,
     return type;
 }
 
-Type* ASTContext::getStructType(llvm::StringRef name, llvm::StringMap<Type*> memberTypes, llvm::StringMap<unsigned> memberIndexes) {
+Type* ASTContext::getStructType(jelly::StringRef name, jelly::StringMap<Type*> memberTypes, jelly::StringMap<unsigned> memberIndexes) {
     // @Incomplete build a unique type
     auto type = findTypeByName(name);
     if (!type) {
@@ -307,7 +305,7 @@ Type* ASTContext::getStructType(llvm::StringRef name, llvm::StringMap<Type*> mem
     return type;
 }
 
-Type* ASTContext::findTypeByName(llvm::StringRef name) {
+Type* ASTContext::findTypeByName(jelly::StringRef name) {
     auto it = types.find(name);
     if (it != types.end()) {
         return it->getValue();
@@ -315,7 +313,7 @@ Type* ASTContext::findTypeByName(llvm::StringRef name) {
     return nullptr;
 }
 
-BuiltinPrefixFuncType* ASTContext::createBuiltinPrefixFuncType(llvm::StringRef name, Type* paramType, Type* returnType) {
+BuiltinPrefixFuncType* ASTContext::createBuiltinPrefixFuncType(jelly::StringRef name, Type* paramType, Type* returnType) {
     auto type = new BuiltinPrefixFuncType;
     type->name = name;
     type->paramTypes.push_back(paramType);
@@ -323,7 +321,7 @@ BuiltinPrefixFuncType* ASTContext::createBuiltinPrefixFuncType(llvm::StringRef n
     return type;
 }
 
-BuiltinInfixFuncType* ASTContext::createBuiltinInfixFuncType(llvm::StringRef name, Type* lhsParamType, Type* rhsParamType, Type* returnType) {
+BuiltinInfixFuncType* ASTContext::createBuiltinInfixFuncType(jelly::StringRef name, Type* lhsParamType, Type* rhsParamType, Type* returnType) {
     auto type = new BuiltinInfixFuncType;
     type->name = name;
     type->paramTypes.push_back(lhsParamType);

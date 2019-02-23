@@ -87,7 +87,7 @@ bool DeclContext::containsDecl(ASTDecl *decl) {
     return false;
 }
 
-ASTDecl* DeclContext::lookupDecl(llvm::StringRef name) {
+ASTDecl* DeclContext::lookupDecl(jelly::StringRef name) {
     for (auto it = declsBegin(); it != declsEnd(); it++) {
         if ((*it)->isNamedDecl()) {
             auto decl = reinterpret_cast<ASTNamedDecl*>(*it);
@@ -100,7 +100,7 @@ ASTDecl* DeclContext::lookupDecl(llvm::StringRef name) {
     return nullptr;
 }
 
-ASTDecl* DeclContext::lookupDeclInHierarchy(llvm::StringRef name) {
+ASTDecl* DeclContext::lookupDeclInHierarchy(jelly::StringRef name) {
     auto context = this;
     while (context) {
         auto decl = context->lookupDecl(name);

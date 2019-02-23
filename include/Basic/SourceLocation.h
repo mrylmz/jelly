@@ -1,7 +1,7 @@
 //
 // MIT License
 //
-// Copyright (c) 2018 Murat Yilmaz
+// Copyright (c) 2019 Murat Yilmaz
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -24,17 +24,36 @@
 
 #pragma once
 
-#include "Core/AST.h"
-#include "Core/ASTContext.h"
-#include "Core/ASTDumper.h"
-#include "Core/ASTMangler.h"
-#include "Core/CodeManager.h"
-#include "Core/Defer.h"
-#include "Core/Diagnostic.h"
-#include "Core/Lexer.h"
-#include "Core/Macros.h"
-#include "Core/Operator.h"
-#include "Core/Parser.h"
-#include "Core/Sema.h"
-#include "Core/Token.h"
-#include "Core/Type.h"
+#include <llvm/Support/SMLoc.h>
+
+namespace jelly {
+
+    class SourceManager;
+
+    class SourceLocation {
+        friend class SourceManager;
+
+        llvm::SMLoc value;
+
+        SourceLocation(llvm::SMLoc value);
+        SourceLocation(const char* pointer);
+
+        const char* getPointer() const;
+
+    public:
+        SourceLocation();
+
+        bool isValid() const;
+        bool isBefore(SourceLocation rhs) const;
+        bool isAfter(SourceLocation rhs) const;
+
+        SourceLocation getAdvancedLocation(int offset) const;
+
+        bool operator == (const SourceLocation& rhs) const;
+        bool operator != (const SourceLocation& rhs) const;
+        bool operator <  (const SourceLocation& rhs) const;
+        bool operator <= (const SourceLocation& rhs) const;
+        bool operator >  (const SourceLocation& rhs) const;
+        bool operator >= (const SourceLocation& rhs) const;
+    };
+}

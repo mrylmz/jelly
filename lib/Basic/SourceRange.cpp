@@ -1,7 +1,7 @@
 //
 // MIT License
 //
-// Copyright (c) 2018 Murat Yilmaz
+// Copyright (c) 2019 Murat Yilmaz
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -22,19 +22,35 @@
 // SOFTWARE.
 //
 
-#pragma once
+#include "Basic/SourceRange.h"
 
-#include "Core/AST.h"
-#include "Core/ASTContext.h"
-#include "Core/ASTDumper.h"
-#include "Core/ASTMangler.h"
-#include "Core/CodeManager.h"
-#include "Core/Defer.h"
-#include "Core/Diagnostic.h"
-#include "Core/Lexer.h"
-#include "Core/Macros.h"
-#include "Core/Operator.h"
-#include "Core/Parser.h"
-#include "Core/Sema.h"
-#include "Core/Token.h"
-#include "Core/Type.h"
+using namespace jelly;
+
+SourceRange::SourceRange() {
+}
+
+SourceRange::SourceRange(SourceLocation location) :
+start(location),
+end(location) {
+}
+
+SourceRange::SourceRange(SourceLocation start, SourceLocation end) :
+start(start),
+end(end) {
+}
+
+bool SourceRange::isValid() const {
+    return start.isValid() && end.isValid();
+}
+
+bool SourceRange::contains(SourceLocation location) const {
+    return start <= location && location <= end;
+}
+
+bool SourceRange::operator == (const SourceRange &rhs) const {
+    return start == rhs.start && end == rhs.end;
+}
+
+bool SourceRange::operator != (const SourceRange &rhs) const {
+    return start != rhs.start || end != rhs.end;
+}

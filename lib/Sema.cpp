@@ -27,8 +27,6 @@
 #include "Core/Sema.h"
 #include "Core/Type.h"
 
-#include <llvm/ADT/SetVector.h>
-
 // @Stability Add a strict pattern if all invalid nodes will get the ErrorType assigned or not (See TypeResolution)
 
 Sema::Sema(CodeManager* codeManager) :
@@ -202,7 +200,7 @@ void Sema::inferTypeOfNode(ASTNode* node) {
         }   return;
 
         case AST_FOR:
-            llvm::report_fatal_error("Implementation missing!");
+            jelly::report_fatal_error("Implementation missing!");
 
         case AST_GUARD: {
             auto guard = reinterpret_cast<ASTGuardStmt*>(node);
@@ -451,7 +449,7 @@ void Sema::inferTypeOfCallExpr(ASTCallExpr* expr) {
 void Sema::inferTypeOfSubscriptExpr(ASTSubscriptExpr* expr) {
     if (expr->type) { return; }
 
-    llvm::report_fatal_error("Implementation missing!");
+    jelly::report_fatal_error("Implementation missing!");
 }
 
 void Sema::typeFuncDecl(ASTFuncDecl* decl) {
@@ -486,14 +484,14 @@ void Sema::typeParamDecl(ASTParamDecl* decl) {
 void Sema::typeStructDecl(ASTStructDecl* decl) {
     if (decl->type) { return; }
 
-    llvm::SmallVector<ASTStructDecl*, 0> parentsForCyclicStorageCheck;
+    jelly::SmallVector<ASTStructDecl*, 0> parentsForCyclicStorageCheck;
     if (checkCyclicStorageInStructDecl(decl, &parentsForCyclicStorageCheck)) {
         decl->type = context->getErrorType();
         return;
     }
 
-    llvm::StringMap<Type*> memberTypes;
-    llvm::StringMap<unsigned> memberIndexes;
+    jelly::StringMap<Type*> memberTypes;
+    jelly::StringMap<unsigned> memberIndexes;
 
     unsigned memberIndex = 0;
     for (auto it = decl->declsLast(); it != decl->declsEnd(); it--) {
@@ -546,7 +544,7 @@ void Sema::typeEnumElementDecl(ASTEnumElementDecl* decl) {
     decl->type = context->getIntType();
 }
 
-bool Sema::checkCyclicStorageInStructDecl(ASTStructDecl* structDecl, llvm::SmallVector<ASTStructDecl*, 0>* parentDecls) {
+bool Sema::checkCyclicStorageInStructDecl(ASTStructDecl* structDecl, jelly::SmallVector<ASTStructDecl*, 0>* parentDecls) {
     for (auto it = structDecl->declsBegin(); it != structDecl->declsEnd(); it++) {
         assert((*it)->kind == AST_VALUE_DECL);
         auto decl = reinterpret_cast<ASTValueDecl*>(*it);
@@ -917,7 +915,7 @@ void Sema::typeCheckCallExpr(ASTCallExpr* expr) {
         return;
     }
 
-    llvm::report_fatal_error("Implementation missing!");
+    jelly::report_fatal_error("Implementation missing!");
 }
 
 void Sema::typeCheckSubscriptExpr(ASTSubscriptExpr* expr) {
@@ -928,7 +926,7 @@ void Sema::typeCheckSubscriptExpr(ASTSubscriptExpr* expr) {
         return;
     }
 
-    llvm::report_fatal_error("Implementation missing!");
+    jelly::report_fatal_error("Implementation missing!");
 }
 
 void Sema::typeCheckExpr(ASTExpr* expr) {
@@ -1075,11 +1073,11 @@ void Sema::typeCheckReturnStmt(ASTReturnStmt* stmt) {
 }
 
 void Sema::typeCheckDeferStmt(ASTDeferStmt* stmt) {
-    llvm::report_fatal_error("Implementation missing!");
+    jelly::report_fatal_error("Implementation missing!");
 }
 
 void Sema::typeCheckForStmt(ASTForStmt* stmt) {
-    llvm::report_fatal_error("Implementation missing!");
+    jelly::report_fatal_error("Implementation missing!");
 }
 
 void Sema::typeCheckGuardStmt(ASTGuardStmt* stmt) {
@@ -1186,7 +1184,7 @@ void Sema::typeCheckCaseStmt(ASTCaseStmt* stmt) {
 }
 
 void Sema::typeCheckDoStmt(ASTDoStmt* stmt) {
-    llvm::report_fatal_error("Implementation missing!");
+    jelly::report_fatal_error("Implementation missing!");
 }
 
 void Sema::typeCheckWhileStmt(ASTWhileStmt* stmt) {
@@ -1372,11 +1370,11 @@ bool Sema::isExprLValue(ASTExpr* expr) {
 //            auto valueDecl = reinterpret_cast<ASTValueDecl*>(memberAccessExpr->memberDecl);
 //            return !valueDecl->isConstant;
 //        }
-        llvm::report_fatal_error("Implementation missing!");
+        jelly::report_fatal_error("Implementation missing!");
         return false;
     }
 
     // @Incomplete Add subscript expression assignment support and define grammar
 
-    llvm::report_fatal_error("Implementation missing!");
+    jelly::report_fatal_error("Implementation missing!");
 }

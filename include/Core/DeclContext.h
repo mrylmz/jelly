@@ -24,7 +24,7 @@
 
 #pragma once
 
-#include <llvm/ADT/StringRef.h>
+#include <Basic/Basic.h>
 #include <iterator>
 #include <type_traits>
 
@@ -78,8 +78,8 @@ public:
     void addDecl(ASTDecl* decl);
     bool containsDecls();
     bool containsDecl(ASTDecl *decl);
-    ASTDecl* lookupDecl(llvm::StringRef name);
-    ASTDecl* lookupDeclInHierarchy(llvm::StringRef name);
+    ASTDecl* lookupDecl(jelly::StringRef name);
+    ASTDecl* lookupDeclInHierarchy(jelly::StringRef name);
 
     bool isModule() const;
     bool isEnumDecl() const;

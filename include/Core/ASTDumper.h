@@ -28,10 +28,6 @@
 
 #include <ostream>
 
-#include <llvm/ADT/ArrayRef.h>
-#include <llvm/ADT/SmallVector.h>
-#include <llvm/ADT/StringRef.h>
-
 struct ASTDumper {
     std::ostream& outputStream;
     unsigned indentation = 0;
@@ -44,12 +40,12 @@ private:
 
     void dumpNode(ASTNode* node);
 
-    void dumpChildren(llvm::SmallVector<ASTNode*, 0> children) {
-        dumpChildren(llvm::makeArrayRef(children));
+    void dumpChildren(jelly::SmallVector<ASTNode*, 0> children) {
+        dumpChildren(jelly::makeArrayRef(children));
     }
 
     template<typename T>
-    void dumpChildren(llvm::ArrayRef<T*> children) {
+    void dumpChildren(jelly::ArrayRef<T*> children) {
         indentation += 1;
 
         std::string indentText = "";

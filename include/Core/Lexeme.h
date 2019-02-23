@@ -24,19 +24,17 @@
 
 #pragma once
 
-#include <llvm/ADT/StringRef.h>
-
 struct ASTContext;
 
 class Lexeme {
     friend struct ASTContext;
 
     unsigned index = 0;
-    llvm::StringRef data;
+    jelly::StringRef data;
 
 public:
-    operator llvm::StringRef() const { return data; }
-    llvm::StringRef* operator->() { return &data; }
+    operator jelly::StringRef() const { return data; }
+    jelly::StringRef* operator->() { return &data; }
 
     inline bool operator == (Lexeme rhs) { return index == rhs.index; }
 };

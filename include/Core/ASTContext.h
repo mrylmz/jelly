@@ -30,20 +30,18 @@
 
 #include <stddef.h>
 
-#include <llvm/ADT/StringRef.h>
-#include <llvm/ADT/StringMap.h>
-#include <llvm/Support/Allocator.h>
+#include <Basic/Basic.h>
 
 struct ASTContext {
     ASTContext();
     ~ASTContext();
 
-    Lexeme getLexeme(llvm::StringRef text);
+    Lexeme getLexeme(jelly::StringRef text);
 
     ASTModuleDecl* getModule();
 
-    llvm::StringMap<Type*>* getTypes();
-    llvm::SmallVector<FuncType*, 0>* getBuiltinFuncTypes();
+    jelly::StringMap<Type*>* getTypes();
+    jelly::SmallVector<FuncType*, 0>* getBuiltinFuncTypes();
 
     Type* getErrorType();
     Type* getAnyType();
@@ -69,29 +67,29 @@ struct ASTContext {
     Type* getAnyPointerType();
     Type* getEnumType(ASTEnumDecl* decl);
     Type* getPointerType(Type* pointeeType, uint64_t depth);
-    Type* getStaticArrayType(Type* elementType, llvm::APInt size);
+    Type* getStaticArrayType(Type* elementType, jelly::APInt size);
     Type* getDynamicArrayType(Type* elementType);
     FuncType* getFuncType(ASTFuncDecl* decl);
-    FuncType* getFuncType(llvm::StringRef name, llvm::SmallVector<Type*, 0> paramTypes, Type* returnType);
-    Type* getStructType(llvm::StringRef name, llvm::StringMap<Type*> memberTypes, llvm::StringMap<unsigned> memberIndexes);
-    Type* findTypeByName(llvm::StringRef name);
+    FuncType* getFuncType(jelly::StringRef name, jelly::SmallVector<Type*, 0> paramTypes, Type* returnType);
+    Type* getStructType(jelly::StringRef name, jelly::StringMap<Type*> memberTypes, jelly::StringMap<unsigned> memberIndexes);
+    Type* findTypeByName(jelly::StringRef name);
 
-    llvm::BumpPtrAllocator nodeAllocator;
+    jelly::BumpPtrAllocator nodeAllocator;
 
 private:
     friend struct ASTNode;
 
-    llvm::BumpPtrAllocator lexemeAllocator;
-    llvm::BumpPtrAllocator typeAllocator;
+    jelly::BumpPtrAllocator lexemeAllocator;
+    jelly::BumpPtrAllocator typeAllocator;
 
     ASTModuleDecl* module;
 
-    llvm::SmallVector<ASTNode*, 0> nodes;
-    llvm::StringMap<int64_t> lexemeMap;
-    llvm::SmallVector<llvm::StringRef, 0> lexemeValues;
+    jelly::SmallVector<ASTNode*, 0> nodes;
+    jelly::StringMap<int64_t> lexemeMap;
+    jelly::SmallVector<jelly::StringRef, 0> lexemeValues;
 
-    llvm::StringMap<Type*> types;
-    llvm::SmallVector<FuncType*, 0> builtinFuncTypes;
+    jelly::StringMap<Type*> types;
+    jelly::SmallVector<FuncType*, 0> builtinFuncTypes;
 
     ErrorType typeError;
     AnyType typeAny;
@@ -114,6 +112,6 @@ private:
     PointerType typeAnyPointer;
     BuiltinOperationType typeAssignmentOp;
 
-    BuiltinPrefixFuncType* createBuiltinPrefixFuncType(llvm::StringRef name, Type* paramType, Type* returnType);
-    BuiltinInfixFuncType* createBuiltinInfixFuncType(llvm::StringRef name, Type* lhsParamType, Type* rhsParamType, Type* returnType);
+    BuiltinPrefixFuncType* createBuiltinPrefixFuncType(jelly::StringRef name, Type* paramType, Type* returnType);
+    BuiltinInfixFuncType* createBuiltinInfixFuncType(jelly::StringRef name, Type* lhsParamType, Type* rhsParamType, Type* returnType);
 };

@@ -56,7 +56,7 @@ private:
     void typeEnumDecl(ASTEnumDecl* decl);
     void typeEnumElementDecl(ASTEnumElementDecl* decl);
 
-    bool checkCyclicStorageInStructDecl(ASTStructDecl* structDecl, llvm::SmallVector<ASTStructDecl*, 0>* parentDecls);
+    bool checkCyclicStorageInStructDecl(ASTStructDecl* structDecl, jelly::SmallVector<ASTStructDecl*, 0>* parentDecls);
 
     void typeCheckNode(ASTNode* node);
     void typeCheckFuncDecl(ASTFuncDecl* decl);

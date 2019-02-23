@@ -26,18 +26,15 @@
 
 #include "Core/ASTContext.h"
 #include "Core/Diagnostic.h"
-#include "Core/SourceManager.h"
 
 #include <string>
 
-#include <llvm/ADT/SmallVector.h>
-#include <llvm/ADT/SmallString.h>
-#include <llvm/ADT/StringRef.h>
+#include <Basic/Basic.h>
 
 struct CodeManager {
-    SourceManager sourceManager;
-    llvm::SmallVector<std::string, 0> sourceFilePaths;
-    llvm::SmallVector<SourceBuffer, 0> sourceBuffers;
+    jelly::SourceManager sourceManager;
+    jelly::SmallVector<std::string, 0> sourceFilePaths;
+    jelly::SmallVector<jelly::SourceBuffer, 0> sourceBuffers;
 
     unsigned parseFileIndex = 0;
     unsigned preprocessDeclIndex = 0;
@@ -47,8 +44,8 @@ struct CodeManager {
 
     CodeManager(DiagnosticHandler* diagHandler);
 
-    void addSourceFile(llvm::StringRef sourceFilePath);
-    void addSourceText(llvm::StringRef sourceText);
+    void addSourceFile(jelly::StringRef sourceFilePath);
+    void addSourceText(jelly::StringRef sourceText);
 
     void parseAST();
     void printAST();
@@ -57,5 +54,5 @@ struct CodeManager {
     ASTExpr* evaluateConstExpr(ASTExpr* expr);
 
 private:
-    std::string getNativePath(llvm::StringRef path);
+    std::string getNativePath(jelly::StringRef path);
 };
