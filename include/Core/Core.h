@@ -24,16 +24,9 @@
 
 #pragma once
 
-#include "Core/AST.h"
-#include "Core/ASTContext.h"
-#include "Core/ASTDumper.h"
-#include "Core/ASTMangler.h"
 #include "Core/CodeManager.h"
-#include "Core/Defer.h"
 #include "Core/Diagnostic.h"
 #include "Core/Lexer.h"
-#include "Core/Macros.h"
-#include "Core/Operator.h"
 #include "Core/Parser.h"
 #include "Core/Sema.h"
 #include "Core/Token.h"

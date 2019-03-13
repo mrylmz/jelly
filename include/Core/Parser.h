@@ -24,10 +24,9 @@
 
 #pragma once
 
-#include "Core/ASTContext.h"
+#include <AST/AST.h>
 #include "Core/Diagnostic.h"
 #include "Core/Lexer.h"
-#include "Core/Operator.h"
 
 // @Incomplete Parse all leading and trailing trivia of a token in a useful fashion without storing the contents
 //             build a request api for the contents of trivia tokens like comments...
@@ -36,25 +35,78 @@
 
 struct Parser {
     Lexer* lexer;
-    ASTContext* context;
+
+    jelly::AST::Context* context;
+
     DiagnosticEngine* diag;
-    ASTNode* parent = nullptr;
-    DeclContext* declContext = nullptr;
-    Operator op;
+    jelly::AST::Operator op;
     Token token;
     bool silentErrors = false;
 
-    Parser(Lexer* lexer, ASTContext* context, DiagnosticEngine* diag);
+    Parser(Lexer* lexer, jelly::AST::Context* context, DiagnosticEngine* diag);
 
     void parseAllTopLevelNodes();
 
     template<typename ...Args>
-    void report(DiagnosticLevel level, const char* format, Args&&... args);
+    void report(DiagnosticLevel level, const char* format, Args&&... args) {
+        if (silentErrors) { return; }
+
+        diag->report(level, format, args...);
+    }
+
+private:
+
+    void consumeToken();
+    bool consumeToken(unsigned kind);
+    bool consumeIdentifier(jelly::AST::Identifier& identifier);
+    bool consumeOperator(jelly::AST::Fixity fixity, jelly::AST::Operator& op);
+
+    bool tryConsumeOperator(jelly::AST::Operator op);
+
+    jelly::AST::Expression* tryParseExpression(jelly::AST::Precedence precedence = 0);
+    jelly::AST::MemberAccessExpression* tryParseMemberAccessExpression(jelly::AST::Expression* left);
+
+    jelly::AST::Expression* parseConditionList();
+    jelly::AST::Expression* parseAtomExpression();
+    jelly::AST::Expression* parsePrimaryExpression();
+    jelly::AST::Declaration* parseTopLevelDeclaration();
+    jelly::AST::ArrayTypeRef* parseArrayTypeRef(jelly::AST::TypeRef* elementTypeRef);
+    jelly::AST::BlockStatement* parseBlock();
+    jelly::AST::BoolLiteral* parseBoolLiteral();
+    jelly::AST::BreakStatement* parseBreak();
+    jelly::AST::CallExpression* parseCallExpression(jelly::AST::Expression* callee);
+    jelly::AST::CaseStatement* parseCaseStatement();
+    jelly::AST::ConditionalCaseStatement* parseConditionalCaseStatement();
+    jelly::AST::ConstantDeclaration* parseConstant();
+    jelly::AST::ContinueStatement* parseContinue();
+    jelly::AST::DeferStatement* parseDefer();
+    jelly::AST::DoStatement* parseDoStatement();
+    jelly::AST::ElseCaseStatement* parseElseCaseStatement();
+    jelly::AST::EnumerationDeclaration* parseEnumeration();
+    jelly::AST::EnumerationElementDeclaration* parseEnumerationElement();
+    jelly::AST::Expression* parseExpression(jelly::AST::Precedence precedence = 0);
+    jelly::AST::FallthroughStatement* parseFallthrough();
+    jelly::AST::FloatLiteral* parseFloatLiteral();
+    jelly::AST::FunctionDeclaration* parseFunction();
+    jelly::AST::Expression* parseGroupExpression();
+    jelly::AST::GuardStatement* parseGuard();
+    jelly::AST::IdentifierExpression* parseIdentifierExpression();
+    jelly::AST::IfStatement* parseIf();
+    jelly::AST::IntLiteral* parseIntLiteral();
+    jelly::AST::LoadDeclaration* parseLoadDeclaration();
+    jelly::AST::NilLiteral* parseNilLiteral();
+    jelly::AST::OpaqueTypeRef* parseOpaqueTypeRef();
+    jelly::AST::ParameterDeclaration* parseParameter();
+    jelly::AST::PointerTypeRef* parsePointerTypeRef(jelly::AST::TypeRef* pointeeTypeRef);
+    jelly::AST::ReturnStatement* parseReturn();
+    jelly::AST::Statement* parseStatement();
+    jelly::AST::StringLiteral* parseStringLiteral();
+    jelly::AST::StructureDeclaration* parseStructure();
+    jelly::AST::SwitchStatement* parseSwitchStatement();
+    jelly::AST::TypeOfTypeRef* parseTypeOfTypeRef();
+    jelly::AST::TypeRef* parseTypeRef();
+    jelly::AST::UnaryExpression* parseUnaryExpression();
+    jelly::AST::ValueDeclaration* parseValueDeclaration();
+    jelly::AST::VariableDeclaration* parseVariable();
+    jelly::AST::WhileStatement* parseWhileStatement();
 };
-
-template<typename ...Args>
-void Parser::report(DiagnosticLevel level, const char *format, Args&&... args) {
-    if (silentErrors) { return; }
-
-    diag->report(level, format, args...);
-}

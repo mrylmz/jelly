@@ -23,7 +23,6 @@
 //
 
 #include "Core/CodeManager.h"
-#include "Core/Defer.h"
 #include "Core/Sema.h"
 #include "Core/Type.h"
 
@@ -36,6 +35,7 @@ diag(&codeManager->diag) {
 }
 
 void Sema::validateAST() {
+    /*
     auto module = context->getModule();
 
     // @Stability This should be implemented with a reverse_iterator but the std::reverse_iterator is causing an
@@ -47,8 +47,9 @@ void Sema::validateAST() {
     for (auto it = module->declsBegin(); it != module->declsEnd(); it++) {
         typeCheckNode(*it);
     }
+     */
 }
-
+/*
 void Sema::resolveType(ASTTypeRef* typeRef) {
     if (typeRef->type) { return; }
 
@@ -1378,3 +1379,4 @@ bool Sema::isExprLValue(ASTExpr* expr) {
 
     jelly::report_fatal_error("Implementation missing!");
 }
+*/

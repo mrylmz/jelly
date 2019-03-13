@@ -74,18 +74,15 @@ void CodeManager::parseAST() {
             Parser parser(&lexer, &context, &diag);
             parser.parseAllTopLevelNodes();
 
-            auto module = context.getModule();
-            for (auto it = module->declsBegin() + preprocessDeclIndex; it != module->declsEnd(); it++) {
-                if ((*it)->kind == AST_LOAD_DIRECTIVE) {
-                    auto loadDirective = reinterpret_cast<ASTLoadDirective*>(*it);
-                    auto loadFilePath = getNativePath(loadDirective->loadFilePath);
+            auto loadDeclarations = context.getModule()->getLoadDeclarations();
+            for (auto it = loadDeclarations.begin() + preprocessDeclIndex; it != loadDeclarations.end(); it++) {
+                auto sourceFilePath = getNativePath((*it)->getSourceFilePath());
 
-                    // @Incomplete Add source location information of ASTLoadDirective and enable includes of local files in subdirectories
-                    addSourceFile(loadFilePath);
+                // @Incomplete Add source location information of LoadDeclaration and enable includes of local files in subdirectories
+                addSourceFile(sourceFilePath);
 
-                    if (diag.hasErrors()) {
-                        return;
-                    }
+                if (diag.hasErrors()) {
+                    return;
                 }
 
                 preprocessDeclIndex += 1;

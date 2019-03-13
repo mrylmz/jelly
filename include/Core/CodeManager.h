@@ -24,12 +24,11 @@
 
 #pragma once
 
-#include "Core/ASTContext.h"
 #include "Core/Diagnostic.h"
 
 #include <string>
-
 #include <Basic/Basic.h>
+#include <AST/AST.h>
 
 struct CodeManager {
     jelly::SourceManager sourceManager;
@@ -39,7 +38,7 @@ struct CodeManager {
     unsigned parseFileIndex = 0;
     unsigned preprocessDeclIndex = 0;
 
-    ASTContext context;
+    jelly::AST::Context context;
     DiagnosticEngine diag;
 
     CodeManager(DiagnosticHandler* diagHandler);
@@ -51,7 +50,7 @@ struct CodeManager {
     void printAST();
     void typecheckAST();
 
-    ASTExpr* evaluateConstExpr(ASTExpr* expr);
+    jelly::AST::Expression* evaluateConstantExpression(jelly::AST::Expression* expression);
 
 private:
     std::string getNativePath(jelly::StringRef path);

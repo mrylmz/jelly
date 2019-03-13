@@ -22,6 +22,8 @@
 // SOFTWARE.
 //
 
+#include "Basic/Array.h"
+#include "Basic/Defer.h"
 #include "Basic/LLVM.h"
 #include "Basic/SourceBuffer.h"
 #include "Basic/SourceLocation.h"

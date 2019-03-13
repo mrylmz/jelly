@@ -25,6 +25,8 @@
 #include <Core/Core.h>
 #include <gtest/gtest.h>
 
+using namespace jelly::AST;
+
 #define EXPECT_TOKEN_KINDS_EQ(__SOURCE__, ...)                           \
 {                                                                       \
     const uint32_t kinds[] = {                                          \
@@ -39,15 +41,16 @@
     }                                                                   \
 }
 
-#define EXPECT_OPERATOR_KIND_EQ(__SOURCE__, __OP_KIND__)        \
-{                                                               \
-    Operator     op;                                            \
-    Lexer        lexer(__SOURCE__);                             \
-    Token        token = lexer.lexToken();                      \
-                                                                \
-    EXPECT_EQ(token.kind, TOKEN_OPERATOR);                      \
-    EXPECT_TRUE(lexer.getOperator(token.text, __OP_KIND__, op));\
-    EXPECT_TRUE(op.kind != OPERATOR_INVALID);                   \
+#define EXPECT_OPERATOR_KIND_EQ(__SOURCE__, __FIXITY__)           \
+{                                                                 \
+    Operator     op = Operator::BitwiseNot;                       \
+    Context      context;                                         \
+    Lexer        lexer(__SOURCE__);                               \
+    Token        token = lexer.lexToken();                        \
+                                                                  \
+    EXPECT_EQ(token.kind, TOKEN_OPERATOR);                        \
+    EXPECT_TRUE(context.getOperator(token.text, __FIXITY__, op)); \
+    EXPECT_TRUE(op.getFixity() == __FIXITY__);                    \
 }
 
 TEST(Lexer, Directives) {
@@ -66,9 +69,9 @@ TEST(Lexer, InvalidDirectiveWithoutName) {
 }
 
 TEST(Lexer, Keywords) {
-    EXPECT_TOKEN_KINDS_EQ("func enum struct var let break case continue defer do else fallthrough for guard if in return switch while as Any false is nil true",
+    EXPECT_TOKEN_KINDS_EQ("func enum struct var let break case continue defer do else fallthrough guard if return switch while as false is nil true",
                          TOKEN_KEYWORD_FUNC, TOKEN_KEYWORD_ENUM, TOKEN_KEYWORD_STRUCT, TOKEN_KEYWORD_VAR, TOKEN_KEYWORD_LET, TOKEN_KEYWORD_BREAK, TOKEN_KEYWORD_CASE, TOKEN_KEYWORD_CONTINUE, TOKEN_KEYWORD_DEFER, TOKEN_KEYWORD_DO, TOKEN_KEYWORD_ELSE, TOKEN_KEYWORD_FALLTHROUGH,
-                         TOKEN_KEYWORD_FOR, TOKEN_KEYWORD_GUARD, TOKEN_KEYWORD_IF, TOKEN_KEYWORD_IN, TOKEN_KEYWORD_RETURN, TOKEN_KEYWORD_SWITCH, TOKEN_KEYWORD_WHILE, TOKEN_OPERATOR, TOKEN_KEYWORD_ANY, TOKEN_KEYWORD_FALSE, TOKEN_OPERATOR, TOKEN_KEYWORD_NIL, TOKEN_KEYWORD_TRUE);
+                         TOKEN_KEYWORD_GUARD, TOKEN_KEYWORD_IF, TOKEN_KEYWORD_RETURN, TOKEN_KEYWORD_SWITCH, TOKEN_KEYWORD_WHILE, TOKEN_OPERATOR, TOKEN_KEYWORD_FALSE, TOKEN_OPERATOR, TOKEN_KEYWORD_NIL, TOKEN_KEYWORD_TRUE);
 }
 
 TEST(Lexer, EmptyFuncDecl) {
@@ -129,11 +132,6 @@ TEST(Lexer, DoWhileStmt) {
                          TOKEN_KEYWORD_DO, '{', TOKEN_IDENTIFIER, '(', ')', '}', TOKEN_KEYWORD_WHILE, TOKEN_OPERATOR, TOKEN_KEYWORD_FALSE)
 }
 
-TEST(Lexer, ForLoop) {
-    EXPECT_TOKEN_KINDS_EQ("for i in array { print(i) }",
-                         TOKEN_KEYWORD_FOR, TOKEN_IDENTIFIER, TOKEN_KEYWORD_IN, TOKEN_IDENTIFIER, '{', TOKEN_IDENTIFIER, '(', TOKEN_IDENTIFIER, ')', '}')
-}
-
 TEST(Lexer, IfStmt) {
     EXPECT_TOKEN_KINDS_EQ("if myCondition { }",
                          TOKEN_KEYWORD_IF, TOKEN_IDENTIFIER, '{', '}')
@@ -147,11 +145,6 @@ TEST(Lexer, ReturnStmt) {
 TEST(Lexer, TypeCaseExpr) {
     EXPECT_TOKEN_KINDS_EQ("myType as Int",
                          TOKEN_IDENTIFIER, TOKEN_OPERATOR, TOKEN_IDENTIFIER)
-}
-
-TEST(Lexer, AnyTypeDecl) {
-    EXPECT_TOKEN_KINDS_EQ("var myVar: Any",
-                         TOKEN_KEYWORD_VAR, TOKEN_IDENTIFIER, ':', TOKEN_KEYWORD_ANY)
 }
 
 TEST(Lexer, TypeCheckExpr) {
@@ -248,17 +241,17 @@ TEST(Lexer, InvalidStringLiteral) {
 
 TEST(Lexer, PrefixOperatorBinaryNot) {
     EXPECT_TOKEN_KINDS_EQ("~myInteger", TOKEN_OPERATOR, TOKEN_IDENTIFIER);
-    EXPECT_OPERATOR_KIND_EQ("~", OPERATOR_PREFIX);
+    EXPECT_OPERATOR_KIND_EQ("~", Fixity::Prefix);
 }
 
 TEST(Lexer, PrefixOperatorUnaryPlus) {
     EXPECT_TOKEN_KINDS_EQ("+x", TOKEN_OPERATOR, TOKEN_IDENTIFIER);
-    EXPECT_OPERATOR_KIND_EQ("+", OPERATOR_PREFIX);
+    EXPECT_OPERATOR_KIND_EQ("+", Fixity::Prefix);
 }
 
 TEST(Lexer, PrefixOperatorUnaryMinus) {
     EXPECT_TOKEN_KINDS_EQ("-x", TOKEN_OPERATOR, TOKEN_IDENTIFIER);
-    EXPECT_OPERATOR_KIND_EQ("-", OPERATOR_PREFIX);
+    EXPECT_OPERATOR_KIND_EQ("-", Fixity::Prefix);
 }
 
 TEST(Lexer, PrefixOperatorsMixed) {
@@ -267,57 +260,57 @@ TEST(Lexer, PrefixOperatorsMixed) {
 
 TEST(Lexer, InfixOperatorBinaryLeftShift) {
     EXPECT_TOKEN_KINDS_EQ("a<<b", TOKEN_IDENTIFIER, TOKEN_OPERATOR, TOKEN_IDENTIFIER);
-    EXPECT_OPERATOR_KIND_EQ("<<", OPERATOR_INFIX);
+    EXPECT_OPERATOR_KIND_EQ("<<", Fixity::Infix);
 }
 
 TEST(Lexer, InfixOperatorBinaryRightShift) {
     EXPECT_TOKEN_KINDS_EQ("a>>b", TOKEN_IDENTIFIER, TOKEN_OPERATOR, TOKEN_IDENTIFIER);
-    EXPECT_OPERATOR_KIND_EQ(">>", OPERATOR_INFIX);
+    EXPECT_OPERATOR_KIND_EQ(">>", Fixity::Infix);
 }
 
 TEST(Lexer, InfixOperatorMultiply) {
     EXPECT_TOKEN_KINDS_EQ("a*b", TOKEN_IDENTIFIER, TOKEN_OPERATOR, TOKEN_IDENTIFIER);
-    EXPECT_OPERATOR_KIND_EQ("*", OPERATOR_INFIX);
+    EXPECT_OPERATOR_KIND_EQ("*", Fixity::Infix);
 }
 
 TEST(Lexer, InfixOperatorDivide) {
     EXPECT_TOKEN_KINDS_EQ("a/b", TOKEN_IDENTIFIER, TOKEN_OPERATOR, TOKEN_IDENTIFIER);
-    EXPECT_OPERATOR_KIND_EQ("/", OPERATOR_INFIX);
+    EXPECT_OPERATOR_KIND_EQ("/", Fixity::Infix);
 }
 
 TEST(Lexer, InfixOperatorRemainder) {
     EXPECT_TOKEN_KINDS_EQ("a%b", TOKEN_IDENTIFIER, TOKEN_OPERATOR, TOKEN_IDENTIFIER);
-    EXPECT_OPERATOR_KIND_EQ("%", OPERATOR_INFIX);
+    EXPECT_OPERATOR_KIND_EQ("%", Fixity::Infix);
 }
 
 TEST(Lexer, InfixOperatorBinaryAnd) {
     EXPECT_TOKEN_KINDS_EQ("a&b", TOKEN_IDENTIFIER, TOKEN_OPERATOR, TOKEN_IDENTIFIER);
-    EXPECT_OPERATOR_KIND_EQ("&", OPERATOR_INFIX);
+    EXPECT_OPERATOR_KIND_EQ("&", Fixity::Infix);
 }
 
 TEST(Lexer, InfixOperatorAdd) {
     EXPECT_TOKEN_KINDS_EQ("a+b", TOKEN_IDENTIFIER, TOKEN_OPERATOR, TOKEN_IDENTIFIER);
-    EXPECT_OPERATOR_KIND_EQ("+", OPERATOR_INFIX);
+    EXPECT_OPERATOR_KIND_EQ("+", Fixity::Infix);
 }
 
 TEST(Lexer, InfixOperatorSubtract) {
     EXPECT_TOKEN_KINDS_EQ("a-b", TOKEN_IDENTIFIER, TOKEN_OPERATOR, TOKEN_IDENTIFIER);
-    EXPECT_OPERATOR_KIND_EQ("-", OPERATOR_INFIX);
+    EXPECT_OPERATOR_KIND_EQ("-", Fixity::Infix);
 }
 
 TEST(Lexer, InfixOperatorBinaryOr) {
     EXPECT_TOKEN_KINDS_EQ("a|b", TOKEN_IDENTIFIER, TOKEN_OPERATOR, TOKEN_IDENTIFIER);
-    EXPECT_OPERATOR_KIND_EQ("|", OPERATOR_INFIX);
+    EXPECT_OPERATOR_KIND_EQ("|", Fixity::Infix);
 }
 
 TEST(Lexer, InfixOperatorBinaryXor) {
     EXPECT_TOKEN_KINDS_EQ("a^b", TOKEN_IDENTIFIER, TOKEN_OPERATOR, TOKEN_IDENTIFIER);
-    EXPECT_OPERATOR_KIND_EQ("^", OPERATOR_INFIX);
+    EXPECT_OPERATOR_KIND_EQ("^", Fixity::Infix);
 }
 
 TEST(Lexer, InfixOperatorRange) {
     EXPECT_TOKEN_KINDS_EQ("a..<b", TOKEN_IDENTIFIER, TOKEN_OPERATOR, TOKEN_IDENTIFIER);
-    EXPECT_OPERATOR_KIND_EQ("..<", OPERATOR_INFIX);
+    EXPECT_OPERATOR_KIND_EQ("..<", Fixity::Infix);
 }
 
 TEST(Lexer, InfixOperatorRangeWithIntLiterals) {
@@ -330,7 +323,7 @@ TEST(Lexer, InfixOperatorRangeWithFloatLiterals) {
 
 TEST(Lexer, InfixOperatorClosedRange) {
     EXPECT_TOKEN_KINDS_EQ("a...b", TOKEN_IDENTIFIER, TOKEN_OPERATOR, TOKEN_IDENTIFIER);
-    EXPECT_OPERATOR_KIND_EQ("...", OPERATOR_INFIX);
+    EXPECT_OPERATOR_KIND_EQ("...", Fixity::Infix);
 }
 
 TEST(Lexer, InfixOperatorClosedRangeWithIntLiterals) {
@@ -343,107 +336,107 @@ TEST(Lexer, InfixOperatorClosedRangeWithFloatLiterals) {
 
 TEST(Lexer, InfixOperatorTypeCheck) {
     EXPECT_TOKEN_KINDS_EQ("a is B", TOKEN_IDENTIFIER, TOKEN_OPERATOR, TOKEN_IDENTIFIER);
-    EXPECT_OPERATOR_KIND_EQ("is", OPERATOR_INFIX);
+    EXPECT_OPERATOR_KIND_EQ("is", Fixity::Infix);
 }
 
 TEST(Lexer, InfixOperatorTypeCast) {
     EXPECT_TOKEN_KINDS_EQ("a as B", TOKEN_IDENTIFIER, TOKEN_OPERATOR, TOKEN_IDENTIFIER);
-    EXPECT_OPERATOR_KIND_EQ("as", OPERATOR_INFIX);
+    EXPECT_OPERATOR_KIND_EQ("as", Fixity::Infix);
 }
 
 TEST(Lexer, InfixOperatorLessThan) {
     EXPECT_TOKEN_KINDS_EQ("a < b", TOKEN_IDENTIFIER, TOKEN_OPERATOR, TOKEN_IDENTIFIER);
-    EXPECT_OPERATOR_KIND_EQ("<", OPERATOR_INFIX);
+    EXPECT_OPERATOR_KIND_EQ("<", Fixity::Infix);
 }
 
 TEST(Lexer, InfixOperatorLessThanEqual) {
     EXPECT_TOKEN_KINDS_EQ("a <= b", TOKEN_IDENTIFIER, TOKEN_OPERATOR, TOKEN_IDENTIFIER);
-    EXPECT_OPERATOR_KIND_EQ("<=", OPERATOR_INFIX);
+    EXPECT_OPERATOR_KIND_EQ("<=", Fixity::Infix);
 }
 
 TEST(Lexer, InfixOperatorGreaterThan) {
     EXPECT_TOKEN_KINDS_EQ("a > b", TOKEN_IDENTIFIER, TOKEN_OPERATOR, TOKEN_IDENTIFIER);
-    EXPECT_OPERATOR_KIND_EQ(">", OPERATOR_INFIX);
+    EXPECT_OPERATOR_KIND_EQ(">", Fixity::Infix);
 }
 
 TEST(Lexer, InfixOperatorGreaterThanEqual) {
     EXPECT_TOKEN_KINDS_EQ("a >= b", TOKEN_IDENTIFIER, TOKEN_OPERATOR, TOKEN_IDENTIFIER);
-    EXPECT_OPERATOR_KIND_EQ(">=", OPERATOR_INFIX);
+    EXPECT_OPERATOR_KIND_EQ(">=", Fixity::Infix);
 }
 
 TEST(Lexer, InfixOperatorEqual) {
     EXPECT_TOKEN_KINDS_EQ("a == b", TOKEN_IDENTIFIER, TOKEN_OPERATOR, TOKEN_IDENTIFIER);
-    EXPECT_OPERATOR_KIND_EQ("==", OPERATOR_INFIX);
+    EXPECT_OPERATOR_KIND_EQ("==", Fixity::Infix);
 }
 
 TEST(Lexer, InfixOperatorNotEqual) {
     EXPECT_TOKEN_KINDS_EQ("a != b", TOKEN_IDENTIFIER, TOKEN_OPERATOR, TOKEN_IDENTIFIER);
-    EXPECT_OPERATOR_KIND_EQ("!=", OPERATOR_INFIX);
+    EXPECT_OPERATOR_KIND_EQ("!=", Fixity::Infix);
 }
 
 TEST(Lexer, InfixOperatorLogicalAnd) {
     EXPECT_TOKEN_KINDS_EQ("a && b", TOKEN_IDENTIFIER, TOKEN_OPERATOR, TOKEN_IDENTIFIER);
-    EXPECT_OPERATOR_KIND_EQ("&&", OPERATOR_INFIX);
+    EXPECT_OPERATOR_KIND_EQ("&&", Fixity::Infix);
 }
 
 TEST(Lexer, InfixOperatorLogicalOr) {
     EXPECT_TOKEN_KINDS_EQ("a || b", TOKEN_IDENTIFIER, TOKEN_OPERATOR, TOKEN_IDENTIFIER);
-    EXPECT_OPERATOR_KIND_EQ("||", OPERATOR_INFIX);
+    EXPECT_OPERATOR_KIND_EQ("||", Fixity::Infix);
 }
 
 TEST(Lexer, InfixOperatorAssign) {
     EXPECT_TOKEN_KINDS_EQ("a = b", TOKEN_IDENTIFIER, TOKEN_OPERATOR, TOKEN_IDENTIFIER);
-    EXPECT_OPERATOR_KIND_EQ("=", OPERATOR_INFIX);
+    EXPECT_OPERATOR_KIND_EQ("=", Fixity::Infix);
 }
 
 TEST(Lexer, InfixOperatorMultiplyAssign) {
     EXPECT_TOKEN_KINDS_EQ("a *= b", TOKEN_IDENTIFIER, TOKEN_OPERATOR, TOKEN_IDENTIFIER);
-    EXPECT_OPERATOR_KIND_EQ("*=", OPERATOR_INFIX);
+    EXPECT_OPERATOR_KIND_EQ("*=", Fixity::Infix);
 }
 
 TEST(Lexer, InfixOperatorDivideAssign) {
     EXPECT_TOKEN_KINDS_EQ("a /= b", TOKEN_IDENTIFIER, TOKEN_OPERATOR, TOKEN_IDENTIFIER);
-    EXPECT_OPERATOR_KIND_EQ("/=", OPERATOR_INFIX);
+    EXPECT_OPERATOR_KIND_EQ("/=", Fixity::Infix);
 }
 
 TEST(Lexer, InfixOperatorRemainderAssign) {
     EXPECT_TOKEN_KINDS_EQ("a %= b", TOKEN_IDENTIFIER, TOKEN_OPERATOR, TOKEN_IDENTIFIER);
-    EXPECT_OPERATOR_KIND_EQ("%=", OPERATOR_INFIX);
+    EXPECT_OPERATOR_KIND_EQ("%=", Fixity::Infix);
 }
 
 TEST(Lexer, InfixOperatorAddAssign) {
     EXPECT_TOKEN_KINDS_EQ("a += b", TOKEN_IDENTIFIER, TOKEN_OPERATOR, TOKEN_IDENTIFIER);
-    EXPECT_OPERATOR_KIND_EQ("+=", OPERATOR_INFIX);
+    EXPECT_OPERATOR_KIND_EQ("+=", Fixity::Infix);
 }
 
 TEST(Lexer, InfixOperatorSubtractAssign) {
     EXPECT_TOKEN_KINDS_EQ("a -= b", TOKEN_IDENTIFIER, TOKEN_OPERATOR, TOKEN_IDENTIFIER);
-    EXPECT_OPERATOR_KIND_EQ("-=", OPERATOR_INFIX);
+    EXPECT_OPERATOR_KIND_EQ("-=", Fixity::Infix);
 }
 
 TEST(Lexer, InfixOperatorBitwiseLeftShiftAssign) {
     EXPECT_TOKEN_KINDS_EQ("a <<= b", TOKEN_IDENTIFIER, TOKEN_OPERATOR, TOKEN_IDENTIFIER);
-    EXPECT_OPERATOR_KIND_EQ("<<=", OPERATOR_INFIX);
+    EXPECT_OPERATOR_KIND_EQ("<<=", Fixity::Infix);
 }
 
 TEST(Lexer, InfixOperatorBitwiseRightShiftAssign) {
     EXPECT_TOKEN_KINDS_EQ("a >>= b", TOKEN_IDENTIFIER, TOKEN_OPERATOR, TOKEN_IDENTIFIER);
-    EXPECT_OPERATOR_KIND_EQ(">>=", OPERATOR_INFIX);
+    EXPECT_OPERATOR_KIND_EQ(">>=", Fixity::Infix);
 }
 
 TEST(Lexer, InfixOperatorBitwiseAndAssign) {
     EXPECT_TOKEN_KINDS_EQ("a &= b", TOKEN_IDENTIFIER, TOKEN_OPERATOR, TOKEN_IDENTIFIER);
-    EXPECT_OPERATOR_KIND_EQ("<<=", OPERATOR_INFIX);
+    EXPECT_OPERATOR_KIND_EQ("<<=", Fixity::Infix);
 }
 
 TEST(Lexer, InfixOperatorBitwiseOrAssign) {
     EXPECT_TOKEN_KINDS_EQ("a |= b", TOKEN_IDENTIFIER, TOKEN_OPERATOR, TOKEN_IDENTIFIER);
-    EXPECT_OPERATOR_KIND_EQ("|=", OPERATOR_INFIX);
+    EXPECT_OPERATOR_KIND_EQ("|=", Fixity::Infix);
 }
 
 TEST(Lexer, InfixOperatorBitwiseXorAssign) {
     EXPECT_TOKEN_KINDS_EQ("a ^= b", TOKEN_IDENTIFIER, TOKEN_OPERATOR, TOKEN_IDENTIFIER);
-    EXPECT_OPERATOR_KIND_EQ("^=", OPERATOR_INFIX);
+    EXPECT_OPERATOR_KIND_EQ("^=", Fixity::Infix);
 }
 
 TEST(Lexer, SinglelineComment) {

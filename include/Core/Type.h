@@ -24,7 +24,8 @@
 
 #pragma once
 
-#include "Core/AST.h"
+#include <stdint.h>
+#include <Basic/Basic.h>
 
 enum TypeKind : uint8_t {
     TYPE_ERROR,
@@ -133,6 +134,7 @@ struct ArrayType : public Type {
     ArrayType() { kind = TYPE_BUILTIN_ARRAY; }
 };
 
+struct ASTIntLit;
 struct EnumType : public DeclType {
     jelly::SmallVector<ASTIntLit*, 0> memberValues;
     jelly::APInt nextMemberValue = jelly::APInt(64, 0);

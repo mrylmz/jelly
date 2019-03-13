@@ -25,6 +25,7 @@
 #include "Util.h"
 
 #include <Core/Core.h>
+#include <AST/AST.h>
 #include <gtest/gtest.h>
 
 struct ParserTestData {
@@ -77,8 +78,8 @@ TEST_P(ParserTest, run) {
         manager.parseAST();
 
         std::ostringstream dumpRecordContentStream;
-        ASTDumper dumper(dumpRecordContentStream);
-        dumper.dumpModule(manager.context.getModule());
+        jelly::AST::Dumper dumper(dumpRecordContentStream);
+        dumper.dump(manager.context.getModule());
 
         if (parameter.hasDumpRecord) {
             printf("[ RUN      ] %s\n", parameter.metadata.sourceFileName.c_str());

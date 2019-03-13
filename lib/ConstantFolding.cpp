@@ -24,32 +24,37 @@
 
 #include "Core/CodeManager.h"
 
-ASTExpr* CodeManager::evaluateConstExpr(ASTExpr *expr) {
-    switch (expr->kind) {
-        case AST_IDENTIFIER: {
-            auto ident = reinterpret_cast<ASTIdentExpr*>(expr);
-            if (ident->decl && ident->decl->kind == AST_VALUE_DECL && ident->decl->parent == context.getModule()) {
-                auto valueDecl = reinterpret_cast<ASTValueDecl*>(ident->decl);
-                if (!valueDecl->isConstant || !valueDecl->initializer) {
-                    return nullptr;
-                }
+using namespace jelly::AST;
 
-                // @Stability this may could fall into infinite recursion if the assignment is refering to the same ASTIdentExpr ?!
-                return evaluateConstExpr(valueDecl->initializer);
-            }
-        }   break;
-
-        case AST_NIL_LITERAL:
-        case AST_BOOL_LITERAL:
-        case AST_INT_LITERAL:
-        case AST_FLOAT_LITERAL:
-        case AST_STRING_LITERAL:
-            return expr;
-
-        default:
-            // @Incomplete other expr types are missing!
-            return nullptr;
-    }
-
-    return nullptr;
+Expression* CodeManager::evaluateConstantExpression(Expression* expression) {
+    // @Todo migrate code !
+//    ASTExpr* CodeManager::evaluateConstExpr(ASTExpr *expr) {
+//        switch (expr->kind) {
+//            case AST_IDENTIFIER: {
+//                auto ident = reinterpret_cast<ASTIdentExpr*>(expr);
+//                if (ident->decl && ident->decl->kind == AST_VALUE_DECL && ident->decl->parent == context.getModule()) {
+//                    auto valueDecl = reinterpret_cast<ASTValueDecl*>(ident->decl);
+//                    if (!valueDecl->isConstant || !valueDecl->initializer) {
+//                        return nullptr;
+//                    }
+//
+//                    // @Stability this may could fall into infinite recursion if the assignment is refering to the same ASTIdentExpr ?!
+//                    return evaluateConstExpr(valueDecl->initializer);
+//                }
+//            }   break;
+//
+//            case AST_NIL_LITERAL:
+//            case AST_BOOL_LITERAL:
+//            case AST_INT_LITERAL:
+//            case AST_FLOAT_LITERAL:
+//            case AST_STRING_LITERAL:
+//                return expr;
+//
+//            default:
+//                // @Incomplete other expr types are missing!
+//                return nullptr;
+//        }
+//
+//        return nullptr;
+//    }
 }

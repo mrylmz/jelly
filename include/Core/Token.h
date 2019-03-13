@@ -24,6 +24,8 @@
 
 #pragma once
 
+#include <Basic/Basic.h>
+
 // @Refactor replace reserved ASCII tokens with named enum cases to reduce the size of a Token
 enum {
     // 0 - 256 reserved for character tokens
@@ -45,14 +47,11 @@ enum {
     TOKEN_KEYWORD_DO,
     TOKEN_KEYWORD_ELSE,
     TOKEN_KEYWORD_FALLTHROUGH,
-    TOKEN_KEYWORD_FOR,
     TOKEN_KEYWORD_GUARD,
     TOKEN_KEYWORD_IF,
-    TOKEN_KEYWORD_IN,
     TOKEN_KEYWORD_RETURN,
     TOKEN_KEYWORD_SWITCH,
     TOKEN_KEYWORD_WHILE,
-    TOKEN_KEYWORD_ANY,
     TOKEN_KEYWORD_FALSE,
     TOKEN_KEYWORD_NIL,
     TOKEN_KEYWORD_TRUE,

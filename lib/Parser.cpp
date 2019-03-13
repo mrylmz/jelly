@@ -22,1561 +22,1146 @@
 // SOFTWARE.
 //
 
-#include "Core/Defer.h"
 #include "Core/Parser.h"
 
-#define PushParent(__Parser__, __Parent__) \
-__Parent__->parent = __Parser__->parent; \
-__Parser__->parent = __Parent__
-
-#define PopParent(__Parser__) \
-assert(__Parser__->parent); \
-__Parser__->parent = __Parser__->parent->parent
-
-#define PushDeclContext(__Parser__, __Context__)      \
-__Context__->setDeclContext(__Parser__->declContext); \
-__Parser__->declContext = __Context__
-
-#define PopDeclContext(__Parser__) \
-assert(__Parser__->declContext); \
-__Parser__->declContext = __Parser__->declContext->getDeclContext();
+using namespace jelly::AST;
 
 // @Incomplete Check if symbols of unary expressions are right bound ! (unexpected: ~ value, expected: ~value)
-// @Incomplete Write unit-tests for assignment of parents
 
-// @Refactor Make all static global scope functions member functions of Parser!
-Parser::Parser(Lexer* lexer, ASTContext* context, DiagnosticEngine* diag) :
-lexer(lexer), context(context), diag(diag) {
+static bool isDeclarationNameEqual(NamedDeclaration* lhs, NamedDeclaration* rhs) {
+    return lhs->getName() == rhs->getName();
 }
 
-void ParseAllTopLevelNodes(Parser* Parser, ASTContext* Context, DiagnosticEngine* Diag);
+Parser::Parser(Lexer* lexer, Context* context, DiagnosticEngine* diag) :
+lexer(lexer), context(context), diag(diag), op(Operator::LogicalNot) {
+}
+
 void Parser::parseAllTopLevelNodes() {
-    return ParseAllTopLevelNodes(this, context, diag);
-}
+    token = lexer->peekNextToken();
 
-static void ConsumeToken(Parser* Parser) {
-    Parser->token = Parser->lexer->lexToken();
-    Parser->token = Parser->lexer->peekNextToken();
-}
+    auto module = context->getModule();
 
-// MARK: - Literals
+    bool checkConsecutiveTopLevelNodes = false;
+    unsigned line = token.line;
+    do {
+        unsigned nodeLine = token.line;
+        auto declaration = parseTopLevelDeclaration();
+        if (!declaration) {
+            break;
+        }
 
-/// grammar: literal := integer-literal | float-literal | string-literal | bool-literal | nil-literal
+        if (checkConsecutiveTopLevelNodes && line == nodeLine) {
+            report(DIAG_ERROR, "Consecutive top level nodes on a line are not allowed!");
+            break;
+        }
+        checkConsecutiveTopLevelNodes = true;
+        line = nodeLine;
 
-/// grammar: nil-literal := "nil"
-static ASTNilLit* ParseNilLiteral(Parser* Parser, ASTContext* Context, DiagnosticEngine* Diag) {
-    assert(Parser->token.is(TOKEN_KEYWORD_NIL));
-
-    ASTNilLit* Nil = new (Context) ASTNilLit;
-    Nil->declContext = Parser->declContext;
-    PushParent(Parser, Nil);
-    PopParent(Parser);
-    ConsumeToken(Parser);
-    return Nil;
-}
-
-/// grammar: bool-literal := "true" | "false"
-static ASTBoolLit* ParseBoolLiteral(Parser* Parser, ASTContext* Context, DiagnosticEngine* Diag) {
-    assert(Parser->token.is(TOKEN_KEYWORD_TRUE, TOKEN_KEYWORD_FALSE));
-
-    ASTBoolLit* Bool = new (Context) ASTBoolLit;
-    Bool->declContext = Parser->declContext;
-    PushParent(Parser, Bool);
-    {
-        if (Parser->token.kind == TOKEN_KEYWORD_TRUE) {
-            Bool->value = true;
+        if (declaration->isNamedDeclaration()) {
+            auto namedDeclaration = reinterpret_cast<NamedDeclaration*>(declaration);
+            if (module->lookupDeclaration(namedDeclaration->getName())) {
+                report(DIAG_ERROR, "Invalid redeclaration of '{0}'", namedDeclaration->getName());
+            } else {
+                module->addDeclaration(declaration);
+            }
         } else {
-            Bool->value = false;
+            module->addDeclaration(declaration);
         }
-        ConsumeToken(Parser);
-    }
-    PopParent(Parser);
 
-    return Bool;
+    } while (true);
 }
 
-/// grammar: int-literal :=  #todo
-static ASTIntLit* ParseIntLiteral(Parser* Parser, ASTContext* Context, DiagnosticEngine* Diag) {
-    assert(Parser->token.is(TOKEN_LITERAL_INT));
-
-    ASTIntLit* Int = new (Context) ASTIntLit;
-    Int->declContext = Parser->declContext;
-    PushParent(Parser, Int);
-    {
-        if (Parser->token.text.getAsInteger(0, Int->value)) {
-            Parser->report(DIAG_ERROR, "Invalid integer literal!");
-            return nullptr;
-        }
-        ConsumeToken(Parser);
-    }
-    PopParent(Parser);
-
-    return Int;
+void Parser::consumeToken() {
+    lexer->lexToken();
+    token = lexer->peekNextToken();
 }
 
-/// grammar: float-literal := #todo
-static ASTFloatLit* ParseFloatLiteral(Parser* Parser, ASTContext* Context, DiagnosticEngine* Diag) {
-    assert(Parser->token.kind == TOKEN_LITERAL_FLOAT);
-
-    ASTFloatLit* Float = new (Context) ASTFloatLit;
-    Float->declContext = Parser->declContext;
-    PushParent(Parser, Float);
-    {
-        if (Parser->token.text.getAsDouble(Float->value)) {
-            Parser->report(DIAG_ERROR, "Invalid floating point literal!");
-            return nullptr;
-        }
-        ConsumeToken(Parser);
+bool Parser::consumeToken(unsigned kind) {
+    if (token.is(':')) {
+        consumeToken();
+        return true;
     }
-    PopParent(Parser);
 
-    return Float;
+    // @Todo convert token kind and token to string description!
+    report(DIAG_ERROR, "Expected token '{0}' found '{1}'!", kind, token.text);
+    return false;
 }
 
-/// grammar: string-literal := #todo
-static ASTStringLit* ParseStringLiteral(Parser* Parser, ASTContext* Context, DiagnosticEngine* Diag) {
-    if (Parser->token.kind != TOKEN_LITERAL_STRING) { return nullptr; }
-
-    assert(Parser->token.text.size() >= 2 && "Invalid length of string literal text, has to contain at least \"\"");
-
-    ASTStringLit* String = new (Context) ASTStringLit;
-    String->declContext = Parser->declContext;
-    PushParent(Parser, String);
-    {
-        // @Cleanup we form a lexeme here to retain memory for String->Value
-        String->value = Context->getLexeme(Parser->token.text.drop_front(1).drop_back(1));
-        ConsumeToken(Parser);
+bool Parser::consumeIdentifier(Identifier& identifier) {
+    if (token.is(TOKEN_IDENTIFIER)) {
+        identifier = context->getIdentifier(token.text);
+        consumeToken();
+        return true;
     }
-    PopParent(Parser);
 
-    return String;
+    // @Todo convert token kind and token to string description!
+    report(DIAG_ERROR, "Expected token 'Identifier' found '{0}'!", token.text);
+    return false;
 }
 
-// MARK: - Expressions
-
-static ASTExpr* ParseExpr(Parser* Parser, ASTContext* Context, DiagnosticEngine* Diag, Precedence Precedence = 0);
-static ASTExpr* TryParseExpr(Parser* Parser, ASTContext* Context, DiagnosticEngine* Diag, Precedence Precedence = 0);
-
-/// grammar: identifier := identifier-head { identifier-tail }
-/// grammar: identifier-head := "a" ... "z" | "A" ... "Z" | "_"
-/// grammar: identifier-tail := identifier-head | "0" ... "9"
-static ASTIdentExpr* ParseIdent(Parser* Parser, ASTContext* Context, DiagnosticEngine* Diag) {
-    if (Parser->token.kind != TOKEN_IDENTIFIER) { return nullptr; }
-
-    ASTIdentExpr* Ident = new (Context) ASTIdentExpr;
-    Ident->declContext = Parser->declContext;
-    PushParent(Parser, Ident);
-    {
-        Ident->declName = Context->getLexeme(Parser->token.text);
-        ConsumeToken(Parser);
+bool Parser::consumeOperator(Fixity fixity, Operator& op) {
+    if (token.is(TOKEN_OPERATOR) && context->getOperator(token.text, fixity, op)) {
+        consumeToken();
+        return true;
     }
-    PopParent(Parser);
 
-    return Ident;
+    // @Todo convert token kind and token to string description!
+    report(DIAG_ERROR, "Expected operator token found '{0}'!", token.text);
+    return false;
 }
 
-/// grammar: group-expression := "(" expression ")"
-static ASTExpr* ParseGroupExpr(Parser* Parser, ASTContext* Context, DiagnosticEngine* Diag) {
-    assert(Parser->token.is('(') && "Invalid token given for start of group expression!");
+bool Parser::tryConsumeOperator(Operator op) {
+    if (token.is(TOKEN_OPERATOR) && context->getOperator(op.getSymbol(), op.getFixity(), this->op) && this->op == op) {
+        consumeToken();
+        return true;
+    }
 
-    ConsumeToken(Parser);
+    return false;
+}
 
-    ASTExpr* Expr = ParseExpr(Parser, Context, Diag);
-    if (Expr == nullptr) {
+Expression* Parser::tryParseExpression(Precedence precedence) {
+    auto silentErrors = this->silentErrors;
+    this->silentErrors = true;
+    defer(this->silentErrors = silentErrors);
+
+    auto state = lexer->getState();
+    auto expression = parseExpression(precedence);
+    if (!expression) {
+        lexer->setState(state);
         return nullptr;
     }
 
-    if (!Parser->token.is(')')) {
-        Parser->report(DIAG_ERROR, "Expected ')' at end of group expression!");
+    return expression;
+}
+
+MemberAccessExpression* Parser::tryParseMemberAccessExpression(Expression* left) {
+    if (!tryConsumeOperator(Operator::Selector)) {
         return nullptr;
     }
-    ConsumeToken(Parser);
 
-    return Expr;
+    Identifier memberName;
+    if (!consumeIdentifier(memberName)) {
+        return nullptr;
+    }
+
+    return new (context) MemberAccessExpression(left, memberName);
+}
+
+Expression* Parser::parseConditionList() {
+    auto condition = parseExpression();
+    if (!condition) {
+        return nullptr;
+    }
+
+    while (token.is(',')) {
+        consumeToken();
+
+        auto expression = parseExpression();
+        if (!expression) {
+            return nullptr;
+        }
+
+        condition = new (context) BinaryExpression(Operator::LogicalAnd, condition, expression);
+    }
+
+    return condition;
 }
 
 /// grammar: atom-expression := group-expression | literal-expression | identifier-expression
 /// grammar: literal-expression := literal
 /// grammar: identifier-expression := identifier
-static ASTExpr* ParseAtomExpr(Parser* Parser, ASTContext* Context, DiagnosticEngine* Diag) {
-    switch (Parser->token.kind) {
-        case '(':                  return ParseGroupExpr(Parser, Context, Diag);
-        case TOKEN_KEYWORD_NIL:    return ParseNilLiteral(Parser, Context, Diag);
-        case TOKEN_KEYWORD_TRUE:   return ParseBoolLiteral(Parser, Context, Diag);
-        case TOKEN_KEYWORD_FALSE:  return ParseBoolLiteral(Parser, Context, Diag);
-        case TOKEN_LITERAL_INT:    return ParseIntLiteral(Parser, Context, Diag);
-        case TOKEN_LITERAL_FLOAT:  return ParseFloatLiteral(Parser, Context, Diag);
-        case TOKEN_LITERAL_STRING: return ParseStringLiteral(Parser, Context, Diag);
-        case TOKEN_IDENTIFIER:     return ParseIdent(Parser, Context, Diag);
+Expression* Parser::parseAtomExpression() {
+    switch (token.kind) {
+        case '(':                  return parseGroupExpression();
+        case TOKEN_KEYWORD_NIL:    return parseNilLiteral();
+        case TOKEN_KEYWORD_TRUE:   return parseBoolLiteral();
+        case TOKEN_KEYWORD_FALSE:  return parseBoolLiteral();
+        case TOKEN_LITERAL_INT:    return parseIntLiteral();
+        case TOKEN_LITERAL_FLOAT:  return parseFloatLiteral();
+        case TOKEN_LITERAL_STRING: return parseStringLiteral();
+        case TOKEN_IDENTIFIER:     return parseIdentifierExpression();
         default:
-            Parser->report(DIAG_ERROR, "Expected expression, found '{0}'", Parser->token.text);
+            report(DIAG_ERROR, "Expected expression, found '{0}'", token.text);
             return nullptr;
     }
-}
-
-static ASTExpr* ParsePrimaryExpr(Parser* Parser, ASTContext* Context, DiagnosticEngine* Diag);
-
-/// grammar: unary-expression := prefix-operator expression
-static ASTUnaryExpr* ParseUnaryExpr(Parser* Parser, ASTContext* Context, DiagnosticEngine* Diag) {
-    assert(Parser->token.is(TOKEN_OPERATOR)
-           && Parser->lexer->getOperator(Parser->token.text, OPERATOR_PREFIX, Parser->op) // TODO: Move this out of assert, won't get compiled in release builds!
-           && "Invalid token given for start of unary-expression!");
-
-    ConsumeToken(Parser);
-
-    ASTUnaryExpr* Expr = new (Context) ASTUnaryExpr;
-    Expr->declContext = Parser->declContext;
-    PushParent(Parser, Expr);
-    {
-        Expr->op = Parser->op;
-        Expr->right = ParsePrimaryExpr(Parser, Context, Diag);
-
-        if (Expr->right == nullptr) {
-            return nullptr;
-        }
-    }
-    PopParent(Parser);
-
-    return Expr;
 }
 
 /// grammar: primary-expression := unary-expression | atom-expression
-static ASTExpr* ParsePrimaryExpr(Parser* Parser, ASTContext* Context, DiagnosticEngine* Diag) {
-    if (Parser->token.is(TOKEN_OPERATOR)) {
-        if (Parser->lexer->getOperator(Parser->token.text, OPERATOR_PREFIX, Parser->op)) {
-            return ParseUnaryExpr(Parser, Context, Diag);
+Expression* Parser::parsePrimaryExpression() {
+    if (token.is(TOKEN_OPERATOR)) {
+        if (context->getOperator(token.text, Fixity::Prefix, op)) {
+            return parseUnaryExpression();
         } else {
-            Parser->report(DIAG_ERROR, "Unknown prefix operator!");
+            report(DIAG_ERROR, "Expected prefix operator found '{0}'", token.text);
             return nullptr;
         }
     }
 
-    return ParseAtomExpr(Parser, Context, Diag);
+    return parseAtomExpression();
+}
+
+/// grammar: top-level-node := load-declaration | enum-declaration | func-declaration | struct-declaration | variable-declaration
+Declaration* Parser::parseTopLevelDeclaration() {
+    switch (token.kind) {
+        case TOKEN_KEYWORD_LOAD:   return parseLoadDeclaration();
+        case TOKEN_KEYWORD_ENUM:   return parseEnumeration();
+        case TOKEN_KEYWORD_FUNC:   return parseFunction();
+        case TOKEN_KEYWORD_STRUCT: return parseStructure();
+        case TOKEN_KEYWORD_VAR:    return parseVariable();
+        case TOKEN_KEYWORD_LET:    return parseConstant();
+        case TOKEN_EOF:            return nullptr;
+        default:
+            report(DIAG_ERROR, "Unexpected token found expected top level declaration!");
+            return nullptr;
+    }
+}
+
+/// grammar: array-type-ref := type-ref "[" [ expression ] "]"
+ArrayTypeRef* Parser::parseArrayTypeRef(TypeRef* elementTypeRef) {
+    if (!consumeToken('[')) {
+        return nullptr;
+    }
+
+    auto value = parseExpression();
+    if (!value) {
+        return nullptr;
+    }
+
+    if (!consumeToken(']')) {
+        return nullptr;
+    }
+
+    return  new (context) ArrayTypeRef(elementTypeRef, value);
+}
+
+/// grammar: block := '{' { statement } '}'
+BlockStatement* Parser::parseBlock() {
+    if (!consumeToken('{')) {
+        return nullptr;
+    }
+
+    jelly::Array<Statement*> statements;
+    if (!token.is('}')) {
+        unsigned line = token.line;
+        while (true) {
+            if (!statements.empty() && line == token.line) {
+                report(DIAG_ERROR, "Consecutive statements on a line are not allowed!");
+                return nullptr;
+            }
+            line = token.line;
+
+            auto statement = parseStatement();
+            if (!statement) {
+                return nullptr;
+            }
+
+            statements.push_back(statement);
+
+            if (token.is('}')) {
+                break;
+            }
+        }
+    }
+    consumeToken();
+
+    return new (context) BlockStatement(statements);
+}
+
+/// grammar: bool-literal := "true" | "false"
+BoolLiteral* Parser::parseBoolLiteral() {
+    if (!token.is(TOKEN_KEYWORD_TRUE, TOKEN_KEYWORD_FALSE)) {
+        report(DIAG_ERROR, "Expected keyword 'true' or 'false' found '{0}'", token.text);
+        return nullptr;
+    }
+
+    bool value = token.is(TOKEN_KEYWORD_TRUE);
+    consumeToken();
+
+    return new (context) BoolLiteral(value);
+}
+
+/// grammar: break-statement := "break"
+BreakStatement* Parser::parseBreak() {
+    if (!consumeToken(TOKEN_KEYWORD_BREAK)) {
+        return nullptr;
+    }
+
+    return new (context) BreakStatement;
 }
 
 /// grammar: call-expression := expression "(" [ expression { "," expression } ] ")"
-static ASTCallExpr* ParseCallExpr(Parser* Parser, ASTContext* Context, DiagnosticEngine* Diag, ASTExpr* Left) {
-    assert(Parser->token.is('(') && "Invalid token given for start of call-expression");
-    ConsumeToken(Parser);
-
-    ASTCallExpr* callExpr = new (Context) ASTCallExpr;
-    callExpr->left = Left; // @Bug is the parent of the left broken here ???
-    callExpr->declContext = Parser->declContext;
-
-    PushParent(Parser, callExpr);
-    {
-        jelly::SmallVector<ASTExpr*, 0> arguments;
-        if (!Parser->token.is(')')) {
-            while (true) {
-                ASTExpr* argument = ParseExpr(Parser, Context, Diag);
-                if (argument == nullptr) {
-                    return nullptr;
-                }
-
-                arguments.push_back(argument);
-
-                if (Parser->token.is(')')) {
-                    break;
-                } else if (!Parser->token.is(',')) {
-                    Parser->report(DIAG_ERROR, "Expected ')' or ',' in argument list of call-expression!");
-                    return nullptr;
-                }
-
-                ConsumeToken(Parser);
-            }
-        }
-        ConsumeToken(Parser);
-
-        callExpr->args = jelly::makeArrayRef(arguments).copy(Context->nodeAllocator);
+CallExpression* Parser::parseCallExpression(Expression* callee) {
+    if (!consumeToken('(')) {
+        return nullptr;
     }
-    PopParent(Parser);
 
-    return callExpr;
+    jelly::Array<Expression*> arguments;
+    while (!token.is(')')) {
+        auto argument = parseExpression();
+        if (!argument) {
+            return nullptr;
+        }
+
+        arguments.push_back(argument);
+
+        if (token.is(')')) {
+            break;
+        }
+
+        if (!consumeToken(',')) {
+            return nullptr;
+        }
+    }
+
+    return new (context) CallExpression(callee, arguments);
 }
 
-/// grammar: subscript-expression := expression "[" [ expression { "," expression } ] "]"
-static ASTSubscriptExpr* ParseSubscriptExpr(Parser* Parser, ASTContext* Context, DiagnosticEngine* Diag, ASTExpr* Left) {
-    assert(Parser->token.is('[') && "Invalid token given for start of call-expression");
-    ConsumeToken(Parser);
+/// grammar: case-statement := conditional-case-statement | else-case-statement
+CaseStatement* Parser::parseCaseStatement() {
+    switch (token.kind) {
+        case TOKEN_KEYWORD_CASE: return parseConditionalCaseStatement();
+        case TOKEN_KEYWORD_ELSE: return parseElseCaseStatement();
 
-    ASTSubscriptExpr* Subscript = new (Context) ASTSubscriptExpr;
-    Subscript->left = Left; // @Bug is the parent of the left broken here ???
-    Subscript->declContext = Parser->declContext;
+        default:
+            report(DIAG_ERROR, "Expected 'case' or 'else' keyword, found '{0}'", token.text);
+            return nullptr;
+    }
+}
 
-    PushParent(Parser, Subscript);
-    {
-        jelly::SmallVector<ASTExpr*, 0> arguments;
-        if (!Parser->token.is(']')) {
-            while (true) {
-                ASTExpr* argument = ParseExpr(Parser, Context, Diag);
-                if (argument == nullptr) {
-                    return nullptr;
-                }
+/// grammar: conditional-case-statement := "case" expression ":" statement { line-break statement }
+ConditionalCaseStatement* Parser::parseConditionalCaseStatement() {
+    if (!consumeToken(TOKEN_KEYWORD_CASE)) {
+        return nullptr;
+    }
 
-                arguments.push_back(argument);
+    auto condition = parseExpression();
+    if (!condition) {
+        return nullptr;
+    }
 
-                if (Parser->token.is(']')) {
-                    break;
-                } else if (!Parser->token.is(',')) {
-                    Parser->report(DIAG_ERROR, "Expected ']' or ',' in argument list of subscript-expression!");
-                    return nullptr;
-                }
+    if (!consumeToken(':')) {
+        return nullptr;
+    }
 
-                ConsumeToken(Parser);
+    jelly::Array<Statement*> statements;
+    unsigned line = token.line;
+    while (!token.is(TOKEN_KEYWORD_CASE, TOKEN_KEYWORD_ELSE, '}')) {
+        if (!statements.empty() && line == token.line) {
+            report(DIAG_ERROR, "Consecutive statements on a line are not allowed!");
+            return nullptr;
+        }
+
+        line = token.line;
+
+        auto statement = parseStatement();
+        if (!statement) {
+            return nullptr;
+        }
+
+        statements.push_back(statement);
+    }
+
+    auto body = new (context) BlockStatement(statements);
+
+    return new (context) ConditionalCaseStatement(condition, body);
+}
+
+/// grammar: let-declaration := "let" identifier ":" type-identifier [ "=" expression ]
+ConstantDeclaration* Parser::parseConstant() {
+    if (!consumeToken(TOKEN_KEYWORD_LET)) {
+        return nullptr;
+    }
+
+    Identifier name;
+    if (!consumeIdentifier(name)) {
+        return nullptr;
+    }
+
+    if (!consumeToken(':')) {
+        return nullptr;
+    }
+
+    auto typeRef = parseTypeRef();
+    if (!typeRef) {
+        return nullptr;
+    }
+
+    Expression* initializer = nullptr;
+    if (tryConsumeOperator(Operator::Assign)) {
+        initializer = parseExpression();
+        if (!initializer) {
+            return nullptr;
+        }
+    }
+
+    return new (context) ConstantDeclaration(name, typeRef, initializer);
+}
+
+/// grammar: continue-statement := "continue"
+ContinueStatement* Parser::parseContinue() {
+    if (!consumeToken(TOKEN_KEYWORD_CONTINUE)) {
+        return nullptr;
+    }
+
+    return new (context) ContinueStatement;
+}
+
+/// grammar: defer-statement := "defer" expression
+DeferStatement* Parser::parseDefer() {
+    if (!consumeToken(TOKEN_KEYWORD_DEFER)) {
+        return nullptr;
+    }
+
+    auto expression = parseExpression();
+    if (!expression) {
+        return nullptr;
+    }
+
+    return new (context) DeferStatement(expression);
+}
+
+/// grammar: do-statement := "do" block "while" expression
+DoStatement* Parser::parseDoStatement() {
+    if (!consumeToken(TOKEN_KEYWORD_DO)) {
+        return nullptr;
+    }
+
+    auto body = parseBlock();
+    if (!body) {
+        return nullptr;
+    }
+
+    if (!consumeToken(TOKEN_KEYWORD_WHILE)) {
+        return nullptr;
+    }
+
+    auto condition = parseConditionList();
+    if (!condition) {
+        return nullptr;
+    }
+
+    return new (context) DoStatement(condition, body);
+}
+
+/// grammar: else-case-statement := "else" ":" statement { line-break statement }
+ElseCaseStatement* Parser::parseElseCaseStatement() {
+    if (!consumeToken(TOKEN_KEYWORD_ELSE)) {
+        return nullptr;
+    }
+
+    if (!consumeToken(':')) {
+        return nullptr;
+    }
+
+    jelly::Array<Statement*> statements;
+    unsigned line = token.line;
+    while (!token.is(TOKEN_KEYWORD_CASE, TOKEN_KEYWORD_ELSE, '}')) {
+        if (!statements.empty() && line == token.line) {
+            report(DIAG_ERROR, "Consecutive statements on a line are not allowed!");
+            return nullptr;
+        }
+
+        line = token.line;
+
+        auto statement = parseStatement();
+        if (!statement) {
+            return nullptr;
+        }
+
+        statements.push_back(statement);
+    }
+
+    auto body = new (context) BlockStatement(statements);
+
+    return new (context) ElseCaseStatement(body);
+}
+
+/// grammar: enum-declaration := "enum" identifier "{" [ enum-element { line-break enum-element } ] "}"
+EnumerationDeclaration* Parser::parseEnumeration() {
+    if (!consumeToken(TOKEN_KEYWORD_ENUM)) {
+        return nullptr;
+    }
+
+    Identifier name;
+    if (!consumeIdentifier(name)) {
+        return nullptr;
+    }
+
+    if (!consumeToken('{')) {
+        return nullptr;
+    }
+
+    jelly::Array<EnumerationElementDeclaration*> elements;
+    if (!token.is('}')) {
+        unsigned line = token.line;
+        while (true) {
+            if (!elements.empty() && line == token.line) {
+                report(DIAG_ERROR, "Consecutive enum elements on a line are not allowed!");
+                return nullptr;
+            }
+
+            auto element = parseEnumerationElement();
+            if (!element) {
+                return nullptr;
+            }
+
+            if (elements.contains(element, isDeclarationNameEqual)) {
+                report(DIAG_ERROR, "Invalid redeclaration of '{0}'", element->getName());
+            }
+
+            elements.push_back(element);
+
+            if (token.is('}')) {
+                break;
+            }
+
+            if (!token.is(TOKEN_KEYWORD_CASE)) {
+                report(DIAG_ERROR, "Expected '}' at end of enum declaration!");
+                return nullptr;
             }
         }
-        ConsumeToken(Parser);
-
-        Subscript->args = jelly::makeArrayRef(arguments).copy(Context->nodeAllocator);
     }
-    PopParent(Parser);
+    consumeToken();
 
-    return Subscript;
+    return new (context) EnumerationDeclaration(name, elements);
+}
+
+/// grammar: enum-element := "case" identifier [ "=" expression ]
+EnumerationElementDeclaration* Parser::parseEnumerationElement() {
+    if (!consumeToken(TOKEN_KEYWORD_CASE)) {
+        return nullptr;
+    }
+
+    Identifier name;
+    if (!consumeIdentifier(name)) {
+        return nullptr;
+    }
+
+    Expression* value = nullptr;
+    if (tryConsumeOperator(Operator::Assign)) {
+        value = parseExpression();
+        if (!value) {
+            return nullptr;
+        }
+    }
+
+    return new (context) EnumerationElementDeclaration(name, value);
 }
 
 /// grammar: expression := binary-expression | unary-expression | atom-expression
 /// grammar: binary-expression := ( atom-expression | unary-expression | call-expression | subscript-expression ) infix-operator expression
-static ASTExpr* ParseExpr(Parser* Parser, ASTContext* Context, DiagnosticEngine* Diag, Precedence Prec) {
-    ASTExpr* Left = ParsePrimaryExpr(Parser, Context, Diag);
-    if (Left == nullptr) {
+Expression* Parser::parseExpression(Precedence precedence) {
+    auto left = parsePrimaryExpression();
+    if (!left) {
         return nullptr;
     }
 
-    if (!Parser->lexer->getOperator(Parser->token.text, OPERATOR_INFIX, Parser->op)
-        && !Parser->lexer->getOperator(Parser->token.text, OPERATOR_POSTFIX, Parser->op)) {
-        return Left;
+    if (!context->getOperator(token.text, Fixity::Infix, op) &&
+        !context->getOperator(token.text, Fixity::Postfix, op)) {
+        return left;
     }
 
-    // @Incomplete maintain parent stack for binary expressions !!!
-    while (Prec < Parser->op.precedence) {
-        if (Parser->op.kind == OPERATOR_INFIX) {
-            ConsumeToken(Parser);
+    while (precedence < op.getPrecedence()) {
+        if (op.getFixity() == Fixity::Infix) {
+            consumeToken();
 
-            Precedence NextPrecedence = Parser->op.precedence;
-            if (Parser->op.associativity == ASSOCIATIVITY_RIGHT) {
-                NextPrecedence = Parser->lexer->getOperatorPrecedenceBefore(NextPrecedence);
+            auto nextPrecedence = op.getPrecedence();
+            if (op.getAssociativity() == Associativity::Right) {
+                nextPrecedence = context->getOperatorPrecedenceBefore(nextPrecedence);
             }
 
-            ASTBinaryExpr* Right = new (Context) ASTBinaryExpr;
-            Right->declContext = Parser->declContext;
-            Right->parent = Parser->parent;
-            Right->op = Parser->op;
-            Right->left = Left;
-            Left->parent = Right;
-
-            Right->right = ParseExpr(Parser, Context, Diag, NextPrecedence);
-            if (Right->right == nullptr) {
+            auto right = parseExpression(nextPrecedence);
+            if (!right) {
                 return nullptr;
             }
-            Right->right->parent = Right;
 
-            Left = Right;
-        } else if (Parser->op.text.equals(".")) {
-            ConsumeToken(Parser);
-
-            ASTMemberAccessExpr* Right = new (Context) ASTMemberAccessExpr;
-            Right->declContext = Parser->declContext;
-            PushParent(Parser, Right);
-            PopParent(Parser);
-            Right->left = Left;
-            Left->parent = Right;
-
-            if (!Parser->token.is(TOKEN_IDENTIFIER)) {
-                Parser->report(DIAG_ERROR, "Expected identifier for member name!");
-                return nullptr;
+            left = new (context) BinaryExpression(op, left, right);
+        } else if (op.getSymbol().equals(".")) {
+            auto expr = tryParseMemberAccessExpression(left);
+            if (expr) {
+                left = expr;
             }
-            Right->memberName = Context->getLexeme(Parser->token.text);
-            ConsumeToken(Parser);
-
-            Left = Right;
-
         }
         // @Bug postfix expressions should always be parsed as primary expressions without precedence!
-        else if (Parser->op.text.equals("()")) {
-            Left = ParseCallExpr(Parser, Context, Diag, Left);
-        } else if (Parser->op.text.equals("[]")) {
-            Left = ParseSubscriptExpr(Parser, Context, Diag, Left);
+        else if (op == Operator::Call) {
+            left = parseCallExpression(left);
         } else {
             return nullptr;
         }
 
-        if (!Parser->lexer->getOperator(Parser->token.text, OPERATOR_INFIX, Parser->op)
-            && !Parser->lexer->getOperator(Parser->token.text, OPERATOR_POSTFIX, Parser->op)) {
-            break;
+        if (!context->getOperator(token.text, Fixity::Infix, op) &&
+            !context->getOperator(token.text, Fixity::Postfix, op)) {
+            return left;
         }
     }
 
-    return Left;
-}
-
-static ASTExpr* TryParseExpr(Parser* Parser, ASTContext* Context, DiagnosticEngine* Diag, Precedence Precedence) {
-    auto isSilent = Parser->silentErrors;
-    Parser->silentErrors = true;
-    defer(Parser->silentErrors = isSilent);
-
-    auto lexerState = Parser->lexer->state;
-    auto expr = ParseExpr(Parser, Context, Diag, Precedence);
-    if (!expr) {
-        Parser->lexer->state = lexerState;
-    }
-
-    return expr;
-}
-
-// MARK: - Directives
-
-/// grammar: directive := load-directive
-
-/// grammar: load-directive := "#load" string-literal
-static ASTLoadDirective* ParseLoadDirective(Parser* Parser, ASTContext* Context, DiagnosticEngine* Diag) {
-    assert(Parser->token.is(TOKEN_KEYWORD_LOAD) && "Invalid token given for start of load directive!");
-    ConsumeToken(Parser);
-
-    if (Parser->token.kind != TOKEN_LITERAL_STRING) {
-        Parser->report(DIAG_ERROR, "Expected string literal after load directive!");
-        return nullptr;
-    }
-
-    assert(Parser->token.text.size() >= 2 && "Invalid length of string literal text, has to contain at least \"\"");
-
-    ASTLoadDirective* loadDirective = new (Context) ASTLoadDirective;
-    loadDirective->declContext = Parser->declContext;
-    loadDirective->parent = Parser->parent;
-    loadDirective->loadFilePath = Context->getLexeme(Parser->token.text.drop_front(1).drop_back(1));
-
-    ConsumeToken(Parser);
-
-    return loadDirective;
-}
-
-// MARK: - Types
-
-/// grammar: any-type-identifier := "Any"
-static ASTTypeRef* ParseAnyType(Parser* Parser, ASTContext* Context) {
-    assert(Parser->token.kind == TOKEN_KEYWORD_ANY);
-
-    ConsumeToken(Parser);
-
-    auto TypeRef = new (Context) ASTAnyTypeRef;
-    TypeRef->declContext = Parser->declContext;
-    PushParent(Parser, TypeRef);
-    PopParent(Parser);
-
-    return TypeRef;
-}
-
-/// grammar: opaque-type := identifier
-static ASTTypeRef* ParseOpaqueType(Parser* Parser, ASTContext* Context, DiagnosticEngine* Diag) {
-    assert(Parser->token.kind == TOKEN_IDENTIFIER);
-
-    auto TypeRef = new (Context) ASTOpaqueTypeRef;
-    TypeRef->declContext = Parser->declContext;
-    PushParent(Parser, TypeRef);
-    PopParent(Parser);
-
-    TypeRef->typeName = Context->getLexeme(Parser->token.text);
-    ConsumeToken(Parser);
-
-    return TypeRef;
-}
-
-/// grammar: type-of-type-identifier := "typeof" "(" expression ")"
-static ASTTypeRef* ParseTypeOfType(Parser* Parser, ASTContext* Context, DiagnosticEngine* Diag) {
-    assert(Parser->token.kind == TOKEN_KEYWORD_TYPEOF);
-
-    ConsumeToken(Parser);
-
-    if (!Parser->token.is('(')) {
-        Parser->report(DIAG_ERROR, "Expected ( after typeof keyword!");
-        return nullptr;
-    }
-    ConsumeToken(Parser);
-
-    auto TypeRef = new (Context) ASTTypeOfTypeRef;
-    TypeRef->declContext = Parser->declContext;
-    PushParent(Parser, TypeRef);
-    {
-        TypeRef->expr = ParseExpr(Parser, Context, Diag);
-        if (!TypeRef->expr) {
-            Parser->report(DIAG_ERROR, "Expected expression as argument in typeof !");
-            return nullptr;
-        }
-    }
-    PopParent(Parser);
-
-    if (!Parser->token.is(')')) {
-        Parser->report(DIAG_ERROR, "Expected ) after expression of typeof keyword!");
-        return nullptr;
-    }
-    ConsumeToken(Parser);
-
-    return TypeRef;
-}
-
-/// grammar: pointer-type-identifier := type-identifier "*"
-static ASTTypeRef* ParsePointerType(Parser* Parser, ASTContext* Context, DiagnosticEngine* Diag, ASTTypeRef* PointeeTypeRef, bool* DidFail) {
-    uint32_t Depth = 0;
-    while (Parser->token.is(TOKEN_OPERATOR)
-           && Parser->lexer->getOperator(Parser->token.text, OPERATOR_POSTFIX, Parser->op)
-           && Parser->op.text.equals("*")) {
-        Depth += 1;
-        ConsumeToken(Parser);
-    }
-
-    if (Depth < 1) {
-        *DidFail = true;
-        return PointeeTypeRef;
-    }
-
-    auto TypeRef = new (Context) ASTPointerTypeRef;
-    TypeRef->declContext = Parser->declContext;
-    PushParent(Parser, TypeRef);
-    PopParent(Parser);
-    TypeRef->depth = Depth;
-    TypeRef->pointeeTypeRef = PointeeTypeRef;
-    TypeRef->pointeeTypeRef->parent = TypeRef;
-    return TypeRef;
-}
-
-/// grammar: array-type-identifier := type-identifier "[" [ expression ] "]"
-static ASTTypeRef* ParseArrayType(Parser* Parser, ASTContext* Context, DiagnosticEngine* Diag, ASTTypeRef* ElementTypeRef) {
-    assert(Parser->token.kind == '[');
-
-    ConsumeToken(Parser);
-
-    auto TypeRef = new (Context) ASTArrayTypeRef;
-    TypeRef->declContext = Parser->declContext;
-    TypeRef->elementTypeRef = ElementTypeRef;
-    TypeRef->elementTypeRef->parent = TypeRef;
-
-    PushParent(Parser, TypeRef);
-    {
-        if (!Parser->token.is(']')) {
-            TypeRef->sizeExpr = ParseExpr(Parser, Context, Diag);
-            if (!TypeRef->sizeExpr) {
-                Parser->report(DIAG_ERROR, "Expected expression for size of array-type-identifier after '[' !");
-                return nullptr;
-            }
-        }
-    }
-    PopParent(Parser);
-
-    if (!Parser->token.is(']')) {
-        Parser->report(DIAG_ERROR, "Expected ] after expression of array-type-identifier!");
-        return nullptr;
-    }
-    ConsumeToken(Parser);
-
-    return TypeRef;
-}
-
-/// grammar: type-identifier := identifier | any-type-identifier | pointer-type-identifier | array-type-identifier | type-of-type-identifier
-static ASTTypeRef* ParseType(Parser* Parser, ASTContext* Context, DiagnosticEngine* Diag) {
-    ASTTypeRef* TypeRef = nullptr;
-
-    switch (Parser->token.kind) {
-        case TOKEN_KEYWORD_ANY:
-            TypeRef = ParseAnyType(Parser, Context);
-            break;
-
-        case TOKEN_IDENTIFIER:
-            TypeRef = ParseOpaqueType(Parser, Context, Diag);
-            break;
-
-        case TOKEN_KEYWORD_TYPEOF:
-            TypeRef = ParseTypeOfType(Parser, Context, Diag);
-            break;
-
-        default:
-            Parser->report(DIAG_ERROR, "Expected type identifier!");
-            return nullptr;
-    }
-
-    bool DidFinish = false;
-    while (!DidFinish && TypeRef) {
-        switch (Parser->token.kind) {
-            case TOKEN_OPERATOR:
-                TypeRef = ParsePointerType(Parser, Context, Diag, TypeRef, &DidFinish);
-                break;
-
-            case '[':
-                TypeRef = ParseArrayType(Parser, Context, Diag, TypeRef);
-                break;
-
-            default:
-                DidFinish = true;
-                break;
-        }
-    }
-
-    return TypeRef;
-}
-
-// MARK: - Block
-
-ASTStmt* ParseStmt(Parser* Parser, ASTContext* Context, DiagnosticEngine* Diag);
-
-// grammar: compound-statement := '{' { statement } '}'
-static ASTCompoundStmt* ParseCompoundStmt(Parser* Parser, ASTContext* Context, DiagnosticEngine* Diag) {
-    if (!Parser->token.is('{')) {
-        Parser->report(DIAG_ERROR, "Expected '{' at start of block!");
-        return nullptr;
-    }
-    ConsumeToken(Parser);
-
-    auto compoundStmt = new (Context) ASTCompoundStmt;
-    compoundStmt->declContext = Parser->declContext;
-
-    PushParent(Parser, compoundStmt);
-    {
-        jelly::SmallVector<ASTStmt*, 0> stmts;
-
-        if (!Parser->token.is('}')) {
-            unsigned line = Parser->token.line;
-            while (true) {
-                if (stmts.size() > 0 && line == Parser->token.line) {
-                    Parser->report(DIAG_ERROR, "Consecutive statements on a line are not allowed!");
-                    return nullptr;
-                }
-                line = Parser->token.line;
-
-                ASTStmt* stmt = ParseStmt(Parser, Context, Diag);
-                if (stmt == nullptr) {
-                    return nullptr;
-                }
-
-                stmts.push_back(stmt);
-
-                if (Parser->token.is('}')) {
-                    break;
-                }
-            }
-        }
-        ConsumeToken(Parser);
-
-        compoundStmt->stmts = jelly::makeArrayRef(stmts).copy(Context->nodeAllocator);
-    }
-    PopParent(Parser);
-
-    return compoundStmt;
-}
-
-// MARK: - Context Declarations
-
-/// grammar: enum-element := "case" identifier [ "=" expression ]
-static ASTEnumElementDecl* ParseEnumElementDecl(Parser* Parser, ASTContext* Context, DiagnosticEngine* Diag) {
-    if (!Parser->token.is(TOKEN_KEYWORD_CASE)) {
-        Parser->report(DIAG_ERROR, "Expected 'case' keyword at start of enum element!");
-        return nullptr;
-    }
-    ConsumeToken(Parser);
-
-    ASTEnumElementDecl* EnumElement = new (Context) ASTEnumElementDecl;
-    EnumElement->declContext = Parser->declContext;
-    PushParent(Parser, EnumElement);
-    {
-        if (!Parser->token.is(TOKEN_IDENTIFIER)) {
-            Parser->report(DIAG_ERROR, "Expected identifier for name of enum element!");
-            return nullptr;
-        }
-        EnumElement->name = Context->getLexeme(Parser->token.text);
-        ConsumeToken(Parser);
-
-        if (Parser->token.is(TOKEN_OPERATOR)
-            && Parser->lexer->getOperator(Parser->token.text, OPERATOR_INFIX, Parser->op)
-            && Parser->op.text.equals("=")) {
-            ConsumeToken(Parser);
-
-            EnumElement->assignment = ParseExpr(Parser, Context, Diag);
-            if (EnumElement->assignment == nullptr) {
-                return nullptr;
-            }
-        }
-
-    }
-    PopParent(Parser);
-
-    return EnumElement;
-}
-
-/// grammar: parameter := identifier ":" type-identifier
-static ASTParamDecl* ParseParameterDecl(Parser* Parser, ASTContext* Context, DiagnosticEngine* Diag) {
-    ASTParamDecl* Parameter = new (Context) ASTParamDecl;
-    Parameter->declContext = Parser->declContext;
-    PushParent(Parser, Parameter);
-    {
-        if (!Parser->token.is(TOKEN_IDENTIFIER)) {
-            Parser->report(DIAG_ERROR, "Expected identifier for name of parameter!");
-            return nullptr;
-        }
-        Parameter->name = Context->getLexeme(Parser->token.text);
-        ConsumeToken(Parser);
-
-        if (!Parser->token.is(':')) {
-            Parser->report(DIAG_ERROR, "Expected ':' after name of parameter!");
-            return nullptr;
-        }
-        ConsumeToken(Parser);
-
-        Parameter->typeRef = ParseType(Parser, Context, Diag);
-        if (Parameter->typeRef == nullptr) {
-//            Parser->report(DIAG_ERROR, "Expected type of parameter!");
-            return nullptr;
-        }
-    }
-    PopParent(Parser);
-
-    return Parameter;
-}
-
-// MARK: - Declarations
-
-/// grammar: enum-declaration := "enum" identifier "{" [ enum-element { line-break enum-element } ] "}"
-static ASTEnumDecl* ParseEnumDecl(Parser* Parser, ASTContext* Context, DiagnosticEngine* Diag) {
-    assert(Parser->token.is(TOKEN_KEYWORD_ENUM) && "Invalid token given for start of enum!");
-
-    ConsumeToken(Parser);
-
-    ASTEnumDecl* Enum = new (Context) ASTEnumDecl;
-    Enum->declContext = Parser->declContext;
-
-    PushDeclContext(Parser, Enum);
-    PushParent(Parser, Enum);
-    {
-        if (!Parser->token.is(TOKEN_IDENTIFIER)) {
-            Parser->report(DIAG_ERROR, "Expected identifier for name of enum declaration!");
-            return nullptr;
-        }
-        Enum->name = Context->getLexeme(Parser->token.text);
-        ConsumeToken(Parser);
-
-        if (!Parser->token.is('{')) {
-            Parser->report(DIAG_ERROR, "Expected '{' after name of enum declaration!");
-            return nullptr;
-        }
-        ConsumeToken(Parser);
-
-        if (!Parser->token.is('}')) {
-            unsigned line = Parser->token.line;
-            while (true) {
-                if (Enum->containsDecls() > 0 && line == Parser->token.line) {
-                    Parser->report(DIAG_ERROR, "Consecutive enum elements on a line are not allowed!");
-                    return nullptr;
-                }
-
-                ASTEnumElementDecl* EnumElement = ParseEnumElementDecl(Parser, Context, Diag);
-                if (EnumElement == nullptr) {
-                    return nullptr;
-                }
-
-                if (!Enum->lookupDecl(EnumElement->name)) {
-                    Enum->addDecl(EnumElement);
-                } else {
-                    Parser->report(DIAG_ERROR, "Invalid redeclaration of '{0}'", EnumElement->name);
-                }
-
-                if (Parser->token.is('}')) {
-                    break;
-                } else if (!Parser->token.is(TOKEN_KEYWORD_CASE)) {
-                    Parser->report(DIAG_ERROR, "Expected '}' at end of enum declaration!");
-                    return nullptr;
-                }
-            }
-        }
-        ConsumeToken(Parser);
-    }
-    PopParent(Parser);
-    PopDeclContext(Parser);
-
-    return Enum;
-}
-
-/// grammar: func-declaration := "func" identifier "(" [ parameter { "," parameter } ] ")" "->" type-identifier block
-static ASTFuncDecl* ParseFuncDecl(Parser* Parser, ASTContext* Context, DiagnosticEngine* Diag) {
-    assert(Parser->token.is(TOKEN_KEYWORD_FUNC) && "Invalid token given for start of func declaration!");
-    ConsumeToken(Parser);
-
-    ASTFuncDecl* Func = new (Context) ASTFuncDecl;
-    Func->declContext = Parser->declContext;
-
-    PushDeclContext(Parser, Func);
-    PushParent(Parser, Func);
-    {
-        if (!Parser->token.is(TOKEN_IDENTIFIER)) {
-            Parser->report(DIAG_ERROR, "Expected identifier in function declaration!");
-            return nullptr;
-        }
-        Func->name = Context->getLexeme(Parser->token.text);
-        ConsumeToken(Parser);
-
-        if (!Parser->token.is('(')) {
-            Parser->report(DIAG_ERROR, "Expected '(' in parameter list of function declaration!");
-            return nullptr;
-        }
-        ConsumeToken(Parser);
-
-        jelly::SmallVector<ASTParamDecl*, 0> parameters;
-        if (!Parser->token.is(')')) {
-            while (true) {
-                ASTParamDecl* parameter = ParseParameterDecl(Parser, Context, Diag);
-                if (parameter == nullptr) {
-                    return nullptr;
-                }
-
-                parameters.push_back(parameter);
-
-                if (Parser->token.is(')')) {
-                    break;
-                } else if (!Parser->token.is(',')) {
-                    Parser->report(DIAG_ERROR, "Expected ')' or ',' in parameter list of function declaration!");
-                    return nullptr;
-                }
-                ConsumeToken(Parser);
-            }
-        }
-        ConsumeToken(Parser);
-
-        Func->parameters = jelly::makeArrayRef(parameters).copy(Context->nodeAllocator);
-
-        for (auto parameter : Func->parameters) {
-            if (!Func->lookupDecl(parameter->name)) {
-                Func->addDecl(parameter);
-            } else {
-                Parser->report(DIAG_ERROR, "Invalid redeclaration of '{0}'", parameter->name);
-            }
-        }
-
-        if (!Parser->token.is(TOKEN_ARROW)) {
-            Parser->report(DIAG_ERROR, "Expected '->' in function declaration!");
-            return nullptr;
-        }
-        ConsumeToken(Parser);
-
-        Func->returnTypeRef = ParseType(Parser, Context, Diag);
-        if (!Func->returnTypeRef) {
-            return nullptr;
-        }
-
-        Func->body = ParseCompoundStmt(Parser, Context, Diag);
-        if (!Func->body) {
-            return nullptr;
-        }
-
-        for (auto stmt : Func->body->stmts) {
-            if (stmt->isDecl()) {
-                auto decl = reinterpret_cast<ASTDecl*>(stmt);
-                if (decl->isNamedDecl()) {
-                    auto namedDecl = reinterpret_cast<ASTNamedDecl*>(decl);
-                    if (!Func->lookupDecl(namedDecl->name)) {
-                        Func->addDecl(namedDecl);
-                    } else {
-                        Parser->report(DIAG_ERROR, "Invalid redeclaration of '{0}'", namedDecl->name);
-                    }
-                } else {
-                    Func->addDecl(decl);
-                }
-            }
-        }
-    }
-    PopParent(Parser);
-    PopDeclContext(Parser);
-
-    return Func;
-}
-
-/// grammar: value-declaration := var-declaration | let-declaration
-static ASTValueDecl* ParseValueDecl(Parser* Parser, ASTContext* Context, DiagnosticEngine* Diag);
-
-/// grammar: struct-declaration := "struct" identifier "{" { value-declaration } "}"
-static ASTStructDecl* ParseStructDecl(Parser* Parser, ASTContext* Context, DiagnosticEngine* Diag) {
-    assert(Parser->token.is(TOKEN_KEYWORD_STRUCT) && "Invalid token given for start of struct!");
-    ConsumeToken(Parser);
-
-    ASTStructDecl* Struct = new (Context) ASTStructDecl;
-    Struct->declContext = Parser->declContext;
-
-    PushDeclContext(Parser, Struct);
-    PushParent(Parser, Struct);
-    {
-        if (!Parser->token.is(TOKEN_IDENTIFIER)) {
-            Parser->report(DIAG_ERROR, "Expected identifier for name of struct declaration!");
-            return nullptr;
-        }
-        Struct->name = Context->getLexeme(Parser->token.text);
-        ConsumeToken(Parser);
-
-        if (!Parser->token.is('{')) {
-            Parser->report(DIAG_ERROR, "Expected '{' after identifier of struct declaration!");
-            return nullptr;
-        }
-        ConsumeToken(Parser);
-
-        if (!Parser->token.is('}')) {
-            unsigned line = Parser->token.line;
-            while (true) {
-                if (Struct->containsDecls() && line == Parser->token.line) {
-                    Parser->report(DIAG_ERROR, "Consecutive statements on a line are not allowed!");
-                    return nullptr;
-                }
-                line = Parser->token.line;
-
-                auto decl = ParseValueDecl(Parser, Context, Diag);
-                if (!decl) {
-                    Parser->report(DIAG_ERROR, "Expected value declaration or closing '}' in struct declaration!");
-                    return nullptr;
-                }
-
-                if (!Struct->lookupDecl(decl->name)) {
-                    Struct->addDecl(decl);
-                } else {
-                    Parser->report(DIAG_ERROR, "Invalid redeclaration of '{0}'", decl->name);
-                }
-
-                if (Parser->token.is('}')) {
-                    break;
-                }
-            }
-        }
-        ConsumeToken(Parser);
-    }
-    PopParent(Parser);
-    PopDeclContext(Parser);
-
-    return Struct;
-}
-
-/// grammar: value-declaration := var-declaration | let-declaration
-/// grammar: var-declaration := "var" identifier ":" type-identifier [ "=" expression ]
-/// grammar: let-declaration := "let" identifier ":" type-identifier [ "=" expression ]
-static ASTValueDecl* ParseValueDecl(Parser* Parser, ASTContext* Context, DiagnosticEngine* Diag) {
-    if (!Parser->token.is(TOKEN_KEYWORD_VAR, TOKEN_KEYWORD_LET)) {
-        return nullptr;
-    }
-
-    bool isConstant = Parser->token.is(TOKEN_KEYWORD_LET);
-    ConsumeToken(Parser);
-
-    ASTValueDecl* decl = new (Context) ASTValueDecl(isConstant);
-    decl->declContext = Parser->declContext;
-    PushParent(Parser, decl);
-    {
-        if (!Parser->token.is(TOKEN_IDENTIFIER)) {
-            Parser->report(DIAG_ERROR, "Expected identifier for name of variable declaration!");
-            return nullptr;
-        }
-        decl->name = Context->getLexeme(Parser->token.text);
-        ConsumeToken(Parser);
-
-        if (!Parser->token.is(':')) {
-            Parser->report(DIAG_ERROR, "Expected ':' after variable name identifier!");
-            return nullptr;
-        }
-        ConsumeToken(Parser);
-
-        decl->typeRef = ParseType(Parser, Context, Diag);
-        if (!decl->typeRef) {
-            return nullptr;
-        }
-
-        if (Parser->token.is(TOKEN_OPERATOR)
-            && Parser->lexer->getOperator(Parser->token.text, OPERATOR_INFIX, Parser->op)
-            && Parser->op.text.equals("=")) {
-            ConsumeToken(Parser);
-
-            decl->initializer = ParseExpr(Parser, Context, Diag);
-            if (!decl->initializer) {
-                return nullptr;
-            }
-        }
-
-    }
-    PopParent(Parser);
-
-    return decl;
-}
-
-// MARK: - Top Level Declarations
-
-/// grammar: top-level-node := directive | enum-declaration | func-declaration | struct-declaration | variable-declaration
-ASTNode* ParseTopLevelNode(Parser* Parser, ASTContext* Context, DiagnosticEngine* Diag) {
-    switch (Parser->token.kind) {
-        case TOKEN_KEYWORD_LOAD:   return ParseLoadDirective(Parser, Context, Diag);
-        case TOKEN_KEYWORD_ENUM:   return ParseEnumDecl(Parser, Context, Diag);
-        case TOKEN_KEYWORD_FUNC:   return ParseFuncDecl(Parser, Context, Diag);
-        case TOKEN_KEYWORD_STRUCT: return ParseStructDecl(Parser, Context, Diag);
-
-        case TOKEN_KEYWORD_VAR:
-        case TOKEN_KEYWORD_LET:
-            return ParseValueDecl(Parser, Context, Diag);
-
-        case TOKEN_EOF:            return nullptr;
-        default:
-            Parser->report(DIAG_ERROR, "Unexpected token found expected top level declaration!");
-            return nullptr;
-    }
-}
-
-// MARK: - Statements
-
-/// grammar: break-statement := "break"
-static ASTBreakStmt* ParseBreakStmt(Parser* Parser, ASTContext* Context, DiagnosticEngine* Diag) {
-    assert(Parser->token.kind == TOKEN_KEYWORD_BREAK);
-
-    ConsumeToken(Parser);
-
-    ASTBreakStmt* Break = new (Context) ASTBreakStmt;
-    Break->declContext = Parser->declContext;
-    PushParent(Parser, Break);
-    PopParent(Parser);
-    return Break;
-}
-
-/// grammar: continue-statement := "continue"
-static ASTContinueStmt* ParseContinueStmt(Parser* Parser, ASTContext* Context, DiagnosticEngine* Diag) {
-    assert(Parser->token.kind == TOKEN_KEYWORD_CONTINUE);
-
-    ConsumeToken(Parser);
-
-    ASTContinueStmt* Continue = new (Context) ASTContinueStmt;
-    Continue->declContext = Parser->declContext;
-    PushParent(Parser, Continue);
-    PopParent(Parser);
-    return Continue;
+    return left;
 }
 
 /// grammar: fallthrough-statement := "fallthrough"
-static ASTFallthroughStmt* ParseFallthroughStmt(Parser* Parser, ASTContext* Context, DiagnosticEngine* Diag) {
-    assert(Parser->token.kind == TOKEN_KEYWORD_FALLTHROUGH);
-
-    ConsumeToken(Parser);
-
-    ASTFallthroughStmt* Fallthrough = new (Context) ASTFallthroughStmt;
-    Fallthrough->declContext = Parser->declContext;
-    PushParent(Parser, Fallthrough);
-    PopParent(Parser);
-    return Fallthrough;
-}
-
-/// grammar: return-statement := "return" [ expression ]
-static ASTReturnStmt* ParseReturnStmt(Parser* Parser, ASTContext* Context, DiagnosticEngine* Diag) {
-    assert(Parser->token.kind == TOKEN_KEYWORD_RETURN);
-
-    ConsumeToken(Parser);
-
-    ASTReturnStmt* Return = new (Context) ASTReturnStmt;
-    Return->declContext = Parser->declContext;
-    PushParent(Parser, Return);
-    {
-        Return->expr = TryParseExpr(Parser, Context, Diag);
-    }
-    PopParent(Parser);
-
-    return Return;
-}
-
-/// grammar: defer-statement := "defer" expression
-static ASTDeferStmt* ParseDeferStmt(Parser* Parser, ASTContext* Context, DiagnosticEngine* Diag) {
-    assert(Parser->token.is(TOKEN_KEYWORD_DEFER) && "Invalid token given for start of defer-statement!");
-    ConsumeToken(Parser);
-
-    ASTDeferStmt* Defer = new (Context) ASTDeferStmt;
-    Defer->declContext = Parser->declContext;
-    PushParent(Parser, Defer);
-    {
-        Defer->expr = ParseExpr(Parser, Context, Diag);
-        if (!Defer->expr) {
-            return nullptr;
-        }
-    }
-    PopParent(Parser);
-
-    return Defer;
-}
-
-/// grammar: do-statement := "do" block "while" expression
-static ASTDoStmt* ParseDoStmt(Parser* Parser, ASTContext* Context, DiagnosticEngine* Diag) {
-    assert(Parser->token.is(TOKEN_KEYWORD_DO) && "Invalid token given for start of do-statement");
-
-    ConsumeToken(Parser);
-
-    ASTDoStmt* Do = new (Context) ASTDoStmt;
-    Do->declContext = Parser->declContext;
-    PushParent(Parser, Do);
-    {
-        Do->body = ParseCompoundStmt(Parser, Context, Diag);
-        if (!Do->body) {
-            return nullptr;
-        }
-
-        if (!Parser->token.is(TOKEN_KEYWORD_WHILE)) {
-            Parser->report(DIAG_ERROR, "Expected keyword 'while' after do block!");
-            return nullptr;
-        }
-        ConsumeToken(Parser);
-
-        do {
-
-            ASTExpr* expr = ParseExpr(Parser, Context, Diag);
-            if (expr == nullptr) {
-                return nullptr;
-            }
-
-            if (!Do->condition) {
-                Do->condition = expr;
-            } else {
-                auto andExpr = new (Context) ASTBinaryExpr;
-                andExpr->parent = Parser->parent;
-                andExpr->declContext = Parser->declContext;
-                andExpr->left = Do->condition;
-                andExpr->left->parent = andExpr;
-                andExpr->right = expr;
-                andExpr->right->parent = andExpr;
-
-                if (!Parser->lexer->getOperator("&&", OPERATOR_INFIX, andExpr->op)) {
-                    jelly::report_fatal_error("Internal compiler error!");
-                }
-
-                Do->condition = andExpr;
-            }
-
-            if (!Parser->token.is(',')) {
-                break;
-            }
-            ConsumeToken(Parser);
-
-        } while (true);
-    }
-    PopParent(Parser);
-
-    return Do;
-}
-
-/// grammar: for-statement := "for" identifier "in" expression block
-static ASTForStmt* ParseForStmt(Parser* Parser, ASTContext* Context, DiagnosticEngine* Diag) {
-    assert(Parser->token.is(TOKEN_KEYWORD_FOR) && "Invalid token given for start of for-statement");
-
-    ConsumeToken(Parser);
-
-    ASTForStmt* For = new (Context) ASTForStmt;
-    For->declContext = Parser->declContext;
-    PushParent(Parser, For);
-    {
-        if (!Parser->token.is(TOKEN_IDENTIFIER)) {
-            Parser->report(DIAG_ERROR, "Expected identifier for iterator in for-statement!");
-            return nullptr;
-        }
-        For->elementName = Context->getLexeme(Parser->token.text);
-        ConsumeToken(Parser);
-
-        if (!Parser->token.is(TOKEN_KEYWORD_IN)) {
-            Parser->report(DIAG_ERROR, "Expected keyword 'in' after for iterator");
-            return nullptr;
-        }
-        ConsumeToken(Parser);
-
-        For->sequenceExpr = ParseExpr(Parser, Context, Diag);
-        if (!For->sequenceExpr) {
-            return nullptr;
-        }
-
-        For->body = ParseCompoundStmt(Parser, Context, Diag);
-        if (!For->body) {
-            return nullptr;
-        }
-    }
-    PopParent(Parser);
-
-    return For;
-}
-
-/// grammar: guard-statement := "guard" expression { "," expression } else block
-static ASTGuardStmt* ParseGuardStmt(Parser* Parser, ASTContext* Context, DiagnosticEngine* Diag) {
-    assert(Parser->token.is(TOKEN_KEYWORD_GUARD) && "Invalid token given for start of guard-statement");
-
-    ConsumeToken(Parser);
-
-    ASTGuardStmt* Guard = new (Context) ASTGuardStmt;
-    Guard->declContext = Parser->declContext;
-    PushParent(Parser, Guard);
-    {
-        do {
-
-            ASTExpr* expr = ParseExpr(Parser, Context, Diag);
-            if (!expr) {
-                return nullptr;
-            }
-
-            if (!Guard->condition) {
-                Guard->condition = expr;
-            } else {
-                auto andExpr = new (Context) ASTBinaryExpr;
-                andExpr->parent = Parser->parent;
-                andExpr->declContext = Parser->declContext;
-                andExpr->left = Guard->condition;
-                andExpr->left->parent = andExpr;
-                andExpr->right = expr;
-                andExpr->right->parent = andExpr;
-
-                if (!Parser->lexer->getOperator("&&", OPERATOR_INFIX, andExpr->op)) {
-                    jelly::report_fatal_error("Internal compiler error!");
-                }
-
-                Guard->condition = andExpr;
-            }
-
-            if (!Parser->token.is(',')) {
-                break;
-            }
-            ConsumeToken(Parser);
-
-        } while (true);
-
-        if (!Parser->token.is(TOKEN_KEYWORD_ELSE)) {
-            Parser->report(DIAG_ERROR, "Expected keyword 'else' in guard-statement");
-            return nullptr;
-        }
-        ConsumeToken(Parser);
-
-        Guard->elseStmt = ParseCompoundStmt(Parser, Context, Diag);
-        if (!Guard->elseStmt) {
-            return nullptr;
-        }
-    }
-    PopParent(Parser);
-
-    return Guard;
-}
-
-/// grammar: if-statement := "if" expression { "," expression } block [ "else" ( if-statement | block ) ]
-static ASTIfStmt* ParseIfStmt(Parser* Parser, ASTContext* Context, DiagnosticEngine* Diag) {
-    assert(Parser->token.is(TOKEN_KEYWORD_IF) && "Invalid token given for start of if-statement!");
-
-    ConsumeToken(Parser);
-
-    ASTIfStmt* If = new (Context) ASTIfStmt;
-    If->declContext = Parser->declContext;
-    PushParent(Parser, If);
-    {
-        do {
-            ASTExpr* expr = ParseExpr(Parser, Context, Diag);
-            if (!expr) {
-                return nullptr;
-            }
-
-            if (!If->condition) {
-                If->condition = expr;
-            } else {
-                auto andExpr = new (Context) ASTBinaryExpr;
-                andExpr->parent = Parser->parent;
-                andExpr->declContext = Parser->declContext;
-                andExpr->left = If->condition;
-                andExpr->left->parent = andExpr;
-                andExpr->right = expr;
-                andExpr->right->parent = andExpr;
-
-                if (!Parser->lexer->getOperator("&&", OPERATOR_INFIX, andExpr->op)) {
-                    jelly::report_fatal_error("Internal compiler error!");
-                }
-
-                If->condition = andExpr;
-            }
-
-            if (!Parser->token.is(',')) {
-                break;
-            }
-            ConsumeToken(Parser);
-
-        } while (true);
-
-        If->thenStmt = ParseCompoundStmt(Parser, Context, Diag);
-        if (!If->thenStmt) {
-            return nullptr;
-        }
-
-        if (Parser->token.is(TOKEN_KEYWORD_ELSE)) {
-            ConsumeToken(Parser);
-
-            if (Parser->token.is(TOKEN_KEYWORD_IF)) {
-                If->chainKind = AST_CHAIN_IF;
-                If->elseIf = ParseIfStmt(Parser, Context, Diag);
-                if (!If->elseIf) {
-                    return nullptr;
-                }
-            } else {
-                If->chainKind = AST_CHAIN_ELSE;
-                If->elseStmt = ParseCompoundStmt(Parser, Context, Diag);
-                if (!If->elseStmt) {
-                    return nullptr;
-                }
-            }
-        }
-    }
-    PopParent(Parser);
-
-    return If;
-}
-
-/// grammar: switch-case-statement := ( "case" expression | "else" ) ":" statement { line-break statement }
-static ASTCaseStmt* ParseSwitchCaseStmt(Parser* Parser, ASTContext* Context, DiagnosticEngine* Diag) {
-    if (!Parser->token.is(TOKEN_KEYWORD_CASE, TOKEN_KEYWORD_ELSE)) {
-        Diag->report(DIAG_ERROR, "Expected 'case' or 'else' keyword, found '{0}'", Parser->token.text);
+FallthroughStatement* Parser::parseFallthrough() {
+    if (!consumeToken(TOKEN_KEYWORD_FALLTHROUGH)) {
         return nullptr;
     }
 
-    ASTCaseStmt* Case = new (Context) ASTCaseStmt;
-    Case->declContext = Parser->declContext;
+    return new (context) FallthroughStatement;
+}
 
-    PushDeclContext(Parser, Case);
-    PushParent(Parser, Case);
-    {
-        if (Parser->token.is(TOKEN_KEYWORD_CASE)) {
-            ConsumeToken(Parser);
-            Case->caseKind = AST_CASE_CONDITION;
-            Case->condition = ParseExpr(Parser, Context, Diag);
-            if (Case->condition == nullptr) {
+/// grammar: float-literal := @Todo describe float literal grammar
+FloatLiteral* Parser::parseFloatLiteral() {
+    if (!token.is(TOKEN_LITERAL_FLOAT)) {
+        report(DIAG_ERROR, "Expected float literal found '{0}'", token.text);
+        return nullptr;
+    }
+
+    double value = 0;
+    if (!token.text.getAsDouble(value)) {
+        report(DIAG_ERROR, "Invalid floating point literal!");
+        return nullptr;
+    }
+
+    consumeToken();
+
+    return new (context) FloatLiteral(value);
+}
+
+/// grammar: func-declaration := "func" identifier "(" [ parameter { "," parameter } ] ")" "->" type-identifier block
+FunctionDeclaration* Parser::parseFunction() {
+    if (!consumeToken(TOKEN_KEYWORD_FUNC)) {
+        return nullptr;
+    }
+
+    Identifier name;
+    if (!consumeIdentifier(name)) {
+        return nullptr;
+    }
+
+    if (!consumeToken('(')) {
+        return nullptr;
+    }
+
+    jelly::Array<ParameterDeclaration*> parameters;
+    if (!token.is(')')) {
+        while (true) {
+            auto parameter = parseParameter();
+            if (!parameter) {
                 return nullptr;
             }
-        } else {
-            ConsumeToken(Parser);
-            Case->caseKind = AST_CASE_ELSE;
+
+            if (parameters.contains(parameter, isDeclarationNameEqual)) {
+                report(DIAG_ERROR, "Invalid redeclaration of '{0}'", parameter->getName());
+            }
+
+            parameters.push_back(parameter);
+
+            if (token.is(')')) {
+                break;
+            }
+
+            if (!consumeToken(',')) {
+                return nullptr;
+            }
         }
-
-        if (!Parser->token.is(':')) {
-            Parser->report(DIAG_ERROR, "Expected ':' in switch-case statement!");
-            return nullptr;
-        }
-        ConsumeToken(Parser);
-
-        Case->body = new (Context) ASTCompoundStmt;
-        Case->body->declContext = Parser->declContext;
-
-        PushParent(Parser, Case->body);
-        {
-            jelly::SmallVector<ASTStmt*, 0> stmts;
-            unsigned line = Parser->token.line;
-            do {
-                if (Parser->token.is(TOKEN_KEYWORD_CASE, TOKEN_KEYWORD_ELSE, '}')) {
-                    break;
-                }
-
-                if (stmts.size() > 0 && line == Parser->token.line) {
-                    Parser->report(DIAG_ERROR, "Consecutive statements on a line are not allowed!");
-                    return nullptr;
-                }
-                line = Parser->token.line;
-
-                ASTStmt* stmt = ParseStmt(Parser, Context, Diag);
-                if (!stmt) {
-                    Parser->report(DIAG_ERROR, "Expected statement in switch-case!");
-                    return nullptr;
-                }
-
-                // @Refactor if this is a decl and is added to the decl context is it still required to be part of the statements?
-                stmts.push_back(stmt);
-
-                if (stmt->isDecl()) {
-                    auto Decl = reinterpret_cast<ASTDecl*>(stmt);
-                    if (Decl->isNamedDecl()) {
-                        auto namedDecl = reinterpret_cast<ASTNamedDecl*>(Decl);
-                        if (!Case->lookupDecl(namedDecl->name)) {
-                            Case->addDecl(namedDecl);
-                        } else {
-                            Parser->report(DIAG_ERROR, "Invalid redeclaration of '{0}'", namedDecl->name);
-                        }
-                    } else {
-                        Case->addDecl(Decl);
-                    }
-                }
-
-            } while (true);
-
-            Case->body->stmts = jelly::makeArrayRef(stmts).copy(Context->nodeAllocator);
-        }
-        PopParent(Parser);
     }
-    PopParent(Parser);
-    PopDeclContext(Parser);
+    consumeToken();
 
-    return Case;
+    if (!consumeToken(TOKEN_ARROW)) {
+        return nullptr;
+    }
+
+    auto returnTypeRef = parseTypeRef();
+    if (!returnTypeRef) {
+        return nullptr;
+    }
+
+    auto body = parseBlock();
+    if (!body) {
+        return nullptr;
+    }
+
+//    for (auto stmt : Func->body->stmts) {
+//        if (stmt->isDecl()) {
+//            auto decl = reinterpret_cast<ASTDecl*>(stmt);
+//            if (decl->isNamedDecl()) {
+//                auto namedDecl = reinterpret_cast<ASTNamedDecl*>(decl);
+//                if (!Func->lookupDecl(namedDecl->name)) {
+//                    Func->addDecl(namedDecl);
+//                } else {
+//                    Parser->report(DIAG_ERROR, "Invalid redeclaration of '{0}'", namedDecl->name);
+//                }
+//            } else {
+//                Func->addDecl(decl);
+//            }
+//        }
+//    }
+
+    return new (context) FunctionDeclaration(name, parameters, returnTypeRef, body);
+}
+
+/// grammar: group-expression := "(" expression ")"
+Expression* Parser::parseGroupExpression() {
+    if (!consumeToken('(')) {
+        return nullptr;
+    }
+
+    auto expression = parseExpression();
+    if (!expression) {
+        return nullptr;
+    }
+
+    if (!consumeToken(')')) {
+        return nullptr;
+    }
+
+    return expression;
+}
+
+/// grammar: guard-statement := "guard" expression { "," expression } else block
+GuardStatement* Parser::parseGuard() {
+    if (!consumeToken(TOKEN_KEYWORD_GUARD)) {
+        return nullptr;
+    }
+
+    auto condition = parseConditionList();
+    if (!condition) {
+        return nullptr;
+    }
+
+    if (!consumeToken(TOKEN_KEYWORD_ELSE)) {
+        return nullptr;
+    }
+
+    auto elseBlock = parseBlock();
+    if (!elseBlock) {
+        return nullptr;
+    }
+
+    return new (context) GuardStatement(condition, elseBlock);
+}
+
+/// grammar: identifier := identifier-head { identifier-tail }
+/// grammar: identifier-head := "a" ... "z" | "A" ... "Z" | "_"
+/// grammar: identifier-tail := identifier-head | "0" ... "9"
+IdentifierExpression* Parser::parseIdentifierExpression() {
+    Identifier identifier;
+    if (!consumeIdentifier(identifier)) {
+        return nullptr;
+    }
+
+    return new (context) IdentifierExpression(identifier);
+}
+
+/// grammar: if-statement := "if" expression { "," expression } block [ "else" ( if-statement | block ) ]
+IfStatement* Parser::parseIf() {
+    if (!consumeToken(TOKEN_KEYWORD_IF)) {
+        return nullptr;
+    }
+
+    auto condition = parseConditionList();
+    if (!condition) {
+        return nullptr;
+    }
+
+    auto thenBlock = parseBlock();
+    if (!thenBlock) {
+        return nullptr;
+    }
+
+    BlockStatement* elseBlock = nullptr;
+    if (token.is(TOKEN_KEYWORD_ELSE)) {
+        consumeToken();
+
+        if (token.is(TOKEN_KEYWORD_IF)) {
+            auto ifStatement = parseIf();
+            if (!ifStatement) {
+                return nullptr;
+            }
+
+            elseBlock = new (context) BlockStatement(jelly::ArrayRef<Statement*>({ ifStatement }));
+        } else {
+            elseBlock = parseBlock();
+            if (!elseBlock) {
+                return nullptr;
+            }
+        }
+    }
+
+    return new (context) IfStatement(condition, thenBlock, elseBlock);
+}
+
+/// grammar: int-literal := @Todo describe float literal grammar
+IntLiteral* Parser::parseIntLiteral() {
+    if (!token.is(TOKEN_LITERAL_INT)) {
+        report(DIAG_ERROR, "Expected integer literal found '{0}'", token.text);
+        return nullptr;
+    }
+
+    uint64_t value = 0;
+    if (!token.text.getAsInteger(0, value)) {
+        report(DIAG_ERROR, "Invalid integer literal!");
+        return nullptr;
+    }
+
+    consumeToken();
+
+    return new (context) IntLiteral(value);
+}
+
+/// grammar: load-directive := "#load" string-literal
+LoadDeclaration* Parser::parseLoadDeclaration() {
+    if (!consumeToken(TOKEN_KEYWORD_LOAD)) {
+        return nullptr;
+    }
+
+    if (token.kind != TOKEN_LITERAL_STRING) {
+        report(DIAG_ERROR, "Expected string literal after load directive!");
+        return nullptr;
+    }
+
+    assert(token.text.size() >= 2 && "Invalid length of string literal text, has to contain at least \"\"");
+
+    auto sourceFilePath = context->getIdentifier(token.text.drop_front(1).drop_back(1)); // Makes a copy of the token text.
+    consumeToken();
+
+    return new (context) LoadDeclaration(sourceFilePath);
+}
+
+/// grammar: nil-literal := "nil"
+NilLiteral* Parser::parseNilLiteral() {
+    if (!consumeToken(TOKEN_KEYWORD_NIL)) {
+        return nullptr;
+    }
+
+    return new (context) NilLiteral();
+}
+
+/// grammar: opaque-type-ref := identifier
+OpaqueTypeRef* Parser::parseOpaqueTypeRef() {
+    Identifier name;
+    if (!consumeIdentifier(name)) {
+        return nullptr;
+    }
+
+    return new (context) OpaqueTypeRef(name);
+}
+
+/// grammar: parameter := identifier ":" type-identifier
+ParameterDeclaration* Parser::parseParameter() {
+    Identifier name;
+    if (!consumeIdentifier(name)) {
+        return nullptr;
+    }
+
+    if (!consumeToken(':')) {
+        return nullptr;
+    }
+
+    auto typeRef = parseTypeRef();
+    if (!typeRef) {
+        return nullptr;
+    }
+
+    return new (context) ParameterDeclaration(name, typeRef);
+}
+
+/// grammar: pointer-type-ref := type-ref "*"
+PointerTypeRef* Parser::parsePointerTypeRef(TypeRef* pointeeTypeRef) {
+    uint32_t depth = 0;
+
+    while (tryConsumeOperator(Operator::TypePointer)) {
+        depth += 1;
+    }
+
+    if (depth < 1) {
+        report(DIAG_ERROR, "Expected '*' found '{0}'", token.text);
+        return nullptr;
+    }
+
+    return new (context) PointerTypeRef(pointeeTypeRef, depth);
+}
+
+/// grammar: return-statement := "return" [ expression ]
+ReturnStatement* Parser::parseReturn() {
+    if (!consumeToken(TOKEN_KEYWORD_RETURN)) {
+        return nullptr;
+    }
+
+    auto value = tryParseExpression();
+    return new (context) ReturnStatement(value);
+}
+
+
+/// grammar: statement := variable-declaration | control-statement | defer-statement | do-statement | for-statement | guard-statement | if-statement | switch-statement | while-statement | expression
+Statement* Parser::parseStatement() {
+    switch (token.kind) {
+        case TOKEN_KEYWORD_ENUM:        return parseEnumeration();
+        case TOKEN_KEYWORD_FUNC:        return parseFunction();
+        case TOKEN_KEYWORD_STRUCT:      return parseStructure();
+        case TOKEN_KEYWORD_VAR:         return parseVariable();
+        case TOKEN_KEYWORD_LET:         return parseConstant();
+        case TOKEN_KEYWORD_BREAK:       return parseBreak();
+        case TOKEN_KEYWORD_CONTINUE:    return parseContinue();
+        case TOKEN_KEYWORD_FALLTHROUGH: return parseFallthrough();
+        case TOKEN_KEYWORD_RETURN:      return parseReturn();
+        case TOKEN_KEYWORD_DEFER:       return parseDefer();
+        case TOKEN_KEYWORD_DO:          return parseDoStatement();
+        case TOKEN_KEYWORD_GUARD:       return parseGuard();
+        case TOKEN_KEYWORD_IF:          return parseIf();
+        case TOKEN_KEYWORD_SWITCH:      return parseSwitchStatement();
+        case TOKEN_KEYWORD_WHILE:       return parseWhileStatement();
+
+        default: {
+            auto expression = tryParseExpression();
+            if (!expression) {
+                report(DIAG_ERROR, "Expected statement, found '{0}'", token.text);
+                return nullptr;
+            }
+            return expression;
+        }
+    }
+}
+
+/// grammar: string-literal := @Todo describe float literal grammar
+StringLiteral* Parser::parseStringLiteral() {
+    if (!token.is(TOKEN_LITERAL_STRING)) {
+        report(DIAG_ERROR, "Expected string literal found '{0}'", token.text);
+        return nullptr;
+    }
+
+    assert(token.text.size() >= 2 && "Invalid length of string literal text, has to contain at least \"\"");
+
+    // @Cleanup we form an identifier here to retain memory for value of StringLiteral
+    auto value = context->getIdentifier(token.text.drop_front(1).drop_back(1));
+
+    consumeToken();
+
+    return new (context) StringLiteral(value);
+}
+
+/// grammar: struct-declaration := "struct" identifier "{" { value-declaration } "}"
+StructureDeclaration* Parser::parseStructure() {
+    if (!consumeToken(TOKEN_KEYWORD_STRUCT)) {
+        return nullptr;
+    }
+
+    Identifier name;
+    if (!consumeIdentifier(name)) {
+        return nullptr;
+    }
+
+    if (!consumeToken('{')) {
+        return nullptr;
+    }
+
+    jelly::Array<ValueDeclaration*> values;
+    if (!token.is('}')) {
+        unsigned line = token.line;
+        while (true) {
+            if (!values.empty() && line == token.line) {
+                report(DIAG_ERROR, "Consecutive statements on a line are not allowed!");
+                return nullptr;
+            }
+            line = token.line;
+
+            auto value = parseValueDeclaration();
+            if (!value) {
+                return nullptr;
+            }
+
+            if (values.contains(value, isDeclarationNameEqual)) {
+                report(DIAG_ERROR, "Invalid redeclaration of '{0}'", value->getName());
+            }
+
+            values.push_back(value);
+
+            if (token.is('}')) {
+                break;
+            }
+        }
+    }
+    consumeToken();
+
+    return new (context) StructureDeclaration(name, values);
 }
 
 /// grammar: switch-statement := "switch" expression "{" [ switch-case { line-break switch-case } ] "}"
-static ASTSwitchStmt* ParseSwitchStmt(Parser* Parser, ASTContext* Context, DiagnosticEngine* Diag) {
-    assert(Parser->token.is(TOKEN_KEYWORD_SWITCH) && "Invalid token given for start of switch-statement!");
-    ConsumeToken(Parser);
-
-    ASTSwitchStmt* Switch = new (Context) ASTSwitchStmt;
-    Switch->declContext = Parser->declContext;
-
-    PushParent(Parser, Switch);
-    {
-        Switch->expr = ParseExpr(Parser, Context, Diag);
-        if (!Switch->expr) {
-            return nullptr;
-        }
-
-        if (!Parser->token.is('{')) {
-            Parser->report(DIAG_ERROR, "Expected '{' after expression in switch-statement!");
-            return nullptr;
-        }
-        ConsumeToken(Parser);
-
-        jelly::SmallVector<ASTCaseStmt*, 0> cases;
-        unsigned line = Parser->token.line;
-        do {
-            if (cases.size() > 0 && line == Parser->token.line) {
-                Parser->report(DIAG_ERROR, "Consecutive statements on a line are not allowed!");
-                return nullptr;
-            }
-            line = Parser->token.line;
-
-            ASTCaseStmt* caseStmt = ParseSwitchCaseStmt(Parser, Context, Diag);
-            if (!caseStmt) {
-                return nullptr;
-            }
-
-            cases.push_back(caseStmt);
-
-            if (Parser->token.is('}')) {
-                break;
-            }
-
-        } while (true);
-
-        ConsumeToken(Parser);
-
-        Switch->cases = jelly::makeArrayRef(cases).copy(Context->nodeAllocator);
+SwitchStatement* Parser::parseSwitchStatement() {
+    if (!consumeToken(TOKEN_KEYWORD_SWITCH)) {
+        return nullptr;
     }
-    PopParent(Parser);
 
-    return Switch;
+    auto argument = parseExpression();
+    if (!argument) {
+        return nullptr;
+    }
+
+    if (!consumeToken('{')) {
+        return nullptr;
+    }
+
+    jelly::Array<CaseStatement*> cases;
+    unsigned line = token.line;
+    while (!token.is('}')) {
+        if (!cases.empty() && line == token.line) {
+            report(DIAG_ERROR, "Consecutive statements on a line are not allowed!");
+            return nullptr;
+        }
+
+        line = token.line;
+
+        auto statement = parseCaseStatement();
+        if (!statement) {
+            return nullptr;
+        }
+
+        cases.push_back(statement);
+    }
+    consumeToken();
+
+    return new (context) SwitchStatement(argument, cases);
+}
+
+/// grammar: type-of-type-ref := "typeof" "(" expression ")"
+TypeOfTypeRef* Parser::parseTypeOfTypeRef() {
+    if (!consumeToken(TOKEN_KEYWORD_TYPEOF)) {
+        return nullptr;
+    }
+
+    if (!consumeToken('(')) {
+        return nullptr;
+    }
+
+    auto expression = parseExpression();
+
+    if (!consumeToken(')')) {
+        return nullptr;
+    }
+
+    return new (context) TypeOfTypeRef(expression);
+}
+
+/// grammar: type-ref := opaque-type-ref | pointer-type-ref | array-type-ref | type-of-type-ref
+TypeRef* Parser::parseTypeRef() {
+    TypeRef* typeRef = nullptr;
+
+    switch (token.kind) {
+        case TOKEN_IDENTIFIER:
+            typeRef = parseOpaqueTypeRef();
+            break;
+
+        case TOKEN_KEYWORD_TYPEOF:
+            typeRef = parseTypeOfTypeRef();
+            break;
+
+        default:
+            report(DIAG_ERROR, "Expected type ref found '{0}'", token.text);
+            return nullptr;
+    }
+
+    if (!typeRef) {
+        return nullptr;
+    }
+
+    do {
+        switch (token.kind) {
+            case TOKEN_OPERATOR: {
+                auto pointerTypeRef = parsePointerTypeRef(typeRef);
+                if (!pointerTypeRef) {
+                    return nullptr;
+                }
+
+                typeRef = pointerTypeRef;
+            } break;
+
+            case '[': {
+                auto arrayTypeRef = parseArrayTypeRef(typeRef);
+                if (!arrayTypeRef) {
+                    return nullptr;
+                }
+
+                typeRef = arrayTypeRef;
+            } break;
+
+            default:
+                return typeRef;
+        }
+    } while (true);
+
+    return typeRef;
+}
+
+/// grammar: unary-expression := prefix-operator expression
+UnaryExpression* Parser::parseUnaryExpression() {
+    if (!consumeOperator(Fixity::Prefix, op)) {
+        return nullptr;
+    }
+
+    auto right = parsePrimaryExpression();
+    if (!right) {
+        return nullptr;
+    }
+
+    return new (context) UnaryExpression(op, right);
+}
+
+/// grammar: value-declaration := var-declaration | let-declaration
+ValueDeclaration* Parser::parseValueDeclaration() {
+    switch (token.kind) {
+        case TOKEN_KEYWORD_LET: return parseConstant();
+        case TOKEN_KEYWORD_VAR: return parseVariable();
+
+        default:
+            report(DIAG_ERROR, "Expected 'var' or 'let' at start of value-declaration!");
+            return nullptr;
+    }
+}
+
+/// grammar: var-declaration := "var" identifier ":" type-identifier [ "=" expression ]
+VariableDeclaration* Parser::parseVariable() {
+    if (!consumeToken(TOKEN_KEYWORD_VAR)) {
+        return nullptr;
+    }
+
+    Identifier name;
+    if (!consumeIdentifier(name)) {
+        return nullptr;
+    }
+
+    if (!consumeToken(':')) {
+        return nullptr;
+    }
+
+    auto typeRef = parseTypeRef();
+    if (!typeRef) {
+        return nullptr;
+    }
+
+    Expression* initializer = nullptr;
+    if (tryConsumeOperator(Operator::Assign)) {
+        initializer = parseExpression();
+        if (!initializer) {
+            return nullptr;
+        }
+    }
+
+    return new (context) VariableDeclaration(name, typeRef, initializer);
 }
 
 /// grammar: while-statement := "while" expression { "," expression } block
-static ASTWhileStmt* ParseWhileStmt(Parser* Parser, ASTContext* Context, DiagnosticEngine* Diag) {
-    assert(Parser->token.is(TOKEN_KEYWORD_WHILE) && "Invalid token given for start of while-statement!");
-    ConsumeToken(Parser);
-
-    ASTWhileStmt* While = new (Context) ASTWhileStmt;
-    While->declContext = Parser->declContext;
-    PushParent(Parser, While);
-    {
-        do {
-
-            ASTExpr* expr = ParseExpr(Parser, Context, Diag);
-            if (!expr) {
-                return nullptr;
-            }
-
-            if (!While->condition) {
-                While->condition = expr;
-            } else {
-                auto andExpr = new (Context) ASTBinaryExpr;
-                andExpr->parent = Parser->parent;
-                andExpr->declContext = Parser->declContext;
-                andExpr->left = While->condition;
-                andExpr->left->parent = andExpr;
-                andExpr->right = expr;
-                andExpr->right->parent = andExpr;
-
-                if (!Parser->lexer->getOperator("&&", OPERATOR_INFIX, andExpr->op)) {
-                    jelly::report_fatal_error("Internal compiler error!");
-                }
-
-                While->condition = andExpr;
-            }
-
-            if (!Parser->token.is(',')) {
-                break;
-            }
-            ConsumeToken(Parser);
-
-        } while (true);
-
-        While->body = ParseCompoundStmt(Parser, Context, Diag);
-        if (!While->body) {
-            return nullptr;
-        }
+WhileStatement* Parser::parseWhileStatement() {
+    if (!consumeToken(TOKEN_KEYWORD_WHILE)) {
+        return nullptr;
     }
-    PopParent(Parser);
 
-    return While;
-}
-
-/// grammar: statement := variable-declaration | control-statement | defer-statement | do-statement | for-statement | guard-statement | if-statement | switch-statement | while-statement | expression
-ASTStmt* ParseStmt(Parser* Parser, ASTContext* Context, DiagnosticEngine* Diag) {
-    switch (Parser->token.kind) {
-        // @Incomplete allow load directives to be parsed as statements in blocks
-        //             after adding support for compile-time evaluated functions
-        //             which indeed can contain load directives ...
-//        case TOKEN_KEYWORD_LOAD:        return ParseLoadDirective(Parser, Context, Diag);
-        case TOKEN_KEYWORD_ENUM:        return ParseEnumDecl(Parser, Context, Diag);
-        case TOKEN_KEYWORD_FUNC:        return ParseFuncDecl(Parser, Context, Diag);
-        case TOKEN_KEYWORD_STRUCT:      return ParseStructDecl(Parser, Context, Diag);
-
-        case TOKEN_KEYWORD_VAR:
-        case TOKEN_KEYWORD_LET:
-            return ParseValueDecl(Parser, Context, Diag);
-
-        case TOKEN_KEYWORD_BREAK:       return ParseBreakStmt(Parser, Context, Diag);
-        case TOKEN_KEYWORD_CONTINUE:    return ParseContinueStmt(Parser, Context, Diag);
-        case TOKEN_KEYWORD_FALLTHROUGH: return ParseFallthroughStmt(Parser, Context, Diag);
-        case TOKEN_KEYWORD_RETURN:      return ParseReturnStmt(Parser, Context, Diag);
-        case TOKEN_KEYWORD_DEFER:       return ParseDeferStmt(Parser, Context, Diag);
-        case TOKEN_KEYWORD_DO:          return ParseDoStmt(Parser, Context, Diag);
-        case TOKEN_KEYWORD_FOR:         return ParseForStmt(Parser, Context, Diag);
-        case TOKEN_KEYWORD_GUARD:       return ParseGuardStmt(Parser, Context, Diag);
-        case TOKEN_KEYWORD_IF:          return ParseIfStmt(Parser, Context, Diag);
-        case TOKEN_KEYWORD_SWITCH:      return ParseSwitchStmt(Parser, Context, Diag);
-        case TOKEN_KEYWORD_WHILE:       return ParseWhileStmt(Parser, Context, Diag);
-        default: {
-            auto expr = TryParseExpr(Parser, Context, Diag);
-            if (!expr) {
-                Parser->report(DIAG_ERROR, "Expected statement, found '{0}'", Parser->token.text);
-            }
-            return expr;
-        }
+    auto condition = parseConditionList();
+    if (!condition) {
+        return nullptr;
     }
-}
 
-void ParseAllTopLevelNodes(Parser* Parser, ASTContext* Context, DiagnosticEngine* Diag) {
-    Parser->token = Parser->lexer->peekNextToken();
-
-    auto module = Context->getModule();
-    PushParent(Parser, module);
-    PushDeclContext(Parser, module);
-    {
-        bool checkConsecutiveTopLevelNodes = false;
-        unsigned line = Parser->token.line;
-        do {
-            unsigned nodeLine = Parser->token.line;
-            ASTNode* Node = ParseTopLevelNode(Parser, Context, Diag);
-            if (!Node) {
-                break;
-            }
-
-            if (checkConsecutiveTopLevelNodes && line == nodeLine) {
-                Parser->report(DIAG_ERROR, "Consecutive top level nodes on a line are not allowed!");
-                break;
-            }
-            checkConsecutiveTopLevelNodes = true;
-            line = nodeLine;
-
-            assert(Node->isDecl());
-            auto decl = reinterpret_cast<ASTDecl*>(Node);
-            if (decl->isNamedDecl()) {
-                auto namedDecl = reinterpret_cast<ASTNamedDecl*>(decl);
-                if (module->lookupDecl(namedDecl->name)) {
-                    Parser->report(DIAG_ERROR, "Invalid redeclaration of '{0}'", namedDecl->name);
-                } else {
-                    module->addDecl(namedDecl);
-                }
-            } else {
-                module->addDecl(decl);
-            }
-
-        } while (true);
+    auto body = parseBlock();
+    if (!body) {
+        return nullptr;
     }
-    PopParent(Parser);
-    PopDeclContext(Parser);
+
+    return new (context) WhileStatement(condition, body);
 }

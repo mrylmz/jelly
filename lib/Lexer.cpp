@@ -24,6 +24,9 @@
 
 #include "Core/Lexer.h"
 
+using namespace jelly;
+using namespace jelly::AST;
+
 // @Incomplete Add UTF-8 support
 // @Incomplete Lex leading and trailing trivia(s)
 
@@ -146,16 +149,13 @@ void Lexer::init() {
     keywords.try_emplace("do", TOKEN_KEYWORD_DO);
     keywords.try_emplace("else", TOKEN_KEYWORD_ELSE);
     keywords.try_emplace("fallthrough", TOKEN_KEYWORD_FALLTHROUGH);
-    keywords.try_emplace("for", TOKEN_KEYWORD_FOR);
     keywords.try_emplace("guard", TOKEN_KEYWORD_GUARD);
     keywords.try_emplace("if", TOKEN_KEYWORD_IF);
-    keywords.try_emplace("in", TOKEN_KEYWORD_IN);
     keywords.try_emplace("return", TOKEN_KEYWORD_RETURN);
     keywords.try_emplace("switch", TOKEN_KEYWORD_SWITCH);
     keywords.try_emplace("while", TOKEN_KEYWORD_WHILE);
 
     keywords.try_emplace("as", TOKEN_OPERATOR);
-    keywords.try_emplace("Any", TOKEN_KEYWORD_ANY);
     keywords.try_emplace("false", TOKEN_KEYWORD_FALSE);
     keywords.try_emplace("is", TOKEN_OPERATOR);
     keywords.try_emplace("nil", TOKEN_KEYWORD_NIL);
@@ -163,20 +163,17 @@ void Lexer::init() {
     keywords.try_emplace("typeof", TOKEN_KEYWORD_TYPEOF);
     // TODO: [1] Reserve Builtin types as keywords !!!
 
-#define PREFIX_OPERATOR(__SYMBOL__) \
-registerOperator(Operator(OPERATOR_PREFIX, __SYMBOL__));
-
-#define INFIX_OPERATOR(__SYMBOL__, __ASSOCIATIVITY__, __PRECEDENCE__, __CAN_HAVE_ARGS__, __IS_ASSIGNMENT__) \
-registerOperator(Operator(OPERATOR_INFIX, __SYMBOL__, __ASSOCIATIVITY__, __PRECEDENCE__, __CAN_HAVE_ARGS__, __IS_ASSIGNMENT__));
-
-#define POSTFIX_OPERATOR(__SYMBOL__, __ASSOCIATIVITY__, __PRECEDENCE__, __CAN_HAVE_ARGS__, __IS_ASSIGNMENT__) \
-registerOperator(Operator(OPERATOR_POSTFIX, __SYMBOL__, __ASSOCIATIVITY__, __PRECEDENCE__, __CAN_HAVE_ARGS__, __IS_ASSIGNMENT__));
-
-#include "Core/Operators.def"
-
     state.nextToken.line = 1;
 
     lexTokenImpl();
+}
+
+LexerState Lexer::getState() const {
+    return state;
+}
+
+void Lexer::setState(LexerState state) {
+    this->state = state;
 }
 
 Token Lexer::lexToken() {
@@ -190,68 +187,6 @@ Token Lexer::lexToken() {
 
 Token Lexer::peekNextToken() {
     return state.nextToken;
-}
-
-bool Lexer::getOperator(jelly::StringRef name, OperatorKind kind, Operator& op) {
-    switch (kind) {
-        case OPERATOR_PREFIX:  return getOperator(name, op, prefixOperators);
-        case OPERATOR_INFIX:   return getOperator(name, op, infixOperators);
-        case OPERATOR_POSTFIX: return getOperator(name, op, postfixOperators);
-        default:               llvm_unreachable("Invalid kind given for OperatorKind!");
-    }
-}
-
-bool Lexer::getOperator(jelly::StringRef name, Operator& op, jelly::StringMap<Operator>& operators) {
-    auto it = operators.find(name);
-    if (it != operators.end()) {
-        op = it->getValue();
-        return true;
-    }
-
-    return false;
-}
-
-bool Lexer::hasOperator(jelly::StringRef text) {
-    return prefixOperators.count(text) > 0 || infixOperators.count(text) > 0 || postfixOperators.count(text) > 0;
-}
-
-Precedence Lexer::getOperatorPrecedenceBefore(Precedence precedence) {
-    auto it = operatorPrecedenceSet.lower_bound(precedence);
-    if (it != operatorPrecedenceSet.begin()) {
-        return *(it--);
-    }
-
-    return 0;
-}
-
-void Lexer::registerOperator(Operator op) {
-    switch (op.kind) {
-        case OPERATOR_PREFIX:  return registerOperator(op, prefixOperators);
-        case OPERATOR_INFIX:   return registerOperator(op, infixOperators);
-        case OPERATOR_POSTFIX: return registerOperator(op, postfixOperators);
-        default:               llvm_unreachable("Invalid kind given for OperatorKind!");
-    }
-}
-
-void Lexer::registerOperator(Operator op, jelly::StringMap<Operator>& operators) {
-    assert(!op.text.equals("->") && "'->' is reserved and cannot be added as operator!");
-    assert(!op.text.equals("//") && "'//' is reserved and cannot be added as operator!");
-    assert(!op.text.equals("/*") && "'/*' is reserved and cannot be added as operator!");
-    assert(!op.text.equals("*/") && "'*/' is reserved and cannot be added as operator!");
-
-    auto text = op.canHaveArgs ? op.text.take_front(1) : op.text;
-    bool success = operators.try_emplace(text, op).second;
-    assert(success && "Overriding operators is not allowed!");
-
-    if (!success) {
-        jelly::report_fatal_error("Internal compiler error!");
-    }
-
-    registerOperatorPrecedence(op.precedence);
-}
-
-void Lexer::registerOperatorPrecedence(Precedence precedence) {
-    operatorPrecedenceSet.insert(precedence);
 }
 
 void Lexer::formToken(unsigned kind, const char* tokenStart) {
@@ -453,7 +388,7 @@ void Lexer::lexOperator() {
     bool found;
     do {
         jelly::StringRef text(tokenStart, state.bufferPtr - tokenStart);
-        found = hasOperator(text);
+        found = context->hasOperator(text);
         state.bufferPtr -= 1;
     } while (state.bufferPtr != tokenStart && !found);
 

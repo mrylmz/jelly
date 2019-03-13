@@ -24,12 +24,12 @@
 
 #pragma once
 
-#include "Core/Operator.h"
 #include "Core/Token.h"
 
 #include <set>
 
 #include <Basic/Basic.h>
+#include <AST/AST.h>
 
 typedef bool (*CharPredicate)(char character);
 
@@ -44,32 +44,18 @@ struct LexerState {
     LexerState(jelly::SourceBuffer buffer);
 };
 
-struct Lexer {
+class Lexer {
+    jelly::AST::Context* context;
+
     LexerState state;
     jelly::StringMap<uint32_t> directives;
     jelly::StringMap<uint32_t> keywords;
-    jelly::StringMap<Operator> prefixOperators;
-    jelly::StringMap<Operator> infixOperators;
-    jelly::StringMap<Operator> postfixOperators;
-    std::set<Precedence, std::less<Precedence>> operatorPrecedenceSet;
 
-    Lexer(const char* buffer);
-    Lexer(jelly::SourceBuffer buffer);
+    void operator = (const Lexer&) = delete;
+
     Lexer(const Lexer&) = delete;
 
     void init();
-
-    Token lexToken();
-    Token peekNextToken();
-
-    bool getOperator(jelly::StringRef name, OperatorKind kind, Operator& op);
-    bool getOperator(jelly::StringRef name, Operator& op, jelly::StringMap<Operator>& operators);
-    bool hasOperator(jelly::StringRef text);
-    Precedence getOperatorPrecedenceBefore(Precedence precedence);
-
-    void registerOperator(Operator op);
-    void registerOperator(Operator op, jelly::StringMap<Operator>& operators);
-    void registerOperatorPrecedence(Precedence precedence);
 
     void formToken(unsigned kind, const char* tokenStart);
 
@@ -88,5 +74,14 @@ struct Lexer {
     void lexHexLiteral();
     void lexStringLiteral();
 
-    void operator = (const Lexer&) = delete;
+public:
+
+    Lexer(const char* buffer);
+    Lexer(jelly::SourceBuffer buffer);
+
+    LexerState getState() const;
+    void setState(LexerState state);
+
+    Token lexToken();
+    Token peekNextToken();
 };

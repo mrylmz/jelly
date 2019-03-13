@@ -24,12 +24,12 @@
 
 #pragma once
 
-#include "Core/ASTContext.h"
 #include "Core/Diagnostic.h"
+#include <AST/AST.h>
 
 struct Sema {
     CodeManager* codeManager;
-    ASTContext* context;
+    jelly::AST::Context* context;
     DiagnosticEngine* diag;
 
     Sema(CodeManager* codeManager);
@@ -37,6 +37,8 @@ struct Sema {
     void validateAST();
 
 private:
+    // @Todo migrate to new AST interface
+    /*
     void resolveType(ASTTypeRef* TypeRef);
 
     void inferTypeOfNode(ASTNode* node);
@@ -94,4 +96,5 @@ private:
     bool isSwitchStmtAlwaysRetuning(ASTSwitchStmt* stmt);
     void checkIsSwitchStmtExhaustive(ASTSwitchStmt* stmt);
     bool isExprLValue(ASTExpr* expr);
+     */
 };
