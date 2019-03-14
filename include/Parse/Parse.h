@@ -1,7 +1,7 @@
 //
 // MIT License
 //
-// Copyright (c) 2018 Murat Yilmaz
+// Copyright (c) 2019 Murat Yilmaz
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -22,9 +22,6 @@
 // SOFTWARE.
 //
 
-#pragma once
-
-#include "Core/CodeManager.h"
-#include "Core/Diagnostic.h"
-#include "Core/Sema.h"
-#include "Core/Type.h"
+#include "Parse/Lexer.h"
+#include "Parse/Parser.h"
+#include "Parse/Token.h"

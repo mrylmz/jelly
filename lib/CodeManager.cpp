@@ -23,13 +23,12 @@
 //
 
 #include "Core/CodeManager.h"
-#include "Core/Lexer.h"
-#include "Core/Parser.h"
 #include "Core/Sema.h"
 
 #include <stdio.h>
 #include <iostream>
 #include <fstream>
+#include <Parse/Parse.h>
 
 CodeManager::CodeManager(DiagnosticHandler* diagHandler) : diag(DiagnosticEngine(diagHandler)) {}
 

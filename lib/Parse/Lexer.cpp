@@ -22,7 +22,7 @@
 // SOFTWARE.
 //
 
-#include "Core/Lexer.h"
+#include "Parse/Lexer.h"
 
 using namespace jelly;
 using namespace jelly::AST;
@@ -40,7 +40,6 @@ using namespace jelly::AST;
 #define STRING_HEAD             '"'
 #define IDENTIFIER_HEAD         ALPHA: case '_'
 #define IDENTIFIER_BODY         IDENTIFIER_HEAD: case DECIMAL_DIGIT
-#define PUNCTUATION             '(': case ')': case ':': case '[': case ']': case '{': case '}': case ',' /*: case '.' is handled in lex_operator */
 #define OPERATOR                '/': case '=': case '-': case '+': case '!': case '*': case '%': case '.': case \
                                 '<': case '>': case '&': case '|': case '^': case '~': case '?'
 #define WHITESPACE              0x09: case 0x20
@@ -65,14 +64,6 @@ static inline bool charIsContinuationOfIdentifier(char character) {
     switch (character) {
         case IDENTIFIER_BODY: return true;
         default:              return false;
-    }
-}
-
-static inline bool charIsPunctuation(char character) {
-    switch (character) {
-        // Special handling for '.' to let it forward to lex_operator and make '...' or '..<' possible!
-        case PUNCTUATION: case '.': return true;
-        default:                    return false;
     }
 }
 
@@ -134,36 +125,36 @@ Lexer::Lexer(jelly::SourceBuffer buffer) : state(buffer) {
 }
 
 void Lexer::init() {
-    directives.try_emplace("#load", TOKEN_KEYWORD_LOAD);
+    directives.try_emplace("#load", Token::Kind::KeywordLoad);
 
-    keywords.try_emplace("func", TOKEN_KEYWORD_FUNC);
-    keywords.try_emplace("enum", TOKEN_KEYWORD_ENUM);
-    keywords.try_emplace("struct", TOKEN_KEYWORD_STRUCT);
-    keywords.try_emplace("var", TOKEN_KEYWORD_VAR);
-    keywords.try_emplace("let", TOKEN_KEYWORD_LET);
+    keywords.try_emplace("func", Token::Kind::KeywordFunc);
+    keywords.try_emplace("enum", Token::Kind::KeywordEnum);
+    keywords.try_emplace("struct", Token::Kind::KeywordStruct);
+    keywords.try_emplace("var", Token::Kind::KeywordVar);
+    keywords.try_emplace("let", Token::Kind::KeywordLet);
 
-    keywords.try_emplace("break", TOKEN_KEYWORD_BREAK);
-    keywords.try_emplace("case", TOKEN_KEYWORD_CASE);
-    keywords.try_emplace("continue", TOKEN_KEYWORD_CONTINUE);
-    keywords.try_emplace("defer", TOKEN_KEYWORD_DEFER);
-    keywords.try_emplace("do", TOKEN_KEYWORD_DO);
-    keywords.try_emplace("else", TOKEN_KEYWORD_ELSE);
-    keywords.try_emplace("fallthrough", TOKEN_KEYWORD_FALLTHROUGH);
-    keywords.try_emplace("guard", TOKEN_KEYWORD_GUARD);
-    keywords.try_emplace("if", TOKEN_KEYWORD_IF);
-    keywords.try_emplace("return", TOKEN_KEYWORD_RETURN);
-    keywords.try_emplace("switch", TOKEN_KEYWORD_SWITCH);
-    keywords.try_emplace("while", TOKEN_KEYWORD_WHILE);
+    keywords.try_emplace("break", Token::Kind::KeywordBreak);
+    keywords.try_emplace("case", Token::Kind::KeywordCase);
+    keywords.try_emplace("continue", Token::Kind::KeywordContinue);
+    keywords.try_emplace("defer", Token::Kind::KeywordDefer);
+    keywords.try_emplace("do", Token::Kind::KeywordDo);
+    keywords.try_emplace("else", Token::Kind::KeywordElse);
+    keywords.try_emplace("fallthrough", Token::Kind::KeywordFallthrough);
+    keywords.try_emplace("guard", Token::Kind::KeywordGuard);
+    keywords.try_emplace("if", Token::Kind::KeywordIf);
+    keywords.try_emplace("return", Token::Kind::KeywordReturn);
+    keywords.try_emplace("switch", Token::Kind::KeywordSwitch);
+    keywords.try_emplace("while", Token::Kind::KeywordWhile);
 
-    keywords.try_emplace("as", TOKEN_OPERATOR);
-    keywords.try_emplace("false", TOKEN_KEYWORD_FALSE);
-    keywords.try_emplace("is", TOKEN_OPERATOR);
-    keywords.try_emplace("nil", TOKEN_KEYWORD_NIL);
-    keywords.try_emplace("true", TOKEN_KEYWORD_TRUE);
-    keywords.try_emplace("typeof", TOKEN_KEYWORD_TYPEOF);
+    keywords.try_emplace("as", Token::Kind::Operator);
+    keywords.try_emplace("false", Token::Kind::KeywordFalse);
+    keywords.try_emplace("is", Token::Kind::Operator);
+    keywords.try_emplace("nil", Token::Kind::KeywordNil);
+    keywords.try_emplace("true", Token::Kind::KeywordTrue);
+    keywords.try_emplace("typeof", Token::Kind::KeywordTypeof);
     // TODO: [1] Reserve Builtin types as keywords !!!
 
-    state.nextToken.line = 1;
+    state.nextToken.setLine(1);
 
     lexTokenImpl();
 }
@@ -178,7 +169,7 @@ void Lexer::setState(LexerState state) {
 
 Token Lexer::lexToken() {
     Token token = state.nextToken;
-    if (!state.nextToken.is(TOKEN_EOF)) {
+    if (!state.nextToken.is(Token::Kind::EndOfFile)) {
         lexTokenImpl();
     }
 
@@ -189,10 +180,10 @@ Token Lexer::peekNextToken() {
     return state.nextToken;
 }
 
-void Lexer::formToken(unsigned kind, const char* tokenStart) {
-    state.nextToken.kind = kind;
-    state.nextToken.text = jelly::StringRef(tokenStart, state.bufferPtr - tokenStart);
-    state.nextToken.column = tokenStart - state.newLinePtr;
+void Lexer::formToken(Token::Kind kind, const char* tokenStart) {
+    state.nextToken.setKind(kind);
+    state.nextToken.setText(StringRef(tokenStart, state.bufferPtr - tokenStart));
+    state.nextToken.setColumn(tokenStart - state.newLinePtr);
 }
 
 bool Lexer::advanceIf(CharPredicate predicate) {
@@ -257,7 +248,7 @@ void Lexer::skipWhitespaceAndNewlines() {
             case NEWLINE:
                 state.bufferPtr += 1;
                 state.newLinePtr = state.bufferPtr;
-                state.nextToken.line += 1;
+                state.nextToken.setLine(state.nextToken.getLine() + 1);
                 break;
 
             default:
@@ -268,7 +259,7 @@ void Lexer::skipWhitespaceAndNewlines() {
 
 void Lexer::lexTokenImpl() {
     if (state.bufferPtr == state.bufferEnd) {
-        return formToken(TOKEN_EOF, state.bufferPtr);
+        return formToken(Token::Kind::EndOfFile, state.bufferPtr);
     }
 
     skipWhitespaceAndNewlines();
@@ -296,23 +287,51 @@ void Lexer::lexTokenImpl() {
             state.bufferPtr += 1;
             return lexOperator();
 
-        case PUNCTUATION:
+        case '(':
             state.bufferPtr += 1;
-            return formToken(*tokenStart, tokenStart);
+            return formToken(Token::Kind::LeftParenthesis, tokenStart);
+
+        case ')':
+            state.bufferPtr += 1;
+            return formToken(Token::Kind::RightParenthesis, tokenStart);
+
+        case ':':
+            state.bufferPtr += 1;
+            return formToken(Token::Kind::Colon, tokenStart);
+
+        case '[':
+            state.bufferPtr += 1;
+            return formToken(Token::Kind::LeftBracket, tokenStart);
+
+        case ']':
+            state.bufferPtr += 1;
+            return formToken(Token::Kind::RightBracket, tokenStart);
+
+        case '{':
+            state.bufferPtr += 1;
+            return formToken(Token::Kind::LeftBrace, tokenStart);
+
+        case '}':
+            state.bufferPtr += 1;
+            return formToken(Token::Kind::RightBrace, tokenStart);
+
+        case ',':
+            state.bufferPtr += 1;
+            return formToken(Token::Kind::Comma, tokenStart);
 
         case '\0':
             if (state.bufferPtr != state.bufferEnd) {
                 state.bufferPtr += 1;
             }
 
-            return formToken(TOKEN_EOF, tokenStart);
+            return formToken(Token::Kind::EndOfFile, tokenStart);
 
         default:
             if (state.bufferPtr != state.bufferEnd) {
                 state.bufferPtr += 1;
             }
 
-            return formToken(TOKEN_UNKNOWN, tokenStart);
+            return formToken(Token::Kind::Unknown, tokenStart);
     }
 }
 
@@ -328,14 +347,14 @@ void Lexer::lexDirective() {
     }
 
     if (!advanceWhile(charIsContinuationOfIdentifier)) {
-        return formToken(TOKEN_UNKNOWN, tokenStart);
+        return formToken(Token::Kind::Unknown, tokenStart);
     }
 
     jelly::StringRef text(tokenStart, state.bufferPtr - tokenStart);
 
     auto it = directives.find(text);
     if (it == directives.end()) {
-        return formToken(TOKEN_UNKNOWN, tokenStart);
+        return formToken(Token::Kind::Unknown, tokenStart);
     }
 
     return formToken(it->getValue(), tokenStart);
@@ -352,7 +371,7 @@ void Lexer::lexIdentifierOrKeyword() {
 
     auto it = keywords.find(text);
     if (it == keywords.end()) {
-        return formToken(TOKEN_IDENTIFIER, tokenStart);
+        return formToken(Token::Kind::Identifier, tokenStart);
     }
 
     return formToken(it->getValue(), tokenStart);
@@ -365,7 +384,7 @@ void Lexer::lexOperator() {
 
     if (*tokenStart == '-' && *state.bufferPtr == '>') {
         state.bufferPtr += 1;
-        return formToken(TOKEN_ARROW, tokenStart);
+        return formToken(Token::Kind::Arrow, tokenStart);
     }
 
     if (*tokenStart == '/' && *state.bufferPtr == '/') {
@@ -377,7 +396,7 @@ void Lexer::lexOperator() {
         state.bufferPtr += 1;
 
         if (!skipMultilineCommentTail()) {
-            return formToken(TOKEN_UNKNOWN, tokenStart);
+            return formToken(Token::Kind::Unknown, tokenStart);
         }
 
         return lexTokenImpl();
@@ -395,14 +414,23 @@ void Lexer::lexOperator() {
     state.bufferPtr += 1; // Previous loop will count -1 off the token end so re-add +1
 
     if (!found) {
-        if (charIsPunctuation(*tokenStart)) {
-            return formToken(*tokenStart, tokenStart);
-        }
+        switch (*tokenStart) {
+            case '(': return formToken(Token::Kind::LeftParenthesis, tokenStart);
+            case ')': return formToken(Token::Kind::RightParenthesis, tokenStart);
+            case ':': return formToken(Token::Kind::Colon, tokenStart);
+            case '[': return formToken(Token::Kind::LeftBracket, tokenStart);
+            case ']': return formToken(Token::Kind::RightBracket, tokenStart);
+            case '{': return formToken(Token::Kind::LeftBrace, tokenStart);
+            case '}': return formToken(Token::Kind::RightBrace, tokenStart);
+            case ',': return formToken(Token::Kind::Comma, tokenStart);
 
-        return formToken(TOKEN_UNKNOWN, tokenStart);
+            // Special handling for '.' to let it forward to lex_operator and make '...' or '..<' possible!
+            case '.': return formToken(Token::Kind::Dot, tokenStart);
+            default:  return formToken(Token::Kind::Unknown, tokenStart);
+        }
     }
 
-    return formToken(TOKEN_OPERATOR, tokenStart);
+    return formToken(Token::Kind::Operator, tokenStart);
 }
 
 void Lexer::lexNumericLiteral() {
@@ -428,7 +456,7 @@ void Lexer::lexNumericLiteral() {
             }
         }
 
-        return formToken(TOKEN_UNKNOWN, tokenStart);
+        return formToken(Token::Kind::Unknown, tokenStart);
     };
 
     auto lexIntegerLiteral = [&](CharPredicate predicate) {
@@ -440,7 +468,7 @@ void Lexer::lexNumericLiteral() {
             return formErrorToken();
         }
 
-        return formToken(TOKEN_LITERAL_INT, tokenStart);
+        return formToken(Token::Kind::LiteralInt, tokenStart);
     };
 
     if (*tokenStart == '0' && *state.bufferPtr == 'b') {
@@ -465,7 +493,7 @@ void Lexer::lexNumericLiteral() {
             return formErrorToken();
         }
 
-        return formToken(TOKEN_LITERAL_INT, tokenStart);
+        return formToken(Token::Kind::LiteralInt, tokenStart);
     }
 
     if (*state.bufferPtr == '.') {
@@ -474,7 +502,7 @@ void Lexer::lexNumericLiteral() {
                 return formErrorToken();
             }
 
-            return formToken(TOKEN_LITERAL_INT, tokenStart);
+            return formToken(Token::Kind::LiteralInt, tokenStart);
         }
 
         state.bufferPtr += 1;
@@ -497,7 +525,7 @@ void Lexer::lexNumericLiteral() {
         return formErrorToken();
     }
 
-    return formToken(TOKEN_LITERAL_FLOAT, tokenStart);
+    return formToken(Token::Kind::LiteralFloat, tokenStart);
 }
 
 void Lexer::lexHexLiteral() {
@@ -523,7 +551,7 @@ void Lexer::lexHexLiteral() {
             }
         }
 
-        return formToken(TOKEN_UNKNOWN, tokenStart);
+        return formToken(Token::Kind::Unknown, tokenStart);
     };
 
     if (!advanceWhile(charIsHexadecimalDigit)) {
@@ -535,7 +563,7 @@ void Lexer::lexHexLiteral() {
             return formErrorToken();
         }
 
-        return formToken(TOKEN_LITERAL_INT, tokenStart);
+        return formToken(Token::Kind::LiteralInt, tokenStart);
     }
 
     if (*state.bufferPtr == '.') {
@@ -544,7 +572,7 @@ void Lexer::lexHexLiteral() {
                 return formErrorToken();
             }
 
-            return formToken(TOKEN_LITERAL_INT, tokenStart);
+            return formToken(Token::Kind::LiteralInt, tokenStart);
         }
 
         state.bufferPtr += 1;
@@ -567,7 +595,7 @@ void Lexer::lexHexLiteral() {
         return formErrorToken();
     }
 
-    return formToken(TOKEN_LITERAL_FLOAT, tokenStart);
+    return formToken(Token::Kind::LiteralFloat, tokenStart);
 }
 
 void Lexer::lexStringLiteral() {
@@ -579,21 +607,21 @@ void Lexer::lexStringLiteral() {
     do {
 
         if (state.bufferPtr == state.bufferEnd) {
-             return formToken(TOKEN_UNKNOWN, tokenStart);
+            return formToken(Token::Kind::Unknown, tokenStart);
         }
 
         switch (*state.bufferPtr) {
             case '\n': case '\r': case '\0':
-                return formToken(TOKEN_UNKNOWN, tokenStart);
+                return formToken(Token::Kind::Unknown, tokenStart);
 
             case '"':
                 state.bufferPtr += 1;
 
                 if (!isValid) {
-                    return formToken(TOKEN_UNKNOWN, tokenStart);
+                    return formToken(Token::Kind::Unknown, tokenStart);
                 }
 
-                return formToken(TOKEN_LITERAL_STRING, tokenStart);
+                return formToken(Token::Kind::LiteralString, tokenStart);
 
             case '\\':
                 state.bufferPtr += 1;
@@ -628,7 +656,6 @@ void Lexer::lexStringLiteral() {
 #undef STRING_HEAD
 #undef IDENTIFIER_HEAD
 #undef IDENTIFIER_BODY
-#undef PUNCTUATION
 #undef OPERATOR
 #undef WHITESPACE
 #undef NEWLINE

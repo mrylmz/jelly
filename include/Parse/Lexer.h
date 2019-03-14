@@ -24,10 +24,9 @@
 
 #pragma once
 
-#include "Core/Token.h"
+#include "Parse/Token.h"
 
 #include <set>
-
 #include <Basic/Basic.h>
 #include <AST/AST.h>
 
@@ -48,8 +47,8 @@ class Lexer {
     jelly::AST::Context* context;
 
     LexerState state;
-    jelly::StringMap<uint32_t> directives;
-    jelly::StringMap<uint32_t> keywords;
+    jelly::StringMap<Token::Kind> directives;
+    jelly::StringMap<Token::Kind> keywords;
 
     void operator = (const Lexer&) = delete;
 
@@ -57,7 +56,7 @@ class Lexer {
 
     void init();
 
-    void formToken(unsigned kind, const char* tokenStart);
+    void formToken(Token::Kind kind, const char* tokenStart);
 
     bool advanceIf(CharPredicate predicate);
     bool advanceWhile(CharPredicate predicate);

@@ -26,7 +26,7 @@
 
 #include <AST/AST.h>
 #include "Core/Diagnostic.h"
-#include "Core/Lexer.h"
+#include "Parse/Lexer.h"
 
 // @Incomplete Parse all leading and trailing trivia of a token in a useful fashion without storing the contents
 //             build a request api for the contents of trivia tokens like comments...
@@ -57,7 +57,7 @@ struct Parser {
 private:
 
     void consumeToken();
-    bool consumeToken(unsigned kind);
+    bool consumeToken(Token::Kind kind);
     bool consumeIdentifier(jelly::AST::Identifier& identifier);
     bool consumeOperator(jelly::AST::Fixity fixity, jelly::AST::Operator& op);
 

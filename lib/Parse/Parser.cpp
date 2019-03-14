@@ -22,7 +22,7 @@
 // SOFTWARE.
 //
 
-#include "Core/Parser.h"
+#include "Parse/Parser.h"
 
 using namespace jelly::AST;
 
@@ -42,9 +42,9 @@ void Parser::parseAllTopLevelNodes() {
     auto module = context->getModule();
 
     bool checkConsecutiveTopLevelNodes = false;
-    unsigned line = token.line;
+    unsigned line = token.getLine();
     do {
-        unsigned nodeLine = token.line;
+        unsigned nodeLine = token.getLine();
         auto declaration = parseTopLevelDeclaration();
         if (!declaration) {
             break;
@@ -76,42 +76,42 @@ void Parser::consumeToken() {
     token = lexer->peekNextToken();
 }
 
-bool Parser::consumeToken(unsigned kind) {
-    if (token.is(':')) {
+bool Parser::consumeToken(Token::Kind kind) {
+    if (token.is(Token::Kind::Colon)) {
         consumeToken();
         return true;
     }
 
     // @Todo convert token kind and token to string description!
-    report(DIAG_ERROR, "Expected token '{0}' found '{1}'!", kind, token.text);
+    report(DIAG_ERROR, "Expected token '{0}' found '{1}'!", (uint16_t)kind, token.getText());
     return false;
 }
 
 bool Parser::consumeIdentifier(Identifier& identifier) {
-    if (token.is(TOKEN_IDENTIFIER)) {
-        identifier = context->getIdentifier(token.text);
+    if (token.is(Token::Kind::Identifier)) {
+        identifier = context->getIdentifier(token.getText());
         consumeToken();
         return true;
     }
 
     // @Todo convert token kind and token to string description!
-    report(DIAG_ERROR, "Expected token 'Identifier' found '{0}'!", token.text);
+    report(DIAG_ERROR, "Expected token 'Identifier' found '{0}'!", token.getText());
     return false;
 }
 
 bool Parser::consumeOperator(Fixity fixity, Operator& op) {
-    if (token.is(TOKEN_OPERATOR) && context->getOperator(token.text, fixity, op)) {
+    if (token.is(Token::Kind::Operator) && context->getOperator(token.getText(), fixity, op)) {
         consumeToken();
         return true;
     }
 
     // @Todo convert token kind and token to string description!
-    report(DIAG_ERROR, "Expected operator token found '{0}'!", token.text);
+    report(DIAG_ERROR, "Expected operator token found '{0}'!", token.getText());
     return false;
 }
 
 bool Parser::tryConsumeOperator(Operator op) {
-    if (token.is(TOKEN_OPERATOR) && context->getOperator(op.getSymbol(), op.getFixity(), this->op) && this->op == op) {
+    if (token.is(Token::Kind::Operator) && context->getOperator(op.getSymbol(), op.getFixity(), this->op) && this->op == op) {
         consumeToken();
         return true;
     }
@@ -153,7 +153,7 @@ Expression* Parser::parseConditionList() {
         return nullptr;
     }
 
-    while (token.is(',')) {
+    while (token.is(Token::Kind::Comma)) {
         consumeToken();
 
         auto expression = parseExpression();
@@ -171,28 +171,28 @@ Expression* Parser::parseConditionList() {
 /// grammar: literal-expression := literal
 /// grammar: identifier-expression := identifier
 Expression* Parser::parseAtomExpression() {
-    switch (token.kind) {
-        case '(':                  return parseGroupExpression();
-        case TOKEN_KEYWORD_NIL:    return parseNilLiteral();
-        case TOKEN_KEYWORD_TRUE:   return parseBoolLiteral();
-        case TOKEN_KEYWORD_FALSE:  return parseBoolLiteral();
-        case TOKEN_LITERAL_INT:    return parseIntLiteral();
-        case TOKEN_LITERAL_FLOAT:  return parseFloatLiteral();
-        case TOKEN_LITERAL_STRING: return parseStringLiteral();
-        case TOKEN_IDENTIFIER:     return parseIdentifierExpression();
+    switch (token.getKind()) {
+        case Token::Kind::LeftParenthesis: return parseGroupExpression();
+        case Token::Kind::KeywordNil:      return parseNilLiteral();
+        case Token::Kind::KeywordTrue:     return parseBoolLiteral();
+        case Token::Kind::KeywordFalse:    return parseBoolLiteral();
+        case Token::Kind::LiteralInt:      return parseIntLiteral();
+        case Token::Kind::LiteralFloat:    return parseFloatLiteral();
+        case Token::Kind::LiteralString:   return parseStringLiteral();
+        case Token::Kind::Identifier:      return parseIdentifierExpression();
         default:
-            report(DIAG_ERROR, "Expected expression, found '{0}'", token.text);
+            report(DIAG_ERROR, "Expected expression, found '{0}'", token.getText());
             return nullptr;
     }
 }
 
 /// grammar: primary-expression := unary-expression | atom-expression
 Expression* Parser::parsePrimaryExpression() {
-    if (token.is(TOKEN_OPERATOR)) {
-        if (context->getOperator(token.text, Fixity::Prefix, op)) {
+    if (token.is(Token::Kind::Operator)) {
+        if (context->getOperator(token.getText(), Fixity::Prefix, op)) {
             return parseUnaryExpression();
         } else {
-            report(DIAG_ERROR, "Expected prefix operator found '{0}'", token.text);
+            report(DIAG_ERROR, "Expected prefix operator found '{0}'", token.getText());
             return nullptr;
         }
     }
@@ -202,14 +202,14 @@ Expression* Parser::parsePrimaryExpression() {
 
 /// grammar: top-level-node := load-declaration | enum-declaration | func-declaration | struct-declaration | variable-declaration
 Declaration* Parser::parseTopLevelDeclaration() {
-    switch (token.kind) {
-        case TOKEN_KEYWORD_LOAD:   return parseLoadDeclaration();
-        case TOKEN_KEYWORD_ENUM:   return parseEnumeration();
-        case TOKEN_KEYWORD_FUNC:   return parseFunction();
-        case TOKEN_KEYWORD_STRUCT: return parseStructure();
-        case TOKEN_KEYWORD_VAR:    return parseVariable();
-        case TOKEN_KEYWORD_LET:    return parseConstant();
-        case TOKEN_EOF:            return nullptr;
+    switch (token.getKind()) {
+        case Token::Kind::KeywordLoad:   return parseLoadDeclaration();
+        case Token::Kind::KeywordEnum:   return parseEnumeration();
+        case Token::Kind::KeywordFunc:   return parseFunction();
+        case Token::Kind::KeywordStruct: return parseStructure();
+        case Token::Kind::KeywordVar:    return parseVariable();
+        case Token::Kind::KeywordLet:    return parseConstant();
+        case Token::Kind::EndOfFile:     return nullptr;
         default:
             report(DIAG_ERROR, "Unexpected token found expected top level declaration!");
             return nullptr;
@@ -218,7 +218,7 @@ Declaration* Parser::parseTopLevelDeclaration() {
 
 /// grammar: array-type-ref := type-ref "[" [ expression ] "]"
 ArrayTypeRef* Parser::parseArrayTypeRef(TypeRef* elementTypeRef) {
-    if (!consumeToken('[')) {
+    if (!consumeToken(Token::Kind::LeftBracket)) {
         return nullptr;
     }
 
@@ -227,7 +227,7 @@ ArrayTypeRef* Parser::parseArrayTypeRef(TypeRef* elementTypeRef) {
         return nullptr;
     }
 
-    if (!consumeToken(']')) {
+    if (!consumeToken(Token::Kind::RightBracket)) {
         return nullptr;
     }
 
@@ -236,19 +236,19 @@ ArrayTypeRef* Parser::parseArrayTypeRef(TypeRef* elementTypeRef) {
 
 /// grammar: block := '{' { statement } '}'
 BlockStatement* Parser::parseBlock() {
-    if (!consumeToken('{')) {
+    if (!consumeToken(Token::Kind::LeftBrace)) {
         return nullptr;
     }
 
     jelly::Array<Statement*> statements;
-    if (!token.is('}')) {
-        unsigned line = token.line;
+    if (!token.is(Token::Kind::RightBrace)) {
+        unsigned line = token.getLine();
         while (true) {
-            if (!statements.empty() && line == token.line) {
+            if (!statements.empty() && line == token.getLine()) {
                 report(DIAG_ERROR, "Consecutive statements on a line are not allowed!");
                 return nullptr;
             }
-            line = token.line;
+            line = token.getLine();
 
             auto statement = parseStatement();
             if (!statement) {
@@ -257,7 +257,7 @@ BlockStatement* Parser::parseBlock() {
 
             statements.push_back(statement);
 
-            if (token.is('}')) {
+            if (token.is(Token::Kind::RightBrace)) {
                 break;
             }
         }
@@ -269,12 +269,12 @@ BlockStatement* Parser::parseBlock() {
 
 /// grammar: bool-literal := "true" | "false"
 BoolLiteral* Parser::parseBoolLiteral() {
-    if (!token.is(TOKEN_KEYWORD_TRUE, TOKEN_KEYWORD_FALSE)) {
-        report(DIAG_ERROR, "Expected keyword 'true' or 'false' found '{0}'", token.text);
+    if (!token.is(Token::Kind::KeywordTrue, Token::Kind::KeywordFalse)) {
+        report(DIAG_ERROR, "Expected keyword 'true' or 'false' found '{0}'", token.getText());
         return nullptr;
     }
 
-    bool value = token.is(TOKEN_KEYWORD_TRUE);
+    bool value = token.is(Token::Kind::KeywordTrue);
     consumeToken();
 
     return new (context) BoolLiteral(value);
@@ -282,7 +282,7 @@ BoolLiteral* Parser::parseBoolLiteral() {
 
 /// grammar: break-statement := "break"
 BreakStatement* Parser::parseBreak() {
-    if (!consumeToken(TOKEN_KEYWORD_BREAK)) {
+    if (!consumeToken(Token::Kind::KeywordBreak)) {
         return nullptr;
     }
 
@@ -291,12 +291,12 @@ BreakStatement* Parser::parseBreak() {
 
 /// grammar: call-expression := expression "(" [ expression { "," expression } ] ")"
 CallExpression* Parser::parseCallExpression(Expression* callee) {
-    if (!consumeToken('(')) {
+    if (!consumeToken(Token::Kind::LeftParenthesis)) {
         return nullptr;
     }
 
     jelly::Array<Expression*> arguments;
-    while (!token.is(')')) {
+    while (!token.is(Token::Kind::RightParenthesis)) {
         auto argument = parseExpression();
         if (!argument) {
             return nullptr;
@@ -304,11 +304,11 @@ CallExpression* Parser::parseCallExpression(Expression* callee) {
 
         arguments.push_back(argument);
 
-        if (token.is(')')) {
+        if (token.is(Token::Kind::RightParenthesis)) {
             break;
         }
 
-        if (!consumeToken(',')) {
+        if (!consumeToken(Token::Kind::Comma)) {
             return nullptr;
         }
     }
@@ -318,19 +318,19 @@ CallExpression* Parser::parseCallExpression(Expression* callee) {
 
 /// grammar: case-statement := conditional-case-statement | else-case-statement
 CaseStatement* Parser::parseCaseStatement() {
-    switch (token.kind) {
-        case TOKEN_KEYWORD_CASE: return parseConditionalCaseStatement();
-        case TOKEN_KEYWORD_ELSE: return parseElseCaseStatement();
+    switch (token.getKind()) {
+        case Token::Kind::KeywordCase: return parseConditionalCaseStatement();
+        case Token::Kind::KeywordElse: return parseElseCaseStatement();
 
         default:
-            report(DIAG_ERROR, "Expected 'case' or 'else' keyword, found '{0}'", token.text);
+            report(DIAG_ERROR, "Expected 'case' or 'else' keyword, found '{0}'", token.getText());
             return nullptr;
     }
 }
 
 /// grammar: conditional-case-statement := "case" expression ":" statement { line-break statement }
 ConditionalCaseStatement* Parser::parseConditionalCaseStatement() {
-    if (!consumeToken(TOKEN_KEYWORD_CASE)) {
+    if (!consumeToken(Token::Kind::KeywordCase)) {
         return nullptr;
     }
 
@@ -339,19 +339,19 @@ ConditionalCaseStatement* Parser::parseConditionalCaseStatement() {
         return nullptr;
     }
 
-    if (!consumeToken(':')) {
+    if (!consumeToken(Token::Kind::Colon)) {
         return nullptr;
     }
 
     jelly::Array<Statement*> statements;
-    unsigned line = token.line;
-    while (!token.is(TOKEN_KEYWORD_CASE, TOKEN_KEYWORD_ELSE, '}')) {
-        if (!statements.empty() && line == token.line) {
+    unsigned line = token.getLine();
+    while (!token.is(Token::Kind::KeywordCase, Token::Kind::KeywordElse, Token::Kind::RightBrace)) {
+        if (!statements.empty() && line == token.getLine()) {
             report(DIAG_ERROR, "Consecutive statements on a line are not allowed!");
             return nullptr;
         }
 
-        line = token.line;
+        line = token.getLine();
 
         auto statement = parseStatement();
         if (!statement) {
@@ -368,7 +368,7 @@ ConditionalCaseStatement* Parser::parseConditionalCaseStatement() {
 
 /// grammar: let-declaration := "let" identifier ":" type-identifier [ "=" expression ]
 ConstantDeclaration* Parser::parseConstant() {
-    if (!consumeToken(TOKEN_KEYWORD_LET)) {
+    if (!consumeToken(Token::Kind::KeywordLet)) {
         return nullptr;
     }
 
@@ -377,7 +377,7 @@ ConstantDeclaration* Parser::parseConstant() {
         return nullptr;
     }
 
-    if (!consumeToken(':')) {
+    if (!consumeToken(Token::Kind::Colon)) {
         return nullptr;
     }
 
@@ -399,7 +399,7 @@ ConstantDeclaration* Parser::parseConstant() {
 
 /// grammar: continue-statement := "continue"
 ContinueStatement* Parser::parseContinue() {
-    if (!consumeToken(TOKEN_KEYWORD_CONTINUE)) {
+    if (!consumeToken(Token::Kind::KeywordContinue)) {
         return nullptr;
     }
 
@@ -408,7 +408,7 @@ ContinueStatement* Parser::parseContinue() {
 
 /// grammar: defer-statement := "defer" expression
 DeferStatement* Parser::parseDefer() {
-    if (!consumeToken(TOKEN_KEYWORD_DEFER)) {
+    if (!consumeToken(Token::Kind::KeywordDefer)) {
         return nullptr;
     }
 
@@ -422,7 +422,7 @@ DeferStatement* Parser::parseDefer() {
 
 /// grammar: do-statement := "do" block "while" expression
 DoStatement* Parser::parseDoStatement() {
-    if (!consumeToken(TOKEN_KEYWORD_DO)) {
+    if (!consumeToken(Token::Kind::KeywordDo)) {
         return nullptr;
     }
 
@@ -431,7 +431,7 @@ DoStatement* Parser::parseDoStatement() {
         return nullptr;
     }
 
-    if (!consumeToken(TOKEN_KEYWORD_WHILE)) {
+    if (!consumeToken(Token::Kind::KeywordWhile)) {
         return nullptr;
     }
 
@@ -445,23 +445,23 @@ DoStatement* Parser::parseDoStatement() {
 
 /// grammar: else-case-statement := "else" ":" statement { line-break statement }
 ElseCaseStatement* Parser::parseElseCaseStatement() {
-    if (!consumeToken(TOKEN_KEYWORD_ELSE)) {
+    if (!consumeToken(Token::Kind::KeywordElse)) {
         return nullptr;
     }
 
-    if (!consumeToken(':')) {
+    if (!consumeToken(Token::Kind::Colon)) {
         return nullptr;
     }
 
     jelly::Array<Statement*> statements;
-    unsigned line = token.line;
-    while (!token.is(TOKEN_KEYWORD_CASE, TOKEN_KEYWORD_ELSE, '}')) {
-        if (!statements.empty() && line == token.line) {
+    unsigned line = token.getLine();
+    while (!token.is(Token::Kind::KeywordCase, Token::Kind::KeywordElse, Token::Kind::RightBrace)) {
+        if (!statements.empty() && line == token.getLine()) {
             report(DIAG_ERROR, "Consecutive statements on a line are not allowed!");
             return nullptr;
         }
 
-        line = token.line;
+        line = token.getLine();
 
         auto statement = parseStatement();
         if (!statement) {
@@ -478,7 +478,7 @@ ElseCaseStatement* Parser::parseElseCaseStatement() {
 
 /// grammar: enum-declaration := "enum" identifier "{" [ enum-element { line-break enum-element } ] "}"
 EnumerationDeclaration* Parser::parseEnumeration() {
-    if (!consumeToken(TOKEN_KEYWORD_ENUM)) {
+    if (!consumeToken(Token::Kind::KeywordElse)) {
         return nullptr;
     }
 
@@ -487,15 +487,15 @@ EnumerationDeclaration* Parser::parseEnumeration() {
         return nullptr;
     }
 
-    if (!consumeToken('{')) {
+    if (!consumeToken(Token::Kind::LeftBrace)) {
         return nullptr;
     }
 
     jelly::Array<EnumerationElementDeclaration*> elements;
-    if (!token.is('}')) {
-        unsigned line = token.line;
+    if (!token.is(Token::Kind::RightBrace)) {
+        unsigned line = token.getLine();
         while (true) {
-            if (!elements.empty() && line == token.line) {
+            if (!elements.empty() && line == token.getLine()) {
                 report(DIAG_ERROR, "Consecutive enum elements on a line are not allowed!");
                 return nullptr;
             }
@@ -511,11 +511,11 @@ EnumerationDeclaration* Parser::parseEnumeration() {
 
             elements.push_back(element);
 
-            if (token.is('}')) {
+            if (token.is(Token::Kind::RightBrace)) {
                 break;
             }
 
-            if (!token.is(TOKEN_KEYWORD_CASE)) {
+            if (!token.is(Token::Kind::KeywordCase)) {
                 report(DIAG_ERROR, "Expected '}' at end of enum declaration!");
                 return nullptr;
             }
@@ -528,7 +528,7 @@ EnumerationDeclaration* Parser::parseEnumeration() {
 
 /// grammar: enum-element := "case" identifier [ "=" expression ]
 EnumerationElementDeclaration* Parser::parseEnumerationElement() {
-    if (!consumeToken(TOKEN_KEYWORD_CASE)) {
+    if (!consumeToken(Token::Kind::KeywordCase)) {
         return nullptr;
     }
 
@@ -556,8 +556,8 @@ Expression* Parser::parseExpression(Precedence precedence) {
         return nullptr;
     }
 
-    if (!context->getOperator(token.text, Fixity::Infix, op) &&
-        !context->getOperator(token.text, Fixity::Postfix, op)) {
+    if (!context->getOperator(token.getText(), Fixity::Infix, op) &&
+        !context->getOperator(token.getText(), Fixity::Postfix, op)) {
         return left;
     }
 
@@ -589,8 +589,8 @@ Expression* Parser::parseExpression(Precedence precedence) {
             return nullptr;
         }
 
-        if (!context->getOperator(token.text, Fixity::Infix, op) &&
-            !context->getOperator(token.text, Fixity::Postfix, op)) {
+        if (!context->getOperator(token.getText(), Fixity::Infix, op) &&
+            !context->getOperator(token.getText(), Fixity::Postfix, op)) {
             return left;
         }
     }
@@ -600,7 +600,7 @@ Expression* Parser::parseExpression(Precedence precedence) {
 
 /// grammar: fallthrough-statement := "fallthrough"
 FallthroughStatement* Parser::parseFallthrough() {
-    if (!consumeToken(TOKEN_KEYWORD_FALLTHROUGH)) {
+    if (!consumeToken(Token::Kind::KeywordFallthrough)) {
         return nullptr;
     }
 
@@ -609,13 +609,13 @@ FallthroughStatement* Parser::parseFallthrough() {
 
 /// grammar: float-literal := @Todo describe float literal grammar
 FloatLiteral* Parser::parseFloatLiteral() {
-    if (!token.is(TOKEN_LITERAL_FLOAT)) {
-        report(DIAG_ERROR, "Expected float literal found '{0}'", token.text);
+    if (!token.is(Token::Kind::LiteralFloat)) {
+        report(DIAG_ERROR, "Expected float literal found '{0}'", token.getText());
         return nullptr;
     }
 
     double value = 0;
-    if (!token.text.getAsDouble(value)) {
+    if (!token.getText().getAsDouble(value)) {
         report(DIAG_ERROR, "Invalid floating point literal!");
         return nullptr;
     }
@@ -627,7 +627,7 @@ FloatLiteral* Parser::parseFloatLiteral() {
 
 /// grammar: func-declaration := "func" identifier "(" [ parameter { "," parameter } ] ")" "->" type-identifier block
 FunctionDeclaration* Parser::parseFunction() {
-    if (!consumeToken(TOKEN_KEYWORD_FUNC)) {
+    if (!consumeToken(Token::Kind::KeywordFunc)) {
         return nullptr;
     }
 
@@ -636,12 +636,12 @@ FunctionDeclaration* Parser::parseFunction() {
         return nullptr;
     }
 
-    if (!consumeToken('(')) {
+    if (!consumeToken(Token::Kind::LeftParenthesis)) {
         return nullptr;
     }
 
     jelly::Array<ParameterDeclaration*> parameters;
-    if (!token.is(')')) {
+    if (!token.is(Token::Kind::RightParenthesis)) {
         while (true) {
             auto parameter = parseParameter();
             if (!parameter) {
@@ -654,18 +654,18 @@ FunctionDeclaration* Parser::parseFunction() {
 
             parameters.push_back(parameter);
 
-            if (token.is(')')) {
+            if (token.is(Token::Kind::RightParenthesis)) {
                 break;
             }
 
-            if (!consumeToken(',')) {
+            if (!consumeToken(Token::Kind::Comma)) {
                 return nullptr;
             }
         }
     }
     consumeToken();
 
-    if (!consumeToken(TOKEN_ARROW)) {
+    if (!consumeToken(Token::Kind::Arrow)) {
         return nullptr;
     }
 
@@ -700,7 +700,7 @@ FunctionDeclaration* Parser::parseFunction() {
 
 /// grammar: group-expression := "(" expression ")"
 Expression* Parser::parseGroupExpression() {
-    if (!consumeToken('(')) {
+    if (!consumeToken(Token::Kind::LeftParenthesis)) {
         return nullptr;
     }
 
@@ -709,7 +709,7 @@ Expression* Parser::parseGroupExpression() {
         return nullptr;
     }
 
-    if (!consumeToken(')')) {
+    if (!consumeToken(Token::Kind::RightParenthesis)) {
         return nullptr;
     }
 
@@ -718,7 +718,7 @@ Expression* Parser::parseGroupExpression() {
 
 /// grammar: guard-statement := "guard" expression { "," expression } else block
 GuardStatement* Parser::parseGuard() {
-    if (!consumeToken(TOKEN_KEYWORD_GUARD)) {
+    if (!consumeToken(Token::Kind::KeywordGuard)) {
         return nullptr;
     }
 
@@ -727,7 +727,7 @@ GuardStatement* Parser::parseGuard() {
         return nullptr;
     }
 
-    if (!consumeToken(TOKEN_KEYWORD_ELSE)) {
+    if (!consumeToken(Token::Kind::KeywordElse)) {
         return nullptr;
     }
 
@@ -753,7 +753,7 @@ IdentifierExpression* Parser::parseIdentifierExpression() {
 
 /// grammar: if-statement := "if" expression { "," expression } block [ "else" ( if-statement | block ) ]
 IfStatement* Parser::parseIf() {
-    if (!consumeToken(TOKEN_KEYWORD_IF)) {
+    if (!consumeToken(Token::Kind::KeywordIf)) {
         return nullptr;
     }
 
@@ -768,10 +768,10 @@ IfStatement* Parser::parseIf() {
     }
 
     BlockStatement* elseBlock = nullptr;
-    if (token.is(TOKEN_KEYWORD_ELSE)) {
+    if (token.is(Token::Kind::KeywordElse)) {
         consumeToken();
 
-        if (token.is(TOKEN_KEYWORD_IF)) {
+        if (token.is(Token::Kind::KeywordIf)) {
             auto ifStatement = parseIf();
             if (!ifStatement) {
                 return nullptr;
@@ -791,13 +791,13 @@ IfStatement* Parser::parseIf() {
 
 /// grammar: int-literal := @Todo describe float literal grammar
 IntLiteral* Parser::parseIntLiteral() {
-    if (!token.is(TOKEN_LITERAL_INT)) {
-        report(DIAG_ERROR, "Expected integer literal found '{0}'", token.text);
+    if (!token.is(Token::Kind::LiteralInt)) {
+        report(DIAG_ERROR, "Expected integer literal found '{0}'", token.getText());
         return nullptr;
     }
 
     uint64_t value = 0;
-    if (!token.text.getAsInteger(0, value)) {
+    if (!token.getText().getAsInteger(0, value)) {
         report(DIAG_ERROR, "Invalid integer literal!");
         return nullptr;
     }
@@ -809,18 +809,18 @@ IntLiteral* Parser::parseIntLiteral() {
 
 /// grammar: load-directive := "#load" string-literal
 LoadDeclaration* Parser::parseLoadDeclaration() {
-    if (!consumeToken(TOKEN_KEYWORD_LOAD)) {
+    if (!consumeToken(Token::Kind::KeywordLoad)) {
         return nullptr;
     }
 
-    if (token.kind != TOKEN_LITERAL_STRING) {
+    if (!token.is(Token::Kind::LiteralString)) {
         report(DIAG_ERROR, "Expected string literal after load directive!");
         return nullptr;
     }
 
-    assert(token.text.size() >= 2 && "Invalid length of string literal text, has to contain at least \"\"");
+    assert(token.getText().size() >= 2 && "Invalid length of string literal text, has to contain at least \"\"");
 
-    auto sourceFilePath = context->getIdentifier(token.text.drop_front(1).drop_back(1)); // Makes a copy of the token text.
+    auto sourceFilePath = context->getIdentifier(token.getText().drop_front(1).drop_back(1)); // Makes a copy of the token text.
     consumeToken();
 
     return new (context) LoadDeclaration(sourceFilePath);
@@ -828,7 +828,7 @@ LoadDeclaration* Parser::parseLoadDeclaration() {
 
 /// grammar: nil-literal := "nil"
 NilLiteral* Parser::parseNilLiteral() {
-    if (!consumeToken(TOKEN_KEYWORD_NIL)) {
+    if (!consumeToken(Token::Kind::KeywordNil)) {
         return nullptr;
     }
 
@@ -852,7 +852,7 @@ ParameterDeclaration* Parser::parseParameter() {
         return nullptr;
     }
 
-    if (!consumeToken(':')) {
+    if (!consumeToken(Token::Kind::Colon)) {
         return nullptr;
     }
 
@@ -873,7 +873,7 @@ PointerTypeRef* Parser::parsePointerTypeRef(TypeRef* pointeeTypeRef) {
     }
 
     if (depth < 1) {
-        report(DIAG_ERROR, "Expected '*' found '{0}'", token.text);
+        report(DIAG_ERROR, "Expected '*' found '{0}'", token.getText());
         return nullptr;
     }
 
@@ -882,7 +882,7 @@ PointerTypeRef* Parser::parsePointerTypeRef(TypeRef* pointeeTypeRef) {
 
 /// grammar: return-statement := "return" [ expression ]
 ReturnStatement* Parser::parseReturn() {
-    if (!consumeToken(TOKEN_KEYWORD_RETURN)) {
+    if (!consumeToken(Token::Kind::KeywordReturn)) {
         return nullptr;
     }
 
@@ -893,27 +893,27 @@ ReturnStatement* Parser::parseReturn() {
 
 /// grammar: statement := variable-declaration | control-statement | defer-statement | do-statement | for-statement | guard-statement | if-statement | switch-statement | while-statement | expression
 Statement* Parser::parseStatement() {
-    switch (token.kind) {
-        case TOKEN_KEYWORD_ENUM:        return parseEnumeration();
-        case TOKEN_KEYWORD_FUNC:        return parseFunction();
-        case TOKEN_KEYWORD_STRUCT:      return parseStructure();
-        case TOKEN_KEYWORD_VAR:         return parseVariable();
-        case TOKEN_KEYWORD_LET:         return parseConstant();
-        case TOKEN_KEYWORD_BREAK:       return parseBreak();
-        case TOKEN_KEYWORD_CONTINUE:    return parseContinue();
-        case TOKEN_KEYWORD_FALLTHROUGH: return parseFallthrough();
-        case TOKEN_KEYWORD_RETURN:      return parseReturn();
-        case TOKEN_KEYWORD_DEFER:       return parseDefer();
-        case TOKEN_KEYWORD_DO:          return parseDoStatement();
-        case TOKEN_KEYWORD_GUARD:       return parseGuard();
-        case TOKEN_KEYWORD_IF:          return parseIf();
-        case TOKEN_KEYWORD_SWITCH:      return parseSwitchStatement();
-        case TOKEN_KEYWORD_WHILE:       return parseWhileStatement();
+    switch (token.getKind()) {
+        case Token::Kind::KeywordEnum:        return parseEnumeration();
+        case Token::Kind::KeywordFunc:        return parseFunction();
+        case Token::Kind::KeywordStruct:      return parseStructure();
+        case Token::Kind::KeywordVar:         return parseVariable();
+        case Token::Kind::KeywordLet:         return parseConstant();
+        case Token::Kind::KeywordBreak:       return parseBreak();
+        case Token::Kind::KeywordContinue:    return parseContinue();
+        case Token::Kind::KeywordFallthrough: return parseFallthrough();
+        case Token::Kind::KeywordReturn:      return parseReturn();
+        case Token::Kind::KeywordDefer:       return parseDefer();
+        case Token::Kind::KeywordDo:          return parseDoStatement();
+        case Token::Kind::KeywordGuard:       return parseGuard();
+        case Token::Kind::KeywordIf:          return parseIf();
+        case Token::Kind::KeywordSwitch:      return parseSwitchStatement();
+        case Token::Kind::KeywordWhile:       return parseWhileStatement();
 
         default: {
             auto expression = tryParseExpression();
             if (!expression) {
-                report(DIAG_ERROR, "Expected statement, found '{0}'", token.text);
+                report(DIAG_ERROR, "Expected statement, found '{0}'", token.getText());
                 return nullptr;
             }
             return expression;
@@ -923,15 +923,15 @@ Statement* Parser::parseStatement() {
 
 /// grammar: string-literal := @Todo describe float literal grammar
 StringLiteral* Parser::parseStringLiteral() {
-    if (!token.is(TOKEN_LITERAL_STRING)) {
-        report(DIAG_ERROR, "Expected string literal found '{0}'", token.text);
+    if (!token.is(Token::Kind::LiteralString)) {
+        report(DIAG_ERROR, "Expected string literal found '{0}'", token.getText());
         return nullptr;
     }
 
-    assert(token.text.size() >= 2 && "Invalid length of string literal text, has to contain at least \"\"");
+    assert(token.getText().size() >= 2 && "Invalid length of string literal text, has to contain at least \"\"");
 
     // @Cleanup we form an identifier here to retain memory for value of StringLiteral
-    auto value = context->getIdentifier(token.text.drop_front(1).drop_back(1));
+    auto value = context->getIdentifier(token.getText().drop_front(1).drop_back(1));
 
     consumeToken();
 
@@ -940,7 +940,7 @@ StringLiteral* Parser::parseStringLiteral() {
 
 /// grammar: struct-declaration := "struct" identifier "{" { value-declaration } "}"
 StructureDeclaration* Parser::parseStructure() {
-    if (!consumeToken(TOKEN_KEYWORD_STRUCT)) {
+    if (!consumeToken(Token::Kind::KeywordStruct)) {
         return nullptr;
     }
 
@@ -949,19 +949,19 @@ StructureDeclaration* Parser::parseStructure() {
         return nullptr;
     }
 
-    if (!consumeToken('{')) {
+    if (!consumeToken(Token::Kind::LeftBrace)) {
         return nullptr;
     }
 
     jelly::Array<ValueDeclaration*> values;
-    if (!token.is('}')) {
-        unsigned line = token.line;
+    if (!token.is(Token::Kind::RightBrace)) {
+        unsigned line = token.getLine();
         while (true) {
-            if (!values.empty() && line == token.line) {
+            if (!values.empty() && line == token.getLine()) {
                 report(DIAG_ERROR, "Consecutive statements on a line are not allowed!");
                 return nullptr;
             }
-            line = token.line;
+            line = token.getLine();
 
             auto value = parseValueDeclaration();
             if (!value) {
@@ -974,7 +974,7 @@ StructureDeclaration* Parser::parseStructure() {
 
             values.push_back(value);
 
-            if (token.is('}')) {
+            if (token.is(Token::Kind::RightBrace)) {
                 break;
             }
         }
@@ -986,7 +986,7 @@ StructureDeclaration* Parser::parseStructure() {
 
 /// grammar: switch-statement := "switch" expression "{" [ switch-case { line-break switch-case } ] "}"
 SwitchStatement* Parser::parseSwitchStatement() {
-    if (!consumeToken(TOKEN_KEYWORD_SWITCH)) {
+    if (!consumeToken(Token::Kind::KeywordSwitch)) {
         return nullptr;
     }
 
@@ -995,19 +995,19 @@ SwitchStatement* Parser::parseSwitchStatement() {
         return nullptr;
     }
 
-    if (!consumeToken('{')) {
+    if (!consumeToken(Token::Kind::LeftBrace)) {
         return nullptr;
     }
 
     jelly::Array<CaseStatement*> cases;
-    unsigned line = token.line;
-    while (!token.is('}')) {
-        if (!cases.empty() && line == token.line) {
+    unsigned line = token.getLine();
+    while (!token.is(Token::Kind::RightBrace)) {
+        if (!cases.empty() && line == token.getLine()) {
             report(DIAG_ERROR, "Consecutive statements on a line are not allowed!");
             return nullptr;
         }
 
-        line = token.line;
+        line = token.getLine();
 
         auto statement = parseCaseStatement();
         if (!statement) {
@@ -1023,17 +1023,17 @@ SwitchStatement* Parser::parseSwitchStatement() {
 
 /// grammar: type-of-type-ref := "typeof" "(" expression ")"
 TypeOfTypeRef* Parser::parseTypeOfTypeRef() {
-    if (!consumeToken(TOKEN_KEYWORD_TYPEOF)) {
+    if (!consumeToken(Token::Kind::KeywordTypeof)) {
         return nullptr;
     }
 
-    if (!consumeToken('(')) {
+    if (!consumeToken(Token::Kind::LeftParenthesis)) {
         return nullptr;
     }
 
     auto expression = parseExpression();
 
-    if (!consumeToken(')')) {
+    if (!consumeToken(Token::Kind::RightParenthesis)) {
         return nullptr;
     }
 
@@ -1044,17 +1044,17 @@ TypeOfTypeRef* Parser::parseTypeOfTypeRef() {
 TypeRef* Parser::parseTypeRef() {
     TypeRef* typeRef = nullptr;
 
-    switch (token.kind) {
-        case TOKEN_IDENTIFIER:
+    switch (token.getKind()) {
+        case Token::Kind::Identifier:
             typeRef = parseOpaqueTypeRef();
             break;
 
-        case TOKEN_KEYWORD_TYPEOF:
+        case Token::Kind::KeywordTypeof:
             typeRef = parseTypeOfTypeRef();
             break;
 
         default:
-            report(DIAG_ERROR, "Expected type ref found '{0}'", token.text);
+            report(DIAG_ERROR, "Expected type ref found '{0}'", token.getText());
             return nullptr;
     }
 
@@ -1063,8 +1063,8 @@ TypeRef* Parser::parseTypeRef() {
     }
 
     do {
-        switch (token.kind) {
-            case TOKEN_OPERATOR: {
+        switch (token.getKind()) {
+            case Token::Kind::Operator: {
                 auto pointerTypeRef = parsePointerTypeRef(typeRef);
                 if (!pointerTypeRef) {
                     return nullptr;
@@ -1073,7 +1073,7 @@ TypeRef* Parser::parseTypeRef() {
                 typeRef = pointerTypeRef;
             } break;
 
-            case '[': {
+            case Token::Kind::LeftBracket: {
                 auto arrayTypeRef = parseArrayTypeRef(typeRef);
                 if (!arrayTypeRef) {
                     return nullptr;
@@ -1106,9 +1106,9 @@ UnaryExpression* Parser::parseUnaryExpression() {
 
 /// grammar: value-declaration := var-declaration | let-declaration
 ValueDeclaration* Parser::parseValueDeclaration() {
-    switch (token.kind) {
-        case TOKEN_KEYWORD_LET: return parseConstant();
-        case TOKEN_KEYWORD_VAR: return parseVariable();
+    switch (token.getKind()) {
+        case Token::Kind::KeywordLet: return parseConstant();
+        case Token::Kind::KeywordVar: return parseVariable();
 
         default:
             report(DIAG_ERROR, "Expected 'var' or 'let' at start of value-declaration!");
@@ -1118,7 +1118,7 @@ ValueDeclaration* Parser::parseValueDeclaration() {
 
 /// grammar: var-declaration := "var" identifier ":" type-identifier [ "=" expression ]
 VariableDeclaration* Parser::parseVariable() {
-    if (!consumeToken(TOKEN_KEYWORD_VAR)) {
+    if (!consumeToken(Token::Kind::KeywordVar)) {
         return nullptr;
     }
 
@@ -1127,7 +1127,7 @@ VariableDeclaration* Parser::parseVariable() {
         return nullptr;
     }
 
-    if (!consumeToken(':')) {
+    if (!consumeToken(Token::Kind::Colon)) {
         return nullptr;
     }
 
@@ -1149,7 +1149,7 @@ VariableDeclaration* Parser::parseVariable() {
 
 /// grammar: while-statement := "while" expression { "," expression } block
 WhileStatement* Parser::parseWhileStatement() {
-    if (!consumeToken(TOKEN_KEYWORD_WHILE)) {
+    if (!consumeToken(Token::Kind::KeywordWhile)) {
         return nullptr;
     }
 

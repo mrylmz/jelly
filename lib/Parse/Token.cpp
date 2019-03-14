@@ -1,7 +1,7 @@
 //
 // MIT License
 //
-// Copyright (c) 2018 Murat Yilmaz
+// Copyright (c) 2019 Murat Yilmaz
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -22,9 +22,45 @@
 // SOFTWARE.
 //
 
-#pragma once
+#include "Parse/Token.h"
 
-#include "Core/CodeManager.h"
-#include "Core/Diagnostic.h"
-#include "Core/Sema.h"
-#include "Core/Type.h"
+Token::Token() :
+kind(Kind::Unknown) {
+    
+}
+
+Token::Kind Token::getKind() const {
+    return kind;
+}
+
+void Token::setKind(Token::Kind kind) {
+    this->kind = kind;
+}
+
+uint32_t Token::getLine() const {
+    return line;
+}
+
+void Token::setLine(uint32_t line) {
+    this->line = line;
+}
+
+uint32_t Token::getColumn() const {
+    return column;
+}
+
+void Token::setColumn(uint32_t column) {
+    this->column = column;
+}
+
+jelly::StringRef Token::getText() const {
+    return text;
+}
+
+void Token::setText(jelly::StringRef text) {
+    this->text = text;
+}
+
+bool Token::is(Token::Kind kind) const {
+    return this->kind == kind;
+}
