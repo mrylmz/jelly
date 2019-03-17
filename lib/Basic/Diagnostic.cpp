@@ -1,7 +1,7 @@
 //
 // MIT License
 //
-// Copyright (c) 2018 Murat Yilmaz
+// Copyright (c) 2019 Murat Yilmaz
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -22,13 +22,20 @@
 // SOFTWARE.
 //
 
-#include "Basic/Array.h"
-#include "Basic/Defer.h"
 #include "Basic/Diagnostic.h"
-#include "Basic/DiagnosticEngine.h"
-#include "Basic/DiagnosticHandler.h"
-#include "Basic/LLVM.h"
-#include "Basic/SourceBuffer.h"
-#include "Basic/SourceLocation.h"
-#include "Basic/SourceManager.h"
-#include "Basic/SourceRange.h"
+
+using namespace jelly;
+
+Diagnostic::Diagnostic(Level level, std::string message) :
+level(level),
+message(message) {
+
+}
+
+Diagnostic::Level Diagnostic::getLevel() const {
+    return level;
+}
+
+std::string Diagnostic::getMessage() const {
+    return message;
+}

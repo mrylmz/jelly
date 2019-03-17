@@ -1,7 +1,7 @@
 //
 // MIT License
 //
-// Copyright (c) 2018 Murat Yilmaz
+// Copyright (c) 2019 Murat Yilmaz
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -22,13 +22,41 @@
 // SOFTWARE.
 //
 
-#include "Basic/Array.h"
-#include "Basic/Defer.h"
+#pragma once
+
 #include "Basic/Diagnostic.h"
-#include "Basic/DiagnosticEngine.h"
-#include "Basic/DiagnosticHandler.h"
 #include "Basic/LLVM.h"
-#include "Basic/SourceBuffer.h"
-#include "Basic/SourceLocation.h"
-#include "Basic/SourceManager.h"
-#include "Basic/SourceRange.h"
+
+#include <stdint.h>
+#include <string>
+
+// @Todo Add reporting diagnostics based on active SourceBuffer!
+
+namespace jelly {
+
+    class DiagnosticHandler;
+
+    class DiagnosticEngine {
+        DiagnosticHandler* handler;
+        uint64_t reportedDiagnosticCounts[4] = { };
+
+    public:
+
+        DiagnosticEngine(DiagnosticHandler* handler);
+        ~DiagnosticEngine();
+
+        uint64_t getReportedInfoCount() const;
+        uint64_t getReportedWarningCount() const;
+        uint64_t getReportedErrorCount() const;
+        uint64_t getReportedFatalCount() const;
+
+        template<typename ...Args>
+        void report(Diagnostic::Level level, const char* format, Args&&... args) {
+            std::string message = formatv(format, args...);
+
+            report(level, std::move(message));
+        }
+
+        void report(Diagnostic::Level level, std::string message);
+    };
+}

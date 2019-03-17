@@ -32,23 +32,28 @@
 
 FileTestDiagnosticHandler::FileTestDiagnosticHandler(FileTestMetadata metadata) : metadata(metadata) {}
 
-void FileTestDiagnosticHandler::start() {
+void FileTestDiagnosticHandler::begin(jelly::SourceBuffer* buffer) {
     index = 0;
 }
 
-void FileTestDiagnosticHandler::finish() {
+void FileTestDiagnosticHandler::end() {
     EXPECT_EQ(index, metadata.errorMessages.size());
 }
 
-void FileTestDiagnosticHandler::handle(Diagnostic diagnostic) {
-    printf("[  MESSAGE ] %s\n", diagnostic.message.c_str());
+void FileTestDiagnosticHandler::finish() {
+
+}
+
+void FileTestDiagnosticHandler::handle(jelly::Diagnostic diagnostic) {
+    printf("[  MESSAGE ] %s\n", diagnostic.getMessage().c_str());
 
     if (metadata.errorMessages.size() <= index) {
         FAIL();
     }
 
-    EXPECT_STREQ(diagnostic.message.c_str(), metadata.errorMessages[index].c_str());
+    EXPECT_STREQ(diagnostic.getMessage().c_str(), metadata.errorMessages[index].c_str());
     index += 1;
+
 }
 
 bool readFileContent(std::string filePath, std::string& fileContent) {

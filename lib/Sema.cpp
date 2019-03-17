@@ -31,7 +31,7 @@
 Sema::Sema(CodeManager* codeManager) :
 codeManager(codeManager),
 context(&codeManager->context),
-diag(&codeManager->diag) {
+diagnosticEngine(&codeManager->diagnosticEngine) {
 }
 
 void Sema::validateAST() {
@@ -81,7 +81,7 @@ void Sema::resolveType(ASTTypeRef* typeRef) {
             }
 
             opaqueTypeRef->type = context->getErrorType();
-            diag->report(DIAG_ERROR, "Couldn't resolve type '{0}'", opaqueTypeRef->typeName);
+            diagnosticEngine->report(DIAG_ERROR, "Couldn't resolve type '{0}'", opaqueTypeRef->typeName);
         }   return;
 
         case AST_TYPEOF_TYPE_REF: {
@@ -119,7 +119,7 @@ void Sema::resolveType(ASTTypeRef* typeRef) {
 
                 if (constExpr->type != context->getIntType()) {
                     arrayTypeRef->type = context->getErrorType();
-                    diag->report(DIAG_ERROR, "Invalid type '{0}' given for array size expression expected Int", arrayTypeRef->type);
+                    diagnosticEngine->report(DIAG_ERROR, "Invalid type '{0}' given for array size expression expected Int", arrayTypeRef->type);
                     return;
                 }
 
@@ -127,7 +127,7 @@ void Sema::resolveType(ASTTypeRef* typeRef) {
                 auto intLit = reinterpret_cast<ASTIntLit*>(constExpr);
                 if (!intLit->value.sge(0)) {
                     arrayTypeRef->type = context->getErrorType();
-                    diag->report(DIAG_ERROR, "The array size has to be greater than or equal to 0 but found '{0}'", intLit->value);
+                    diagnosticEngine->report(DIAG_ERROR, "The array size has to be greater than or equal to 0 but found '{0}'", intLit->value);
                     return;
                 }
 
@@ -344,7 +344,7 @@ void Sema::inferTypeOfIdentExpr(ASTIdentExpr* expr) {
     }
 
     expr->type = context->getErrorType();
-    diag->report(DIAG_ERROR, "Unresolved identifier '{0}'", expr->declName);
+    diagnosticEngine->report(DIAG_ERROR, "Unresolved identifier '{0}'", expr->declName);
 }
 
 void Sema::inferTypeOfStmts(ASTCompoundStmt* stmt) {
@@ -367,7 +367,7 @@ void Sema::inferTypeOfUnaryExpr(ASTUnaryExpr* expr) {
         expr->type = type;
     } else {
         expr->type = context->getErrorType();
-        diag->report(DIAG_ERROR, "Couldn't resolve prefix function '{0}'", expr->op.text);
+        diagnosticEngine->report(DIAG_ERROR, "Couldn't resolve prefix function '{0}'", expr->op.text);
     }
 }
 
@@ -387,7 +387,7 @@ void Sema::inferTypeOfBinaryExpr(ASTBinaryExpr* expr) {
         expr->type = type;
     } else {
         expr->type = context->getErrorType();
-        diag->report(DIAG_ERROR, "Couldn't resolve infix function '{0}'", expr->op.text);
+        diagnosticEngine->report(DIAG_ERROR, "Couldn't resolve infix function '{0}'", expr->op.text);
     }
 }
 
@@ -402,7 +402,7 @@ void Sema::inferTypeOfMemberAccessExpr(ASTMemberAccessExpr* expr) {
 
     if (expr->left->type->kind != TYPE_DECL_STRUCT) {
         expr->type = context->getErrorType();
-        diag->report(DIAG_ERROR, "Cannot access member of non struct types");
+        diagnosticEngine->report(DIAG_ERROR, "Cannot access member of non struct types");
         return;
     }
 
@@ -410,7 +410,7 @@ void Sema::inferTypeOfMemberAccessExpr(ASTMemberAccessExpr* expr) {
     auto memberTypeIt = structType->memberTypes.find(expr->memberName);
     if (memberTypeIt == structType->memberTypes.end()) {
         expr->type = context->getErrorType();
-        diag->report(DIAG_ERROR, "No member named '{0}' found in struct type", expr->memberName);
+        diagnosticEngine->report(DIAG_ERROR, "No member named '{0}' found in struct type", expr->memberName);
         return;
     }
 
@@ -431,7 +431,7 @@ void Sema::inferTypeOfCallExpr(ASTCallExpr* expr) {
 
     if (expr->left->type->kind != TYPE_DECL_FUNC) {
         expr->type = context->getErrorType();
-        diag->report(DIAG_ERROR, "Cannot call a non function type");
+        diagnosticEngine->report(DIAG_ERROR, "Cannot call a non function type");
         return;
     }
 
@@ -518,7 +518,7 @@ void Sema::typeStructDecl(ASTStructDecl* decl) {
     auto it = context->getTypes()->find(decl->name);
     if (it != context->getTypes()->end()) {
         decl->type = context->getErrorType();
-        diag->report(DIAG_ERROR, "Invalid redeclaration of '{0}'", decl->name);
+        diagnosticEngine->report(DIAG_ERROR, "Invalid redeclaration of '{0}'", decl->name);
         return;
     }
 
@@ -567,7 +567,7 @@ bool Sema::checkCyclicStorageInStructDecl(ASTStructDecl* structDecl, jelly::Smal
                     if (parentDecl == memberDecl) {
                         opaqueTypeRef->type = context->getErrorType();
                         decl->type = context->getErrorType();
-                        diag->report(DIAG_ERROR, "Struct cannot store a variable of same type recursively");
+                        diagnosticEngine->report(DIAG_ERROR, "Struct cannot store a variable of same type recursively");
                         return true;
                     }
                 }
@@ -630,7 +630,7 @@ void Sema::typeCheckFuncDecl(ASTFuncDecl* decl) {
     }
 
     if (decl->type->isIncomplete()) {
-        diag->report(DIAG_ERROR, "Declaration has incomplete type");
+        diagnosticEngine->report(DIAG_ERROR, "Declaration has incomplete type");
     }
 
     for (auto paramDecl : decl->parameters) {
@@ -668,7 +668,7 @@ void Sema::typeCheckFuncBody(ASTFuncDecl* decl) {
         stmt->kind == AST_SUBSCRIPT;
 
         if (!isStmtAllowed) {
-            diag->report(DIAG_ERROR, "Statement is not allowed inside of func declaration");
+            diagnosticEngine->report(DIAG_ERROR, "Statement is not allowed inside of func declaration");
         } else {
             typeCheckNode(stmt);
         }
@@ -677,7 +677,7 @@ void Sema::typeCheckFuncBody(ASTFuncDecl* decl) {
     if (decl->returnTypeRef->type != context->getVoidType() && decl->returnTypeRef->type != context->getErrorType()) {
         if (!isCompoundStmtAlwaysReturning(decl->body)) {
             decl->type = context->getErrorType();
-            diag->report(DIAG_ERROR, "Not all code paths return a value");
+            diagnosticEngine->report(DIAG_ERROR, "Not all code paths return a value");
         }
     }
 }
@@ -702,7 +702,7 @@ void Sema::typeCheckStructDecl(ASTStructDecl* decl) {
     }
 
     if (decl->type->isIncomplete()) {
-        diag->report(DIAG_ERROR, "Declaration has incomplete type");
+        diagnosticEngine->report(DIAG_ERROR, "Declaration has incomplete type");
     }
 
     typeCheckStructMembers(decl);
@@ -725,11 +725,11 @@ void Sema::typeCheckValueDecl(ASTValueDecl* decl) {
 
         if (decl->type != decl->initializer->type && decl->initializer->type != context->getErrorType()) {
             decl->type = context->getErrorType();
-            diag->report(DIAG_ERROR, "Assignment expression of '{0}' has mismatching type", decl->name);
+            diagnosticEngine->report(DIAG_ERROR, "Assignment expression of '{0}' has mismatching type", decl->name);
         }
     } else if (decl->isConstant) {
         decl->type = context->getErrorType();
-        diag->report(DIAG_ERROR, "Expected assignment expression for '{0}'", decl->name);
+        diagnosticEngine->report(DIAG_ERROR, "Expected assignment expression for '{0}'", decl->name);
     }
 }
 
@@ -754,7 +754,7 @@ void Sema::typeCheckEnumElementDecl(ASTEnumElementDecl* decl) {
     }
 
     if (!decl->declContext->isEnumDecl()) {
-        diag->report(DIAG_ERROR, "Enum element '{0}' can only be declared inside of an enum", decl->name);
+        diagnosticEngine->report(DIAG_ERROR, "Enum element '{0}' can only be declared inside of an enum", decl->name);
         return;
     }
 
@@ -775,7 +775,7 @@ void Sema::typeCheckEnumElementDecl(ASTEnumElementDecl* decl) {
         }
 
         if (decl->type != decl->assignment->type) {
-            diag->report(DIAG_ERROR, "Assignment expression of '{0}' has mismatching type", decl->name);
+            diagnosticEngine->report(DIAG_ERROR, "Assignment expression of '{0}' has mismatching type", decl->name);
             return;
         }
 
@@ -795,7 +795,7 @@ void Sema::typeCheckEnumElementDecl(ASTEnumElementDecl* decl) {
         }
 
         if (isOverlappingOtherElementValue) {
-            diag->report(DIAG_ERROR, "Invalid reuse of value {0} for different enum elements", intLit->value);
+            diagnosticEngine->report(DIAG_ERROR, "Invalid reuse of value {0} for different enum elements", intLit->value);
         } else {
             enumType->memberValues.push_back(intLit);
             enumType->nextMemberValue = intLit->value + 1; // See @EnumCheckInSequencialOrder
@@ -850,7 +850,7 @@ void Sema::typeCheckUnaryExpr(ASTUnaryExpr* expr) {
 
     if (expr->right->type != type->paramTypes[0]) {
         expr->type = context->getErrorType();
-        diag->report(DIAG_ERROR, "Mismatching type for unary expression!");
+        diagnosticEngine->report(DIAG_ERROR, "Mismatching type for unary expression!");
     }
 }
 
@@ -864,7 +864,7 @@ void Sema::typeCheckBinaryExpr(ASTBinaryExpr* expr) {
 
     if (expr->isAssignment() && !isExprLValue(expr->left)) {
         expr->type = context->getErrorType();
-        diag->report(DIAG_ERROR, "Left hand side of assignment expression is not assignable!");
+        diagnosticEngine->report(DIAG_ERROR, "Left hand side of assignment expression is not assignable!");
     }
 
     if (expr->type->isBuiltinInfixFunc()) {
@@ -873,12 +873,12 @@ void Sema::typeCheckBinaryExpr(ASTBinaryExpr* expr) {
 
         if (expr->left->type != type->paramTypes[0]) {
             expr->type = context->getErrorType();
-            diag->report(DIAG_ERROR, "Mismatching type for left expression of binary expression!");
+            diagnosticEngine->report(DIAG_ERROR, "Mismatching type for left expression of binary expression!");
         }
 
         if (expr->right->type != type->paramTypes[1]) {
             expr->type = context->getErrorType();
-            diag->report(DIAG_ERROR, "Mismatching type for right expression of binary expression!");
+            diagnosticEngine->report(DIAG_ERROR, "Mismatching type for right expression of binary expression!");
         }
     } else if (expr->type->isBuiltinOperation()) {
         auto opType = reinterpret_cast<BuiltinOperationType*>(expr->type);
@@ -886,7 +886,7 @@ void Sema::typeCheckBinaryExpr(ASTBinaryExpr* expr) {
             case BUILTIN_ASSIGNMENT_OPERATION:
                 if (expr->left->type != expr->right->type) {
                     expr->type = context->getErrorType();
-                    diag->report(DIAG_ERROR, "Mismatching type for right expression of binary expression!");
+                    diagnosticEngine->report(DIAG_ERROR, "Mismatching type for right expression of binary expression!");
                 }
                 break;
         }
@@ -971,7 +971,7 @@ void Sema::typeCheckBreakStmt(ASTBreakStmt* stmt) {
     }
 
     if (!isBreakStmtAllowed) {
-        diag->report(DIAG_ERROR, "'break' is only allowed inside a loop or switch");
+        diagnosticEngine->report(DIAG_ERROR, "'break' is only allowed inside a loop or switch");
     }
 }
 
@@ -996,7 +996,7 @@ void Sema::typeCheckContinueStmt(ASTContinueStmt* stmt) {
     }
 
     if (!isContinueStmtAllowed) {
-        diag->report(DIAG_ERROR, "'continue' is only allowed inside a loop");
+        diagnosticEngine->report(DIAG_ERROR, "'continue' is only allowed inside a loop");
     }
 }
 
@@ -1021,7 +1021,7 @@ void Sema::typeCheckFallthroughStmt(ASTFallthroughStmt* stmt) {
     }
 
     if (!isFallthroughStmtAllowed) {
-        diag->report(DIAG_ERROR, "'fallthrough' is only allowed inside a switch");
+        diagnosticEngine->report(DIAG_ERROR, "'fallthrough' is only allowed inside a switch");
     }
 }
 
@@ -1049,7 +1049,7 @@ void Sema::typeCheckReturnStmt(ASTReturnStmt* stmt) {
     }
 
     if (!enclosingFuncDecl) {
-        diag->report(DIAG_ERROR, "Statement is only allowed inside of function declaration");
+        diagnosticEngine->report(DIAG_ERROR, "Statement is only allowed inside of function declaration");
         return;
     }
 
@@ -1065,11 +1065,11 @@ void Sema::typeCheckReturnStmt(ASTReturnStmt* stmt) {
         }
 
         if (enclosingFuncDecl->returnTypeRef->type != type) {
-            diag->report(DIAG_ERROR, "Type mismatch in return statement");
+            diagnosticEngine->report(DIAG_ERROR, "Type mismatch in return statement");
         }
 
     } else if (!stmt->expr && enclosingFuncDecl->returnTypeRef->type != context->getVoidType()) {
-        diag->report(DIAG_ERROR, "Expected expression after return statement");
+        diagnosticEngine->report(DIAG_ERROR, "Expected expression after return statement");
     }
 }
 
@@ -1089,7 +1089,7 @@ void Sema::typeCheckGuardStmt(ASTGuardStmt* stmt) {
     typeCheckCompoundStmt(stmt->elseStmt);
 
     if (!isCompoundStmtAlwaysReturning(stmt->elseStmt)) {
-        diag->report(DIAG_ERROR, "Not all code paths return a value");
+        diagnosticEngine->report(DIAG_ERROR, "Not all code paths return a value");
     }
 }
 
@@ -1144,7 +1144,7 @@ void Sema::typeCheckSwitchStmt(ASTSwitchStmt* stmt) {
     }
 
     if (containsMissplacedElseCase) {
-        diag->report(DIAG_ERROR, "Switch cases cannot appear after else case of switch statement");
+        diagnosticEngine->report(DIAG_ERROR, "Switch cases cannot appear after else case of switch statement");
     } else {
         checkIsSwitchStmtExhaustive(stmt);
     }
@@ -1159,7 +1159,7 @@ void Sema::typeCheckCaseStmt(ASTCaseStmt* stmt) {
     }
 
     if (stmt->body->stmts.empty()) {
-        diag->report(DIAG_ERROR, "Switch case should contain at least one statement");
+        diagnosticEngine->report(DIAG_ERROR, "Switch case should contain at least one statement");
     }
 
     typeCheckCompoundStmt(stmt->body);
@@ -1201,7 +1201,7 @@ void Sema::typeCheckConditions(ASTBranchStmt* stmt) {
 
     if (stmt->condition->type != context->getBoolType() && stmt->condition->type != context->getErrorType()) {
         stmt->condition->type = context->getErrorType();
-        diag->report(DIAG_ERROR, "Mismatching condition type expected 'Bool'");
+        diagnosticEngine->report(DIAG_ERROR, "Mismatching condition type expected 'Bool'");
     }
 }
 
@@ -1303,7 +1303,7 @@ void Sema::checkIsSwitchStmtExhaustive(ASTSwitchStmt* stmt) {
     if (!exprType || exprType->kind != TYPE_DECL_ENUM) {
         // We'll not guarantee non enum types to be exhaustive
         // so we will force the switch to contain an else branch
-        diag->report(DIAG_ERROR, "Switch statement must be exhaustive");
+        diagnosticEngine->report(DIAG_ERROR, "Switch statement must be exhaustive");
     } else {
         auto enumType = reinterpret_cast<struct EnumType*>(exprType);
         auto allMemberValues = enumType->memberValues;
@@ -1331,7 +1331,7 @@ void Sema::checkIsSwitchStmtExhaustive(ASTSwitchStmt* stmt) {
         }
 
         if (!allMemberValues.empty()) {
-            diag->report(DIAG_ERROR, "Switch statement must be exhaustive");
+            diagnosticEngine->report(DIAG_ERROR, "Switch statement must be exhaustive");
         }
     }
 }

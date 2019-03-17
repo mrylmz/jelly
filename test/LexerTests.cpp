@@ -26,32 +26,39 @@
 #include <Parse/Parse.h>
 #include <gtest/gtest.h>
 
+using namespace jelly;
 using namespace jelly::AST;
+using namespace jelly::Parse;
 
-#define EXPECT_TOKEN_KINDS_EQ(__SOURCE__, ...)                          \
-{                                                                       \
-    const Token::Kind kinds[] = {                                       \
-        __VA_ARGS__,                                                    \
-        Token::Kind::EndOfFile                                          \
-    };                                                                  \
-    Lexer lexer(__SOURCE__);                                            \
-                                                                        \
-    for (size_t i = 0; i < sizeof(kinds) / sizeof(uint32_t); i++) {     \
-        Token token = lexer.lexToken();                                 \
-        EXPECT_EQ(token.getKind(), kinds[i]);                           \
-    }                                                                   \
+#define EXPECT_TOKEN_KINDS_EQ(__SOURCE__, ...)                              \
+{                                                                           \
+    const Token::Kind kinds[] = {                                           \
+        __VA_ARGS__,                                                        \
+        Token::Kind::EndOfFile                                              \
+    };                                                                      \
+    SourceManager sourceManager;                                            \
+    SourceBuffer sourceBuffer = sourceManager.addSourceBuffer(__SOURCE__);  \
+    Context context;                                                        \
+    Lexer lexer(&context, sourceBuffer);                                    \
+                                                                            \
+    for (size_t i = 0; i < sizeof(kinds) / sizeof(uint32_t); i++) {         \
+        Token token = lexer.lexToken();                                     \
+        EXPECT_EQ(token.getKind(), kinds[i]);                               \
+    }                                                                       \
 }
 
-#define EXPECT_OPERATOR_KIND_EQ(__SOURCE__, __FIXITY__)                \
-{                                                                      \
-    Operator     op = Operator::BitwiseNot;                            \
-    Context      context;                                              \
-    Lexer        lexer(__SOURCE__);                                    \
-    Token        token = lexer.lexToken();                             \
-                                                                       \
-    EXPECT_EQ(token.getKind(), Token::Kind::Operator);                 \
-    EXPECT_TRUE(context.getOperator(token.getText(), __FIXITY__, op)); \
-    EXPECT_TRUE(op.getFixity() == __FIXITY__);                         \
+#define EXPECT_OPERATOR_KIND_EQ(__SOURCE__, __FIXITY__)                     \
+{                                                                           \
+    Context      context;                                                   \
+    SourceManager sourceManager;                                            \
+    SourceBuffer sourceBuffer = sourceManager.addSourceBuffer(__SOURCE__);  \
+    Lexer lexer(&context, sourceBuffer);                                    \
+    Operator     op = Operator::BitwiseNot;                                 \
+    Token        token = lexer.lexToken();                                  \
+                                                                            \
+    EXPECT_EQ(token.getKind(), Token::Kind::Operator);                      \
+    EXPECT_TRUE(context.getOperator(token.getText(), __FIXITY__, op));      \
+    EXPECT_TRUE(op.getFixity() == __FIXITY__);                              \
 }
 
 TEST(Lexer, Directives) {
@@ -307,32 +314,6 @@ TEST(Lexer, InfixOperatorBinaryOr) {
 TEST(Lexer, InfixOperatorBinaryXor) {
     EXPECT_TOKEN_KINDS_EQ("a^b", Token::Kind::Identifier, Token::Kind::Operator, Token::Kind::Identifier);
     EXPECT_OPERATOR_KIND_EQ("^", Fixity::Infix);
-}
-
-TEST(Lexer, InfixOperatorRange) {
-    EXPECT_TOKEN_KINDS_EQ("a..<b", Token::Kind::Identifier, Token::Kind::Operator, Token::Kind::Identifier);
-    EXPECT_OPERATOR_KIND_EQ("..<", Fixity::Infix);
-}
-
-TEST(Lexer, InfixOperatorRangeWithIntLiterals) {
-    EXPECT_TOKEN_KINDS_EQ("0..<10", Token::Kind::LiteralInt, Token::Kind::Operator, Token::Kind::LiteralInt);
-}
-
-TEST(Lexer, InfixOperatorRangeWithFloatLiterals) {
-    EXPECT_TOKEN_KINDS_EQ("3.87..<10.192", Token::Kind::LiteralFloat, Token::Kind::Operator, Token::Kind::LiteralFloat);
-}
-
-TEST(Lexer, InfixOperatorClosedRange) {
-    EXPECT_TOKEN_KINDS_EQ("a...b", Token::Kind::Identifier, Token::Kind::Operator, Token::Kind::Identifier);
-    EXPECT_OPERATOR_KIND_EQ("...", Fixity::Infix);
-}
-
-TEST(Lexer, InfixOperatorClosedRangeWithIntLiterals) {
-    EXPECT_TOKEN_KINDS_EQ("0...10", Token::Kind::LiteralInt, Token::Kind::Operator, Token::Kind::LiteralInt);
-}
-
-TEST(Lexer, InfixOperatorClosedRangeWithFloatLiterals) {
-    EXPECT_TOKEN_KINDS_EQ("9.238e2...0xFF.1p8", Token::Kind::LiteralFloat, Token::Kind::Operator, Token::Kind::LiteralFloat);
 }
 
 TEST(Lexer, InfixOperatorTypeCheck) {

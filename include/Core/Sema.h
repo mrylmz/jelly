@@ -24,13 +24,13 @@
 
 #pragma once
 
-#include "Core/Diagnostic.h"
 #include <AST/AST.h>
+#include <Basic/Basic.h>
 
 struct Sema {
     CodeManager* codeManager;
     jelly::AST::Context* context;
-    DiagnosticEngine* diag;
+    jelly::DiagnosticEngine* diagnosticEngine;
 
     Sema(CodeManager* codeManager);
 

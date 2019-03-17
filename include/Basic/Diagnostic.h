@@ -1,7 +1,7 @@
 //
 // MIT License
 //
-// Copyright (c) 2018 Murat Yilmaz
+// Copyright (c) 2019 Murat Yilmaz
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -25,47 +25,33 @@
 #pragma once
 
 #include <string>
-#include <Basic/Basic.h>
 
-// @Refactor may remove DiagnosticEngine entirely and move API to CodeManager
+namespace jelly {
 
-enum DiagnosticLevel : uint8_t {
-    DIAG_INFO,
-    DIAG_WARNING,
-    DIAG_ERROR,
+    class DiagnosticEngine;
 
-    DIAG_LEVEL_COUNT
-};
+    class Diagnostic {
+        friend class DiagnosticEngine;
 
-struct Diagnostic {
-    DiagnosticLevel level;
-    std::string message;
-};
+    public:
 
-struct DiagnosticHandler {
-    virtual void start() = 0;
-    virtual void finish() = 0;
-    virtual void handle(Diagnostic diagnostic) = 0;
-};
-
-struct DiagnosticEngine {
-    DiagnosticHandler* handler;
-    uint64_t reportedCount[DIAG_LEVEL_COUNT] = {};
-
-    DiagnosticEngine(DiagnosticHandler* handler);
-    ~DiagnosticEngine();
-
-    bool hasErrors() const;
-
-    unsigned getReportedCount(DiagnosticLevel level) const;
-
-    template<typename ...Args>
-    void report(DiagnosticLevel level, const char* format, Args&&... args) {
-        Diagnostic diagnostic = {
-            level,
-            jelly::formatv(format, args...)
+        enum class Level : uint8_t {
+            Info    = 0,
+            Warning = 1,
+            Error   = 2,
+            Fatal   = 3
         };
-        reportedCount[level] += 1;
-        handler->handle(diagnostic);
-    }
-};
+
+    private:
+
+        Level level;
+        std::string message;
+
+        Diagnostic(Level level, std::string message);
+
+    public:
+
+        Level getLevel() const;
+        std::string getMessage() const;
+    };
+}

@@ -30,57 +30,62 @@
 #include <Basic/Basic.h>
 #include <AST/AST.h>
 
-typedef bool (*CharPredicate)(char character);
+namespace jelly {
+namespace Parse {
 
-struct LexerState {
-    const char* bufferStart;
-    const char* bufferEnd;
-    const char* bufferPtr;
-    const char* newLinePtr;
-    Token nextToken;
+    typedef bool (*CharPredicate)(char character);
 
-    LexerState(const char* buffer);
-    LexerState(jelly::SourceBuffer buffer);
-};
+    class Lexer {
 
-class Lexer {
-    jelly::AST::Context* context;
+        class State {
+            friend class Lexer;
 
-    LexerState state;
-    jelly::StringMap<Token::Kind> directives;
-    jelly::StringMap<Token::Kind> keywords;
+            SourceBuffer buffer;
+            const char* bufferPointer;
+            const char* newlinePointer;
+            Token token;
 
-    void operator = (const Lexer&) = delete;
+            State(SourceBuffer buffer);
+        };
 
-    Lexer(const Lexer&) = delete;
+        jelly::AST::Context* context;
 
-    void init();
+        State state;
+        jelly::StringMap<Token::Kind> directives;
+        jelly::StringMap<Token::Kind> keywords;
 
-    void formToken(Token::Kind kind, const char* tokenStart);
+        Lexer(const Lexer&) = delete;
 
-    bool advanceIf(CharPredicate predicate);
-    bool advanceWhile(CharPredicate predicate);
+        void formToken(Token::Kind kind, const char* tokenStart);
 
-    void skipToEndOfLine();
-    bool skipMultilineCommentTail();
-    void skipWhitespaceAndNewlines();
+        bool advanceIf(CharPredicate predicate);
+        bool advanceWhile(CharPredicate predicate);
 
-    void lexTokenImpl();
-    void lexDirective();
-    void lexIdentifierOrKeyword();
-    void lexOperator();
-    void lexNumericLiteral();
-    void lexHexLiteral();
-    void lexStringLiteral();
+        void skipToEndOfLine();
+        bool skipMultilineCommentTail();
+        void skipWhitespaceAndNewlines();
 
-public:
+        void lexTokenImpl();
+        void lexDirective();
+        void lexIdentifierOrKeyword();
+        void lexOperator();
+        void lexNumericLiteral();
+        void lexHexLiteral();
+        void lexStringLiteral();
 
-    Lexer(const char* buffer);
-    Lexer(jelly::SourceBuffer buffer);
+        void operator = (const Lexer&) = delete;
 
-    LexerState getState() const;
-    void setState(LexerState state);
+    public:
 
-    Token lexToken();
-    Token peekNextToken();
-};
+        Lexer(jelly::AST::Context* context, jelly::SourceBuffer buffer);
+
+        jelly::AST::Context* getContext() const;
+
+        State getState() const;
+        void setState(State state);
+
+        Token lexToken();
+        Token peekNextToken();
+    };
+}
+}

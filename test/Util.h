@@ -38,15 +38,19 @@ struct FileTestMetadata {
     std::vector<std::string> errorReports;
 };
 
-struct FileTestDiagnosticHandler : public DiagnosticHandler {
+struct FileTestDiagnosticHandler : public jelly::DiagnosticHandler {
     FileTestMetadata metadata;
     unsigned index;
 
     FileTestDiagnosticHandler(FileTestMetadata metadata);
 
-    void start();
+    void begin(jelly::SourceBuffer* buffer);
+
+    void end();
+
     void finish();
-    void handle(Diagnostic diagnostic);
+
+    void handle(jelly::Diagnostic diagnostic);
 };
 
 

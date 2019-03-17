@@ -25,6 +25,7 @@
 #include "Parse/Parser.h"
 
 using namespace jelly::AST;
+using namespace jelly::Parse;
 
 // @Incomplete Check if symbols of unary expressions are right bound ! (unexpected: ~ value, expected: ~value)
 
@@ -32,14 +33,14 @@ static bool isDeclarationNameEqual(NamedDeclaration* lhs, NamedDeclaration* rhs)
     return lhs->getName() == rhs->getName();
 }
 
-Parser::Parser(Lexer* lexer, Context* context, DiagnosticEngine* diag) :
-lexer(lexer), context(context), diag(diag), op(Operator::LogicalNot) {
+Parser::Parser(Lexer* lexer, DiagnosticEngine* diag) :
+lexer(lexer), diagnostic(diag), op(Operator::LogicalNot) {
 }
 
 void Parser::parseAllTopLevelNodes() {
     token = lexer->peekNextToken();
 
-    auto module = context->getModule();
+    auto module = getContext()->getModule();
 
     bool checkConsecutiveTopLevelNodes = false;
     unsigned line = token.getLine();
@@ -51,7 +52,7 @@ void Parser::parseAllTopLevelNodes() {
         }
 
         if (checkConsecutiveTopLevelNodes && line == nodeLine) {
-            report(DIAG_ERROR, "Consecutive top level nodes on a line are not allowed!");
+            report(Diagnostic::Level::Error, "Consecutive top level nodes on a line are not allowed!");
             break;
         }
         checkConsecutiveTopLevelNodes = true;
@@ -60,7 +61,7 @@ void Parser::parseAllTopLevelNodes() {
         if (declaration->isNamedDeclaration()) {
             auto namedDeclaration = reinterpret_cast<NamedDeclaration*>(declaration);
             if (module->lookupDeclaration(namedDeclaration->getName())) {
-                report(DIAG_ERROR, "Invalid redeclaration of '{0}'", namedDeclaration->getName());
+                report(Diagnostic::Level::Error, "Invalid redeclaration of '{0}'", namedDeclaration->getName());
             } else {
                 module->addDeclaration(declaration);
             }
@@ -83,35 +84,35 @@ bool Parser::consumeToken(Token::Kind kind) {
     }
 
     // @Todo convert token kind and token to string description!
-    report(DIAG_ERROR, "Expected token '{0}' found '{1}'!", (uint16_t)kind, token.getText());
+    report(Diagnostic::Level::Error, "Expected token '{0}' found '{1}'!", (uint16_t)kind, token.getText());
     return false;
 }
 
 bool Parser::consumeIdentifier(Identifier& identifier) {
     if (token.is(Token::Kind::Identifier)) {
-        identifier = context->getIdentifier(token.getText());
+        identifier = getContext()->getIdentifier(token.getText());
         consumeToken();
         return true;
     }
 
     // @Todo convert token kind and token to string description!
-    report(DIAG_ERROR, "Expected token 'Identifier' found '{0}'!", token.getText());
+    report(Diagnostic::Level::Error, "Expected token 'Identifier' found '{0}'!", token.getText());
     return false;
 }
 
 bool Parser::consumeOperator(Fixity fixity, Operator& op) {
-    if (token.is(Token::Kind::Operator) && context->getOperator(token.getText(), fixity, op)) {
+    if (token.is(Token::Kind::Operator) && getContext()->getOperator(token.getText(), fixity, op)) {
         consumeToken();
         return true;
     }
 
     // @Todo convert token kind and token to string description!
-    report(DIAG_ERROR, "Expected operator token found '{0}'!", token.getText());
+    report(Diagnostic::Level::Error, "Expected operator token found '{0}'!", token.getText());
     return false;
 }
 
 bool Parser::tryConsumeOperator(Operator op) {
-    if (token.is(Token::Kind::Operator) && context->getOperator(op.getSymbol(), op.getFixity(), this->op) && this->op == op) {
+    if (token.is(Token::Kind::Operator) && getContext()->getOperator(op.getSymbol(), op.getFixity(), this->op) && this->op == op) {
         consumeToken();
         return true;
     }
@@ -144,7 +145,7 @@ MemberAccessExpression* Parser::tryParseMemberAccessExpression(Expression* left)
         return nullptr;
     }
 
-    return new (context) MemberAccessExpression(left, memberName);
+    return new (getContext()) MemberAccessExpression(left, memberName);
 }
 
 Expression* Parser::parseConditionList() {
@@ -161,7 +162,7 @@ Expression* Parser::parseConditionList() {
             return nullptr;
         }
 
-        condition = new (context) BinaryExpression(Operator::LogicalAnd, condition, expression);
+        condition = new (getContext()) BinaryExpression(Operator::LogicalAnd, condition, expression);
     }
 
     return condition;
@@ -181,7 +182,7 @@ Expression* Parser::parseAtomExpression() {
         case Token::Kind::LiteralString:   return parseStringLiteral();
         case Token::Kind::Identifier:      return parseIdentifierExpression();
         default:
-            report(DIAG_ERROR, "Expected expression, found '{0}'", token.getText());
+            report(Diagnostic::Level::Error, "Expected expression, found '{0}'", token.getText());
             return nullptr;
     }
 }
@@ -189,10 +190,10 @@ Expression* Parser::parseAtomExpression() {
 /// grammar: primary-expression := unary-expression | atom-expression
 Expression* Parser::parsePrimaryExpression() {
     if (token.is(Token::Kind::Operator)) {
-        if (context->getOperator(token.getText(), Fixity::Prefix, op)) {
+        if (getContext()->getOperator(token.getText(), Fixity::Prefix, op)) {
             return parseUnaryExpression();
         } else {
-            report(DIAG_ERROR, "Expected prefix operator found '{0}'", token.getText());
+            report(Diagnostic::Level::Error, "Expected prefix operator found '{0}'", token.getText());
             return nullptr;
         }
     }
@@ -211,7 +212,7 @@ Declaration* Parser::parseTopLevelDeclaration() {
         case Token::Kind::KeywordLet:    return parseConstant();
         case Token::Kind::EndOfFile:     return nullptr;
         default:
-            report(DIAG_ERROR, "Unexpected token found expected top level declaration!");
+            report(Diagnostic::Level::Error, "Unexpected token found expected top level declaration!");
             return nullptr;
     }
 }
@@ -231,7 +232,7 @@ ArrayTypeRef* Parser::parseArrayTypeRef(TypeRef* elementTypeRef) {
         return nullptr;
     }
 
-    return  new (context) ArrayTypeRef(elementTypeRef, value);
+    return  new (getContext()) ArrayTypeRef(elementTypeRef, value);
 }
 
 /// grammar: block := '{' { statement } '}'
@@ -245,7 +246,7 @@ BlockStatement* Parser::parseBlock() {
         unsigned line = token.getLine();
         while (true) {
             if (!statements.empty() && line == token.getLine()) {
-                report(DIAG_ERROR, "Consecutive statements on a line are not allowed!");
+                report(Diagnostic::Level::Error, "Consecutive statements on a line are not allowed!");
                 return nullptr;
             }
             line = token.getLine();
@@ -264,20 +265,20 @@ BlockStatement* Parser::parseBlock() {
     }
     consumeToken();
 
-    return new (context) BlockStatement(statements);
+    return new (getContext()) BlockStatement(statements);
 }
 
 /// grammar: bool-literal := "true" | "false"
 BoolLiteral* Parser::parseBoolLiteral() {
     if (!token.is(Token::Kind::KeywordTrue, Token::Kind::KeywordFalse)) {
-        report(DIAG_ERROR, "Expected keyword 'true' or 'false' found '{0}'", token.getText());
+        report(Diagnostic::Level::Error, "Expected keyword 'true' or 'false' found '{0}'", token.getText());
         return nullptr;
     }
 
     bool value = token.is(Token::Kind::KeywordTrue);
     consumeToken();
 
-    return new (context) BoolLiteral(value);
+    return new (getContext()) BoolLiteral(value);
 }
 
 /// grammar: break-statement := "break"
@@ -286,7 +287,7 @@ BreakStatement* Parser::parseBreak() {
         return nullptr;
     }
 
-    return new (context) BreakStatement;
+    return new (getContext()) BreakStatement;
 }
 
 /// grammar: call-expression := expression "(" [ expression { "," expression } ] ")"
@@ -313,7 +314,7 @@ CallExpression* Parser::parseCallExpression(Expression* callee) {
         }
     }
 
-    return new (context) CallExpression(callee, arguments);
+    return new (getContext()) CallExpression(callee, arguments);
 }
 
 /// grammar: case-statement := conditional-case-statement | else-case-statement
@@ -323,7 +324,7 @@ CaseStatement* Parser::parseCaseStatement() {
         case Token::Kind::KeywordElse: return parseElseCaseStatement();
 
         default:
-            report(DIAG_ERROR, "Expected 'case' or 'else' keyword, found '{0}'", token.getText());
+            report(Diagnostic::Level::Error, "Expected 'case' or 'else' keyword, found '{0}'", token.getText());
             return nullptr;
     }
 }
@@ -347,7 +348,7 @@ ConditionalCaseStatement* Parser::parseConditionalCaseStatement() {
     unsigned line = token.getLine();
     while (!token.is(Token::Kind::KeywordCase, Token::Kind::KeywordElse, Token::Kind::RightBrace)) {
         if (!statements.empty() && line == token.getLine()) {
-            report(DIAG_ERROR, "Consecutive statements on a line are not allowed!");
+            report(Diagnostic::Level::Error, "Consecutive statements on a line are not allowed!");
             return nullptr;
         }
 
@@ -361,9 +362,9 @@ ConditionalCaseStatement* Parser::parseConditionalCaseStatement() {
         statements.push_back(statement);
     }
 
-    auto body = new (context) BlockStatement(statements);
+    auto body = new (getContext()) BlockStatement(statements);
 
-    return new (context) ConditionalCaseStatement(condition, body);
+    return new (getContext()) ConditionalCaseStatement(condition, body);
 }
 
 /// grammar: let-declaration := "let" identifier ":" type-identifier [ "=" expression ]
@@ -394,7 +395,7 @@ ConstantDeclaration* Parser::parseConstant() {
         }
     }
 
-    return new (context) ConstantDeclaration(name, typeRef, initializer);
+    return new (getContext()) ConstantDeclaration(name, typeRef, initializer);
 }
 
 /// grammar: continue-statement := "continue"
@@ -403,7 +404,7 @@ ContinueStatement* Parser::parseContinue() {
         return nullptr;
     }
 
-    return new (context) ContinueStatement;
+    return new (getContext()) ContinueStatement;
 }
 
 /// grammar: defer-statement := "defer" expression
@@ -417,7 +418,7 @@ DeferStatement* Parser::parseDefer() {
         return nullptr;
     }
 
-    return new (context) DeferStatement(expression);
+    return new (getContext()) DeferStatement(expression);
 }
 
 /// grammar: do-statement := "do" block "while" expression
@@ -440,7 +441,7 @@ DoStatement* Parser::parseDoStatement() {
         return nullptr;
     }
 
-    return new (context) DoStatement(condition, body);
+    return new (getContext()) DoStatement(condition, body);
 }
 
 /// grammar: else-case-statement := "else" ":" statement { line-break statement }
@@ -457,7 +458,7 @@ ElseCaseStatement* Parser::parseElseCaseStatement() {
     unsigned line = token.getLine();
     while (!token.is(Token::Kind::KeywordCase, Token::Kind::KeywordElse, Token::Kind::RightBrace)) {
         if (!statements.empty() && line == token.getLine()) {
-            report(DIAG_ERROR, "Consecutive statements on a line are not allowed!");
+            report(Diagnostic::Level::Error, "Consecutive statements on a line are not allowed!");
             return nullptr;
         }
 
@@ -471,9 +472,9 @@ ElseCaseStatement* Parser::parseElseCaseStatement() {
         statements.push_back(statement);
     }
 
-    auto body = new (context) BlockStatement(statements);
+    auto body = new (getContext()) BlockStatement(statements);
 
-    return new (context) ElseCaseStatement(body);
+    return new (getContext()) ElseCaseStatement(body);
 }
 
 /// grammar: enum-declaration := "enum" identifier "{" [ enum-element { line-break enum-element } ] "}"
@@ -496,7 +497,7 @@ EnumerationDeclaration* Parser::parseEnumeration() {
         unsigned line = token.getLine();
         while (true) {
             if (!elements.empty() && line == token.getLine()) {
-                report(DIAG_ERROR, "Consecutive enum elements on a line are not allowed!");
+                report(Diagnostic::Level::Error, "Consecutive enum elements on a line are not allowed!");
                 return nullptr;
             }
 
@@ -506,7 +507,7 @@ EnumerationDeclaration* Parser::parseEnumeration() {
             }
 
             if (elements.contains(element, isDeclarationNameEqual)) {
-                report(DIAG_ERROR, "Invalid redeclaration of '{0}'", element->getName());
+                report(Diagnostic::Level::Error, "Invalid redeclaration of '{0}'", element->getName());
             }
 
             elements.push_back(element);
@@ -516,14 +517,14 @@ EnumerationDeclaration* Parser::parseEnumeration() {
             }
 
             if (!token.is(Token::Kind::KeywordCase)) {
-                report(DIAG_ERROR, "Expected '}' at end of enum declaration!");
+                report(Diagnostic::Level::Error, "Expected '}' at end of enum declaration!");
                 return nullptr;
             }
         }
     }
     consumeToken();
 
-    return new (context) EnumerationDeclaration(name, elements);
+    return new (getContext()) EnumerationDeclaration(name, elements);
 }
 
 /// grammar: enum-element := "case" identifier [ "=" expression ]
@@ -545,7 +546,7 @@ EnumerationElementDeclaration* Parser::parseEnumerationElement() {
         }
     }
 
-    return new (context) EnumerationElementDeclaration(name, value);
+    return new (getContext()) EnumerationElementDeclaration(name, value);
 }
 
 /// grammar: expression := binary-expression | unary-expression | atom-expression
@@ -556,8 +557,8 @@ Expression* Parser::parseExpression(Precedence precedence) {
         return nullptr;
     }
 
-    if (!context->getOperator(token.getText(), Fixity::Infix, op) &&
-        !context->getOperator(token.getText(), Fixity::Postfix, op)) {
+    if (!getContext()->getOperator(token.getText(), Fixity::Infix, op) &&
+        !getContext()->getOperator(token.getText(), Fixity::Postfix, op)) {
         return left;
     }
 
@@ -567,7 +568,7 @@ Expression* Parser::parseExpression(Precedence precedence) {
 
             auto nextPrecedence = op.getPrecedence();
             if (op.getAssociativity() == Associativity::Right) {
-                nextPrecedence = context->getOperatorPrecedenceBefore(nextPrecedence);
+                nextPrecedence = getContext()->getOperatorPrecedenceBefore(nextPrecedence);
             }
 
             auto right = parseExpression(nextPrecedence);
@@ -575,7 +576,7 @@ Expression* Parser::parseExpression(Precedence precedence) {
                 return nullptr;
             }
 
-            left = new (context) BinaryExpression(op, left, right);
+            left = new (getContext()) BinaryExpression(op, left, right);
         } else if (op.getSymbol().equals(".")) {
             auto expr = tryParseMemberAccessExpression(left);
             if (expr) {
@@ -589,8 +590,8 @@ Expression* Parser::parseExpression(Precedence precedence) {
             return nullptr;
         }
 
-        if (!context->getOperator(token.getText(), Fixity::Infix, op) &&
-            !context->getOperator(token.getText(), Fixity::Postfix, op)) {
+        if (!getContext()->getOperator(token.getText(), Fixity::Infix, op) &&
+            !getContext()->getOperator(token.getText(), Fixity::Postfix, op)) {
             return left;
         }
     }
@@ -604,25 +605,25 @@ FallthroughStatement* Parser::parseFallthrough() {
         return nullptr;
     }
 
-    return new (context) FallthroughStatement;
+    return new (getContext()) FallthroughStatement;
 }
 
 /// grammar: float-literal := @Todo describe float literal grammar
 FloatLiteral* Parser::parseFloatLiteral() {
     if (!token.is(Token::Kind::LiteralFloat)) {
-        report(DIAG_ERROR, "Expected float literal found '{0}'", token.getText());
+        report(Diagnostic::Level::Error, "Expected float literal found '{0}'", token.getText());
         return nullptr;
     }
 
     double value = 0;
     if (!token.getText().getAsDouble(value)) {
-        report(DIAG_ERROR, "Invalid floating point literal!");
+        report(Diagnostic::Level::Error, "Invalid floating point literal!");
         return nullptr;
     }
 
     consumeToken();
 
-    return new (context) FloatLiteral(value);
+    return new (getContext()) FloatLiteral(value);
 }
 
 /// grammar: func-declaration := "func" identifier "(" [ parameter { "," parameter } ] ")" "->" type-identifier block
@@ -649,7 +650,7 @@ FunctionDeclaration* Parser::parseFunction() {
             }
 
             if (parameters.contains(parameter, isDeclarationNameEqual)) {
-                report(DIAG_ERROR, "Invalid redeclaration of '{0}'", parameter->getName());
+                report(Diagnostic::Level::Error, "Invalid redeclaration of '{0}'", parameter->getName());
             }
 
             parameters.push_back(parameter);
@@ -687,7 +688,7 @@ FunctionDeclaration* Parser::parseFunction() {
 //                if (!Func->lookupDecl(namedDecl->name)) {
 //                    Func->addDecl(namedDecl);
 //                } else {
-//                    Parser->report(DIAG_ERROR, "Invalid redeclaration of '{0}'", namedDecl->name);
+//                    Parser->report(Diagnostic::Level::Error, "Invalid redeclaration of '{0}'", namedDecl->name);
 //                }
 //            } else {
 //                Func->addDecl(decl);
@@ -695,7 +696,7 @@ FunctionDeclaration* Parser::parseFunction() {
 //        }
 //    }
 
-    return new (context) FunctionDeclaration(name, parameters, returnTypeRef, body);
+    return new (getContext()) FunctionDeclaration(name, parameters, returnTypeRef, body);
 }
 
 /// grammar: group-expression := "(" expression ")"
@@ -736,7 +737,7 @@ GuardStatement* Parser::parseGuard() {
         return nullptr;
     }
 
-    return new (context) GuardStatement(condition, elseBlock);
+    return new (getContext()) GuardStatement(condition, elseBlock);
 }
 
 /// grammar: identifier := identifier-head { identifier-tail }
@@ -748,7 +749,7 @@ IdentifierExpression* Parser::parseIdentifierExpression() {
         return nullptr;
     }
 
-    return new (context) IdentifierExpression(identifier);
+    return new (getContext()) IdentifierExpression(identifier);
 }
 
 /// grammar: if-statement := "if" expression { "," expression } block [ "else" ( if-statement | block ) ]
@@ -777,7 +778,7 @@ IfStatement* Parser::parseIf() {
                 return nullptr;
             }
 
-            elseBlock = new (context) BlockStatement(jelly::ArrayRef<Statement*>({ ifStatement }));
+            elseBlock = new (getContext()) BlockStatement(jelly::ArrayRef<Statement*>({ ifStatement }));
         } else {
             elseBlock = parseBlock();
             if (!elseBlock) {
@@ -786,25 +787,25 @@ IfStatement* Parser::parseIf() {
         }
     }
 
-    return new (context) IfStatement(condition, thenBlock, elseBlock);
+    return new (getContext()) IfStatement(condition, thenBlock, elseBlock);
 }
 
 /// grammar: int-literal := @Todo describe float literal grammar
 IntLiteral* Parser::parseIntLiteral() {
     if (!token.is(Token::Kind::LiteralInt)) {
-        report(DIAG_ERROR, "Expected integer literal found '{0}'", token.getText());
+        report(Diagnostic::Level::Error, "Expected integer literal found '{0}'", token.getText());
         return nullptr;
     }
 
     uint64_t value = 0;
     if (!token.getText().getAsInteger(0, value)) {
-        report(DIAG_ERROR, "Invalid integer literal!");
+        report(Diagnostic::Level::Error, "Invalid integer literal!");
         return nullptr;
     }
 
     consumeToken();
 
-    return new (context) IntLiteral(value);
+    return new (getContext()) IntLiteral(value);
 }
 
 /// grammar: load-directive := "#load" string-literal
@@ -814,16 +815,16 @@ LoadDeclaration* Parser::parseLoadDeclaration() {
     }
 
     if (!token.is(Token::Kind::LiteralString)) {
-        report(DIAG_ERROR, "Expected string literal after load directive!");
+        report(Diagnostic::Level::Error, "Expected string literal after load directive!");
         return nullptr;
     }
 
     assert(token.getText().size() >= 2 && "Invalid length of string literal text, has to contain at least \"\"");
 
-    auto sourceFilePath = context->getIdentifier(token.getText().drop_front(1).drop_back(1)); // Makes a copy of the token text.
+    auto sourceFilePath = getContext()->getIdentifier(token.getText().drop_front(1).drop_back(1)); // Makes a copy of the token text.
     consumeToken();
 
-    return new (context) LoadDeclaration(sourceFilePath);
+    return new (getContext()) LoadDeclaration(sourceFilePath);
 }
 
 /// grammar: nil-literal := "nil"
@@ -832,7 +833,7 @@ NilLiteral* Parser::parseNilLiteral() {
         return nullptr;
     }
 
-    return new (context) NilLiteral();
+    return new (getContext()) NilLiteral();
 }
 
 /// grammar: opaque-type-ref := identifier
@@ -842,7 +843,7 @@ OpaqueTypeRef* Parser::parseOpaqueTypeRef() {
         return nullptr;
     }
 
-    return new (context) OpaqueTypeRef(name);
+    return new (getContext()) OpaqueTypeRef(name);
 }
 
 /// grammar: parameter := identifier ":" type-identifier
@@ -861,7 +862,7 @@ ParameterDeclaration* Parser::parseParameter() {
         return nullptr;
     }
 
-    return new (context) ParameterDeclaration(name, typeRef);
+    return new (getContext()) ParameterDeclaration(name, typeRef);
 }
 
 /// grammar: pointer-type-ref := type-ref "*"
@@ -873,11 +874,11 @@ PointerTypeRef* Parser::parsePointerTypeRef(TypeRef* pointeeTypeRef) {
     }
 
     if (depth < 1) {
-        report(DIAG_ERROR, "Expected '*' found '{0}'", token.getText());
+        report(Diagnostic::Level::Error, "Expected '*' found '{0}'", token.getText());
         return nullptr;
     }
 
-    return new (context) PointerTypeRef(pointeeTypeRef, depth);
+    return new (getContext()) PointerTypeRef(pointeeTypeRef, depth);
 }
 
 /// grammar: return-statement := "return" [ expression ]
@@ -887,7 +888,7 @@ ReturnStatement* Parser::parseReturn() {
     }
 
     auto value = tryParseExpression();
-    return new (context) ReturnStatement(value);
+    return new (getContext()) ReturnStatement(value);
 }
 
 
@@ -913,7 +914,7 @@ Statement* Parser::parseStatement() {
         default: {
             auto expression = tryParseExpression();
             if (!expression) {
-                report(DIAG_ERROR, "Expected statement, found '{0}'", token.getText());
+                report(Diagnostic::Level::Error, "Expected statement, found '{0}'", token.getText());
                 return nullptr;
             }
             return expression;
@@ -924,18 +925,18 @@ Statement* Parser::parseStatement() {
 /// grammar: string-literal := @Todo describe float literal grammar
 StringLiteral* Parser::parseStringLiteral() {
     if (!token.is(Token::Kind::LiteralString)) {
-        report(DIAG_ERROR, "Expected string literal found '{0}'", token.getText());
+        report(Diagnostic::Level::Error, "Expected string literal found '{0}'", token.getText());
         return nullptr;
     }
 
     assert(token.getText().size() >= 2 && "Invalid length of string literal text, has to contain at least \"\"");
 
     // @Cleanup we form an identifier here to retain memory for value of StringLiteral
-    auto value = context->getIdentifier(token.getText().drop_front(1).drop_back(1));
+    auto value = getContext()->getIdentifier(token.getText().drop_front(1).drop_back(1));
 
     consumeToken();
 
-    return new (context) StringLiteral(value);
+    return new (getContext()) StringLiteral(value);
 }
 
 /// grammar: struct-declaration := "struct" identifier "{" { value-declaration } "}"
@@ -958,7 +959,7 @@ StructureDeclaration* Parser::parseStructure() {
         unsigned line = token.getLine();
         while (true) {
             if (!values.empty() && line == token.getLine()) {
-                report(DIAG_ERROR, "Consecutive statements on a line are not allowed!");
+                report(Diagnostic::Level::Error, "Consecutive statements on a line are not allowed!");
                 return nullptr;
             }
             line = token.getLine();
@@ -969,7 +970,7 @@ StructureDeclaration* Parser::parseStructure() {
             }
 
             if (values.contains(value, isDeclarationNameEqual)) {
-                report(DIAG_ERROR, "Invalid redeclaration of '{0}'", value->getName());
+                report(Diagnostic::Level::Error, "Invalid redeclaration of '{0}'", value->getName());
             }
 
             values.push_back(value);
@@ -981,7 +982,7 @@ StructureDeclaration* Parser::parseStructure() {
     }
     consumeToken();
 
-    return new (context) StructureDeclaration(name, values);
+    return new (getContext()) StructureDeclaration(name, values);
 }
 
 /// grammar: switch-statement := "switch" expression "{" [ switch-case { line-break switch-case } ] "}"
@@ -1003,7 +1004,7 @@ SwitchStatement* Parser::parseSwitchStatement() {
     unsigned line = token.getLine();
     while (!token.is(Token::Kind::RightBrace)) {
         if (!cases.empty() && line == token.getLine()) {
-            report(DIAG_ERROR, "Consecutive statements on a line are not allowed!");
+            report(Diagnostic::Level::Error, "Consecutive statements on a line are not allowed!");
             return nullptr;
         }
 
@@ -1018,7 +1019,7 @@ SwitchStatement* Parser::parseSwitchStatement() {
     }
     consumeToken();
 
-    return new (context) SwitchStatement(argument, cases);
+    return new (getContext()) SwitchStatement(argument, cases);
 }
 
 /// grammar: type-of-type-ref := "typeof" "(" expression ")"
@@ -1037,7 +1038,7 @@ TypeOfTypeRef* Parser::parseTypeOfTypeRef() {
         return nullptr;
     }
 
-    return new (context) TypeOfTypeRef(expression);
+    return new (getContext()) TypeOfTypeRef(expression);
 }
 
 /// grammar: type-ref := opaque-type-ref | pointer-type-ref | array-type-ref | type-of-type-ref
@@ -1054,7 +1055,7 @@ TypeRef* Parser::parseTypeRef() {
             break;
 
         default:
-            report(DIAG_ERROR, "Expected type ref found '{0}'", token.getText());
+            report(Diagnostic::Level::Error, "Expected type ref found '{0}'", token.getText());
             return nullptr;
     }
 
@@ -1101,7 +1102,7 @@ UnaryExpression* Parser::parseUnaryExpression() {
         return nullptr;
     }
 
-    return new (context) UnaryExpression(op, right);
+    return new (getContext()) UnaryExpression(op, right);
 }
 
 /// grammar: value-declaration := var-declaration | let-declaration
@@ -1111,7 +1112,7 @@ ValueDeclaration* Parser::parseValueDeclaration() {
         case Token::Kind::KeywordVar: return parseVariable();
 
         default:
-            report(DIAG_ERROR, "Expected 'var' or 'let' at start of value-declaration!");
+            report(Diagnostic::Level::Error, "Expected 'var' or 'let' at start of value-declaration!");
             return nullptr;
     }
 }
@@ -1144,7 +1145,7 @@ VariableDeclaration* Parser::parseVariable() {
         }
     }
 
-    return new (context) VariableDeclaration(name, typeRef, initializer);
+    return new (getContext()) VariableDeclaration(name, typeRef, initializer);
 }
 
 /// grammar: while-statement := "while" expression { "," expression } block
@@ -1163,5 +1164,9 @@ WhileStatement* Parser::parseWhileStatement() {
         return nullptr;
     }
 
-    return new (context) WhileStatement(condition, body);
+    return new (getContext()) WhileStatement(condition, body);
+}
+
+jelly::AST::Context* Parser::getContext() const {
+    return lexer->getContext();
 }

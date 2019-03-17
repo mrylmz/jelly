@@ -25,6 +25,5 @@
 #pragma once
 
 #include "Core/CodeManager.h"
-#include "Core/Diagnostic.h"
 #include "Core/Sema.h"
 #include "Core/Type.h"

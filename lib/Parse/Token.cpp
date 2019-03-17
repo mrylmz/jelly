@@ -24,6 +24,8 @@
 
 #include "Parse/Token.h"
 
+using namespace jelly::Parse;
+
 Token::Token() :
 kind(Kind::Unknown) {
     

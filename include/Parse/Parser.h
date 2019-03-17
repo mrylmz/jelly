@@ -25,88 +25,95 @@
 #pragma once
 
 #include <AST/AST.h>
-#include "Core/Diagnostic.h"
-#include "Parse/Lexer.h"
+#include <Basic/Basic.h>
+#include <Parse/Parse.h>
 
 // @Incomplete Parse all leading and trailing trivia of a token in a useful fashion without storing the contents
 //             build a request api for the contents of trivia tokens like comments...
 //             rewrite the AST Printer to emit the original source file given into the compiler
 //             but appending the contents of #load files if the AST is populated further with source files...
 
-struct Parser {
-    Lexer* lexer;
+namespace jelly {
+namespace Parse {
 
-    jelly::AST::Context* context;
+    class Lexer;
 
-    DiagnosticEngine* diag;
-    jelly::AST::Operator op;
-    Token token;
-    bool silentErrors = false;
+    class Parser {
+        Lexer* lexer;
 
-    Parser(Lexer* lexer, jelly::AST::Context* context, DiagnosticEngine* diag);
+        jelly::DiagnosticEngine* diagnostic;
+        jelly::AST::Operator op;
+        jelly::Parse::Token token;
+        bool silentErrors = false;
 
-    void parseAllTopLevelNodes();
+        template<typename ...Args>
+        void report(Diagnostic::Level level, const char* format, Args&&... args) {
+            if (silentErrors) { return; }
 
-    template<typename ...Args>
-    void report(DiagnosticLevel level, const char* format, Args&&... args) {
-        if (silentErrors) { return; }
+            diagnostic->report(level, format, args...);
+        }
 
-        diag->report(level, format, args...);
-    }
+        void consumeToken();
+        bool consumeToken(Token::Kind kind);
+        bool consumeIdentifier(jelly::AST::Identifier& identifier);
+        bool consumeOperator(jelly::AST::Fixity fixity, jelly::AST::Operator& op);
 
-private:
+        bool tryConsumeOperator(jelly::AST::Operator op);
 
-    void consumeToken();
-    bool consumeToken(Token::Kind kind);
-    bool consumeIdentifier(jelly::AST::Identifier& identifier);
-    bool consumeOperator(jelly::AST::Fixity fixity, jelly::AST::Operator& op);
+        jelly::AST::Expression* tryParseExpression(jelly::AST::Precedence precedence = 0);
+        jelly::AST::MemberAccessExpression* tryParseMemberAccessExpression(jelly::AST::Expression* left);
 
-    bool tryConsumeOperator(jelly::AST::Operator op);
+        jelly::AST::Expression* parseConditionList();
+        jelly::AST::Expression* parseAtomExpression();
+        jelly::AST::Expression* parsePrimaryExpression();
+        jelly::AST::Declaration* parseTopLevelDeclaration();
+        jelly::AST::ArrayTypeRef* parseArrayTypeRef(jelly::AST::TypeRef* elementTypeRef);
+        jelly::AST::BlockStatement* parseBlock();
+        jelly::AST::BoolLiteral* parseBoolLiteral();
+        jelly::AST::BreakStatement* parseBreak();
+        jelly::AST::CallExpression* parseCallExpression(jelly::AST::Expression* callee);
+        jelly::AST::CaseStatement* parseCaseStatement();
+        jelly::AST::ConditionalCaseStatement* parseConditionalCaseStatement();
+        jelly::AST::ConstantDeclaration* parseConstant();
+        jelly::AST::ContinueStatement* parseContinue();
+        jelly::AST::DeferStatement* parseDefer();
+        jelly::AST::DoStatement* parseDoStatement();
+        jelly::AST::ElseCaseStatement* parseElseCaseStatement();
+        jelly::AST::EnumerationDeclaration* parseEnumeration();
+        jelly::AST::EnumerationElementDeclaration* parseEnumerationElement();
+        jelly::AST::Expression* parseExpression(jelly::AST::Precedence precedence = 0);
+        jelly::AST::FallthroughStatement* parseFallthrough();
+        jelly::AST::FloatLiteral* parseFloatLiteral();
+        jelly::AST::FunctionDeclaration* parseFunction();
+        jelly::AST::Expression* parseGroupExpression();
+        jelly::AST::GuardStatement* parseGuard();
+        jelly::AST::IdentifierExpression* parseIdentifierExpression();
+        jelly::AST::IfStatement* parseIf();
+        jelly::AST::IntLiteral* parseIntLiteral();
+        jelly::AST::LoadDeclaration* parseLoadDeclaration();
+        jelly::AST::NilLiteral* parseNilLiteral();
+        jelly::AST::OpaqueTypeRef* parseOpaqueTypeRef();
+        jelly::AST::ParameterDeclaration* parseParameter();
+        jelly::AST::PointerTypeRef* parsePointerTypeRef(jelly::AST::TypeRef* pointeeTypeRef);
+        jelly::AST::ReturnStatement* parseReturn();
+        jelly::AST::Statement* parseStatement();
+        jelly::AST::StringLiteral* parseStringLiteral();
+        jelly::AST::StructureDeclaration* parseStructure();
+        jelly::AST::SwitchStatement* parseSwitchStatement();
+        jelly::AST::TypeOfTypeRef* parseTypeOfTypeRef();
+        jelly::AST::TypeRef* parseTypeRef();
+        jelly::AST::UnaryExpression* parseUnaryExpression();
+        jelly::AST::ValueDeclaration* parseValueDeclaration();
+        jelly::AST::VariableDeclaration* parseVariable();
+        jelly::AST::WhileStatement* parseWhileStatement();
 
-    jelly::AST::Expression* tryParseExpression(jelly::AST::Precedence precedence = 0);
-    jelly::AST::MemberAccessExpression* tryParseMemberAccessExpression(jelly::AST::Expression* left);
+    public:
 
-    jelly::AST::Expression* parseConditionList();
-    jelly::AST::Expression* parseAtomExpression();
-    jelly::AST::Expression* parsePrimaryExpression();
-    jelly::AST::Declaration* parseTopLevelDeclaration();
-    jelly::AST::ArrayTypeRef* parseArrayTypeRef(jelly::AST::TypeRef* elementTypeRef);
-    jelly::AST::BlockStatement* parseBlock();
-    jelly::AST::BoolLiteral* parseBoolLiteral();
-    jelly::AST::BreakStatement* parseBreak();
-    jelly::AST::CallExpression* parseCallExpression(jelly::AST::Expression* callee);
-    jelly::AST::CaseStatement* parseCaseStatement();
-    jelly::AST::ConditionalCaseStatement* parseConditionalCaseStatement();
-    jelly::AST::ConstantDeclaration* parseConstant();
-    jelly::AST::ContinueStatement* parseContinue();
-    jelly::AST::DeferStatement* parseDefer();
-    jelly::AST::DoStatement* parseDoStatement();
-    jelly::AST::ElseCaseStatement* parseElseCaseStatement();
-    jelly::AST::EnumerationDeclaration* parseEnumeration();
-    jelly::AST::EnumerationElementDeclaration* parseEnumerationElement();
-    jelly::AST::Expression* parseExpression(jelly::AST::Precedence precedence = 0);
-    jelly::AST::FallthroughStatement* parseFallthrough();
-    jelly::AST::FloatLiteral* parseFloatLiteral();
-    jelly::AST::FunctionDeclaration* parseFunction();
-    jelly::AST::Expression* parseGroupExpression();
-    jelly::AST::GuardStatement* parseGuard();
-    jelly::AST::IdentifierExpression* parseIdentifierExpression();
-    jelly::AST::IfStatement* parseIf();
-    jelly::AST::IntLiteral* parseIntLiteral();
-    jelly::AST::LoadDeclaration* parseLoadDeclaration();
-    jelly::AST::NilLiteral* parseNilLiteral();
-    jelly::AST::OpaqueTypeRef* parseOpaqueTypeRef();
-    jelly::AST::ParameterDeclaration* parseParameter();
-    jelly::AST::PointerTypeRef* parsePointerTypeRef(jelly::AST::TypeRef* pointeeTypeRef);
-    jelly::AST::ReturnStatement* parseReturn();
-    jelly::AST::Statement* parseStatement();
-    jelly::AST::StringLiteral* parseStringLiteral();
-    jelly::AST::StructureDeclaration* parseStructure();
-    jelly::AST::SwitchStatement* parseSwitchStatement();
-    jelly::AST::TypeOfTypeRef* parseTypeOfTypeRef();
-    jelly::AST::TypeRef* parseTypeRef();
-    jelly::AST::UnaryExpression* parseUnaryExpression();
-    jelly::AST::ValueDeclaration* parseValueDeclaration();
-    jelly::AST::VariableDeclaration* parseVariable();
-    jelly::AST::WhileStatement* parseWhileStatement();
-};
+        Parser(Lexer* lexer, jelly::DiagnosticEngine* diag);
+
+        jelly::AST::Context* getContext() const;
+
+        void parseAllTopLevelNodes();
+    };
+}
+}

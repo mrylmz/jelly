@@ -30,7 +30,10 @@
 #include <fstream>
 #include <Parse/Parse.h>
 
-CodeManager::CodeManager(DiagnosticHandler* diagHandler) : diag(DiagnosticEngine(diagHandler)) {}
+using namespace jelly;
+using namespace jelly::Parse;
+
+CodeManager::CodeManager(DiagnosticHandler* diagnosticHandler) : diagnosticEngine(DiagnosticEngine(diagnosticHandler)) {}
 
 std::string CodeManager::getNativePath(jelly::StringRef path) {
     jelly::SmallVector<char, 64> buffer(path.begin(), path.end());
@@ -41,14 +44,14 @@ std::string CodeManager::getNativePath(jelly::StringRef path) {
 void CodeManager::addSourceFile(jelly::StringRef sourceFilePath) {
     for (auto filePath : sourceFilePaths) {
         if (filePath == sourceFilePath) {
-            return diag.report(DIAG_ERROR, "Cannot load source file at path '{0}' twice", sourceFilePath);
+            return diagnosticEngine.report(Diagnostic::Level::Error, "Cannot load source file at path '{0}' twice", sourceFilePath);
         }
     }
     sourceFilePaths.push_back(sourceFilePath);
 
     auto buffer = sourceManager.addIncludeFile(sourceFilePath);
     if (!buffer.isValid()) {
-        diag.report(DIAG_ERROR, "Couldn't load file at path '{0}'", sourceFilePath);
+        diagnosticEngine.report(Diagnostic::Level::Error, "Couldn't load file at path '{0}'", sourceFilePath);
         return;
     }
 
@@ -58,7 +61,7 @@ void CodeManager::addSourceFile(jelly::StringRef sourceFilePath) {
 void CodeManager::addSourceText(jelly::StringRef sourceText) {
     auto buffer = sourceManager.addSourceBuffer(sourceText);
     if (!buffer.isValid()) {
-        diag.report(DIAG_ERROR, "Couldn't add source text to CodeManager!");
+        diagnosticEngine.report(Diagnostic::Level::Error, "Couldn't add source text to CodeManager!");
         return;
     }
 
@@ -69,8 +72,8 @@ void CodeManager::parseAST() {
     while (parseFileIndex < sourceBuffers.size()) {
         auto buffer = sourceBuffers[parseFileIndex];
         {
-            Lexer lexer(buffer);
-            Parser parser(&lexer, &context, &diag);
+            Lexer lexer(&context, buffer);
+            Parser parser(&lexer, &diagnosticEngine);
             parser.parseAllTopLevelNodes();
 
             auto loadDeclarations = context.getModule()->getLoadDeclarations();
@@ -80,7 +83,7 @@ void CodeManager::parseAST() {
                 // @Incomplete Add source location information of LoadDeclaration and enable includes of local files in subdirectories
                 addSourceFile(sourceFilePath);
 
-                if (diag.hasErrors()) {
+                if (diagnosticEngine.getReportedErrorCount() > 0 || diagnosticEngine.getReportedFatalCount() > 0) {
                     return;
                 }
 
@@ -93,7 +96,10 @@ void CodeManager::parseAST() {
 
 void CodeManager::typecheckAST() {
     parseAST();
-    if (diag.hasErrors()) { return; }
+
+    if (diagnosticEngine.getReportedErrorCount() > 0 || diagnosticEngine.getReportedFatalCount() > 0) {
+        return;
+    }
 
     Sema sema(this);
     sema.validateAST();

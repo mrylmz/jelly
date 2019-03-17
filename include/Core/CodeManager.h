@@ -24,8 +24,6 @@
 
 #pragma once
 
-#include "Core/Diagnostic.h"
-
 #include <string>
 #include <Basic/Basic.h>
 #include <AST/AST.h>
@@ -39,9 +37,9 @@ struct CodeManager {
     unsigned preprocessDeclIndex = 0;
 
     jelly::AST::Context context;
-    DiagnosticEngine diag;
+    jelly::DiagnosticEngine diagnosticEngine;
 
-    CodeManager(DiagnosticHandler* diagHandler);
+    CodeManager(jelly::DiagnosticHandler* diagnosticHandler);
 
     void addSourceFile(jelly::StringRef sourceFilePath);
     void addSourceText(jelly::StringRef sourceText);

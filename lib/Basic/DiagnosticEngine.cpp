@@ -1,7 +1,7 @@
 //
 // MIT License
 //
-// Copyright (c) 2018 Murat Yilmaz
+// Copyright (c) 2019 Murat Yilmaz
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -22,21 +22,40 @@
 // SOFTWARE.
 //
 
-#include "Core/Diagnostic.h"
+#include "Basic/DiagnosticEngine.h"
+#include "Basic/DiagnosticHandler.h"
 
-DiagnosticEngine::DiagnosticEngine(DiagnosticHandler* handler) : handler(handler) {
-    handler->start();
+using namespace jelly;
+
+DiagnosticEngine::DiagnosticEngine(DiagnosticHandler* handler) :
+handler(handler) {
+
 }
 
 DiagnosticEngine::~DiagnosticEngine() {
     handler->finish();
 }
 
-bool DiagnosticEngine::hasErrors() const {
-    return getReportedCount(DIAG_ERROR) > 0;
+uint64_t DiagnosticEngine::getReportedInfoCount() const {
+    return reportedDiagnosticCounts[(uint8_t)Diagnostic::Level::Info];
 }
 
-unsigned DiagnosticEngine::getReportedCount(DiagnosticLevel level) const {
-    assert(0 <= level && level < DIAG_LEVEL_COUNT);
-    return reportedCount[level];
+uint64_t DiagnosticEngine::getReportedWarningCount() const {
+    return reportedDiagnosticCounts[(uint8_t)Diagnostic::Level::Warning];
+}
+
+uint64_t DiagnosticEngine::getReportedErrorCount() const {
+    return reportedDiagnosticCounts[(uint8_t)Diagnostic::Level::Error];
+}
+
+uint64_t DiagnosticEngine::getReportedFatalCount() const {
+    return reportedDiagnosticCounts[(uint8_t)Diagnostic::Level::Fatal];
+}
+
+
+void DiagnosticEngine::report(Diagnostic::Level level, std::string message) {
+    Diagnostic diagnostic(level, std::move(message));
+
+    reportedDiagnosticCounts[(uint8_t)level] += 1;
+    handler->handle(diagnostic);
 }
