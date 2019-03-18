@@ -1,7 +1,7 @@
 //
 // MIT License
 //
-// Copyright (c) 2018 Murat Yilmaz
+// Copyright (c) 2019 Murat Yilmaz
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -22,52 +22,22 @@
 // SOFTWARE.
 //
 
-#include "AST/Context.h"
-#include "AST/Type.h"
+#include "AST/PointerType.h"
 
 using namespace jelly::AST;
 
-Type::Type(Kind kind) :
-kind(kind) {
+PointerType::PointerType(Type* pointeeType, uint32_t depth) :
+Type(Kind::PointerType),
+pointeeType(pointeeType),
+depth(depth) {
 
 }
 
-bool Type::isErrorType() const {
-    return Kind::ErrorType == kind;
+Type* PointerType::getPointeeType() const {
+    return pointeeType;
 }
 
-bool Type::isVoidType() const {
-    return Kind::VoidType == kind;
+uint32_t PointerType::getDepth() const {
+    return depth;
 }
 
-bool Type::isIntegerType() const {
-    return Kind::IntegerType == kind;
-}
-
-bool Type::isFloatType() const {
-    return Kind::FloatType == kind;
-}
-
-bool Type::isEnumerationType() const {
-    return Kind::EnumerationType == kind;
-}
-
-bool Type::isFunctionType() const {
-    return Kind::FunctionType == kind;
-}
-
-bool Type::isStructureType() const {
-    return Kind::StructureType == kind;
-}
-
-bool Type::isArrayType() const {
-    return Kind::ArrayType == kind;
-}
-
-bool Type::isPointerType() const {
-    return Kind::PointerType == kind;
-}
-
-void* Type::operator new (size_t size, Context* context) {
-    return context->allocator.Allocate(size, 8);
-}

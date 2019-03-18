@@ -1,7 +1,7 @@
 //
 // MIT License
 //
-// Copyright (c) 2018 Murat Yilmaz
+// Copyright (c) 2019 Murat Yilmaz
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -22,52 +22,19 @@
 // SOFTWARE.
 //
 
-#include "AST/Context.h"
+#pragma once
+
 #include "AST/Type.h"
 
-using namespace jelly::AST;
+namespace jelly {
+namespace AST {
 
-Type::Type(Kind kind) :
-kind(kind) {
+    class Context;
 
+    class ErrorType final: public Type {
+        friend class Context;
+
+        ErrorType();
+    };
 }
-
-bool Type::isErrorType() const {
-    return Kind::ErrorType == kind;
-}
-
-bool Type::isVoidType() const {
-    return Kind::VoidType == kind;
-}
-
-bool Type::isIntegerType() const {
-    return Kind::IntegerType == kind;
-}
-
-bool Type::isFloatType() const {
-    return Kind::FloatType == kind;
-}
-
-bool Type::isEnumerationType() const {
-    return Kind::EnumerationType == kind;
-}
-
-bool Type::isFunctionType() const {
-    return Kind::FunctionType == kind;
-}
-
-bool Type::isStructureType() const {
-    return Kind::StructureType == kind;
-}
-
-bool Type::isArrayType() const {
-    return Kind::ArrayType == kind;
-}
-
-bool Type::isPointerType() const {
-    return Kind::PointerType == kind;
-}
-
-void* Type::operator new (size_t size, Context* context) {
-    return context->allocator.Allocate(size, 8);
 }

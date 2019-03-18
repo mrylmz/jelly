@@ -22,4 +22,60 @@
 // SOFTWARE.
 //
 
-// @Todo move Type to Sema module and store in a separate side TypeTable instead of storing in the AST!
+#pragma once
+
+#include <stddef.h>
+
+namespace jelly {
+namespace AST {
+
+    class Context;
+
+    class Type {
+        friend class Context;
+
+    protected:
+
+        enum class Kind {
+            ErrorType,
+            VoidType,
+            IntegerType,
+            FloatType,
+            EnumerationType,
+            FunctionType,
+            StructureType,
+            ArrayType,
+            PointerType
+        };
+
+    private:
+
+        Kind kind;
+
+        Type() = delete;
+        Type(Type&&) = delete;
+
+        Type& operator = (Type&&) = delete;
+        void operator delete (void* ptr) = delete;
+        void operator delete [] (void* ptr) = delete;
+
+    protected:
+
+        Type(Kind kind);
+
+    public:
+
+        bool isErrorType() const;
+        bool isVoidType() const;
+        bool isIntegerType() const;
+        bool isFloatType() const;
+        bool isEnumerationType() const;
+        bool isFunctionType() const;
+        bool isStructureType() const;
+        bool isArrayType() const;
+        bool isPointerType() const;
+
+        void* operator new (size_t size, Context* context);
+    };
+}
+}

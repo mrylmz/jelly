@@ -23,12 +23,35 @@
 //
 
 #include "AST/Context.h"
+#include "AST/ErrorType.h"
+#include "AST/FloatType.h"
+#include "AST/IntegerType.h"
 #include "AST/ModuleDeclaration.h"
+#include "AST/VoidType.h"
 
 using namespace jelly::AST;
 
 Context::Context() {
     module = new (this) ModuleDeclaration(getIdentifier(""), {}, {}, {}, {}, {});
+
+    errorType = new (this) ErrorType();
+    voidType = new (this) VoidType();
+    boolType = new (this) IntegerType(true, 1);
+    int8Type = new (this) IntegerType(true, 8);
+    int16Type = new (this) IntegerType(true, 16);
+    int32Type = new (this) IntegerType(true, 32);
+    int64Type = new (this) IntegerType(true, 64);
+    int128Type = new (this) IntegerType(true, 128);
+    uint8Type = new (this) IntegerType(false, 8);
+    uint16Type = new (this) IntegerType(false, 16);
+    uint32Type = new (this) IntegerType(false, 32);
+    uint64Type = new (this) IntegerType(false, 64);
+    uint128Type = new (this) IntegerType(false, 128);
+    float16Type = new (this) FloatType(FloatType::Kind::Float16);
+    float32Type = new (this) FloatType(FloatType::Kind::Float32);
+    float64Type = new (this) FloatType(FloatType::Kind::Float64);
+    float80Type = new (this) FloatType(FloatType::Kind::Float80);
+    float128Type = new (this) FloatType(FloatType::Kind::Float128);
 
     // MARK: - Prefix Operators
     registerOperator(Operator::LogicalNot);

@@ -39,6 +39,7 @@ namespace AST {
 
     class Context {
         friend class Node;
+        friend class Type;
 
         BumpPtrAllocator allocator;
         StringMap<Identifier> identifiers;
@@ -47,6 +48,25 @@ namespace AST {
         std::map<Node*, Type*> typeTable;
 
         ModuleDeclaration* module;
+
+        Type* errorType;
+        Type* voidType;
+        Type* boolType;
+        Type* int8Type;
+        Type* int16Type;
+        Type* int32Type;
+        Type* int64Type;
+        Type* int128Type;
+        Type* uint8Type;
+        Type* uint16Type;
+        Type* uint32Type;
+        Type* uint64Type;
+        Type* uint128Type;
+        Type* float16Type;
+        Type* float32Type;
+        Type* float64Type;
+        Type* float80Type;
+        Type* float128Type;
 
         void registerOperator(Operator op);
 
@@ -67,8 +87,28 @@ namespace AST {
         Type* lookupTypeByName(Identifier name);
 
         Type* getErrorType() const;
-        Type* getPointerType(Type* pointeeType, uint32_t depth);
-        Type* getDynamicArrayType(Type* elementType);
+        Type* getVoidType() const;
+        Type* getBoolType() const;
+        Type* getInt8Type() const;
+        Type* getInt16Type() const;
+        Type* getInt32Type() const;
+        Type* getInt64Type() const;
+        Type* getInt128Type() const;
+        Type* getUInt8Type() const;
+        Type* getUInt16Type() const;
+        Type* getUInt32Type() const;
+        Type* getUInt64Type() const;
+        Type* getUInt128Type() const;
+        Type* getFloat16Type() const;
+        Type* getFloat32Type() const;
+        Type* getFloat64Type() const;
+        Type* getFloat80Type() const;
+        Type* getFloat128Type() const;
+        Type* getEnumerationType(StringMap<int64_t> elements);
+        Type* getFunctionType(Array<StringRef> parameterNames, Array<Type*> parameterTypes, Type* returnType);
+        Type* getStructureType(Array<StringRef> memberNames, Array<Type*> memberTypes);
+        Type* getArrayType(Type* elementType, bool isFixedSize = false, uint32_t size = 0);
+        Type* getPointerType(Type* pointeeType, uint32_t depth = 1);
     };
 }
 }

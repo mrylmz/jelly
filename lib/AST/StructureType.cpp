@@ -1,7 +1,7 @@
 //
 // MIT License
 //
-// Copyright (c) 2018 Murat Yilmaz
+// Copyright (c) 2019 Murat Yilmaz
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -22,52 +22,22 @@
 // SOFTWARE.
 //
 
-#include "AST/Context.h"
-#include "AST/Type.h"
+#include "AST/StructureType.h"
 
+using namespace jelly;
 using namespace jelly::AST;
 
-Type::Type(Kind kind) :
-kind(kind) {
+StructureType::StructureType(Array<StringRef> memberNames, Array<Type*> memberTypes) :
+Type(Kind::StructureType),
+memberNames(memberNames),
+memberTypes(memberTypes) {
 
 }
 
-bool Type::isErrorType() const {
-    return Kind::ErrorType == kind;
+ArrayRef<StringRef> StructureType::getMemberNames() const {
+    return memberNames;
 }
 
-bool Type::isVoidType() const {
-    return Kind::VoidType == kind;
-}
-
-bool Type::isIntegerType() const {
-    return Kind::IntegerType == kind;
-}
-
-bool Type::isFloatType() const {
-    return Kind::FloatType == kind;
-}
-
-bool Type::isEnumerationType() const {
-    return Kind::EnumerationType == kind;
-}
-
-bool Type::isFunctionType() const {
-    return Kind::FunctionType == kind;
-}
-
-bool Type::isStructureType() const {
-    return Kind::StructureType == kind;
-}
-
-bool Type::isArrayType() const {
-    return Kind::ArrayType == kind;
-}
-
-bool Type::isPointerType() const {
-    return Kind::PointerType == kind;
-}
-
-void* Type::operator new (size_t size, Context* context) {
-    return context->allocator.Allocate(size, 8);
+ArrayRef<Type*> StructureType::getMemberTypes() const {
+    return memberTypes;
 }
