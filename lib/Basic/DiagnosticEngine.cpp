@@ -52,6 +52,14 @@ uint64_t DiagnosticEngine::getReportedFatalCount() const {
     return reportedDiagnosticCounts[(uint8_t)Diagnostic::Level::Fatal];
 }
 
+void DiagnosticEngine::begin(SourceBuffer buffer) {
+    if (currentBuffer.isValid()) {
+        handler->end();
+    }
+
+    currentBuffer = buffer;
+    handler->begin(currentBuffer);
+}
 
 void DiagnosticEngine::report(Diagnostic::Level level, std::string message) {
     Diagnostic diagnostic(level, std::move(message));

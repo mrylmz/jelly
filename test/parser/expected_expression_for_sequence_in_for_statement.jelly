@@ -1,3 +1,0 @@
-func main() -> Void {
-    for i in { } // expect-error: Expected expression, found '{'
-}

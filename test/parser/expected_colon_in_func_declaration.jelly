@@ -1,1 +1,1 @@
-func main(x Int) -> Void {} // expect-error: Expected ':' after name of parameter!
+func main(x Int) -> Void {} // expect-error: Expected token ':' found Identifier = 'Int'

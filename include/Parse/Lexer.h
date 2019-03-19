@@ -81,6 +81,8 @@ namespace Parse {
 
         jelly::AST::Context* getContext() const;
 
+        SourceBuffer getSourceBuffer() const;
+
         State getState() const;
         void setState(State state);
 

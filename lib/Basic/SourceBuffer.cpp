@@ -32,6 +32,13 @@ bufferEnd(bufferEnd),
 bufferId(bufferId) {
 }
 
+SourceBuffer::SourceBuffer() :
+bufferStart(nullptr),
+bufferEnd(nullptr),
+bufferId(0) {
+
+}
+
 bool SourceBuffer::isValid() const {
     return bufferId > 0;
 }

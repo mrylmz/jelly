@@ -1,3 +1,0 @@
-func main() -> Void {
-    for i sequence { } // expect-error: Expected keyword 'in' after for iterator
-}

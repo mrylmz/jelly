@@ -1,1 +1,1 @@
-var x: Int[10 = nil // expect-error: Expected ] after expression of array-type-identifier!
+var x: Int[10 = nil // expect-error: Expected token ']' found 'EOF'

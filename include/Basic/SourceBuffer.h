@@ -41,6 +41,9 @@ namespace jelly {
         SourceBuffer(const char* bufferStart, const char* bufferEnd, unsigned bufferId);
 
     public:
+
+        SourceBuffer();
+
         bool isValid() const;
 
         const char* getBufferStart() const;

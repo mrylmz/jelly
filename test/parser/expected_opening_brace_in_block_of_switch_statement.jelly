@@ -1,5 +1,5 @@
 func main() -> Void {
-    switch expr // expect-error: Expected '{' after expression in switch-statement!
+    switch expr // expect-error: Expected token '{' found 'case'
     case 0:
     case 1: return
     else:   return

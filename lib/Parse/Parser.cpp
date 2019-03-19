@@ -38,6 +38,8 @@ lexer(lexer), diagnostic(diag), op(Operator::LogicalNot) {
 }
 
 void Parser::parseAllTopLevelNodes() {
+    diagnostic->begin(lexer->getSourceBuffer());
+
     token = lexer->peekNextToken();
 
     auto module = getContext()->getModule();
@@ -78,13 +80,12 @@ void Parser::consumeToken() {
 }
 
 bool Parser::consumeToken(Token::Kind kind) {
-    if (token.is(Token::Kind::Colon)) {
+    if (token.is(kind)) {
         consumeToken();
         return true;
     }
 
-    // @Todo convert token kind and token to string description!
-    report(Diagnostic::Level::Error, "Expected token '{0}' found '{1}'!", (uint16_t)kind, token.getText());
+    report(Diagnostic::Level::Error, "Expected token {0} found {1}", kind, token);
     return false;
 }
 
@@ -95,8 +96,7 @@ bool Parser::consumeIdentifier(Identifier& identifier) {
         return true;
     }
 
-    // @Todo convert token kind and token to string description!
-    report(Diagnostic::Level::Error, "Expected token 'Identifier' found '{0}'!", token.getText());
+    report(Diagnostic::Level::Error, "Expected token {0} found {1}", Token::Kind::Identifier, token);
     return false;
 }
 
@@ -107,17 +107,25 @@ bool Parser::consumeOperator(Fixity fixity, Operator& op) {
     }
 
     // @Todo convert token kind and token to string description!
-    report(Diagnostic::Level::Error, "Expected operator token found '{0}'!", token.getText());
+    report(Diagnostic::Level::Error, "Expected Operator found {0}", token);
     return false;
 }
 
 bool Parser::tryConsumeOperator(Operator op) {
-    if (token.is(Token::Kind::Operator) && getContext()->getOperator(op.getSymbol(), op.getFixity(), this->op) && this->op == op) {
-        consumeToken();
-        return true;
+    if (!token.is(Token::Kind::Operator)) {
+        return false;
     }
 
-    return false;
+    if (!getContext()->getOperator(token.getText(), op.getFixity(), this->op)) {
+        return false;
+    }
+
+    if (this->op != op) {
+        return false;
+    }
+
+    consumeToken();
+    return true;
 }
 
 Expression* Parser::tryParseExpression(Precedence precedence) {
@@ -182,7 +190,7 @@ Expression* Parser::parseAtomExpression() {
         case Token::Kind::LiteralString:   return parseStringLiteral();
         case Token::Kind::Identifier:      return parseIdentifierExpression();
         default:
-            report(Diagnostic::Level::Error, "Expected expression, found '{0}'", token.getText());
+            report(Diagnostic::Level::Error, "Expected Expression found {0}", token);
             return nullptr;
     }
 }
@@ -193,7 +201,7 @@ Expression* Parser::parsePrimaryExpression() {
         if (getContext()->getOperator(token.getText(), Fixity::Prefix, op)) {
             return parseUnaryExpression();
         } else {
-            report(Diagnostic::Level::Error, "Expected prefix operator found '{0}'", token.getText());
+            report(Diagnostic::Level::Error, "Expected Prefix Operator found {0}", token);
             return nullptr;
         }
     }
@@ -212,7 +220,7 @@ Declaration* Parser::parseTopLevelDeclaration() {
         case Token::Kind::KeywordLet:    return parseConstant();
         case Token::Kind::EndOfFile:     return nullptr;
         default:
-            report(Diagnostic::Level::Error, "Unexpected token found expected top level declaration!");
+            report(Diagnostic::Level::Error, "Unexpected token {0} found expected top level declaration!", token);
             return nullptr;
     }
 }
@@ -242,28 +250,27 @@ BlockStatement* Parser::parseBlock() {
     }
 
     jelly::Array<Statement*> statements;
-    if (!token.is(Token::Kind::RightBrace)) {
-        unsigned line = token.getLine();
-        while (true) {
-            if (!statements.empty() && line == token.getLine()) {
-                report(Diagnostic::Level::Error, "Consecutive statements on a line are not allowed!");
-                return nullptr;
-            }
-            line = token.getLine();
 
-            auto statement = parseStatement();
-            if (!statement) {
-                return nullptr;
-            }
-
-            statements.push_back(statement);
-
-            if (token.is(Token::Kind::RightBrace)) {
-                break;
-            }
+    auto line = token.getLine();
+    while (!token.is(Token::Kind::RightBrace)) {
+        if (!statements.empty() && line == token.getLine()) {
+            report(Diagnostic::Level::Error, "Consecutive statements on a line are not allowed!");
+            return nullptr;
         }
+
+        line = token.getLine();
+
+        auto statement = parseStatement();
+        if (!statement) {
+            return nullptr;
+        }
+
+        statements.push_back(statement);
     }
-    consumeToken();
+
+    if (!consumeToken(Token::Kind::RightBrace)) {
+        return nullptr;
+    }
 
     return new (getContext()) BlockStatement(statements);
 }
@@ -271,7 +278,7 @@ BlockStatement* Parser::parseBlock() {
 /// grammar: bool-literal := "true" | "false"
 BoolLiteral* Parser::parseBoolLiteral() {
     if (!token.is(Token::Kind::KeywordTrue, Token::Kind::KeywordFalse)) {
-        report(Diagnostic::Level::Error, "Expected keyword 'true' or 'false' found '{0}'", token.getText());
+        report(Diagnostic::Level::Error, "Expected 'true' or 'false' found {0}", token);
         return nullptr;
     }
 
@@ -324,7 +331,7 @@ CaseStatement* Parser::parseCaseStatement() {
         case Token::Kind::KeywordElse: return parseElseCaseStatement();
 
         default:
-            report(Diagnostic::Level::Error, "Expected 'case' or 'else' keyword, found '{0}'", token.getText());
+            report(Diagnostic::Level::Error, "Expected 'case' or 'else' found {0}", token);
             return nullptr;
     }
 }
@@ -479,7 +486,7 @@ ElseCaseStatement* Parser::parseElseCaseStatement() {
 
 /// grammar: enum-declaration := "enum" identifier "{" [ enum-element { line-break enum-element } ] "}"
 EnumerationDeclaration* Parser::parseEnumeration() {
-    if (!consumeToken(Token::Kind::KeywordElse)) {
+    if (!consumeToken(Token::Kind::KeywordEnum)) {
         return nullptr;
     }
 
@@ -517,7 +524,7 @@ EnumerationDeclaration* Parser::parseEnumeration() {
             }
 
             if (!token.is(Token::Kind::KeywordCase)) {
-                report(Diagnostic::Level::Error, "Expected '}' at end of enum declaration!");
+                report(Diagnostic::Level::Error, "Expected {0} at end of enum declaration!", Token::Kind::RightBrace);
                 return nullptr;
             }
         }
@@ -611,13 +618,13 @@ FallthroughStatement* Parser::parseFallthrough() {
 /// grammar: float-literal := @Todo describe float literal grammar
 FloatLiteral* Parser::parseFloatLiteral() {
     if (!token.is(Token::Kind::LiteralFloat)) {
-        report(Diagnostic::Level::Error, "Expected float literal found '{0}'", token.getText());
+        report(Diagnostic::Level::Error, "Expected Float Literal found {0}", token);
         return nullptr;
     }
 
     double value = 0;
-    if (!token.getText().getAsDouble(value)) {
-        report(Diagnostic::Level::Error, "Invalid floating point literal!");
+    if (token.getText().getAsDouble(value)) {
+        report(Diagnostic::Level::Error, "Invalid Float Literal found {0}", token);
         return nullptr;
     }
 
@@ -793,13 +800,13 @@ IfStatement* Parser::parseIf() {
 /// grammar: int-literal := @Todo describe float literal grammar
 IntLiteral* Parser::parseIntLiteral() {
     if (!token.is(Token::Kind::LiteralInt)) {
-        report(Diagnostic::Level::Error, "Expected integer literal found '{0}'", token.getText());
+        report(Diagnostic::Level::Error, "Expected Integer Literal found {0}", token);
         return nullptr;
     }
 
     uint64_t value = 0;
-    if (!token.getText().getAsInteger(0, value)) {
-        report(Diagnostic::Level::Error, "Invalid integer literal!");
+    if (token.getText().getAsInteger(0, value)) {
+        report(Diagnostic::Level::Error, "Invalid Integer Literal!");
         return nullptr;
     }
 
@@ -815,7 +822,7 @@ LoadDeclaration* Parser::parseLoadDeclaration() {
     }
 
     if (!token.is(Token::Kind::LiteralString)) {
-        report(Diagnostic::Level::Error, "Expected string literal after load directive!");
+        report(Diagnostic::Level::Error, "Expected String Literal after load directive!");
         return nullptr;
     }
 
@@ -874,7 +881,7 @@ PointerTypeRef* Parser::parsePointerTypeRef(TypeRef* pointeeTypeRef) {
     }
 
     if (depth < 1) {
-        report(Diagnostic::Level::Error, "Expected '*' found '{0}'", token.getText());
+        report(Diagnostic::Level::Error, "Expected Operator = '*' found {0}", token);
         return nullptr;
     }
 
@@ -914,7 +921,7 @@ Statement* Parser::parseStatement() {
         default: {
             auto expression = tryParseExpression();
             if (!expression) {
-                report(Diagnostic::Level::Error, "Expected statement, found '{0}'", token.getText());
+                report(Diagnostic::Level::Error, "Expected Statement found {0}", token);
                 return nullptr;
             }
             return expression;
@@ -925,7 +932,7 @@ Statement* Parser::parseStatement() {
 /// grammar: string-literal := @Todo describe float literal grammar
 StringLiteral* Parser::parseStringLiteral() {
     if (!token.is(Token::Kind::LiteralString)) {
-        report(Diagnostic::Level::Error, "Expected string literal found '{0}'", token.getText());
+        report(Diagnostic::Level::Error, "Expected String Literal found {0}", token);
         return nullptr;
     }
 
@@ -1055,7 +1062,7 @@ TypeRef* Parser::parseTypeRef() {
             break;
 
         default:
-            report(Diagnostic::Level::Error, "Expected type ref found '{0}'", token.getText());
+            report(Diagnostic::Level::Error, "Expected TypeRef found {0}", token);
             return nullptr;
     }
 
@@ -1066,12 +1073,16 @@ TypeRef* Parser::parseTypeRef() {
     do {
         switch (token.getKind()) {
             case Token::Kind::Operator: {
-                auto pointerTypeRef = parsePointerTypeRef(typeRef);
-                if (!pointerTypeRef) {
-                    return nullptr;
-                }
+                if (getContext()->getOperator(token.getText(), Operator::TypePointer.getFixity(), this->op) && this->op == Operator::TypePointer) {
+                    auto pointerTypeRef = parsePointerTypeRef(typeRef);
+                    if (!pointerTypeRef) {
+                        return nullptr;
+                    }
 
-                typeRef = pointerTypeRef;
+                    typeRef = pointerTypeRef;
+                } else {
+                    return typeRef;
+                }
             } break;
 
             case Token::Kind::LeftBracket: {
@@ -1112,7 +1123,7 @@ ValueDeclaration* Parser::parseValueDeclaration() {
         case Token::Kind::KeywordVar: return parseVariable();
 
         default:
-            report(Diagnostic::Level::Error, "Expected 'var' or 'let' at start of value-declaration!");
+            report(Diagnostic::Level::Error, "Expected 'var' or 'let' found {0}", token);
             return nullptr;
     }
 }

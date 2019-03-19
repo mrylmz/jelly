@@ -131,3 +131,7 @@ bool Operator::operator == (Operator other) const {
             getPrecedence() == other.getPrecedence() &&
             isAssignment() == other.isAssignment());
 }
+
+bool Operator::operator != (Operator other) const {
+    return !(*this == other);
+}

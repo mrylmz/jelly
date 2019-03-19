@@ -1,1 +1,1 @@
-#load 123456 // expect-error: Expected string literal after load directive!
+#load 123456 // expect-error: Expected String Literal after load directive!

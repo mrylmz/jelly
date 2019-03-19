@@ -111,6 +111,7 @@ namespace AST {
         static const Operator Subscript;
 
         bool operator == (Operator other) const;
+        bool operator != (Operator other) const;
     };
 }
 }

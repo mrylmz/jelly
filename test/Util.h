@@ -44,7 +44,7 @@ struct FileTestDiagnosticHandler : public jelly::DiagnosticHandler {
 
     FileTestDiagnosticHandler(FileTestMetadata metadata);
 
-    void begin(jelly::SourceBuffer* buffer);
+    void begin(jelly::SourceBuffer buffer);
 
     void end();
 

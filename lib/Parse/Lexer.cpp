@@ -649,6 +649,10 @@ Context* Lexer::getContext() const {
     return context;
 }
 
+SourceBuffer Lexer::getSourceBuffer() const {
+    return state.buffer;
+}
+
 Lexer::State Lexer::getState() const {
     return state;
 }

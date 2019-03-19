@@ -1,1 +1,1 @@
-var x: Int = (10 + (2 - 1) // expect-error: Expected ')' at end of group expression!
+var x: Int = (10 + (2 - 1) // expect-error: Expected token ')' found 'EOF'

@@ -1,4 +1,4 @@
 func main() -> Void {
     if condition0, condition1, condition2 {}
-    else // expect-error: Expected '{' at start of block!
+    else // expect-error: Expected token '{' found '}'
 }

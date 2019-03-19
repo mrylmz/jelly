@@ -56,4 +56,5 @@ namespace jelly {
     using llvm::makeArrayRef;
     using llvm::sys::path::native;
     using llvm::formatv;
+    using llvm::format_provider;
 }

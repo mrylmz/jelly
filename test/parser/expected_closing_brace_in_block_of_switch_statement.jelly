@@ -3,5 +3,5 @@ func main() -> Void {
     case 0:
     case 1: return
     else:   return
-    return // expect-error: Expected statement, found ''
+    return // expect-error: Expected Statement found 'EOF'
 }

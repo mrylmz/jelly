@@ -1,1 +1,1 @@
-var x: Int = <<10 // expect-error: Unknown prefix operator!
+var x: Int = <<10 // expect-error: Expected Prefix Operator found Operator = '<<'

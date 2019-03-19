@@ -32,7 +32,7 @@
 
 FileTestDiagnosticHandler::FileTestDiagnosticHandler(FileTestMetadata metadata) : metadata(metadata) {}
 
-void FileTestDiagnosticHandler::begin(jelly::SourceBuffer* buffer) {
+void FileTestDiagnosticHandler::begin(jelly::SourceBuffer buffer) {
     index = 0;
 }
 

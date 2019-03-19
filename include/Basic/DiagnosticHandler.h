@@ -25,17 +25,16 @@
 #pragma once
 
 #include "Basic/Diagnostic.h"
+#include "Basic/SourceBuffer.h"
 
 #include <stdint.h>
 
 namespace jelly {
 
-    class SourceBuffer;
-
     class DiagnosticHandler {
     public:
 
-        virtual void begin(SourceBuffer* buffer) = 0;
+        virtual void begin(SourceBuffer buffer) = 0;
 
         virtual void end() = 0;
 

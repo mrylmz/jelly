@@ -1,4 +1,4 @@
 enum MyEnum {
-invalidCase // expect-error: Expected 'case' keyword at start of enum element!
+invalidCase // expect-error: Expected token 'case' found Identifier = 'invalidCase'
 case validCase
 }

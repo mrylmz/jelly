@@ -26,6 +26,7 @@
 
 #include "Basic/Diagnostic.h"
 #include "Basic/LLVM.h"
+#include "Basic/SourceBuffer.h"
 
 #include <stdint.h>
 #include <string>
@@ -39,6 +40,7 @@ namespace jelly {
     class DiagnosticEngine {
         DiagnosticHandler* handler;
         uint64_t reportedDiagnosticCounts[4] = { };
+        SourceBuffer currentBuffer;
 
     public:
 
@@ -49,6 +51,9 @@ namespace jelly {
         uint64_t getReportedWarningCount() const;
         uint64_t getReportedErrorCount() const;
         uint64_t getReportedFatalCount() const;
+
+        // @Todo find a solution to automatically manage the souce buffer tracking...
+        void begin(SourceBuffer buffer);
 
         template<typename ...Args>
         void report(Diagnostic::Level level, const char* format, Args&&... args) {
