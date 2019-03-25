@@ -280,7 +280,10 @@ void Dumper::dumpStructureDeclaration(StructureDeclaration* declaration) {
 void Dumper::dumpConstantDeclaration(ConstantDeclaration* declaration) {
     printProperty("name", declaration->getName());
     dumpChild(declaration->getTypeRef());
-    dumpChild(declaration->getInitializer());
+
+    if (declaration->getInitializer()) {
+        dumpChild(declaration->getInitializer());
+    }
 }
 
 void Dumper::dumpVariableDeclaration(VariableDeclaration* declaration) {

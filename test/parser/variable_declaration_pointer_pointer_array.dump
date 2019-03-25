@@ -1,6 +1,10 @@
-ASTModule
-| ASTValueDecl { name = 'x', isConstant = 0 }
-  | ASTArrayTypeRef
-    | ASTPointerTypeRef { depth = '2' }
-      | ASTOpaqueTypeRef { typeName = 'Void' }
-  | ASTNilLit
+ModuleDeclaration
+  @name = ''
+  VariableDeclaration
+    @name = 'x'
+    ArrayTypeRef
+      PointerTypeRef
+        @depth = '2'
+        OpaqueTypeRef
+          @name = 'Void'
+    NilLiteral

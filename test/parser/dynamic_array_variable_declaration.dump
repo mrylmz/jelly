@@ -1,4 +1,7 @@
-ASTModule
-| ASTValueDecl { name = 'myArray', isConstant = 0 }
-  | ASTArrayTypeRef
-    | ASTOpaqueTypeRef { typeName = 'Int' }
+ModuleDeclaration
+  @name = ''
+  VariableDeclaration
+    @name = 'myArray'
+    ArrayTypeRef
+      OpaqueTypeRef
+        @name = 'Int'

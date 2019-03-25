@@ -42,7 +42,6 @@ namespace Parse {
         Lexer* lexer;
 
         jelly::DiagnosticEngine* diagnostic;
-        jelly::AST::Operator op;
         jelly::Parse::Token token;
         bool silentErrors = false;
 

@@ -30,7 +30,7 @@ using namespace jelly::Parse;
 // @Incomplete Check if symbols of unary expressions are right bound ! (unexpected: ~ value, expected: ~value)
 
 Parser::Parser(Lexer* lexer, DiagnosticEngine* diag) :
-lexer(lexer), diagnostic(diag), op(Operator::LogicalNot) {
+lexer(lexer), diagnostic(diag) {
 }
 
 void Parser::parseAllTopLevelNodes() {
@@ -106,15 +106,12 @@ bool Parser::consumeOperator(Fixity fixity, Operator& op) {
 }
 
 bool Parser::tryConsumeOperator(Operator op) {
-    if (!token.is(Token::Kind::Operator)) {
+    Operator result = Operator::LogicalNot;
+    if (!getContext()->getOperator(token.getText(), op.getFixity(), result)) {
         return false;
     }
 
-    if (!getContext()->getOperator(token.getText(), op.getFixity(), this->op)) {
-        return false;
-    }
-
-    if (this->op != op) {
+    if (op != result) {
         return false;
     }
 
@@ -192,6 +189,7 @@ Expression* Parser::parseAtomExpression() {
 /// grammar: primary-expression := unary-expression | atom-expression
 Expression* Parser::parsePrimaryExpression() {
     if (token.is(Token::Kind::Operator)) {
+        Operator op = Operator::LogicalNot;
         if (getContext()->getOperator(token.getText(), Fixity::Prefix, op)) {
             return parseUnaryExpression();
         } else {
@@ -225,10 +223,7 @@ ArrayTypeRef* Parser::parseArrayTypeRef(TypeRef* elementTypeRef) {
         return nullptr;
     }
 
-    auto value = parseExpression();
-    if (!value) {
-        return nullptr;
-    }
+    auto value = tryParseExpression();
 
     if (!consumeToken(Token::Kind::RightBracket)) {
         return nullptr;
@@ -594,6 +589,8 @@ Expression* Parser::parseExpression(Precedence precedence) {
     if (!left) {
         return nullptr;
     }
+
+    Operator op = Operator::LogicalNot;
 
     if (!getContext()->getOperator(token.getText(), Fixity::Infix, op) &&
         !getContext()->getOperator(token.getText(), Fixity::Postfix, op)) {
@@ -1096,7 +1093,8 @@ TypeRef* Parser::parseTypeRef() {
     do {
         switch (token.getKind()) {
             case Token::Kind::Operator: {
-                if (getContext()->getOperator(token.getText(), Operator::TypePointer.getFixity(), this->op) && this->op == Operator::TypePointer) {
+                Operator op = Operator::LogicalNot;
+                if (getContext()->getOperator(token.getText(), Operator::TypePointer.getFixity(), op) && op == Operator::TypePointer) {
                     auto pointerTypeRef = parsePointerTypeRef(typeRef);
                     if (!pointerTypeRef) {
                         return nullptr;
@@ -1127,6 +1125,7 @@ TypeRef* Parser::parseTypeRef() {
 
 /// grammar: unary-expression := prefix-operator expression
 UnaryExpression* Parser::parseUnaryExpression() {
+    Operator op = Operator::LogicalNot;
     if (!consumeOperator(Fixity::Prefix, op)) {
         return nullptr;
     }

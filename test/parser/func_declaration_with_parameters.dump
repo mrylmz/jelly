@@ -1,16 +1,29 @@
-ASTModule
-| ASTFuncDecl { name = 'main' }
-  | ASTParamDecl { name = 'x' }
-    | ASTOpaqueTypeRef { typeName = 'Int' }
-  | ASTParamDecl { name = 'y' }
-    | ASTArrayTypeRef
-      | ASTOpaqueTypeRef { typeName = 'Int' }
-  | ASTParamDecl { name = 'z' }
-    | ASTPointerTypeRef { depth = '1' }
-      | ASTOpaqueTypeRef { typeName = 'Int' }
-  | ASTParamDecl { name = 'w' }
-    | ASTArrayTypeRef
-      | ASTOpaqueTypeRef { typeName = 'Int' }
-      | ASTIntLit { value = '10' }
-  | ASTOpaqueTypeRef { typeName = 'Void' }
-  | ASTCompoundStmt
+ModuleDeclaration
+  @name = ''
+  FunctionDeclaration
+    @name = 'main'
+    ParameterDeclaration
+      @name = 'x'
+      OpaqueTypeRef
+        @name = 'Int'
+    ParameterDeclaration
+      @name = 'y'
+      ArrayTypeRef
+        OpaqueTypeRef
+          @name = 'Int'
+    ParameterDeclaration
+      @name = 'z'
+      PointerTypeRef
+        @depth = '1'
+        OpaqueTypeRef
+          @name = 'Int'
+    ParameterDeclaration
+      @name = 'w'
+      ArrayTypeRef
+        OpaqueTypeRef
+          @name = 'Int'
+        IntLiteral
+          @value = '10'
+    OpaqueTypeRef
+      @name = 'Void'
+    BlockStatement

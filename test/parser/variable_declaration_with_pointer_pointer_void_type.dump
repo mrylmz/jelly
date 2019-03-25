@@ -1,4 +1,8 @@
-ASTModule
-| ASTValueDecl { name = 'x', isConstant = 0 }
-  | ASTPointerTypeRef { depth = '2' }
-    | ASTOpaqueTypeRef { typeName = 'Void' }
+ModuleDeclaration
+  @name = ''
+  VariableDeclaration
+    @name = 'x'
+    PointerTypeRef
+      @depth = '2'
+      OpaqueTypeRef
+        @name = 'Void'
