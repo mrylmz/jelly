@@ -33,6 +33,10 @@ handler(handler) {
 }
 
 DiagnosticEngine::~DiagnosticEngine() {
+    if (currentBuffer.isValid()) {
+        handler->end();
+    }
+
     handler->finish();
 }
 
