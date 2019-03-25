@@ -1,5 +1,10 @@
-ASTModule
-| ASTValueDecl { name = 'x', isConstant = 0 }
-  | ASTOpaqueTypeRef { typeName = 'Int' }
-  | ASTUnaryExpr { operator = '-' }
-    | ASTIntLit { value = '10' }
+ModuleDeclaration
+  @name = ''
+  VariableDeclaration
+    @name = 'x'
+    OpaqueTypeRef
+      @name = 'Int'
+    UnaryExpression
+      @operator = '-'
+      IntLiteral
+        @value = '10'

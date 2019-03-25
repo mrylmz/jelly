@@ -30,7 +30,8 @@ using namespace jelly::AST;
 
 ParameterDeclaration::ParameterDeclaration(Identifier name, TypeRef* typeRef) :
 NamedDeclaration(Kind::Parameter, name),
-typeRef(typeRef) {
+typeRef(nullptr) {
+    setTypeRef(typeRef);
 }
 
 TypeRef* ParameterDeclaration::getTypeRef() const {
@@ -38,6 +39,14 @@ TypeRef* ParameterDeclaration::getTypeRef() const {
 }
 
 void ParameterDeclaration::setTypeRef(TypeRef* typeRef) {
+    if (typeRef) {
+        typeRef->setParent(this);
+    }
+
+    if (this->typeRef) {
+        this->typeRef->setParent(nullptr);
+    }
+
     this->typeRef = typeRef;
 }
 

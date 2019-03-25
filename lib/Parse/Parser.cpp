@@ -29,10 +29,6 @@ using namespace jelly::Parse;
 
 // @Incomplete Check if symbols of unary expressions are right bound ! (unexpected: ~ value, expected: ~value)
 
-static bool isDeclarationNameEqual(NamedDeclaration* lhs, NamedDeclaration* rhs) {
-    return lhs->getName() == rhs->getName();
-}
-
 Parser::Parser(Lexer* lexer, DiagnosticEngine* diag) :
 lexer(lexer), diagnostic(diag), op(Operator::LogicalNot) {
 }
@@ -43,10 +39,10 @@ void Parser::parseAllTopLevelNodes() {
     token = lexer->peekNextToken();
 
     auto module = getContext()->getModule();
-
     bool checkConsecutiveTopLevelNodes = false;
     unsigned line = token.getLine();
     do {
+
         unsigned nodeLine = token.getLine();
         auto declaration = parseTopLevelDeclaration();
         if (!declaration) {
@@ -60,15 +56,13 @@ void Parser::parseAllTopLevelNodes() {
         checkConsecutiveTopLevelNodes = true;
         line = nodeLine;
 
+        module->addChild(declaration);
+
         if (declaration->isNamedDeclaration()) {
             auto namedDeclaration = reinterpret_cast<NamedDeclaration*>(declaration);
-            if (module->lookupDeclaration(namedDeclaration->getName())) {
-                report(Diagnostic::Level::Error, "Invalid redeclaration of '{0}'", namedDeclaration->getName());
-            } else {
-                module->addDeclaration(declaration);
+            if (!module->getScope()->insertDeclaration(namedDeclaration)) {
+                diagnostic->report(Diagnostic::Level::Error, "Invalid redeclaration of '{0}'", namedDeclaration->getName());
             }
-        } else {
-            module->addDeclaration(declaration);
         }
 
     } while (true);
@@ -272,7 +266,18 @@ BlockStatement* Parser::parseBlock() {
         return nullptr;
     }
 
-    return new (getContext()) BlockStatement(statements);
+    auto statement = new (getContext()) BlockStatement(statements);
+
+    for (auto child : statement->getChildren()) {
+        if (child->isNamedDeclaration()) {
+            auto namedChild = reinterpret_cast<NamedDeclaration*>(child);
+            if (!statement->getScope()->insertDeclaration(namedChild)) {
+                diagnostic->report(Diagnostic::Level::Error, "Invalid redeclaration of '{0}'", namedChild->getName());
+            }
+        }
+    }
+
+    return statement;
 }
 
 /// grammar: bool-literal := "true" | "false"
@@ -319,6 +324,10 @@ CallExpression* Parser::parseCallExpression(Expression* callee) {
         if (!consumeToken(Token::Kind::Comma)) {
             return nullptr;
         }
+    }
+
+    if (!consumeToken(Token::Kind::RightParenthesis)) {
+        return nullptr;
     }
 
     return new (getContext()) CallExpression(callee, arguments);
@@ -370,6 +379,15 @@ ConditionalCaseStatement* Parser::parseConditionalCaseStatement() {
     }
 
     auto body = new (getContext()) BlockStatement(statements);
+
+    for (auto child : body->getChildren()) {
+        if (child->isNamedDeclaration()) {
+            auto namedChild = reinterpret_cast<NamedDeclaration*>(child);
+            if (!body->getScope()->insertDeclaration(namedChild)) {
+                diagnostic->report(Diagnostic::Level::Error, "Invalid redeclaration of '{0}'", namedChild->getName());
+            }
+        }
+    }
 
     return new (getContext()) ConditionalCaseStatement(condition, body);
 }
@@ -481,6 +499,15 @@ ElseCaseStatement* Parser::parseElseCaseStatement() {
 
     auto body = new (getContext()) BlockStatement(statements);
 
+    for (auto child : body->getChildren()) {
+        if (child->isNamedDeclaration()) {
+            auto namedChild = reinterpret_cast<NamedDeclaration*>(child);
+            if (!body->getScope()->insertDeclaration(namedChild)) {
+                diagnostic->report(Diagnostic::Level::Error, "Invalid redeclaration of '{0}'", namedChild->getName());
+            }
+        }
+    }
+
     return new (getContext()) ElseCaseStatement(body);
 }
 
@@ -499,11 +526,11 @@ EnumerationDeclaration* Parser::parseEnumeration() {
         return nullptr;
     }
 
-    jelly::Array<EnumerationElementDeclaration*> elements;
+    jelly::Array<EnumerationElementDeclaration*> children;
     if (!token.is(Token::Kind::RightBrace)) {
         unsigned line = token.getLine();
         while (true) {
-            if (!elements.empty() && line == token.getLine()) {
+            if (!children.empty() && line == token.getLine()) {
                 report(Diagnostic::Level::Error, "Consecutive enum elements on a line are not allowed!");
                 return nullptr;
             }
@@ -513,11 +540,7 @@ EnumerationDeclaration* Parser::parseEnumeration() {
                 return nullptr;
             }
 
-            if (elements.contains(element, isDeclarationNameEqual)) {
-                report(Diagnostic::Level::Error, "Invalid redeclaration of '{0}'", element->getName());
-            }
-
-            elements.push_back(element);
+            children.push_back(element);
 
             if (token.is(Token::Kind::RightBrace)) {
                 break;
@@ -531,7 +554,15 @@ EnumerationDeclaration* Parser::parseEnumeration() {
     }
     consumeToken();
 
-    return new (getContext()) EnumerationDeclaration(name, elements);
+    auto declaration = new (getContext()) EnumerationDeclaration(name, children);
+
+    for (auto child : declaration->getChildren()) {
+        if (!declaration->getScope()->insertDeclaration(child)) {
+            diagnostic->report(Diagnostic::Level::Error, "Invalid redeclaration of '{0}'", child->getName());
+        }
+    }
+
+    return declaration;
 }
 
 /// grammar: enum-element := "case" identifier [ "=" expression ]
@@ -656,10 +687,6 @@ FunctionDeclaration* Parser::parseFunction() {
                 return nullptr;
             }
 
-            if (parameters.contains(parameter, isDeclarationNameEqual)) {
-                report(Diagnostic::Level::Error, "Invalid redeclaration of '{0}'", parameter->getName());
-            }
-
             parameters.push_back(parameter);
 
             if (token.is(Token::Kind::RightParenthesis)) {
@@ -687,23 +714,15 @@ FunctionDeclaration* Parser::parseFunction() {
         return nullptr;
     }
 
-//    for (auto stmt : Func->body->stmts) {
-//        if (stmt->isDecl()) {
-//            auto decl = reinterpret_cast<ASTDecl*>(stmt);
-//            if (decl->isNamedDecl()) {
-//                auto namedDecl = reinterpret_cast<ASTNamedDecl*>(decl);
-//                if (!Func->lookupDecl(namedDecl->name)) {
-//                    Func->addDecl(namedDecl);
-//                } else {
-//                    Parser->report(Diagnostic::Level::Error, "Invalid redeclaration of '{0}'", namedDecl->name);
-//                }
-//            } else {
-//                Func->addDecl(decl);
-//            }
-//        }
-//    }
+    auto declaration = new (getContext()) FunctionDeclaration(name, parameters, returnTypeRef, body);
 
-    return new (getContext()) FunctionDeclaration(name, parameters, returnTypeRef, body);
+    for (auto parameter : declaration->getParameters()) {
+        if (!declaration->getScope()->insertDeclaration(parameter)) {
+            diagnostic->report(Diagnostic::Level::Error, "Invalid redeclaration of '{0}'", parameter->getName());
+        }
+    }
+
+    return declaration;
 }
 
 /// grammar: group-expression := "(" expression ")"
@@ -976,10 +995,6 @@ StructureDeclaration* Parser::parseStructure() {
                 return nullptr;
             }
 
-            if (values.contains(value, isDeclarationNameEqual)) {
-                report(Diagnostic::Level::Error, "Invalid redeclaration of '{0}'", value->getName());
-            }
-
             values.push_back(value);
 
             if (token.is(Token::Kind::RightBrace)) {
@@ -989,7 +1004,15 @@ StructureDeclaration* Parser::parseStructure() {
     }
     consumeToken();
 
-    return new (getContext()) StructureDeclaration(name, values);
+    auto declaration = new (getContext()) StructureDeclaration(name, values);
+
+    for (auto child : declaration->getChildren()) {
+        if (!declaration->getScope()->insertDeclaration(child)) {
+            report(Diagnostic::Level::Error, "Invalid redeclaration of '{0}'", child->getName());
+        }
+    }
+
+    return declaration;
 }
 
 /// grammar: switch-statement := "switch" expression "{" [ switch-case { line-break switch-case } ] "}"

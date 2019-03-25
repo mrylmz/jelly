@@ -25,13 +25,16 @@
 #include "AST/PointerTypeRef.h"
 #include "AST/Visitor.h"
 
+#include <assert.h>
+
 using namespace jelly::AST;
 
 PointerTypeRef::PointerTypeRef(TypeRef* pointeeTypeRef, uint32_t depth) :
 TypeRef(Kind::PointerTypeRef),
-pointeeTypeRef(pointeeTypeRef),
+pointeeTypeRef(nullptr),
 depth(depth) {
-
+    assert(depth > 0);
+    setPointeeTypeRef(pointeeTypeRef);
 }
 
 TypeRef* PointerTypeRef::getPointeeTypeRef() const {
@@ -39,6 +42,14 @@ TypeRef* PointerTypeRef::getPointeeTypeRef() const {
 }
 
 void PointerTypeRef::setPointeeTypeRef(TypeRef* pointeeTypeRef) {
+    if (pointeeTypeRef) {
+        pointeeTypeRef->setParent(this);
+    }
+
+    if (this->pointeeTypeRef) {
+        this->pointeeTypeRef->setParent(nullptr);
+    }
+
     this->pointeeTypeRef = pointeeTypeRef;
 }
 
@@ -47,6 +58,7 @@ uint32_t PointerTypeRef::getDepth() const {
 }
 
 void PointerTypeRef::setDepth(uint32_t depth) {
+    assert(depth > 0);
     this->depth = depth;
 }
 

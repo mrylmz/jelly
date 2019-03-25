@@ -22,14 +22,15 @@
 // SOFTWARE.
 //
 
+#include "AST/BlockStatement.h"
 #include "AST/LoopStatement.h"
 
 using namespace jelly::AST;
 
 LoopStatement::LoopStatement(Kind kind, Expression* condition, BlockStatement* body) :
 BranchStatement(kind, condition),
-body(body) {
-
+body(nullptr) {
+    setBody(body);
 }
 
 BlockStatement* LoopStatement::getBody() const {
@@ -37,5 +38,13 @@ BlockStatement* LoopStatement::getBody() const {
 }
 
 void LoopStatement::setBody(BlockStatement* body) {
+    if (body) {
+        body->setParent(this);
+    }
+
+    if (this->body) {
+        this->body->setParent(nullptr);
+    }
+
     this->body = body;
 }

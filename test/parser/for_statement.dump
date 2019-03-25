@@ -1,7 +1,0 @@
-ASTModule
-| ASTFuncDecl { name = 'main' }
-  | ASTOpaqueTypeRef { typeName = 'Void' }
-  | ASTCompoundStmt
-    | ASTForStmt { elementName = 'i' }
-      | ASTIdentExpr { declName = 'sequence' }
-      | ASTCompoundStmt

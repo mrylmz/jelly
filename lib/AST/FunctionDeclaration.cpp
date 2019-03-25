@@ -33,30 +33,28 @@ using namespace jelly::AST;
 
 FunctionDeclaration::FunctionDeclaration(Identifier name, ArrayRef<ParameterDeclaration*> parameters, TypeRef* returnTypeRef, BlockStatement* body) :
 TypeDeclaration(Kind::Function, name, nullptr),
-returnTypeRef(returnTypeRef),
-body(body) {
-    for (auto parameter : parameters) { addDeclaration(parameter); }
+returnTypeRef(nullptr),
+body(nullptr),
+scope(Scope::Kind::FunctionDeclaration, this) {
+    for (auto parameter : parameters) {
+        addParameter(parameter);
+    }
+
+    setReturnTypeRef(returnTypeRef);
+    setBody(body);
 }
 
-ArrayRef<ParameterDeclaration*> FunctionDeclaration::getParameterDeclarations() const {
+Scope* FunctionDeclaration::getScope() {
+    return &scope;
+}
+
+ArrayRef<ParameterDeclaration*> FunctionDeclaration::getParameters() const {
     return parameters;
 }
 
-void FunctionDeclaration::addDeclaration(ParameterDeclaration* parameter) {
-    assert(parameter->getParent() == nullptr);
-
-    Node::setParent(parameter, this);
+void FunctionDeclaration::addParameter(ParameterDeclaration *parameter) {
+    parameter->setParent(this);
     parameters.push_back(parameter);
-}
-
-ParameterDeclaration* FunctionDeclaration::lookupDeclaration(StringRef name) const {
-    for (auto parameter : parameters) {
-        if (parameter->getName()->equals(name)) {
-            return parameter;
-        }
-    }
-
-    return nullptr;
 }
 
 TypeRef* FunctionDeclaration::getReturnTypeRef() const {
@@ -64,6 +62,14 @@ TypeRef* FunctionDeclaration::getReturnTypeRef() const {
 }
 
 void FunctionDeclaration::setReturnTypeRef(TypeRef* returnTypeRef) {
+    if (returnTypeRef) {
+        returnTypeRef->setParent(this);
+    }
+
+    if (this->returnTypeRef) {
+        this->returnTypeRef->setParent(nullptr);
+    }
+
     this->returnTypeRef = returnTypeRef;
 }
 
@@ -72,6 +78,14 @@ BlockStatement* FunctionDeclaration::getBody() const {
 }
 
 void FunctionDeclaration::setBody(BlockStatement* body) {
+    if (body) {
+        body->setParent(this);
+    }
+
+    if (this->body) {
+        this->body->setParent(nullptr);
+    }
+
     this->body = body;
 }
 
@@ -82,7 +96,7 @@ bool FunctionDeclaration::isDefinition() const {
 void FunctionDeclaration::accept(Visitor &visitor) {
     visitor.visitFunctionDeclaration(this);
 
-    for (auto parameter : getParameterDeclarations()) {
+    for (auto parameter : getParameters()) {
         parameter->accept(visitor);
     }
 

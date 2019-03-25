@@ -24,6 +24,7 @@
 
 #pragma once
 
+#include "AST/Scope.h"
 #include "AST/Statement.h"
 #include "AST/ValueDeclaration.h"
 #include <Basic/Basic.h>
@@ -32,26 +33,20 @@ namespace jelly {
 namespace AST {
 
     class BlockStatement final: public Statement {
-        Array<ValueDeclaration*> values;
-        Array<Statement*> statements;
-
-        void addDeclaration(Declaration* declaration);
+        Array<Statement*> children;
+        Scope scope;
 
     public:
 
-        BlockStatement(ArrayRef<Statement*> statements);
+        BlockStatement(ArrayRef<Statement*> children);
 
-        ArrayRef<ValueDeclaration*> getValueDeclarations() const;
+        Scope* getScope() override;
 
-        ArrayRef<Statement*> getStatements() const;
+        ArrayRef<Statement*> getChildren() const;
 
-        Declaration* lookupDeclaration(StringRef name) const;
+        void addChild(Statement* child);
 
-        void addStatement(Statement* statement);
-
-        // @Todo: add implementation for vector interface, to allow iteration of statements ...
-
-        void accept(Visitor &visitor);
+        void accept(Visitor &visitor) override;
     };
 }
 }

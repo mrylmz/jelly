@@ -22,14 +22,15 @@
 // SOFTWARE.
 //
 
+#include "AST/BlockStatement.h"
 #include "AST/CaseStatement.h"
 
 using namespace jelly::AST;
 
 CaseStatement::CaseStatement(Kind kind, BlockStatement* body) :
 Statement(kind),
-body(body) {
-
+body(nullptr) {
+    setBody(body);
 }
 
 BlockStatement* CaseStatement::getBody() const {
@@ -37,5 +38,13 @@ BlockStatement* CaseStatement::getBody() const {
 }
 
 void CaseStatement::setBody(BlockStatement* body) {
+    if (body) {
+        body->setParent(this);
+    }
+
+    if (this->body) {
+        this->body->setParent(nullptr);
+    }
+
     this->body = body;
 }

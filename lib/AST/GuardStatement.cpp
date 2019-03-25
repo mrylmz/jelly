@@ -31,8 +31,8 @@ using namespace jelly::AST;
 
 GuardStatement::GuardStatement(Expression* condition, BlockStatement* elseBlock) :
 BranchStatement(Kind::GuardStmt, condition),
-elseBlock(elseBlock) {
-
+elseBlock(nullptr) {
+    setElseBlock(elseBlock);
 }
 
 BlockStatement* GuardStatement::getElseBlock() const {
@@ -40,6 +40,14 @@ BlockStatement* GuardStatement::getElseBlock() const {
 }
 
 void GuardStatement::setElseBlock(BlockStatement* elseBlock) {
+    if (elseBlock) {
+        elseBlock->setParent(this);
+    }
+
+    if (this->elseBlock) {
+        this->elseBlock->setParent(nullptr);
+    }
+
     this->elseBlock = elseBlock;
 }
 

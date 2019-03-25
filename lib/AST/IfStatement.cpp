@@ -31,8 +31,10 @@ using namespace jelly::AST;
 
 IfStatement::IfStatement(Expression* condition, BlockStatement* thenBlock, BlockStatement* elseBlock) :
 BranchStatement(Kind::IfStmt, condition),
-thenBlock(thenBlock),
-elseBlock(elseBlock) {
+thenBlock(nullptr),
+elseBlock(nullptr) {
+    setThenBlock(thenBlock);
+    setElseBlock(elseBlock);
 }
 
 BlockStatement* IfStatement::getThenBlock() const {
@@ -40,6 +42,14 @@ BlockStatement* IfStatement::getThenBlock() const {
 }
 
 void IfStatement::setThenBlock(BlockStatement* thenBlock) {
+    if (thenBlock) {
+        thenBlock->setParent(this);
+    }
+
+    if (this->thenBlock) {
+        this->thenBlock->setParent(nullptr);
+    }
+
     this->thenBlock = thenBlock;
 }
 
@@ -48,6 +58,14 @@ BlockStatement* IfStatement::getElseBlock() const {
 }
 
 void IfStatement::setElseBlock(BlockStatement* elseBlock) {
+    if (elseBlock) {
+        elseBlock->setParent(this);
+    }
+
+    if (this->elseBlock) {
+        this->elseBlock->setParent(nullptr);
+    }
+
     this->elseBlock = elseBlock;
 }
 

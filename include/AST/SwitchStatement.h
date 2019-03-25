@@ -35,16 +35,17 @@ namespace AST {
 
     class SwitchStatement final: public Statement {
         Expression* argument;
-        Array<CaseStatement*> cases;
+        Array<CaseStatement*> children;
 
     public:
 
-        SwitchStatement(Expression* argument, Array<CaseStatement*> cases);
+        SwitchStatement(Expression* argument, Array<CaseStatement*> children);
 
         Expression* getArgument() const;
         void setArgument(Expression* argument);
 
-        ArrayRef<CaseStatement*> getCaseStatements() const;
+        void addChild(CaseStatement* child);
+        ArrayRef<CaseStatement*> getChildren() const;
 
         void accept(Visitor &visitor);
     };

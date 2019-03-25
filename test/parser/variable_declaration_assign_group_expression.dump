@@ -1,4 +1,8 @@
-ASTModule
-| ASTValueDecl { name = 'myVar', isConstant = 0 }
-  | ASTOpaqueTypeRef { typeName = 'Int' }
-  | ASTIntLit { value = '1' }
+ModuleDeclaration
+  @name = ''
+  VariableDeclaration
+    @name = 'myVar'
+    OpaqueTypeRef
+      @name = 'Int'
+    IntLiteral
+      @value = '1'

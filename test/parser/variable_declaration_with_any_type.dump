@@ -1,3 +1,0 @@
-ASTModule
-| ASTValueDecl { name = 'myVar', isConstant = 0 }
-  | ASTAnyTypeRef

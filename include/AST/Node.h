@@ -31,9 +31,11 @@ namespace AST {
 
     class Context;
     class Dumper;
+    class Scope;
     class Visitor;
 
     class Node {
+        friend class Context;
         friend class Dumper;
 
     protected:
@@ -118,13 +120,13 @@ namespace AST {
 
         Kind getKind() const;
 
-        void setParent(Node* parent);
-
-        static void setParent(Node* node, Node* parent);
-
     public:
 
         Node* getParent() const;
+
+        void setParent(Node* parent);
+
+        virtual Scope* getScope();
 
         bool isStatement() const;
         bool isBlockStatement() const;
@@ -175,7 +177,7 @@ namespace AST {
         bool isPointerTypeRef() const;
         bool isArrayTypeRef() const;
 
-        bool contains(Node* node) const;
+        bool containsChild(Node* node) const;
 
         void* operator new (size_t size, Context* context);
 

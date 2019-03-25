@@ -1,7 +1,13 @@
-ASTModule
-| ASTFuncDecl { name = 'main' }
-  | ASTOpaqueTypeRef { typeName = 'Void' }
-  | ASTCompoundStmt
-    | ASTMemberAccessExpr { memberName = 'myOtherMember' }
-      | ASTMemberAccessExpr { memberName = 'myMember' }
-        | ASTIdentExpr { declName = 'myStruct' }
+ModuleDeclaration
+  @name = ''
+  FunctionDeclaration
+    @name = 'main'
+    OpaqueTypeRef
+      @name = 'Void'
+    BlockStatement
+      MemberAccessExpression
+        @memberName = 'myOtherMember'
+        MemberAccessExpression
+          @memberName = 'myMember'
+          IdentifierExpression
+            @identifier = 'myStruct'

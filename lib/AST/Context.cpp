@@ -27,12 +27,13 @@
 #include "AST/FloatType.h"
 #include "AST/IntegerType.h"
 #include "AST/ModuleDeclaration.h"
+#include "AST/Scope.h"
 #include "AST/VoidType.h"
 
 using namespace jelly::AST;
 
 Context::Context() {
-    module = new (this) ModuleDeclaration(getIdentifier(""), {}, {}, {}, {}, {});
+    module = new (this) ModuleDeclaration(getIdentifier(""), {});
 
     errorType = new (this) ErrorType();
     voidType = new (this) VoidType();

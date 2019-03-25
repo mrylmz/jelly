@@ -1,12 +1,20 @@
-ASTModule
-| ASTFuncDecl { name = 'main' }
-  | ASTOpaqueTypeRef { typeName = 'Void' }
-  | ASTCompoundStmt
-    | ASTGuardStmt
-      | ASTBinaryExpr { operator = '&&' }
-        | ASTBinaryExpr { operator = '&&' }
-          | ASTBoolLit { value = '1' }
-          | ASTBoolLit { value = '1' }
-        | ASTBoolLit { value = '1' }
-      | ASTCompoundStmt
-        | ASTReturnStmt
+ModuleDeclaration
+  @name = ''
+  FunctionDeclaration
+    @name = 'main'
+    OpaqueTypeRef
+      @name = 'Void'
+    BlockStatement
+      GuardStatement
+        BinaryExpression
+          @operator = '&&'
+          BinaryExpression
+            @operator = '&&'
+            BoolLiteral
+              @value = 'true'
+            BoolLiteral
+              @value = 'true'
+          BoolLiteral
+            @value = 'true'
+        BlockStatement
+          ReturnStatement

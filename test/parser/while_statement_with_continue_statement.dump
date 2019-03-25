@@ -1,8 +1,12 @@
-ASTModule
-| ASTFuncDecl { name = 'main' }
-  | ASTOpaqueTypeRef { typeName = 'Void' }
-  | ASTCompoundStmt
-    | ASTWhileStmt
-      | ASTBoolLit { value = '1' }
-      | ASTCompoundStmt
-        | ASTContinueStmt
+ModuleDeclaration
+  @name = ''
+  FunctionDeclaration
+    @name = 'main'
+    OpaqueTypeRef
+      @name = 'Void'
+    BlockStatement
+      WhileStatement
+        BoolLiteral
+          @value = 'true'
+        BlockStatement
+          ContinueStatement

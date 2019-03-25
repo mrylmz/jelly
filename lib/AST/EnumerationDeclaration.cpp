@@ -29,38 +29,31 @@
 using namespace jelly;
 using namespace jelly::AST;
 
-EnumerationDeclaration::EnumerationDeclaration(Identifier name, ArrayRef<EnumerationElementDeclaration*> elements) :
-TypeDeclaration(Kind::Enumeration, name, nullptr) {
-    for (auto element : elements) {
-        addDeclaration(element);
+EnumerationDeclaration::EnumerationDeclaration(Identifier name, ArrayRef<EnumerationElementDeclaration*> children) :
+TypeDeclaration(Kind::Enumeration, name, nullptr),
+scope(Scope::Kind::EnumerationDeclaration, this) {
+    for (auto child : children) {
+        addChild(child);
     }
 }
 
-void EnumerationDeclaration::addDeclaration(EnumerationElementDeclaration* declaration) {
-    assert(declaration->getParent() == nullptr);
-
-    Node::setParent(declaration, this);
-    elements.push_back(declaration);
+Scope* EnumerationDeclaration::getScope() {
+    return &scope;
 }
 
-EnumerationElementDeclaration* EnumerationDeclaration::lookupDeclaration(StringRef name) const {
-    for (auto element : elements) {
-        if (element->getName()->equals(name)) {
-            return element;
-        }
-    }
-
-    return nullptr;
+void EnumerationDeclaration::addChild(EnumerationElementDeclaration *child) {
+    child->setParent(this);
+    children.push_back(child);
 }
 
-ArrayRef<EnumerationElementDeclaration*> EnumerationDeclaration::getEnumerationElementDeclarations() const {
-    return elements;
+ArrayRef<EnumerationElementDeclaration*> EnumerationDeclaration::getChildren() const {
+    return children;
 }
 
 void EnumerationDeclaration::accept(Visitor &visitor) {
     visitor.visitEnumerationDeclaration(this);
 
-    for (auto element : getEnumerationElementDeclarations()) {
-        element->accept(visitor);
+    for (auto child : getChildren()) {
+        child->accept(visitor);
     }
 }

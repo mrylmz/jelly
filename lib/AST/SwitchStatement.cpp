@@ -30,11 +30,14 @@
 using namespace jelly;
 using namespace jelly::AST;
 
-SwitchStatement::SwitchStatement(Expression* argument, Array<CaseStatement*> cases) :
+SwitchStatement::SwitchStatement(Expression* argument, Array<CaseStatement*> children) :
 Statement(Kind::SwitchStmt),
-argument(argument),
-cases(cases) {
+argument(nullptr) {
+    setArgument(argument);
 
+    for (auto child : children) {
+        addChild(child);
+    }
 }
 
 Expression* SwitchStatement::getArgument() const {
@@ -42,11 +45,24 @@ Expression* SwitchStatement::getArgument() const {
 }
 
 void SwitchStatement::setArgument(Expression* argument) {
+    if (argument) {
+        argument->setParent(this);
+    }
+
+    if (this->argument) {
+        this->argument->setParent(nullptr);
+    }
+
     this->argument = argument;
 }
 
-ArrayRef<CaseStatement*> SwitchStatement::getCaseStatements() const {
-    return cases;
+void SwitchStatement::addChild(CaseStatement* child) {
+    child->setParent(this);
+    children.push_back(child);
+}
+
+ArrayRef<CaseStatement*> SwitchStatement::getChildren() const {
+    return children;
 }
 
 void SwitchStatement::accept(Visitor &visitor) {
@@ -56,7 +72,7 @@ void SwitchStatement::accept(Visitor &visitor) {
         getArgument()->accept(visitor);
     }
 
-    for (auto statement : getCaseStatements()) {
-        statement->accept(visitor);
+    for (auto child : getChildren()) {
+        child->accept(visitor);
     }
 }

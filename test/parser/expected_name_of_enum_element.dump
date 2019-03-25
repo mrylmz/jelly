@@ -1,1 +1,2 @@
-ASTModule
+ModuleDeclaration
+  @name = ''

@@ -26,6 +26,7 @@
 
 #include <llvm/ADT/APInt.h>
 #include <llvm/ADT/ArrayRef.h>
+#include <llvm/ADT/MapVector.h>
 #include <llvm/ADT/StringMap.h>
 #include <llvm/ADT/StringRef.h>
 #include <llvm/ADT/SmallVector.h>
@@ -41,6 +42,7 @@
 namespace jelly {
     using llvm::APInt;
     using llvm::ArrayRef;
+    using llvm::MapVector;
     using llvm::StringMap;
     using llvm::StringRef;
     using llvm::SmallVector;

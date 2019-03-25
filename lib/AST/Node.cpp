@@ -30,22 +30,29 @@ using namespace jelly::AST;
 Node::Node(Kind kind) :
 kind(kind),
 parent(nullptr) {
+
 }
 
 Node::Kind Node::getKind() const {
     return kind;
 }
 
+Node* Node::getParent() const {
+    return parent;
+}
+
 void Node::setParent(Node* parent) {
+    assert(parent == nullptr || getParent() == nullptr);
+
     this->parent = parent;
 }
 
-void Node::setParent(Node* node, Node* parent) {
-    node->setParent(parent);
-}
+Scope* Node::getScope() {
+    if (parent) {
+        return parent->getScope();
+    }
 
-Node* Node::getParent() const {
-    return parent;
+    return nullptr;
 }
 
 bool Node::isStatement() const {
@@ -240,7 +247,7 @@ bool Node::isArrayTypeRef() const {
     return Kind::ArrayTypeRef == kind;
 }
 
-bool Node::contains(Node* node) const {
+bool Node::containsChild(Node* node) const {
     return node->getParent() == this;
 }
 

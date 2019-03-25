@@ -30,9 +30,10 @@ using namespace jelly::AST;
 
 ArrayTypeRef::ArrayTypeRef(TypeRef* elementTypeRef, Expression* value) :
 TypeRef(Kind::ArrayTypeRef),
-elementTypeRef(elementTypeRef),
-value(value) {
-
+elementTypeRef(nullptr),
+value(nullptr) {
+    setElementTypeRef(elementTypeRef);
+    setValue(value);
 }
 
 TypeRef* ArrayTypeRef::getElementTypeRef() const {
@@ -40,6 +41,14 @@ TypeRef* ArrayTypeRef::getElementTypeRef() const {
 }
 
 void ArrayTypeRef::setElementTypeRef(TypeRef* elementTypeRef) {
+    if (elementTypeRef) {
+        elementTypeRef->setParent(this);
+    }
+
+    if (this->elementTypeRef) {
+        this->elementTypeRef->setParent(nullptr);
+    }
+
     this->elementTypeRef = elementTypeRef;
 }
 
@@ -48,6 +57,14 @@ Expression* ArrayTypeRef::getValue() const {
 }
 
 void ArrayTypeRef::setValue(Expression* value) {
+    if (value) {
+        value->setParent(this);
+    }
+
+    if (this->value) {
+        this->value->setParent(nullptr);
+    }
+
     this->value = value;
 }
 

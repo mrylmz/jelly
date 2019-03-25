@@ -82,11 +82,14 @@ void Dumper::printString(StringRef text) {
 }
 
 void Dumper::printProperty(StringRef key, StringRef value) {
+    indentation += 1;
     printIndentation();
-    printString("|-");
+    printString("@");
     printString(key);
-    printString(" = ");
+    printString(" = '");
     printString(value);
+    printString("'\n");
+    indentation -= 1;
 }
 
 void Dumper::dumpKind(Node::Kind kind) {
@@ -136,7 +139,7 @@ void Dumper::dump(Node* node) {
 
     printIndentation();
     dumpKind(node->getKind());
-    printString(" ");
+    printString("\n");
 
     switch (node->getKind()) {
         case Node::Kind::Block:                 return dumpBlockStatement(reinterpret_cast<BlockStatement*>(node));
@@ -180,7 +183,7 @@ void Dumper::dump(Node* node) {
 }
 
 void Dumper::dumpBlockStatement(BlockStatement* statement) {
-    dumpChildren(statement->getStatements());
+    dumpChildren(statement->getChildren());
 }
 
 void Dumper::dumpGuardStatement(GuardStatement* statement) {
@@ -238,11 +241,7 @@ void Dumper::dumpLoadDeclaration(LoadDeclaration* declaration) {
 
 void Dumper::dumpModuleDeclaration(ModuleDeclaration* declaration) {
     printProperty("name", declaration->getName());
-    dumpChildren(declaration->getEnumerationDeclarations());
-    dumpChildren(declaration->getFunctionDeclarations());
-    dumpChildren(declaration->getStructureDeclarations());
-    dumpChildren(declaration->getLoadDeclarations());
-    dumpChildren(declaration->getValueDeclarations());
+    dumpChildren(declaration->getChildren());
 }
 
 void Dumper::dumpEnumerationElementDeclaration(EnumerationElementDeclaration* declaration) {
@@ -260,12 +259,12 @@ void Dumper::dumpParameterDeclaration(ParameterDeclaration* declaration) {
 
 void Dumper::dumpEnumerationDeclaration(EnumerationDeclaration* declaration) {
     printProperty("name", declaration->getName());
-    dumpChildren(declaration->getEnumerationElementDeclarations());
+    dumpChildren(declaration->getChildren());
 }
 
 void Dumper::dumpFunctionDeclaration(FunctionDeclaration* declaration) {
     printProperty("name", declaration->getName());
-    dumpChildren(declaration->getParameterDeclarations());
+    dumpChildren(declaration->getParameters());
     dumpChild(declaration->getReturnTypeRef());
 
     if (declaration->getBody()) {
@@ -275,7 +274,7 @@ void Dumper::dumpFunctionDeclaration(FunctionDeclaration* declaration) {
 
 void Dumper::dumpStructureDeclaration(StructureDeclaration* declaration) {
     printProperty("name", declaration->getName());
-    dumpChildren(declaration->getValueDeclarations());
+    dumpChildren(declaration->getChildren());
 }
 
 void Dumper::dumpConstantDeclaration(ConstantDeclaration* declaration) {
@@ -344,7 +343,7 @@ void Dumper::dumpStringLiteral(StringLiteral* literal) {
 
 void Dumper::dumpSwitchStatement(SwitchStatement* statement) {
     dumpChild(statement->getArgument());
-    dumpChildren(statement->getCaseStatements());
+    dumpChildren(statement->getChildren());
 }
 
 void Dumper::dumpOpaqueTypeRef(OpaqueTypeRef* typeRef) {

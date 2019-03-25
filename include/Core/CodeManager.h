@@ -34,7 +34,7 @@ struct CodeManager {
     jelly::SmallVector<jelly::SourceBuffer, 0> sourceBuffers;
 
     unsigned parseFileIndex = 0;
-    unsigned preprocessDeclIndex = 0;
+    unsigned preprocessChildIndex = 0;
 
     jelly::AST::Context context;
     jelly::DiagnosticEngine diagnosticEngine;

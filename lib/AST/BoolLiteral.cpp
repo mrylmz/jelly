@@ -30,7 +30,6 @@ using namespace jelly::AST;
 BoolLiteral::BoolLiteral(bool value) :
 Literal(Kind::BoolLit),
 value(value) {
-
 }
 
 bool BoolLiteral::getValue() const {

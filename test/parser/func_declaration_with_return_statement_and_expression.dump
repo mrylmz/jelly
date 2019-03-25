@@ -1,6 +1,10 @@
-ASTModule
-| ASTFuncDecl { name = 'main' }
-  | ASTOpaqueTypeRef { typeName = 'Int' }
-  | ASTCompoundStmt
-    | ASTReturnStmt
-      | ASTIntLit { value = '1' }
+ModuleDeclaration
+  @name = ''
+  FunctionDeclaration
+    @name = 'main'
+    OpaqueTypeRef
+      @name = 'Int'
+    BlockStatement
+      ReturnStatement
+        IntLiteral
+          @value = '1'

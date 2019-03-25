@@ -1,5 +1,9 @@
-ASTModule
-| ASTValueDecl { name = 'myPointer', isConstant = 0 }
-  | ASTPointerTypeRef { depth = '1' }
-    | ASTOpaqueTypeRef { typeName = 'Void' }
-  | ASTNilLit
+ModuleDeclaration
+  @name = ''
+  VariableDeclaration
+    @name = 'myPointer'
+    PointerTypeRef
+      @depth = '1'
+      OpaqueTypeRef
+        @name = 'Void'
+    NilLiteral

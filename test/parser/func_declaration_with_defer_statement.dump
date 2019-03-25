@@ -1,14 +1,24 @@
-ASTModule
-| ASTFuncDecl { name = 'main' }
-  | ASTOpaqueTypeRef { typeName = 'Void' }
-  | ASTCompoundStmt
-    | ASTValueDecl { name = 'mem', isConstant = 0 }
-      | ASTPointerTypeRef { depth = '1' }
-        | ASTOpaqueTypeRef { typeName = 'Void' }
-      | ASTCallExpr
-        | ASTIdentExpr { declName = 'alloc' }
-        | ASTIntLit { value = '10' }
-    | ASTDeferStmt
-      | ASTCallExpr
-        | ASTIdentExpr { declName = 'free' }
-        | ASTIdentExpr { declName = 'mem' }
+ModuleDeclaration
+  @name = ''
+  FunctionDeclaration
+    @name = 'main'
+    OpaqueTypeRef
+      @name = 'Void'
+    BlockStatement
+      VariableDeclaration
+        @name = 'mem'
+        PointerTypeRef
+          @depth = '1'
+          OpaqueTypeRef
+            @name = 'Void'
+        CallExpression
+          IdentifierExpression
+            @identifier = 'alloc'
+          IntLiteral
+            @value = '10'
+      DeferStatement
+        CallExpression
+          IdentifierExpression
+            @identifier = 'free'
+          IdentifierExpression
+            @identifier = 'mem'

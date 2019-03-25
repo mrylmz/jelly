@@ -1,8 +1,12 @@
-ASTModule
-| ASTFuncDecl { name = 'main' }
-  | ASTOpaqueTypeRef { typeName = 'Void' }
-  | ASTCompoundStmt
-    | ASTGuardStmt
-      | ASTBoolLit { value = '1' }
-      | ASTCompoundStmt
-        | ASTReturnStmt
+ModuleDeclaration
+  @name = ''
+  FunctionDeclaration
+    @name = 'main'
+    OpaqueTypeRef
+      @name = 'Void'
+    BlockStatement
+      GuardStatement
+        BoolLiteral
+          @value = 'true'
+        BlockStatement
+          ReturnStatement

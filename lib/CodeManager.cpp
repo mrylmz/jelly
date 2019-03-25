@@ -31,6 +31,7 @@
 #include <Parse/Parse.h>
 
 using namespace jelly;
+using namespace jelly::AST;
 using namespace jelly::Parse;
 
 CodeManager::CodeManager(DiagnosticHandler* diagnosticHandler) : diagnosticEngine(DiagnosticEngine(diagnosticHandler)) {}
@@ -76,18 +77,21 @@ void CodeManager::parseAST() {
             Parser parser(&lexer, &diagnosticEngine);
             parser.parseAllTopLevelNodes();
 
-            auto loadDeclarations = context.getModule()->getLoadDeclarations();
-            for (auto it = loadDeclarations.begin() + preprocessDeclIndex; it != loadDeclarations.end(); it++) {
-                auto sourceFilePath = getNativePath((*it)->getSourceFilePath());
+            auto children = context.getModule()->getChildren();
+            for (auto it = children.begin() + preprocessChildIndex; it != children.end(); it++) {
+                if ((*it)->isLoadDeclaration()) {
+                    auto declaration = reinterpret_cast<LoadDeclaration*>(*it);
+                    auto sourceFilePath = getNativePath(declaration->getSourceFilePath());
 
-                // @Incomplete Add source location information of LoadDeclaration and enable includes of local files in subdirectories
-                addSourceFile(sourceFilePath);
+                    // @Incomplete Add source location information of LoadDeclaration and enable includes of local files in subdirectories
+                    addSourceFile(sourceFilePath);
 
-                if (diagnosticEngine.getReportedErrorCount() > 0 || diagnosticEngine.getReportedFatalCount() > 0) {
-                    return;
+                    if (diagnosticEngine.getReportedErrorCount() > 0 || diagnosticEngine.getReportedFatalCount() > 0) {
+                        return;
+                    }
                 }
 
-                preprocessDeclIndex += 1;
+                preprocessChildIndex += 1;
             }
         }
         parseFileIndex += 1;

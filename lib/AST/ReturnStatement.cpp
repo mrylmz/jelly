@@ -30,7 +30,8 @@ using namespace jelly::AST;
 
 ReturnStatement::ReturnStatement(Expression* value) :
 ControlStatement(Kind::ReturnStmt),
-value(value) {
+value(nullptr) {
+    setValue(value);
 }
 
 Expression* ReturnStatement::getValue() const {
@@ -38,6 +39,14 @@ Expression* ReturnStatement::getValue() const {
 }
 
 void ReturnStatement::setValue(Expression* value) {
+    if (value) {
+        value->setParent(this);
+    }
+
+    if (this->value) {
+        this->value->setParent(nullptr);
+    }
+
     this->value = value;
 }
 

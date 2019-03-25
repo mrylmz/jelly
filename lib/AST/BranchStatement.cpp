@@ -23,12 +23,14 @@
 //
 
 #include "AST/BranchStatement.h"
+#include "AST/Expression.h"
 
 using namespace jelly::AST;
 
 BranchStatement::BranchStatement(Kind kind, Expression* condition) :
 Statement(kind),
-condition(condition) {
+condition(nullptr) {
+    setCondition(condition);
 }
 
 Expression* BranchStatement::getCondition() const {
@@ -36,5 +38,13 @@ Expression* BranchStatement::getCondition() const {
 }
 
 void BranchStatement::setCondition(Expression* condition) {
+    if (condition) {
+        condition->setParent(this);
+    }
+
+    if (this->condition) {
+        this->condition->setParent(nullptr);
+    }
+
     this->condition = condition;
 }

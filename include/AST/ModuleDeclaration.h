@@ -25,44 +25,29 @@
 #pragma once
 
 #include "AST/NamedDeclaration.h"
+#include "AST/Scope.h"
 #include <Basic/Basic.h>
 
 namespace jelly {
 namespace AST {
 
-    class EnumerationDeclaration;
-    class FunctionDeclaration;
-    class StructureDeclaration;
-    class LoadDeclaration;
-    class ValueDeclaration;
+    class Declaration;
 
     class ModuleDeclaration final: public NamedDeclaration {
-        Array<EnumerationDeclaration*> enumerations;
-        Array<FunctionDeclaration*> functions;
-        Array<StructureDeclaration*> structures;
-        Array<LoadDeclaration*> loads;
-        Array<ValueDeclaration*> values;
+        Array<Declaration*> children;
+        Scope scope;
 
     public:
 
-        ModuleDeclaration(Identifier name,
-               ArrayRef<EnumerationDeclaration*> enumerations,
-               ArrayRef<FunctionDeclaration*> functions,
-               ArrayRef<StructureDeclaration*> structures,
-               ArrayRef<LoadDeclaration*> loads,
-               ArrayRef<ValueDeclaration*> values);
+        ModuleDeclaration(Identifier name, ArrayRef<Declaration*> children);
 
-        void addDeclaration(Declaration* declaration);
+        Scope* getScope() override;
 
-        Declaration* lookupDeclaration(StringRef name) const;
+        void addChild(Declaration* child);
 
-        ArrayRef<EnumerationDeclaration*> getEnumerationDeclarations() const;
-        ArrayRef<FunctionDeclaration*> getFunctionDeclarations() const;
-        ArrayRef<StructureDeclaration*> getStructureDeclarations() const;
-        ArrayRef<LoadDeclaration*> getLoadDeclarations() const;
-        ArrayRef<ValueDeclaration*> getValueDeclarations() const;
+        ArrayRef<Declaration*> getChildren() const;
 
-        void accept(Visitor &visitor);
+        void accept(Visitor &visitor) override;
     };
 }
 }

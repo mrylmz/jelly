@@ -121,8 +121,10 @@ const Operator Operator::BitwiseXorAssign        = Operator::CreateInfix("^=", A
 // MARK: - Postfix Operators
 const Operator Operator::Selector    = Operator::CreatePostfix(".",  Associativity::Left, 1000);
 const Operator Operator::TypePointer = Operator::CreatePostfix("*",  Associativity::Left, 1000);
-const Operator Operator::Call        = Operator::CreatePostfix("()", Associativity::Left, 1000);
-const Operator Operator::Subscript   = Operator::CreatePostfix("[]", Associativity::Left, 1000);
+
+// @Todo Store full symbol in Operator but scan for opening part in Lexer!
+const Operator Operator::Call        = Operator::CreatePostfix("(" /* ) */, Associativity::Left, 1000);
+const Operator Operator::Subscript   = Operator::CreatePostfix("[" /* ] */, Associativity::Left, 1000);
 
 bool Operator::operator == (Operator other) const {
     return (getSymbol() == other.getSymbol() &&

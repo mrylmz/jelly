@@ -1,4 +1,8 @@
-ASTModule
-| ASTValueDecl { name = 'myVar', isConstant = 0 }
-  | ASTOpaqueTypeRef { typeName = 'Bool' }
-  | ASTBoolLit { value = '0' }
+ModuleDeclaration
+  @name = ''
+  VariableDeclaration
+    @name = 'myVar'
+    OpaqueTypeRef
+      @name = 'Bool'
+    BoolLiteral
+      @value = 'false'

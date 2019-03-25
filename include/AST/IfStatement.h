@@ -30,7 +30,7 @@ namespace jelly {
 namespace AST {
 
     class BlockStatement;
-    
+
     class IfStatement final: public BranchStatement {
         BlockStatement* thenBlock;
         BlockStatement* elseBlock;

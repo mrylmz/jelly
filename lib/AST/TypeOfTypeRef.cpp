@@ -30,8 +30,8 @@ using namespace jelly::AST;
 
 TypeOfTypeRef::TypeOfTypeRef(Expression* expression) :
 TypeRef(Kind::TypeOfTypeRef),
-expression(expression) {
-
+expression(nullptr) {
+    setExpression(expression);
 }
 
 Expression* TypeOfTypeRef::getExpression() const {
@@ -39,6 +39,14 @@ Expression* TypeOfTypeRef::getExpression() const {
 }
 
 void TypeOfTypeRef::setExpression(Expression* expression) {
+    if (expression) {
+        expression->setParent(this);
+    }
+
+    if (this->expression) {
+        this->expression->setParent(nullptr);
+    }
+
     this->expression = expression;
 }
 

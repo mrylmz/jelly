@@ -30,8 +30,8 @@ using namespace jelly::AST;
 UnaryExpression::UnaryExpression(Operator op, Expression* right) :
 Expression(Kind::UnaryExpr),
 op(op),
-right(right) {
-
+right(nullptr) {
+    setRight(right);
 }
 
 Operator UnaryExpression::getOperator() const {
@@ -47,6 +47,14 @@ Expression* UnaryExpression::getRight() const {
 }
 
 void UnaryExpression::setRight(Expression* right) {
+    if (right) {
+        right->setParent(this);
+    }
+
+    if (this->right) {
+        this->right->setParent(nullptr);
+    }
+
     this->right = right;
 }
 

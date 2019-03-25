@@ -29,9 +29,9 @@ using namespace jelly::AST;
 
 MemberAccessExpression::MemberAccessExpression(Expression* left, Identifier memberName) :
 Expression(Kind::MemberAccessExpr),
-left(left),
+left(nullptr),
 memberName(memberName) {
-
+    setLeft(left);
 }
 
 Expression* MemberAccessExpression::getLeft() const {
@@ -39,6 +39,14 @@ Expression* MemberAccessExpression::getLeft() const {
 }
 
 void MemberAccessExpression::setLeft(Expression* left) {
+    if (left) {
+        left->setParent(this);
+    }
+
+    if (this->left) {
+        this->left->setParent(nullptr);
+    }
+
     this->left = left;
 }
 

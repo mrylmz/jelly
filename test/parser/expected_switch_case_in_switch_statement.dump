@@ -1,1 +1,10 @@
-ASTModule
+ModuleDeclaration
+  @name = ''
+  FunctionDeclaration
+    @name = 'main'
+    OpaqueTypeRef
+      @name = 'Void'
+    BlockStatement
+      SwitchStatement
+        IdentifierExpression
+          @identifier = 'expr'

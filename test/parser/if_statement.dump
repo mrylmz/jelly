@@ -1,7 +1,11 @@
-ASTModule
-| ASTFuncDecl { name = 'main' }
-  | ASTOpaqueTypeRef { typeName = 'Void' }
-  | ASTCompoundStmt
-    | ASTIfStmt
-      | ASTIdentExpr { declName = 'condition' }
-      | ASTCompoundStmt
+ModuleDeclaration
+  @name = ''
+  FunctionDeclaration
+    @name = 'main'
+    OpaqueTypeRef
+      @name = 'Void'
+    BlockStatement
+      IfStatement
+        IdentifierExpression
+          @identifier = 'condition'
+        BlockStatement

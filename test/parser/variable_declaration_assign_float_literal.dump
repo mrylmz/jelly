@@ -1,4 +1,8 @@
-ASTModule
-| ASTValueDecl { name = 'myFloat', isConstant = 0 }
-  | ASTOpaqueTypeRef { typeName = 'Float' }
-  | ASTFloatLit { value = '3.14' }
+ModuleDeclaration
+  @name = ''
+  VariableDeclaration
+    @name = 'myFloat'
+    OpaqueTypeRef
+      @name = 'Float'
+    FloatLiteral
+      @value = '3.140000'

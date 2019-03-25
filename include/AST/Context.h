@@ -35,10 +35,12 @@ namespace AST {
 
     class Node;
     class ModuleDeclaration;
+    class Scope;
     class Type;
 
     class Context {
         friend class Node;
+        friend class Scope;
         friend class Type;
 
         BumpPtrAllocator allocator;

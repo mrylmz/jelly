@@ -1,6 +1,12 @@
-ASTModule
-| ASTEnumDecl { name = 'Direction' }
-  | ASTEnumElementDecl { name = 'north' }
-  | ASTEnumElementDecl { name = 'east' }
-  | ASTEnumElementDecl { name = 'south' }
-  | ASTEnumElementDecl { name = 'west' }
+ModuleDeclaration
+  @name = ''
+  EnumerationDeclaration
+    @name = 'Direction'
+    EnumerationElementDeclaration
+      @name = 'north'
+    EnumerationElementDeclaration
+      @name = 'east'
+    EnumerationElementDeclaration
+      @name = 'south'
+    EnumerationElementDeclaration
+      @name = 'west'

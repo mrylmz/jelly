@@ -1,11 +1,19 @@
-ASTModule
-| ASTFuncDecl { name = 'main' }
-  | ASTOpaqueTypeRef { typeName = 'Void' }
-  | ASTCompoundStmt
-    | ASTIfStmt
-      | ASTBinaryExpr { operator = '&&' }
-        | ASTBinaryExpr { operator = '&&' }
-          | ASTIdentExpr { declName = 'condition0' }
-          | ASTIdentExpr { declName = 'condition1' }
-        | ASTIdentExpr { declName = 'condition2' }
-      | ASTCompoundStmt
+ModuleDeclaration
+  @name = ''
+  FunctionDeclaration
+    @name = 'main'
+    OpaqueTypeRef
+      @name = 'Void'
+    BlockStatement
+      IfStatement
+        BinaryExpression
+          @operator = '&&'
+          BinaryExpression
+            @operator = '&&'
+            IdentifierExpression
+              @identifier = 'condition0'
+            IdentifierExpression
+              @identifier = 'condition1'
+          IdentifierExpression
+            @identifier = 'condition2'
+        BlockStatement

@@ -31,7 +31,8 @@ using namespace jelly::AST;
 
 EnumerationElementDeclaration::EnumerationElementDeclaration(Identifier name, Expression* value) :
 NamedDeclaration(Kind::EnumerationElement, name),
-value(value) {
+value(nullptr) {
+    setValue(value);
 }
 
 Expression* EnumerationElementDeclaration::getValue() const {
@@ -39,6 +40,14 @@ Expression* EnumerationElementDeclaration::getValue() const {
 }
 
 void EnumerationElementDeclaration::setValue(Expression* value) {
+    if (value) {
+        value->setParent(this);
+    }
+
+    if (this->value) {
+        this->value->setParent(nullptr);
+    }
+
     this->value = value;
 }
 

@@ -1,25 +1,43 @@
-ASTModule
-| ASTFuncDecl { name = 'fibonacci' }
-  | ASTParamDecl { name = 'n' }
-    | ASTOpaqueTypeRef { typeName = 'Int' }
-  | ASTOpaqueTypeRef { typeName = 'Int' }
-  | ASTCompoundStmt
-    | ASTIfStmt
-      | ASTBinaryExpr { operator = '<' }
-        | ASTIdentExpr { declName = 'n' }
-        | ASTIntLit { value = '2' }
-      | ASTCompoundStmt
-        | ASTReturnStmt
-          | ASTIdentExpr { declName = 'n' }
-    | ASTReturnStmt
-      | ASTBinaryExpr { operator = '+' }
-        | ASTCallExpr
-          | ASTIdentExpr { declName = 'fibonacci' }
-          | ASTBinaryExpr { operator = '-' }
-            | ASTIdentExpr { declName = 'n' }
-            | ASTIntLit { value = '1' }
-        | ASTCallExpr
-          | ASTIdentExpr { declName = 'fibonacci' }
-          | ASTBinaryExpr { operator = '-' }
-            | ASTIdentExpr { declName = 'n' }
-            | ASTIntLit { value = '2' }
+ModuleDeclaration
+  @name = ''
+  FunctionDeclaration
+    @name = 'fibonacci'
+    ParameterDeclaration
+      @name = 'n'
+      OpaqueTypeRef
+        @name = 'Int'
+    OpaqueTypeRef
+      @name = 'Int'
+    BlockStatement
+      IfStatement
+        BinaryExpression
+          @operator = '<'
+          IdentifierExpression
+            @identifier = 'n'
+          IntLiteral
+            @value = '2'
+        BlockStatement
+          ReturnStatement
+            IdentifierExpression
+              @identifier = 'n'
+      ReturnStatement
+        BinaryExpression
+          @operator = '+'
+          CallExpression
+            IdentifierExpression
+              @identifier = 'fibonacci'
+            BinaryExpression
+              @operator = '-'
+              IdentifierExpression
+                @identifier = 'n'
+              IntLiteral
+                @value = '1'
+          CallExpression
+            IdentifierExpression
+              @identifier = 'fibonacci'
+            BinaryExpression
+              @operator = '-'
+              IdentifierExpression
+                @identifier = 'n'
+              IntLiteral
+                @value = '2'

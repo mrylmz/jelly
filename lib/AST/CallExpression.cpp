@@ -28,11 +28,14 @@
 using namespace jelly;
 using namespace jelly::AST;
 
-CallExpression::CallExpression(Expression* callee, Array<Expression*> arguments) :
+CallExpression::CallExpression(Expression* callee, ArrayRef<Expression*> arguments) :
 Expression(Kind::CallExpr),
-callee(callee),
-arguments(arguments) {
-    
+callee(nullptr) {
+    setCallee(callee);
+
+    for (auto argument : arguments) {
+        addArgument(argument);
+    }
 }
 
 Expression* CallExpression::getCallee() const {
@@ -40,7 +43,20 @@ Expression* CallExpression::getCallee() const {
 }
 
 void CallExpression::setCallee(Expression* callee) {
+    if (callee) {
+        callee->setParent(this);
+    }
+
+    if (this->callee) {
+        this->callee->setParent(nullptr);
+    }
+
     this->callee = callee;
+}
+
+void CallExpression::addArgument(Expression *argument) {
+    argument->setParent(this);
+    arguments.push_back(argument);
 }
 
 ArrayRef<Expression*> CallExpression::getArguments() const {

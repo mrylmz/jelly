@@ -85,8 +85,6 @@ namespace AST {
 
         template<typename Element>
         void dumpChild(Element* child) {
-            printIndentation();
-            printString("| ");
             indentation += 1;
             dump(child);
             indentation -= 1;

@@ -30,7 +30,8 @@ using namespace jelly::AST;
 
 DeferStatement::DeferStatement(Expression* expression) :
 Statement(Kind::Defer),
-expression(expression) {
+expression(nullptr) {
+    setExpression(expression);
 }
 
 Expression* DeferStatement::getExpression() const {
@@ -38,6 +39,14 @@ Expression* DeferStatement::getExpression() const {
 }
 
 void DeferStatement::setExpression(Expression* expression) {
+    if (expression) {
+        expression->setParent(this);
+    }
+
+    if (this->expression) {
+        this->expression->setParent(nullptr);
+    }
+
     this->expression = expression;
 }
 

@@ -31,8 +31,8 @@ using namespace jelly::AST;
 
 ConditionalCaseStatement::ConditionalCaseStatement(Expression* condition, BlockStatement* body) :
 CaseStatement(Kind::ConditionalCaseStmt, body),
-condition(condition) {
-
+condition(nullptr) {
+    setCondition(condition);
 }
 
 Expression* ConditionalCaseStatement::getCondition() const {
@@ -40,6 +40,14 @@ Expression* ConditionalCaseStatement::getCondition() const {
 }
 
 void ConditionalCaseStatement::setCondition(Expression* condition) {
+    if (condition) {
+        condition->setParent(this);
+    }
+
+    if (this->condition) {
+        this->condition->setParent(nullptr);
+    }
+
     this->condition = condition;
 }
 

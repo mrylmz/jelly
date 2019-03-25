@@ -24,6 +24,7 @@
 
 #pragma once
 
+#include "AST/Scope.h"
 #include "AST/TypeDeclaration.h"
 #include <Basic/Basic.h>
 
@@ -33,17 +34,20 @@ namespace AST {
     class ValueDeclaration;
 
     class StructureDeclaration final: public TypeDeclaration {
-        Array<ValueDeclaration*> values;
+        Array<ValueDeclaration*> children;
+        Scope scope;
 
     public:
 
-        StructureDeclaration(Identifier name, ArrayRef<ValueDeclaration*> values);
+        StructureDeclaration(Identifier name, ArrayRef<ValueDeclaration*> children);
 
-        ArrayRef<ValueDeclaration*> getValueDeclarations() const;
-        void addDeclaration(ValueDeclaration* declaration);
-        ValueDeclaration* lookupDeclaration(StringRef name) const;
+        Scope* getScope() override;
 
-        void accept(Visitor &visitor);
+        void addChild(ValueDeclaration* child);
+
+        ArrayRef<ValueDeclaration*> getChildren() const;
+
+        void accept(Visitor &visitor) override;
     };
 }
 }

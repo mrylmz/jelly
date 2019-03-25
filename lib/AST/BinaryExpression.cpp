@@ -30,9 +30,10 @@ using namespace jelly::AST;
 BinaryExpression::BinaryExpression(Operator op, Expression* left, Expression* right) :
 Expression(Kind::BinaryExpr),
 op(op),
-left(left),
-right(right) {
-
+left(nullptr),
+right(nullptr) {
+    setLeft(left);
+    setRight(right);
 }
 
 Operator BinaryExpression::getOperator() const {
@@ -48,6 +49,14 @@ Expression* BinaryExpression::getLeft() const {
 }
 
 void BinaryExpression::setLeft(Expression* left) {
+    if (left) {
+        left->setParent(this);
+    }
+
+    if (this->left) {
+        this->left->setParent(nullptr);
+    }
+
     this->left = left;
 }
 
@@ -56,6 +65,14 @@ Expression* BinaryExpression::getRight() const {
 }
 
 void BinaryExpression::setRight(Expression* right) {
+    if (right) {
+        right->setParent(this);
+    }
+
+    if (this->right) {
+        this->right->setParent(nullptr);
+    }
+
     this->right = right;
 }
 

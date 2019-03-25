@@ -1,18 +1,25 @@
-ASTModule
-| ASTFuncDecl { name = 'main' }
-  | ASTOpaqueTypeRef { typeName = 'Void' }
-  | ASTCompoundStmt
-    | ASTSwitchStmt
-      | ASTIdentExpr { declName = 'expr' }
-      | ASTCaseStmt { caseKind = 'case' }
-        | ASTIntLit { value = '0' }
-        | ASTCompoundStmt
-          | ASTReturnStmt
-      | ASTCaseStmt { caseKind = 'case' }
-        | ASTIntLit { value = '1' }
-        | ASTCompoundStmt
-          | ASTReturnStmt
-      | ASTCaseStmt { caseKind = 'case' }
-        | ASTIntLit { value = '2' }
-        | ASTCompoundStmt
-          | ASTReturnStmt
+ModuleDeclaration
+  @name = ''
+  FunctionDeclaration
+    @name = 'main'
+    OpaqueTypeRef
+      @name = 'Void'
+    BlockStatement
+      SwitchStatement
+        IdentifierExpression
+          @identifier = 'expr'
+        ConditionalCaseStatement
+          IntLiteral
+            @value = '0'
+          BlockStatement
+            ReturnStatement
+        ConditionalCaseStatement
+          IntLiteral
+            @value = '1'
+          BlockStatement
+            ReturnStatement
+        ConditionalCaseStatement
+          IntLiteral
+            @value = '2'
+          BlockStatement
+            ReturnStatement

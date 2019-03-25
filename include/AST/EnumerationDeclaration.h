@@ -24,6 +24,7 @@
 
 #pragma once
 
+#include "AST/Scope.h"
 #include "AST/TypeDeclaration.h"
 
 namespace jelly {
@@ -32,18 +33,20 @@ namespace AST {
     class EnumerationElementDeclaration;
 
     class EnumerationDeclaration final: public TypeDeclaration {
-        Array<EnumerationElementDeclaration*> elements;
+        Array<EnumerationElementDeclaration*> children;
+        Scope scope;
 
     public:
 
-        EnumerationDeclaration(Identifier name, ArrayRef<EnumerationElementDeclaration*> elements);
+        EnumerationDeclaration(Identifier name, ArrayRef<EnumerationElementDeclaration*> children);
 
-        void addDeclaration(EnumerationElementDeclaration* declaration);
-        EnumerationElementDeclaration* lookupDeclaration(StringRef name) const;
+        Scope* getScope() override;
 
-        ArrayRef<EnumerationElementDeclaration*> getEnumerationElementDeclarations() const;
+        void addChild(EnumerationElementDeclaration* child);
 
-        void accept(Visitor &visitor);
+        ArrayRef<EnumerationElementDeclaration*> getChildren() const;
+
+        void accept(Visitor &visitor) override;
     };
 }
 }

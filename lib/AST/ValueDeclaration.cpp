@@ -22,14 +22,18 @@
 // SOFTWARE.
 //
 
+#include "AST/Expression.h"
+#include "AST/TypeRef.h"
 #include "AST/ValueDeclaration.h"
 
 using namespace jelly::AST;
 
 ValueDeclaration::ValueDeclaration(Kind kind, Identifier name, TypeRef* typeRef, Expression* initializer) :
 NamedDeclaration(kind, name),
-typeRef(typeRef),
-initializer(initializer) {
+typeRef(nullptr),
+initializer(nullptr) {
+    setTypeRef(typeRef);
+    setInitializer(initializer);
 }
 
 TypeRef* ValueDeclaration::getTypeRef() const {
@@ -37,6 +41,14 @@ TypeRef* ValueDeclaration::getTypeRef() const {
 }
 
 void ValueDeclaration::setTypeRef(TypeRef* typeRef) {
+    if (typeRef) {
+        typeRef->setParent(this);
+    }
+
+    if (this->typeRef) {
+        this->typeRef->setParent(nullptr);
+    }
+
     this->typeRef = typeRef;
 }
 
@@ -45,5 +57,13 @@ Expression* ValueDeclaration::getInitializer() const {
 }
 
 void ValueDeclaration::setInitializer(Expression* initializer) {
+    if (initializer) {
+        initializer->setParent(this);
+    }
+
+    if (this->initializer) {
+        this->initializer->setParent(nullptr);
+    }
+
     this->initializer = initializer;
 }

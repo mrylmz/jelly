@@ -1,6 +1,10 @@
-ASTModule
-| ASTFuncDecl { name = 'main' }
-  | ASTOpaqueTypeRef { typeName = 'Void' }
-  | ASTCompoundStmt
-    | ASTCallExpr
-      | ASTIdentExpr { declName = 'myFunc' }
+ModuleDeclaration
+  @name = ''
+  FunctionDeclaration
+    @name = 'main'
+    OpaqueTypeRef
+      @name = 'Void'
+    BlockStatement
+      CallExpression
+        IdentifierExpression
+          @identifier = 'myFunc'

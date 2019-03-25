@@ -24,6 +24,7 @@
 
 #pragma once
 
+#include "AST/Scope.h"
 #include "AST/TypeDeclaration.h"
 #include <Basic/Basic.h>
 
@@ -38,13 +39,15 @@ namespace AST {
         Array<ParameterDeclaration*> parameters;
         TypeRef* returnTypeRef;
         BlockStatement* body;
+        Scope scope;
 
     public:
         FunctionDeclaration(Identifier name, ArrayRef<ParameterDeclaration*> parameters, TypeRef* returnTypeRef, BlockStatement* body);
 
-        ArrayRef<ParameterDeclaration*> getParameterDeclarations() const;
-        void addDeclaration(ParameterDeclaration* parameter);
-        ParameterDeclaration* lookupDeclaration(StringRef name) const;
+        Scope* getScope() override;
+
+        ArrayRef<ParameterDeclaration*> getParameters() const;
+        void addParameter(ParameterDeclaration* parameter);
 
         TypeRef* getReturnTypeRef() const;
         void setReturnTypeRef(TypeRef* returnTypeRef);
@@ -54,7 +57,7 @@ namespace AST {
 
         bool isDefinition() const;
 
-        void accept(Visitor &visitor);
+        void accept(Visitor &visitor) override;
     };
 }
 }

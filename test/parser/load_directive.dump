@@ -1,2 +1,4 @@
-ASTModule
-| ASTLoad { loadFilePath = 'path/to/source/file.jelly' }
+ModuleDeclaration
+  @name = ''
+  LoadDeclaration
+    @sourceFilePath = 'path/to/source/file.jelly'

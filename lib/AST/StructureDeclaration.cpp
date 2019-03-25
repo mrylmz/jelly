@@ -29,36 +29,31 @@
 using namespace jelly;
 using namespace jelly::AST;
 
-StructureDeclaration::StructureDeclaration(Identifier name, ArrayRef<ValueDeclaration*> values) :
-TypeDeclaration(Kind::Structure, name, nullptr) {
-    for (auto value : values) { addDeclaration(value); }
-}
-
-ArrayRef<ValueDeclaration*> StructureDeclaration::getValueDeclarations() const {
-    return values;
-}
-
-void StructureDeclaration::addDeclaration(ValueDeclaration* declaration) {
-    assert(declaration->getParent() == nullptr);
-
-    Node::setParent(declaration, this);
-    values.push_back(declaration);
-}
-
-ValueDeclaration* StructureDeclaration::lookupDeclaration(StringRef name) const {
-    for (auto value : values) {
-        if (value->getName()->equals(name)) {
-            return value;
-        }
+StructureDeclaration::StructureDeclaration(Identifier name, ArrayRef<ValueDeclaration*> children) :
+TypeDeclaration(Kind::Structure, name, nullptr),
+scope(Scope::Kind::StructureDeclaration, this) {
+    for (auto child : children) {
+        addChild(child);
     }
+}
 
-    return nullptr;
+Scope* StructureDeclaration::getScope() {
+    return &scope;
+}
+
+ArrayRef<ValueDeclaration*> StructureDeclaration::getChildren() const {
+    return children;
+}
+
+void StructureDeclaration::addChild(ValueDeclaration *child) {
+    child->setParent(this);
+    children.push_back(child);
 }
 
 void StructureDeclaration::accept(Visitor &visitor) {
     visitor.visitStructureDeclaration(this);
 
-    for (auto declaration : getValueDeclarations()) {
-        declaration->accept(visitor);
+    for (auto child : getChildren()) {
+        child->accept(visitor);
     }
 }

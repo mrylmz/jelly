@@ -69,6 +69,7 @@
 #include "AST/ParameterDeclaration.h"
 #include "AST/PointerTypeRef.h"
 #include "AST/ReturnStatement.h"
+#include "AST/Scope.h"
 #include "AST/Statement.h"
 #include "AST/StringLiteral.h"
 #include "AST/StructureDeclaration.h"

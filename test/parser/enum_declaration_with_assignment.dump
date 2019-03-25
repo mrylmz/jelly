@@ -1,11 +1,22 @@
-ASTModule
-| ASTEnumDecl { name = 'Direction' }
-  | ASTEnumElementDecl { name = 'north' }
-    | ASTIntLit { value = '1' }
-  | ASTEnumElementDecl { name = 'east' }
-    | ASTIntLit { value = '2' }
-  | ASTEnumElementDecl { name = 'south' }
-  | ASTEnumElementDecl { name = 'west' }
-    | ASTBinaryExpr { operator = '*' }
-      | ASTIntLit { value = '2' }
-      | ASTIntLit { value = '2' }
+ModuleDeclaration
+  @name = ''
+  EnumerationDeclaration
+    @name = 'Direction'
+    EnumerationElementDeclaration
+      @name = 'north'
+      IntLiteral
+        @value = '1'
+    EnumerationElementDeclaration
+      @name = 'east'
+      IntLiteral
+        @value = '2'
+    EnumerationElementDeclaration
+      @name = 'south'
+    EnumerationElementDeclaration
+      @name = 'west'
+      BinaryExpression
+        @operator = '*'
+        IntLiteral
+          @value = '2'
+        IntLiteral
+          @value = '2'

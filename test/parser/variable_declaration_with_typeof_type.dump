@@ -1,5 +1,9 @@
-ASTModule
-| ASTValueDecl { name = 'x', isConstant = 0 }
-  | ASTTypeOfTypeRef
-    | ASTBoolLit { value = '1' }
-  | ASTBoolLit { value = '0' }
+ModuleDeclaration
+  @name = ''
+  VariableDeclaration
+    @name = 'x'
+    TypeOfTypeRef
+      BoolLiteral
+        @value = 'true'
+    BoolLiteral
+      @value = 'false'

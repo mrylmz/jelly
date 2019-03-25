@@ -36,11 +36,12 @@ namespace AST {
 
     public:
 
-        CallExpression(Expression* callee, Array<Expression*> arguments);
+        CallExpression(Expression* callee, ArrayRef<Expression*> arguments);
 
         Expression* getCallee() const;
         void setCallee(Expression* callee);
 
+        void addArgument(Expression* argument);
         ArrayRef<Expression*> getArguments() const;
 
         void accept(Visitor &visitor);

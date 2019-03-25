@@ -66,6 +66,7 @@ namespace AST {
     class CallExpression;
     class Literal;
     class NilLiteral;
+    class Node;
     class BoolLiteral;
     class IntLiteral;
     class FloatLiteral;

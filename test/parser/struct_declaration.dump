@@ -1,2 +1,4 @@
-ASTModule
-| ASTStructDecl { name = 'Empty' }
+ModuleDeclaration
+  @name = ''
+  StructureDeclaration
+    @name = 'Empty'

@@ -28,58 +28,31 @@
 using namespace jelly;
 using namespace jelly::AST;
 
-BlockStatement::BlockStatement(ArrayRef<Statement*> statements) :
-Statement(Kind::Block) {
-    for (auto statement : statements) {
-        addStatement(statement);
+BlockStatement::BlockStatement(ArrayRef<Statement*> children) :
+Statement(Kind::Block),
+scope(Scope::Kind::BlockStatement, this) {
+    for (auto child : children) {
+        addChild(child);
     }
 }
 
-void BlockStatement::addDeclaration(Declaration* declaration) {
-    assert(declaration->getParent() == nullptr);
-
-    if (declaration->isValueDeclaration()) {
-        Node::setParent(declaration, this);
-        return values.push_back(reinterpret_cast<ValueDeclaration*>(declaration));
-    }
-
-    report_fatal_error("Invalid declaration type added to Module!");
+Scope* BlockStatement::getScope() {
+    return &scope;
 }
 
-ArrayRef<ValueDeclaration*> BlockStatement::getValueDeclarations() const {
-    return values;
+ArrayRef<Statement*> BlockStatement::getChildren() const {
+    return children;
 }
 
-ArrayRef<Statement*> BlockStatement::getStatements() const {
-    return statements;
-}
-
-Declaration* BlockStatement::lookupDeclaration(StringRef name) const {
-    for (auto value : values) {
-        if (value->getName()->equals(name)) {
-            return value;
-        }
-    }
-
-    return nullptr;
-}
-
-void BlockStatement::addStatement(Statement* statement) {
-    assert(statement->getParent() == nullptr);
-
-    if (statement->isValueDeclaration()) {
-        addDeclaration(reinterpret_cast<ValueDeclaration*>(statement));
-    } else {
-        Node::setParent(statement, this);
-    }
-
-    statements.push_back(statement);
+void BlockStatement::addChild(Statement* child) {
+    child->setParent(this);
+    children.push_back(child);
 }
 
 void BlockStatement::accept(Visitor &visitor) {
     visitor.visitBlockStatement(this);
 
-    for (auto statement : getStatements()) {
-        statement->accept(visitor);
+    for (auto child : getChildren()) {
+        child->accept(visitor);
     }
 }

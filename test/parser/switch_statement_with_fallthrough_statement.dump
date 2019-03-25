@@ -1,22 +1,30 @@
-ASTModule
-| ASTFuncDecl { name = 'main' }
-  | ASTOpaqueTypeRef { typeName = 'Void' }
-  | ASTCompoundStmt
-    | ASTSwitchStmt
-      | ASTIdentExpr { declName = 'direction' }
-      | ASTCaseStmt { caseKind = 'case' }
-        | ASTIdentExpr { declName = 'north' }
-        | ASTCompoundStmt
-          | ASTFallthroughStmt
-      | ASTCaseStmt { caseKind = 'case' }
-        | ASTIdentExpr { declName = 'east' }
-        | ASTCompoundStmt
-          | ASTFallthroughStmt
-      | ASTCaseStmt { caseKind = 'case' }
-        | ASTIdentExpr { declName = 'south' }
-        | ASTCompoundStmt
-          | ASTFallthroughStmt
-      | ASTCaseStmt { caseKind = 'case' }
-        | ASTIdentExpr { declName = 'west' }
-        | ASTCompoundStmt
-          | ASTBreakStmt
+ModuleDeclaration
+  @name = ''
+  FunctionDeclaration
+    @name = 'main'
+    OpaqueTypeRef
+      @name = 'Void'
+    BlockStatement
+      SwitchStatement
+        IdentifierExpression
+          @identifier = 'direction'
+        ConditionalCaseStatement
+          IdentifierExpression
+            @identifier = 'north'
+          BlockStatement
+            FallthroughStatement
+        ConditionalCaseStatement
+          IdentifierExpression
+            @identifier = 'east'
+          BlockStatement
+            FallthroughStatement
+        ConditionalCaseStatement
+          IdentifierExpression
+            @identifier = 'south'
+          BlockStatement
+            FallthroughStatement
+        ConditionalCaseStatement
+          IdentifierExpression
+            @identifier = 'west'
+          BlockStatement
+            BreakStatement
