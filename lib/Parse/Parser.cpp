@@ -328,6 +328,37 @@ CallExpression* Parser::parseCallExpression(Expression* callee) {
     return new (getContext()) CallExpression(callee, arguments);
 }
 
+/// grammar: subscript-expression := expression "[" [ expression { "," expression } ] "]"
+SubscriptExpression* Parser::parseSubscriptExpression(Expression* left) {
+    if (!consumeToken(Token::Kind::LeftBracket)) {
+        return nullptr;
+    }
+
+    jelly::Array<Expression*> arguments;
+    while (!token.is(Token::Kind::RightBracket)) {
+        auto argument = parseExpression();
+        if (!argument) {
+            return nullptr;
+        }
+
+        arguments.push_back(argument);
+
+        if (token.is(Token::Kind::RightBracket)) {
+            break;
+        }
+
+        if (!consumeToken(Token::Kind::Comma)) {
+            return nullptr;
+        }
+    }
+
+    if (!consumeToken(Token::Kind::RightBracket)) {
+        return nullptr;
+    }
+
+    return new (getContext()) SubscriptExpression(left, arguments);
+}
+
 /// grammar: case-statement := conditional-case-statement | else-case-statement
 CaseStatement* Parser::parseCaseStatement() {
     switch (token.getKind()) {
@@ -619,6 +650,9 @@ Expression* Parser::parseExpression(Precedence precedence) {
             }
         }
         // @Bug postfix expressions should always be parsed as primary expressions without precedence!
+        else if (op == Operator::Subscript) {
+            left = parseSubscriptExpression(left);
+        }
         else if (op == Operator::Call) {
             left = parseCallExpression(left);
         } else {
@@ -820,15 +854,20 @@ IntLiteral* Parser::parseIntLiteral() {
         return nullptr;
     }
 
-    uint64_t value = 0;
+    APInt value(256, 0);
     if (token.getText().getAsInteger(0, value)) {
         report(Diagnostic::Level::Error, "Invalid Integer Literal!");
         return nullptr;
     }
 
+    if (value != value.getLimitedValue()) {
+        report(Diagnostic::Level::Error, "Integer Literal '{0}' overflows!", value);
+        return nullptr;
+    }
+
     consumeToken();
 
-    return new (getContext()) IntLiteral(value);
+    return new (getContext()) IntLiteral(value.getLimitedValue());
 }
 
 /// grammar: load-directive := "#load" string-literal

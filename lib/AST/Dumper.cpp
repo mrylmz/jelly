@@ -55,6 +55,7 @@
 #include "AST/ReturnStatement.h"
 #include "AST/StringLiteral.h"
 #include "AST/StructureDeclaration.h"
+#include "AST/SubscriptExpression.h"
 #include "AST/SwitchStatement.h"
 #include "AST/TypeOfTypeRef.h"
 #include "AST/UnaryExpression.h"
@@ -120,6 +121,7 @@ void Dumper::dumpKind(Node::Kind kind) {
         case Node::Kind::IdentifierExpr:        return printString("IdentifierExpression");
         case Node::Kind::MemberAccessExpr:      return printString("MemberAccessExpression");
         case Node::Kind::CallExpr:              return printString("CallExpression");
+        case Node::Kind::SubscriptExpr:         return printString("SubscriptExpression");
         case Node::Kind::NilLit:                return printString("NilLiteral");
         case Node::Kind::BoolLit:               return printString("BoolLiteral");
         case Node::Kind::IntLit:                return printString("IntLiteral");
@@ -168,6 +170,7 @@ void Dumper::dump(Node* node) {
         case Node::Kind::IdentifierExpr:        return dumpIdentifierExpression(reinterpret_cast<IdentifierExpression*>(node));
         case Node::Kind::MemberAccessExpr:      return dumpMemberAccessExpression(reinterpret_cast<MemberAccessExpression*>(node));
         case Node::Kind::CallExpr:              return dumpCallExpression(reinterpret_cast<CallExpression*>(node));
+        case Node::Kind::SubscriptExpr:         return dumpSubscriptExpression(reinterpret_cast<SubscriptExpression*>(node));
         case Node::Kind::NilLit:                return dumpNilLiteral(reinterpret_cast<NilLiteral*>(node));
         case Node::Kind::BoolLit:               return dumpBoolLiteral(reinterpret_cast<BoolLiteral*>(node));
         case Node::Kind::IntLit:                return dumpIntLiteral(reinterpret_cast<IntLiteral*>(node));
@@ -319,6 +322,11 @@ void Dumper::dumpMemberAccessExpression(MemberAccessExpression* expression) {
 
 void Dumper::dumpCallExpression(CallExpression* expression) {
     dumpChild(expression->getCallee());
+    dumpChildren(expression->getArguments());
+}
+
+void Dumper::dumpSubscriptExpression(SubscriptExpression* expression) {
+    dumpChild(expression->getLeft());
     dumpChildren(expression->getArguments());
 }
 

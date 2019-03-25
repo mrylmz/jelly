@@ -71,6 +71,7 @@ namespace Parse {
         jelly::AST::BoolLiteral* parseBoolLiteral();
         jelly::AST::BreakStatement* parseBreak();
         jelly::AST::CallExpression* parseCallExpression(jelly::AST::Expression* callee);
+        jelly::AST::SubscriptExpression* parseSubscriptExpression(jelly::AST::Expression* left);
         jelly::AST::CaseStatement* parseCaseStatement();
         jelly::AST::ConditionalCaseStatement* parseConditionalCaseStatement();
         jelly::AST::ConstantDeclaration* parseConstant();

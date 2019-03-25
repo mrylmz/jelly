@@ -199,6 +199,10 @@ bool Node::isCallExpression() const {
     return Kind::CallExpr == kind;
 }
 
+bool Node::isSubscriptExpression() const {
+    return Kind::SubscriptExpr == kind;
+}
+
 bool Node::isLiteral() const {
     return Kind::_LitBegin < kind && kind < Kind::_LitEnd;
 }

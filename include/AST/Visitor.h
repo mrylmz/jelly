@@ -64,6 +64,7 @@ namespace AST {
     class IdentifierExpression;
     class MemberAccessExpression;
     class CallExpression;
+    class SubscriptExpression;
     class Literal;
     class NilLiteral;
     class Node;
@@ -122,6 +123,7 @@ namespace AST {
         virtual void visitIdentifierExpression(IdentifierExpression* expression);
         virtual void visitMemberAccessExpression(MemberAccessExpression* expression);
         virtual void visitCallExpression(CallExpression* expression);
+        virtual void visitSubscriptExpression(SubscriptExpression* expression);
 
         virtual void visitLiteral(Literal* literal);
         virtual void visitNilLiteral(NilLiteral* literal);

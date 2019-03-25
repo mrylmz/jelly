@@ -74,6 +74,7 @@
 #include "AST/StringLiteral.h"
 #include "AST/StructureDeclaration.h"
 #include "AST/StructureType.h"
+#include "AST/SubscriptExpression.h"
 #include "AST/SwitchStatement.h"
 #include "AST/Type.h"
 #include "AST/TypeDeclaration.h"

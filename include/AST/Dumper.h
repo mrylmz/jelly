@@ -57,6 +57,7 @@ namespace AST {
     class IdentifierExpression;
     class MemberAccessExpression;
     class CallExpression;
+    class SubscriptExpression;
     class NilLiteral;
     class BoolLiteral;
     class IntLiteral;
@@ -124,6 +125,7 @@ namespace AST {
         void dumpIdentifierExpression(IdentifierExpression* expression);
         void dumpMemberAccessExpression(MemberAccessExpression* expression);
         void dumpCallExpression(CallExpression* expression);
+        void dumpSubscriptExpression(SubscriptExpression* expression);
         void dumpNilLiteral(NilLiteral* literal);
         void dumpBoolLiteral(BoolLiteral* literal);
         void dumpIntLiteral(IntLiteral* literal);

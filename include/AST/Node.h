@@ -85,6 +85,7 @@ namespace AST {
               IdentifierExpr,
               MemberAccessExpr,
               CallExpr,
+              SubscriptExpr,
               _LitBegin,
                NilLit,
                BoolLit,
@@ -164,6 +165,7 @@ namespace AST {
         bool isIdentifierExpression() const;
         bool isMemberAccessExpression() const;
         bool isCallExpression() const;
+        bool isSubscriptExpression() const;
         bool isLiteral() const;
         bool isNilLiteral() const;
         bool isBoolLiteral() const;

@@ -1,8 +1,13 @@
-ASTModule
-| ASTFuncDecl { name = 'main' }
-  | ASTOpaqueTypeRef { typeName = 'Void' }
-  | ASTCompoundStmt
-    | ASTCallExpr
-      | ASTSubscriptExpr
-        | ASTIdentExpr { declName = 'myData' }
-        | ASTIntLit { value = '1' }
+ModuleDeclaration
+  @name = ''
+  FunctionDeclaration
+    @name = 'main'
+    OpaqueTypeRef
+      @name = 'Void'
+    BlockStatement
+      CallExpression
+        SubscriptExpression
+          IdentifierExpression
+            @identifier = 'myData'
+          IntLiteral
+            @value = '1'
