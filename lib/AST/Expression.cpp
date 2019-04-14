@@ -28,14 +28,5 @@
 using namespace jelly::AST;
 
 Expression::Expression(Kind kind) :
-Statement(kind),
-type(nullptr) {
-}
-
-Type* Expression::getType() const {
-    return type;
-}
-
-void Expression::setType(Type* type) {
-    this->type = type;
+Statement(kind) {
 }

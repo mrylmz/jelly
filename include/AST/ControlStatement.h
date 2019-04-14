@@ -24,16 +24,16 @@
 
 #pragma once
 
-#include "AST/Statement.h"
+#include "AST/Expression.h"
 
 namespace jelly {
 namespace AST {
 
-    class ControlStatement: public Statement {
+    class ControlStatement: public Expression {
 
     protected:
 
-        using Statement::Statement;
+        using Expression::Expression;
     };
 }
 }

@@ -30,7 +30,7 @@ using namespace jelly;
 using namespace jelly::AST;
 
 EnumerationDeclaration::EnumerationDeclaration(Identifier name, ArrayRef<EnumerationElementDeclaration*> children) :
-TypeDeclaration(Kind::Enumeration, name, nullptr),
+TypeDeclaration(Kind::Enumeration, name),
 scope(Scope::Kind::EnumerationDeclaration, this) {
     for (auto child : children) {
         addChild(child);

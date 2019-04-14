@@ -48,7 +48,7 @@
 #include "AST/IdentifierExpression.h"
 #include "AST/IfStatement.h"
 #include "AST/IntLiteral.h"
-#include "AST/LoadDeclaration.h"
+#include "AST/LoadDirective.h"
 #include "AST/LoopStatement.h"
 #include "AST/MemberAccessExpression.h"
 #include "AST/ModuleDeclaration.h"
@@ -62,6 +62,7 @@
 #include "AST/Statement.h"
 #include "AST/StringLiteral.h"
 #include "AST/StructureDeclaration.h"
+#include "AST/SubscriptExpression.h"
 #include "AST/SwitchStatement.h"
 #include "AST/TypeDeclaration.h"
 #include "AST/TypeOfTypeRef.h"
@@ -152,7 +153,7 @@ void Visitor::visitDeclaration(Declaration* declaration) {
     visitStatement(declaration);
 }
 
-void Visitor::visitLoadDeclaration(LoadDeclaration* declaration) {
+void Visitor::visitLoadDirective(LoadDirective* declaration) {
     visitDeclaration(declaration);
 }
 
@@ -221,6 +222,10 @@ void Visitor::visitMemberAccessExpression(MemberAccessExpression* expression) {
 }
 
 void Visitor::visitCallExpression(CallExpression* expression) {
+    visitExpression(expression);
+}
+
+void Visitor::visitSubscriptExpression(SubscriptExpression* expression) {
     visitExpression(expression);
 }
 

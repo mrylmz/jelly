@@ -22,28 +22,21 @@
 // SOFTWARE.
 //
 
-#include "AST/BranchStatement.h"
+#include "AST/LoadDirective.h"
+#include "AST/Visitor.h"
 
+using namespace jelly;
 using namespace jelly::AST;
 
-BranchStatement::BranchStatement(Kind kind, Expression* condition) :
-Expression(kind),
-condition(nullptr) {
-    setCondition(condition);
+LoadDirective::LoadDirective(StringRef sourceFilePath) :
+Declaration(Kind::LoadDirective),
+sourceFilePath(sourceFilePath) {
 }
 
-Expression* BranchStatement::getCondition() const {
-    return condition;
+StringRef LoadDirective::getSourceFilePath() const {
+    return sourceFilePath;
 }
 
-void BranchStatement::setCondition(Expression* condition) {
-    if (condition) {
-        condition->setParent(this);
-    }
-
-    if (this->condition) {
-        this->condition->setParent(nullptr);
-    }
-
-    this->condition = condition;
+void LoadDirective::accept(Visitor &visitor) {
+    visitor.visitLoadDirective(this);
 }

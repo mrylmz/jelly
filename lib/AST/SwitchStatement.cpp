@@ -23,7 +23,6 @@
 //
 
 #include "AST/CaseStatement.h"
-#include "AST/Expression.h"
 #include "AST/SwitchStatement.h"
 #include "AST/Visitor.h"
 
@@ -31,7 +30,7 @@ using namespace jelly;
 using namespace jelly::AST;
 
 SwitchStatement::SwitchStatement(Expression* argument, Array<CaseStatement*> children) :
-Statement(Kind::SwitchStmt),
+Expression(Kind::SwitchStmt),
 argument(nullptr) {
     setArgument(argument);
 

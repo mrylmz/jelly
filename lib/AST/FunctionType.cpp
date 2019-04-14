@@ -27,22 +27,29 @@
 using namespace jelly;
 using namespace jelly::AST;
 
-FunctionType::FunctionType(Array<StringRef> parameterNames, Array<Type*> parameterTypes, Type* returnType) :
+FunctionType::FunctionType(ArrayRef<Symbol*> parameters, Symbol* result) :
 Type(Kind::FunctionType),
-parameterNames(parameterNames),
-parameterTypes(parameterTypes),
-returnType(returnType) {
-
+parameters({}),
+result(result) {
+    for (auto parameter : parameters) {
+        this->parameters.push_back(parameter);
+    }
 }
 
-ArrayRef<StringRef> FunctionType::getParameterNames() const {
-    return parameterNames;
+ArrayRef<Symbol*> FunctionType::getParameters() const {
+    return parameters;
 }
 
-ArrayRef<Type*> FunctionType::getParameterTypes() const {
-    return parameterTypes;
+void FunctionType::setParameter(Symbol* parameter, uint32_t index) {
+    assert(index < parameters.size());
+
+    parameters[index] = parameter;
 }
 
-Type* FunctionType::getReturnType() const {
-    return returnType;
+Symbol* FunctionType::getResult() const {
+    return result;
+}
+
+void FunctionType::setResult(Symbol* result) {
+    this->result = result;
 }

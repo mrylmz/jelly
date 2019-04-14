@@ -32,23 +32,27 @@ namespace jelly {
 namespace AST {
 
     class Context;
+    class Symbol;
 
     // @Todo Add enum member for calling convention
 
     class FunctionType final: public Type {
         friend class Context;
 
-        Array<StringRef> parameterNames;
-        Array<Type*> parameterTypes;
-        Type* returnType;
+        Array<Symbol*> parameters;
+        Symbol* result;
 
-        FunctionType(Array<StringRef> parameterNames, Array<Type*> parameterTypes, Type* returnType);
+        FunctionType(ArrayRef<Symbol*> parameters, Symbol* result);
 
     public:
 
-        ArrayRef<StringRef> getParameterNames() const;
-        ArrayRef<Type*> getParameterTypes() const;
-        Type* getReturnType() const;
+        ArrayRef<Symbol*> getParameters() const;
+
+        void setParameter(Symbol* parameter, uint32_t index);
+
+        Symbol* getResult() const;
+
+        void setResult(Symbol* result);
     };
 }
 }

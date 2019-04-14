@@ -44,7 +44,7 @@
 #include "AST/IdentifierExpression.h"
 #include "AST/IfStatement.h"
 #include "AST/IntLiteral.h"
-#include "AST/LoadDeclaration.h"
+#include "AST/LoadDirective.h"
 #include "AST/MemberAccessExpression.h"
 #include "AST/ModuleDeclaration.h"
 #include "AST/NilLiteral.h"
@@ -107,7 +107,7 @@ void Dumper::dumpKind(Node::Kind kind) {
         case Node::Kind::FallthroughStmt:       return printString("FallthroughStatement");
         case Node::Kind::ReturnStmt:            return printString("ReturnStatement");
         case Node::Kind::Defer:                 return printString("DeferStatement");
-        case Node::Kind::LoadDecl:              return printString("LoadDeclaration");
+        case Node::Kind::LoadDirective:         return printString("LoadDirective");
         case Node::Kind::Module:                return printString("ModuleDeclaration");
         case Node::Kind::EnumerationElement:    return printString("EnumerationElementDeclaration");
         case Node::Kind::Parameter:             return printString("ParameterDeclaration");
@@ -156,7 +156,7 @@ void Dumper::dump(Node* node) {
         case Node::Kind::FallthroughStmt:       return dumpFallthroughStatement(reinterpret_cast<FallthroughStatement*>(node));
         case Node::Kind::ReturnStmt:            return dumpReturnStatement(reinterpret_cast<ReturnStatement*>(node));
         case Node::Kind::Defer:                 return dumpDeferStatement(reinterpret_cast<DeferStatement*>(node));
-        case Node::Kind::LoadDecl:              return dumpLoadDeclaration(reinterpret_cast<LoadDeclaration*>(node));
+        case Node::Kind::LoadDirective:         return dumpLoadDirective(reinterpret_cast<LoadDirective*>(node));
         case Node::Kind::Module:                return dumpModuleDeclaration(reinterpret_cast<ModuleDeclaration*>(node));
         case Node::Kind::EnumerationElement:    return dumpEnumerationElementDeclaration(reinterpret_cast<EnumerationElementDeclaration*>(node));
         case Node::Kind::Parameter:             return dumpParameterDeclaration(reinterpret_cast<ParameterDeclaration*>(node));
@@ -238,8 +238,8 @@ void Dumper::dumpDeferStatement(DeferStatement* statement) {
     dumpChild(statement->getExpression());
 }
 
-void Dumper::dumpLoadDeclaration(LoadDeclaration* declaration) {
-    printProperty("sourceFilePath", declaration->getSourceFilePath());
+void Dumper::dumpLoadDirective(LoadDirective* directive) {
+    printProperty("sourceFilePath", directive->getSourceFilePath());
 }
 
 void Dumper::dumpModuleDeclaration(ModuleDeclaration* declaration) {
@@ -299,13 +299,13 @@ void Dumper::dumpVariableDeclaration(VariableDeclaration* declaration) {
 }
 
 void Dumper::dumpUnaryExpression(UnaryExpression* expression) {
-    // @Todo print fixity and symbol of operator!
+    // @Todo print fixity of operator!
     printProperty("operator", expression->getOperator().getSymbol());
     dumpChild(expression->getRight());
 }
 
 void Dumper::dumpBinaryExpression(BinaryExpression* expression) {
-    // @Todo print fixity and symbol of operator!
+    // @Todo print fixity of operator!
     printProperty("operator", expression->getOperator().getSymbol());
     dumpChild(expression->getLeft());
     dumpChild(expression->getRight());

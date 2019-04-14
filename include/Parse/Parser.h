@@ -90,7 +90,7 @@ namespace Parse {
         jelly::AST::IdentifierExpression* parseIdentifierExpression();
         jelly::AST::IfStatement* parseIf();
         jelly::AST::IntLiteral* parseIntLiteral();
-        jelly::AST::LoadDeclaration* parseLoadDeclaration();
+        jelly::AST::LoadDirective* parseLoadDirective();
         jelly::AST::NilLiteral* parseNilLiteral();
         jelly::AST::OpaqueTypeRef* parseOpaqueTypeRef();
         jelly::AST::ParameterDeclaration* parseParameter();

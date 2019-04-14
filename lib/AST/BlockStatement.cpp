@@ -29,7 +29,7 @@ using namespace jelly;
 using namespace jelly::AST;
 
 BlockStatement::BlockStatement(ArrayRef<Statement*> children) :
-Statement(Kind::Block),
+Expression(Kind::Block),
 scope(Scope::Kind::BlockStatement, this) {
     for (auto child : children) {
         addChild(child);

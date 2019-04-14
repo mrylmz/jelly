@@ -32,18 +32,21 @@ namespace jelly {
 namespace AST {
 
     class Context;
+    class Symbol;
 
     class PointerType final: public Type {
         friend class Context;
 
-        Type* pointeeType;
+        Symbol* pointee;
         uint32_t depth;
 
-        PointerType(Type* pointeeType, uint32_t depth);
+        PointerType(Symbol* pointee, uint32_t depth);
 
     public:
 
-        Type* getPointeeType() const;
+        Symbol* getPointee() const;
+
+        void setPointee(Symbol* pointee);
 
         uint32_t getDepth() const;
     };

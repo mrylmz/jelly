@@ -24,15 +24,16 @@
 
 #pragma once
 
+#include "AST/Expression.h"
 #include "AST/Scope.h"
-#include "AST/Statement.h"
 #include "AST/ValueDeclaration.h"
+
 #include <Basic/Basic.h>
 
 namespace jelly {
 namespace AST {
 
-    class BlockStatement final: public Statement {
+    class BlockStatement final: public Expression {
         Array<Statement*> children;
         Scope scope;
 

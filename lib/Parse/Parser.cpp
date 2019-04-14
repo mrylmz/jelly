@@ -100,7 +100,6 @@ bool Parser::consumeOperator(Fixity fixity, Operator& op) {
         return true;
     }
 
-    // @Todo convert token kind and token to string description!
     report(Diagnostic::Level::Error, "Expected Operator found {0}", token);
     return false;
 }
@@ -204,7 +203,7 @@ Expression* Parser::parsePrimaryExpression() {
 /// grammar: top-level-node := load-declaration | enum-declaration | func-declaration | struct-declaration | variable-declaration
 Declaration* Parser::parseTopLevelDeclaration() {
     switch (token.getKind()) {
-        case Token::Kind::KeywordLoad:   return parseLoadDeclaration();
+        case Token::Kind::KeywordLoad:   return parseLoadDirective();
         case Token::Kind::KeywordEnum:   return parseEnumeration();
         case Token::Kind::KeywordFunc:   return parseFunction();
         case Token::Kind::KeywordStruct: return parseStructure();
@@ -871,7 +870,7 @@ IntLiteral* Parser::parseIntLiteral() {
 }
 
 /// grammar: load-directive := "#load" string-literal
-LoadDeclaration* Parser::parseLoadDeclaration() {
+LoadDirective* Parser::parseLoadDirective() {
     if (!consumeToken(Token::Kind::KeywordLoad)) {
         return nullptr;
     }
@@ -886,7 +885,7 @@ LoadDeclaration* Parser::parseLoadDeclaration() {
     auto sourceFilePath = getContext()->getIdentifier(token.getText().drop_front(1).drop_back(1)); // Makes a copy of the token text.
     consumeToken();
 
-    return new (getContext()) LoadDeclaration(sourceFilePath);
+    return new (getContext()) LoadDirective(sourceFilePath);
 }
 
 /// grammar: nil-literal := "nil"

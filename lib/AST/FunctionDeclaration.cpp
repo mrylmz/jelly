@@ -32,7 +32,7 @@ using namespace jelly;
 using namespace jelly::AST;
 
 FunctionDeclaration::FunctionDeclaration(Identifier name, ArrayRef<ParameterDeclaration*> parameters, TypeRef* returnTypeRef, BlockStatement* body) :
-TypeDeclaration(Kind::Function, name, nullptr),
+TypeDeclaration(Kind::Function, name),
 returnTypeRef(nullptr),
 body(nullptr),
 scope(Scope::Kind::FunctionDeclaration, this) {

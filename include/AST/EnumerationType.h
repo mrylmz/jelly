@@ -32,17 +32,22 @@ namespace jelly {
 namespace AST {
 
     class Context;
+    class Symbol;
 
     class EnumerationType final: public Type {
         friend class Context;
 
-        StringMap<int64_t> elements;
+        Array<Symbol*> elements;
 
-        EnumerationType(StringMap<int64_t> elements);
+        EnumerationType(ArrayRef<Symbol*> elements);
 
     public:
 
-        StringMap<int64_t>::iterator find(StringRef name);
+        ArrayRef<Symbol*> getElements() const;
+
+        void setElement(Symbol* element, uint32_t index);
+
+        Symbol* lookupElement(StringRef name);
     };
 }
 }

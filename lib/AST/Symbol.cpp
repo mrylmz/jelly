@@ -22,28 +22,47 @@
 // SOFTWARE.
 //
 
-#include "AST/BranchStatement.h"
+#include "AST/Symbol.h"
+#include "AST/SymbolTable.h"
 
+using namespace jelly;
 using namespace jelly::AST;
 
-BranchStatement::BranchStatement(Kind kind, Expression* condition) :
-Expression(kind),
-condition(nullptr) {
-    setCondition(condition);
+Symbol::Symbol(uint32_t index) :
+index(index),
+node(nullptr),
+type(nullptr) {
+
 }
 
-Expression* BranchStatement::getCondition() const {
-    return condition;
+Node* Symbol::getNode() const {
+    return node;
 }
 
-void BranchStatement::setCondition(Expression* condition) {
-    if (condition) {
-        condition->setParent(this);
-    }
+void Symbol::setNode(Node* node) {
+    this->node = node;
+}
 
-    if (this->condition) {
-        this->condition->setParent(nullptr);
-    }
+StringRef Symbol::getName() const {
+    return name;
+}
 
-    this->condition = condition;
+Declaration* Symbol::getDeclaration() const {
+    return declaration;
+}
+
+void Symbol::setDeclaration(Declaration* declaration) {
+    this->declaration = declaration;
+}
+
+Type* Symbol::getType() const {
+    return type;
+}
+
+void Symbol::setType(Type* type) {
+    this->type = type;
+}
+
+void* Symbol::operator new (size_t size, SymbolTable* symbolTable) {
+    return symbolTable->allocator.Allocate(size, 8);
 }

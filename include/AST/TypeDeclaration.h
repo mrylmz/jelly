@@ -32,16 +32,9 @@ namespace AST {
     class Type;
 
     class TypeDeclaration: public NamedDeclaration {
-        Type* type;
-
     protected:
 
-        TypeDeclaration(Kind kind, Identifier name, Type* type = nullptr);
-
-    public:
-
-        Type* getType() const;
-        void setType(Type* type);
+        TypeDeclaration(Kind kind, Identifier name);
     };
 }
 }

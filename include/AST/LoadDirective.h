@@ -30,14 +30,13 @@
 namespace jelly {
 namespace AST {
 
-    // @Todo rename to LoadDirective
-    class LoadDeclaration final: public Declaration {
+    class LoadDirective final: public Declaration {
 
         StringRef sourceFilePath;
 
     public:
 
-        LoadDeclaration(StringRef sourceFilePath);
+        LoadDirective(StringRef sourceFilePath);
 
         StringRef getSourceFilePath() const;
 

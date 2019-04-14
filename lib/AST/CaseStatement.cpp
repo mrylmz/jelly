@@ -28,7 +28,7 @@
 using namespace jelly::AST;
 
 CaseStatement::CaseStatement(Kind kind, BlockStatement* body) :
-Statement(kind),
+Expression(kind),
 body(nullptr) {
     setBody(body);
 }

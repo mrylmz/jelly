@@ -111,3 +111,33 @@ bool Scope::insertDeclaration(NamedDeclaration* declaration) {
 NamedDeclaration* Scope::lookupDeclaration(StringRef name) {
     return declarations.lookup(name);
 }
+
+NamedDeclaration* Scope::lookupDeclarationInParentHierarchy(StringRef name) {
+    auto declaration = lookupDeclaration(name);
+    if (declaration) {
+        return declaration;
+    }
+
+    if (getParent()) {
+        return getParent()->lookupDeclarationInParentHierarchy(name);
+    }
+
+    return nullptr;
+}
+
+void Scope::bindDeclaration(Node* node, NamedDeclaration* declaration) {
+    declarationBindings.emplace(std::make_pair(node, declaration));
+}
+
+NamedDeclaration* Scope::lookupDeclaration(Node* node) {
+    auto it = declarationBindings.find(node);
+    if (it != declarationBindings.end()) {
+        return it->second;
+    }
+
+    return nullptr;
+}
+
+SymbolTable* Scope::getSymbolTable() {
+    return &symbolTable;
+}

@@ -26,6 +26,8 @@
 
 #include "AST/Identifier.h"
 #include "AST/Operator.h"
+#include "AST/Symbol.h"
+
 #include <Basic/Basic.h>
 #include <set>
 #include <map>
@@ -36,6 +38,7 @@ namespace AST {
     class Node;
     class ModuleDeclaration;
     class Scope;
+    class Symbol;
     class Type;
 
     class Context {
@@ -47,28 +50,30 @@ namespace AST {
         StringMap<Identifier> identifiers;
         StringMap<Operator> operators[3];
         std::set<Precedence, std::less<Precedence>> operatorPrecedenceSet;
-        std::map<Node*, Type*> typeTable;
 
         ModuleDeclaration* module;
 
-        Type* errorType;
-        Type* voidType;
-        Type* boolType;
-        Type* int8Type;
-        Type* int16Type;
-        Type* int32Type;
-        Type* int64Type;
-        Type* int128Type;
-        Type* uint8Type;
-        Type* uint16Type;
-        Type* uint32Type;
-        Type* uint64Type;
-        Type* uint128Type;
-        Type* float16Type;
-        Type* float32Type;
-        Type* float64Type;
-        Type* float80Type;
-        Type* float128Type;
+        Symbol* errorType;
+        Symbol* voidType;
+        Symbol* boolType;
+        Symbol* int8Type;
+        Symbol* int16Type;
+        Symbol* int32Type;
+        Symbol* int64Type;
+        Symbol* int128Type;
+        Symbol* intType;
+        Symbol* uint8Type;
+        Symbol* uint16Type;
+        Symbol* uint32Type;
+        Symbol* uint64Type;
+        Symbol* uint128Type;
+        Symbol* uintType;
+        Symbol* float16Type;
+        Symbol* float32Type;
+        Symbol* float64Type;
+        Symbol* float80Type;
+        Symbol* float128Type;
+        Symbol* floatType;
 
         void registerOperator(Operator op);
 
@@ -88,29 +93,33 @@ namespace AST {
         Type* lookupType(Node* node);
         Type* lookupTypeByName(Identifier name);
 
-        Type* getErrorType() const;
-        Type* getVoidType() const;
-        Type* getBoolType() const;
-        Type* getInt8Type() const;
-        Type* getInt16Type() const;
-        Type* getInt32Type() const;
-        Type* getInt64Type() const;
-        Type* getInt128Type() const;
-        Type* getUInt8Type() const;
-        Type* getUInt16Type() const;
-        Type* getUInt32Type() const;
-        Type* getUInt64Type() const;
-        Type* getUInt128Type() const;
-        Type* getFloat16Type() const;
-        Type* getFloat32Type() const;
-        Type* getFloat64Type() const;
-        Type* getFloat80Type() const;
-        Type* getFloat128Type() const;
-        Type* getEnumerationType(StringMap<int64_t> elements);
-        Type* getFunctionType(Array<StringRef> parameterNames, Array<Type*> parameterTypes, Type* returnType);
-        Type* getStructureType(Array<StringRef> memberNames, Array<Type*> memberTypes);
-        Type* getArrayType(Type* elementType, bool isFixedSize = false, uint32_t size = 0);
-        Type* getPointerType(Type* pointeeType, uint32_t depth = 1);
+        Symbol* getErrorType() const;
+        Symbol* getVoidType() const;
+        Symbol* getBoolType() const;
+        Symbol* getInt8Type() const;
+        Symbol* getInt16Type() const;
+        Symbol* getInt32Type() const;
+        Symbol* getInt64Type() const;
+        Symbol* getInt128Type() const;
+        Symbol* getIntType() const;
+        Symbol* getUInt8Type() const;
+        Symbol* getUInt16Type() const;
+        Symbol* getUInt32Type() const;
+        Symbol* getUInt64Type() const;
+        Symbol* getUInt128Type() const;
+        Symbol* getUIntType() const;
+        Symbol* getFloat16Type() const;
+        Symbol* getFloat32Type() const;
+        Symbol* getFloat64Type() const;
+        Symbol* getFloat80Type() const;
+        Symbol* getFloat128Type() const;
+        Symbol* getFloatType() const;
+        Symbol* getStringType() const;
+        Symbol* getEnumerationType(ArrayRef<Symbol*> elements);
+        Symbol* getFunctionType(ArrayRef<Symbol*> parameters, Symbol* result);
+        Symbol* getStructureType(ArrayRef<Symbol*> members);
+        Symbol* getArrayType(Symbol* element, bool isFixedSize = false, uint32_t size = 0);
+        Symbol* getPointerType(Symbol* pointee, uint32_t depth = 1);
     };
 }
 }

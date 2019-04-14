@@ -32,6 +32,8 @@ namespace AST {
     class Context;
     class Dumper;
     class Scope;
+    class Symbol;
+    class Type;
     class Visitor;
 
     class Node {
@@ -39,47 +41,46 @@ namespace AST {
         friend class Dumper;
 
     protected:
-
         enum class Kind {
             _StmtBegin,
-             Block,
-             _BranchStmtBegin,
-              GuardStmt,
-              IfStmt,
-              _LoopStmtBegin,
-               DoStmt,
-               WhileStmt,
-              _LoopStmtEnd,
-             _BranchStmtEnd,
-             _CaseStmtBegin,
-              ConditionalCaseStmt,
-              ElseCaseStmt,
-             _CaseStmtEnd,
-             _ControlStmtBegin,
-              BreakStmt,
-              ContinueStmt,
-              FallthroughStmt,
-              ReturnStmt,
-             _ControlStmtEnd,
              Defer,
-             _DeclBegin,
-              LoadDecl,
-              _NamedDeclBegin,
-               Module,
-               EnumerationElement,
-               Parameter,
-               _TypeDeclBegin,
-                Enumeration,
-                Function,
-                Structure,
-               _TypeDeclEnd,
-               _ValueDeclBegin,
-                Constant,
-                Variable,
-               _ValueDeclEnd,
-              _NamedDeclEnd,
-             _DeclEnd,
              _ExprBegin,
+              Block,
+              _BranchStmtBegin,
+               GuardStmt,
+               IfStmt,
+               _LoopStmtBegin,
+                DoStmt,
+                WhileStmt,
+               _LoopStmtEnd,
+              _BranchStmtEnd,
+              _CaseStmtBegin,
+               ConditionalCaseStmt,
+               ElseCaseStmt,
+              _CaseStmtEnd,
+              _ControlStmtBegin,
+               BreakStmt,
+               ContinueStmt,
+               FallthroughStmt,
+               ReturnStmt,
+              _ControlStmtEnd,
+              _DeclBegin,
+               LoadDirective,
+               _NamedDeclBegin,
+                Module,
+                EnumerationElement,
+                Parameter,
+                _TypeDeclBegin,
+                 Enumeration,
+                 Function,
+                 Structure,
+                _TypeDeclEnd,
+                _ValueDeclBegin,
+                 Constant,
+                 Variable,
+                _ValueDeclEnd,
+               _NamedDeclEnd,
+              _DeclEnd,
               UnaryExpr,
               BinaryExpr,
               IdentifierExpr,
@@ -93,8 +94,8 @@ namespace AST {
                FloatLit,
                StringLit,
               _LitEnd,
+              SwitchStmt,
              _ExprEnd,
-             SwitchStmt,
             _StmtEnd,
             _TypeRefBegin,
              OpaqueTypeRef,
@@ -107,6 +108,7 @@ namespace AST {
     private:
         Kind kind;
         Node* parent;
+        Symbol* symbol;
 
         Node() = delete;
         Node(Node&&) = delete;
@@ -126,6 +128,10 @@ namespace AST {
         Node* getParent() const;
 
         void setParent(Node* parent);
+
+        Symbol* getSymbol() const;
+
+        void setSymbol(Symbol* symbol);
 
         virtual Scope* getScope();
 
@@ -147,7 +153,7 @@ namespace AST {
         bool isReturnStatement() const;
         bool isDeferStatement() const;
         bool isDeclaration() const;
-        bool isLoadDeclaration() const;
+        bool isLoadDirective() const;
         bool isNamedDeclaration() const;
         bool isModuleDeclaration() const;
         bool isEnumerationElementDeclaration() const;

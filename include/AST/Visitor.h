@@ -46,7 +46,7 @@ namespace AST {
     class DeferStatement;
     class SwitchStatement;
     class Declaration;
-    class LoadDeclaration;
+    class LoadDirective;
     class NamedDeclaration;
     class ModuleDeclaration;
     class EnumerationElementDeclaration;
@@ -104,7 +104,7 @@ namespace AST {
         virtual void visitSwitchStatement(SwitchStatement* statement);
 
         virtual void visitDeclaration(Declaration* declaration);
-        virtual void visitLoadDeclaration(LoadDeclaration* declaration);
+        virtual void visitLoadDirective(LoadDirective* directive);
         virtual void visitNamedDeclaration(NamedDeclaration* declaration);
         virtual void visitModuleDeclaration(ModuleDeclaration* declaration);
         virtual void visitEnumerationElementDeclaration(EnumerationElementDeclaration* declaration);

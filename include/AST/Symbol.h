@@ -22,28 +22,51 @@
 // SOFTWARE.
 //
 
-#include "AST/BranchStatement.h"
+#pragma once
 
-using namespace jelly::AST;
+#include <Basic/Basic.h>
+#include <stdint.h>
+#include <stddef.h>
 
-BranchStatement::BranchStatement(Kind kind, Expression* condition) :
-Expression(kind),
-condition(nullptr) {
-    setCondition(condition);
+namespace jelly {
+namespace AST {
+
+    class Declaration;
+    class Node;
+    class SymbolTable;
+    class Type;
+
+    class Symbol {
+        friend class SymbolTable;
+
+        uint64_t index;
+        Node* node;
+        StringRef name;
+        Declaration* declaration;
+        Type* type;
+
+        Symbol() = delete;
+        Symbol(Symbol&&) = delete;
+        Symbol(uint32_t index);
+
+        Symbol& operator = (Symbol&&) = delete;
+        void operator delete (void* ptr) = delete;
+        void operator delete [] (void* ptr) = delete;
+
+    public:
+
+        Node* getNode() const;
+        void setNode(Node* node);
+
+        StringRef getName() const;
+
+        Declaration* getDeclaration() const;
+        void setDeclaration(Declaration* declaration);
+
+        Type* getType() const;
+        void setType(Type* type);
+
+        void* operator new (size_t size, SymbolTable* symbolTable);
+    };
 }
-
-Expression* BranchStatement::getCondition() const {
-    return condition;
-}
-
-void BranchStatement::setCondition(Expression* condition) {
-    if (condition) {
-        condition->setParent(this);
-    }
-
-    if (this->condition) {
-        this->condition->setParent(nullptr);
-    }
-
-    this->condition = condition;
 }

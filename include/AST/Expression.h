@@ -32,16 +32,9 @@ namespace AST {
     class Type;
 
     class Expression: public Statement {
-        Type* type;
-
     protected:
 
         Expression(Kind kind);
-
-    public:
-
-        Type* getType() const;
-        void setType(Type* type);
     };
 }
 }

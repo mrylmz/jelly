@@ -32,19 +32,20 @@ namespace jelly {
 namespace AST {
 
     class Context;
+    class Symbol;
 
     class StructureType final: public Type {
         friend class Context;
 
-        Array<StringRef> memberNames;
-        Array<Type*> memberTypes;
+        Array<Symbol*> members;
 
-        StructureType(Array<StringRef> memberNames, Array<Type*> memberTypes);
+        StructureType(ArrayRef<Symbol*> members);
 
     public:
 
-        ArrayRef<StringRef> getMemberNames() const;
-        ArrayRef<Type*> getMemberTypes() const;
+        ArrayRef<Symbol*> getMembers() const;
+
+        void setMember(Symbol* member, uint32_t index);
     };
 }
 }

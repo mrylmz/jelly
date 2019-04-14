@@ -24,14 +24,12 @@
 
 #pragma once
 
-#include "AST/Statement.h"
+#include "AST/Expression.h"
 
 namespace jelly {
 namespace AST {
 
-    class Expression;
-
-    class BranchStatement: public Statement {
+    class BranchStatement: public Expression {
         Expression* condition;
 
     protected:

@@ -30,7 +30,7 @@ using namespace jelly;
 using namespace jelly::AST;
 
 StructureDeclaration::StructureDeclaration(Identifier name, ArrayRef<ValueDeclaration*> children) :
-TypeDeclaration(Kind::Structure, name, nullptr),
+TypeDeclaration(Kind::Structure, name),
 scope(Scope::Kind::StructureDeclaration, this) {
     for (auto child : children) {
         addChild(child);

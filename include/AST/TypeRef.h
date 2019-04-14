@@ -29,8 +29,9 @@
 namespace jelly {
 namespace AST {
 
-    class TypeRef: public Node {
+    class Type;
 
+    class TypeRef: public Node {
     protected:
 
         using Node::Node;

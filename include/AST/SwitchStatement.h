@@ -24,16 +24,16 @@
 
 #pragma once
 
-#include "AST/Statement.h"
+#include "AST/Expression.h"
+
 #include <Basic/Basic.h>
 
 namespace jelly {
 namespace AST {
 
     class CaseStatement;
-    class Expression;
 
-    class SwitchStatement final: public Statement {
+    class SwitchStatement final: public Expression {
         Expression* argument;
         Array<CaseStatement*> children;
 

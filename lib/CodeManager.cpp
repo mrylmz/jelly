@@ -79,11 +79,11 @@ void CodeManager::parseAST() {
 
             auto children = context.getModule()->getChildren();
             for (auto it = children.begin() + preprocessChildIndex; it != children.end(); it++) {
-                if ((*it)->isLoadDeclaration()) {
-                    auto declaration = reinterpret_cast<LoadDeclaration*>(*it);
+                if ((*it)->isLoadDirective()) {
+                    auto declaration = reinterpret_cast<LoadDirective*>(*it);
                     auto sourceFilePath = getNativePath(declaration->getSourceFilePath());
 
-                    // @Incomplete Add source location information of LoadDeclaration and enable includes of local files in subdirectories
+                    // @Incomplete Add source location information of LoadDirective and enable includes of local files in subdirectories
                     addSourceFile(sourceFilePath);
 
                     if (diagnosticEngine.getReportedErrorCount() > 0 || diagnosticEngine.getReportedFatalCount() > 0) {

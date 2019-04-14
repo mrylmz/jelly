@@ -32,20 +32,25 @@ namespace jelly {
 namespace AST {
 
     class Context;
+    class Symbol;
 
     class ArrayType final: public Type {
         friend class Context;
 
-        Type* elementType;
+        Symbol* element;
         bool isFixedSize;
         uint32_t size;
 
-        ArrayType(Type* elementType, bool isFixedSize, uint32_t size);
+        ArrayType(Symbol* element, bool isFixedSize, uint32_t size);
 
     public:
 
-        Type* getElementType() const;
+        Symbol* getElement() const;
+
+        void setElement(Symbol* element);
+
         bool getIsFixedSize() const;
+
         uint32_t getSize() const;
     };
 }

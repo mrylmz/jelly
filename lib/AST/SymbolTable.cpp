@@ -22,21 +22,57 @@
 // SOFTWARE.
 //
 
-#include "AST/LoadDeclaration.h"
-#include "AST/Visitor.h"
+#include "AST/Symbol.h"
+#include "AST/SymbolTable.h"
 
 using namespace jelly;
 using namespace jelly::AST;
 
-LoadDeclaration::LoadDeclaration(StringRef sourceFilePath) :
-Declaration(Kind::LoadDecl),
-sourceFilePath(sourceFilePath) {
+SymbolTable::SymbolTable() {
 }
 
-StringRef LoadDeclaration::getSourceFilePath() const {
-    return sourceFilePath;
+SymbolTable::~SymbolTable() {
+    nameIndices.clear();
+    symbols.clear();
+    allocator.Reset();
 }
 
-void LoadDeclaration::accept(Visitor &visitor) {
-    visitor.visitLoadDeclaration(this);
+ArrayRef<Symbol*> SymbolTable::getSymbols() const {
+    return symbols;
+}
+
+static uint64_t nextUniqueSymbolIndex = 0;
+StringRef SymbolTable::createUniqueSymbolName() {
+    std::string name = formatv("$T{0}", nextUniqueSymbolIndex);
+    nextUniqueSymbolIndex += 1;
+    return StringRef(name).copy(allocator);
+}
+
+Symbol* SymbolTable::createUniqueSymbol() {
+    return getOrInsert(createUniqueSymbolName());
+}
+
+Symbol* SymbolTable::getOrInsert(StringRef name) {
+    auto symbol = lookup(name);
+    if (symbol) {
+        return symbol;
+    }
+
+    auto index = symbols.size();
+    symbol = new (this) Symbol(index);
+    symbol->name = name;
+    symbols.push_back(symbol);
+
+    auto result = nameIndices.try_emplace(name, symbol->index);
+    assert(result.second);
+    return symbol;
+}
+
+Symbol* SymbolTable::lookup(StringRef name) {
+    auto it = nameIndices.find(name);
+    if (it != nameIndices.end()) {
+        return symbols[it->getValue()];
+    }
+
+    return nullptr;
 }

@@ -27,17 +27,20 @@
 using namespace jelly;
 using namespace jelly::AST;
 
-StructureType::StructureType(Array<StringRef> memberNames, Array<Type*> memberTypes) :
+StructureType::StructureType(ArrayRef<Symbol*> members) :
 Type(Kind::StructureType),
-memberNames(memberNames),
-memberTypes(memberTypes) {
-
+members({}) {
+    for (auto member : members) {
+        this->members.push_back(member);
+    }
 }
 
-ArrayRef<StringRef> StructureType::getMemberNames() const {
-    return memberNames;
+ArrayRef<Symbol*> StructureType::getMembers() const {
+    return members;
 }
 
-ArrayRef<Type*> StructureType::getMemberTypes() const {
-    return memberTypes;
+void StructureType::setMember(Symbol* member, uint32_t index) {
+    assert(index < members.size());
+
+    members[index] = member;
 }

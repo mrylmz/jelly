@@ -26,15 +26,19 @@
 
 using namespace jelly::AST;
 
-PointerType::PointerType(Type* pointeeType, uint32_t depth) :
+PointerType::PointerType(Symbol* pointee, uint32_t depth) :
 Type(Kind::PointerType),
-pointeeType(pointeeType),
+pointee(pointee),
 depth(depth) {
 
 }
 
-Type* PointerType::getPointeeType() const {
-    return pointeeType;
+Symbol* PointerType::getPointee() const {
+    return pointee;
+}
+
+void PointerType::setPointee(Symbol* pointee) {
+    this->pointee = pointee;
 }
 
 uint32_t PointerType::getDepth() const {

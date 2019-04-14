@@ -26,15 +26,6 @@
 
 using namespace jelly::AST;
 
-TypeDeclaration::TypeDeclaration(Kind kind, Identifier name, Type* type) :
-NamedDeclaration(kind, name),
-type(type) {
-}
-
-Type* TypeDeclaration::getType() const {
-    return type;
-}
-
-void TypeDeclaration::setType(Type* type) {
-    this->type = type;
+TypeDeclaration::TypeDeclaration(Kind kind, Identifier name) :
+NamedDeclaration(kind, name) {
 }

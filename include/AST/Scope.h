@@ -24,7 +24,10 @@
 
 #pragma once
 
+#include "AST/SymbolTable.h"
+
 #include <Basic/Basic.h>
+#include <map>
 
 namespace jelly {
 namespace AST {
@@ -66,6 +69,8 @@ namespace AST {
         Kind kind;
         Node* head;
         StringMap<NamedDeclaration*> declarations;
+        std::map<Node*, NamedDeclaration*> declarationBindings;
+        SymbolTable symbolTable;
 
         Scope(Kind kind, Node* head);
 
@@ -93,6 +98,13 @@ namespace AST {
         bool insertDeclaration(NamedDeclaration* declaration);
 
         NamedDeclaration* lookupDeclaration(StringRef name);
+        NamedDeclaration* lookupDeclarationInParentHierarchy(StringRef name);
+
+        void bindDeclaration(Node* node, NamedDeclaration* declaration);
+
+        NamedDeclaration* lookupDeclaration(Node* node);
+
+        SymbolTable* getSymbolTable();
 
         void *operator new(size_t bytes) = delete;
         void operator delete(void *data) = delete;

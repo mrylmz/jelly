@@ -26,16 +26,20 @@
 
 using namespace jelly::AST;
 
-ArrayType::ArrayType(Type* elementType, bool isFixedSize, uint32_t size) :
+ArrayType::ArrayType(Symbol* element, bool isFixedSize, uint32_t size) :
 Type(Kind::ArrayType),
-elementType(elementType),
+element(element),
 isFixedSize(isFixedSize),
 size(size) {
 
 }
 
-Type* ArrayType::getElementType() const {
-    return elementType;
+Symbol* ArrayType::getElement() const {
+    return element;
+}
+
+void ArrayType::setElement(Symbol* element) {
+    this->element = element;
 }
 
 bool ArrayType::getIsFixedSize() const {

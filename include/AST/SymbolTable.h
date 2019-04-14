@@ -22,28 +22,38 @@
 // SOFTWARE.
 //
 
-#include "AST/BranchStatement.h"
+#pragma once
 
-using namespace jelly::AST;
+#include <Basic/Basic.h>
+#include <unordered_map>
 
-BranchStatement::BranchStatement(Kind kind, Expression* condition) :
-Expression(kind),
-condition(nullptr) {
-    setCondition(condition);
+namespace jelly {
+namespace AST {
+
+    class Node;
+    class Symbol;
+
+    class SymbolTable {
+        friend class Symbol;
+
+        BumpPtrAllocator allocator;
+        StringMap<uint64_t> nameIndices;
+        Array<Symbol*> symbols;
+
+        StringRef createUniqueSymbolName();
+
+    public:
+
+        SymbolTable();
+        ~SymbolTable();
+
+        ArrayRef<Symbol*> getSymbols() const;
+
+        Symbol* createUniqueSymbol();
+
+        Symbol* getOrInsert(StringRef name);
+
+        Symbol* lookup(StringRef name);
+    };
 }
-
-Expression* BranchStatement::getCondition() const {
-    return condition;
-}
-
-void BranchStatement::setCondition(Expression* condition) {
-    if (condition) {
-        condition->setParent(this);
-    }
-
-    if (this->condition) {
-        this->condition->setParent(nullptr);
-    }
-
-    this->condition = condition;
 }

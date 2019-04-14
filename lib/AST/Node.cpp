@@ -29,7 +29,8 @@ using namespace jelly::AST;
 
 Node::Node(Kind kind) :
 kind(kind),
-parent(nullptr) {
+parent(nullptr),
+symbol(nullptr) {
 
 }
 
@@ -45,6 +46,14 @@ void Node::setParent(Node* parent) {
     assert(parent == nullptr || getParent() == nullptr);
 
     this->parent = parent;
+}
+
+Symbol* Node::getSymbol() const {
+    return symbol;
+}
+
+void Node::setSymbol(Symbol* symbol) {
+    this->symbol = symbol;
 }
 
 Scope* Node::getScope() {
@@ -127,8 +136,8 @@ bool Node::isDeclaration() const {
     return Kind::_DeclBegin < kind && kind < Kind::_DeclEnd;
 }
 
-bool Node::isLoadDeclaration() const {
-    return Kind::LoadDecl == kind;
+bool Node::isLoadDirective() const {
+    return Kind::LoadDirective == kind;
 }
 
 bool Node::isNamedDeclaration() const {

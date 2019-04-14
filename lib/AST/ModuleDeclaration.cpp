@@ -24,7 +24,7 @@
 
 #include "AST/EnumerationDeclaration.h"
 #include "AST/FunctionDeclaration.h"
-#include "AST/LoadDeclaration.h"
+#include "AST/LoadDirective.h"
 #include "AST/ModuleDeclaration.h"
 #include "AST/StructureDeclaration.h"
 #include "AST/ValueDeclaration.h"
@@ -49,7 +49,7 @@ void ModuleDeclaration::addChild(Declaration *child) {
     if (!child->isEnumerationDeclaration() &&
         !child->isFunctionDeclaration() &&
         !child->isStructureDeclaration() &&
-        !child->isLoadDeclaration() &&
+        !child->isLoadDirective() &&
         !child->isValueDeclaration()) {
         report_fatal_error("Invalid declaration type added to Module!");
     }

@@ -43,7 +43,7 @@ namespace AST {
     class FallthroughStatement;
     class ReturnStatement;
     class DeferStatement;
-    class LoadDeclaration;
+    class LoadDirective;
     class ModuleDeclaration;
     class EnumerationElementDeclaration;
     class ParameterDeclaration;
@@ -111,7 +111,7 @@ namespace AST {
         void dumpFallthroughStatement(FallthroughStatement* statement);
         void dumpReturnStatement(ReturnStatement* statement);
         void dumpDeferStatement(DeferStatement* statement);
-        void dumpLoadDeclaration(LoadDeclaration* declaration);
+        void dumpLoadDirective(LoadDirective* directive);
         void dumpModuleDeclaration(ModuleDeclaration* declaration);
         void dumpEnumerationElementDeclaration(EnumerationElementDeclaration* declaration);
         void dumpParameterDeclaration(ParameterDeclaration* declaration);

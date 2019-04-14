@@ -23,15 +23,35 @@
 //
 
 #include "AST/EnumerationType.h"
+#include "AST/Symbol.h"
 
 using namespace jelly;
 using namespace jelly::AST;
 
-EnumerationType::EnumerationType(StringMap<int64_t> elements) :
+EnumerationType::EnumerationType(ArrayRef<Symbol*> elements) :
 Type(Kind::EnumerationType),
-elements(elements) {
+elements({}) {
+    for (auto element : elements) {
+        this->elements.push_back(element);
+    }
 }
 
-StringMap<int64_t>::iterator EnumerationType::find(StringRef name) {
-    return elements.find(name);
+ArrayRef<Symbol*> EnumerationType::getElements() const {
+    return elements;
+}
+
+void EnumerationType::setElement(Symbol* element, uint32_t index) {
+    assert(index < elements.size());
+
+    elements[index] = element;
+}
+
+Symbol* EnumerationType::lookupElement(StringRef name) {
+    for (auto element : getElements()) {
+        if (element->getName() == name) {
+            return element;
+        }
+    }
+
+    return nullptr;
 }
