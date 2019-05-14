@@ -38,7 +38,7 @@ void ArrayRemoveElementAtIndex(ArrayRef array, Index index);
 
 void ArrayRemoveAllElements(ArrayRef array, Bool keepCapacity);
 
-void ArrayContainsElement(ArrayRef array, ArrayPredicate predicate, const void *element);
+bool ArrayContainsElement(ArrayRef array, ArrayPredicate predicate, const void *element);
 
 bool ArrayIsEqual(ArrayRef lhs, ArrayRef rhs);
 

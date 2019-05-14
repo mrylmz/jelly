@@ -117,7 +117,7 @@ void ArrayRemoveAllElements(ArrayRef array, Bool keepCapacity) {
     }
 }
 
-void ArrayContainsElement(ArrayRef array, ArrayPredicate predicate, const void *element) {
+bool ArrayContainsElement(ArrayRef array, ArrayPredicate predicate, const void *element) {
     void *memoryPtr = array->memory;
     void *memoryEnd = array->memory + array->elementSize * array->elementCount;
 
