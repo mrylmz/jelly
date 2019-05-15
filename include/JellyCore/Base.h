@@ -38,4 +38,12 @@ typedef size_t    Index;
 #define JELLY_UNREACHABLE(__MESSAGE__) assert(0 && __MESSAGE__)
 #endif
 
+#ifndef MIN
+#define MIN(__X__, __Y__) __X__ <= __Y__ ? __X__ : __Y__
+#endif
+
+#ifndef MAX
+#define MAX(__X__, __Y__) __X__ >= __Y__ ? __X__ : __Y__
+#endif
+
 #endif
