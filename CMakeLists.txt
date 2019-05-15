@@ -15,6 +15,7 @@ set(JELLY_CORE_HEADER_FILES "include/JellyCore/Allocator.h"
                             "include/JellyCore/Base.h"
                             "include/JellyCore/Diagnostic.h"
                             "include/JellyCore/JellyCore.h"
+                            "include/JellyCore/SourceRange.h"
                             "include/JellyCore/String.h")
 set(JELLY_CORE_SOURCE_FILES "lib/JellyCore/Allocator.c"
                             "lib/JellyCore/Array.c"

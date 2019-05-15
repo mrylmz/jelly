@@ -4,6 +4,7 @@
 #include <JellyCore/Allocator.h>
 #include <JellyCore/Array.h>
 #include <JellyCore/Diagnostic.h>
+#include <JellyCore/SourceRange.h>
 #include <JellyCore/String.h>
 
 #endif
