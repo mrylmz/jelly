@@ -29,6 +29,7 @@ void *ArrayGetElementAtIndex(ArrayRef array, Index index);
 void ArrayCopyElementAtIndex(ArrayRef array, Index index, void *element);
 
 void ArrayAppendElement(ArrayRef array, const void *element);
+void *ArrayAppendUninitializedElement(ArrayRef array);
 
 void ArrayInsertElementAtIndex(ArrayRef array, Index index, const void *element);
 

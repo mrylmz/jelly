@@ -72,6 +72,12 @@ void ArrayAppendElement(ArrayRef array, const void *element) {
     array->elementCount += 1;
 }
 
+void *ArrayAppendUninitializedElement(ArrayRef array) {
+    _ArrayReserveCapacity(array, array->elementCount + 1);
+    array->elementCount += 1;
+    return ArrayGetElementAtIndex(array, array->elementCount - 1);
+}
+
 void ArrayInsertElementAtIndex(ArrayRef array, Index index, const void *element) {
     assert(index < array->elementCount);
     _ArrayReserveCapacity(array, array->elementCount + 1);
