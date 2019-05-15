@@ -6,5 +6,6 @@
 #include <JellyCore/Diagnostic.h>
 #include <JellyCore/SourceRange.h>
 #include <JellyCore/String.h>
+#include <JellyCore/SymbolTable.h>
 
 #endif
