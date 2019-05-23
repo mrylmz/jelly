@@ -1,12 +1,12 @@
 #ifndef __JELLY_STRING__
 #define __JELLY_STRING__
 
-#include <JellyCore/Base.h>
 #include <JellyCore/Allocator.h>
+#include <JellyCore/Base.h>
 
 JELLY_EXTERN_C_BEGIN
 
-typedef struct _String* StringRef;
+typedef struct _String *StringRef;
 
 StringRef StringCreate(AllocatorRef allocator, const Char *rawString);
 

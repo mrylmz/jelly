@@ -9,7 +9,7 @@ void _DiagnosticHandlerStd(DiagnosticLevel level, const Char *message, void *con
 
 void _ReportDiagnostic(DiagnosticLevel level, const Char *message);
 
-static struct _DiagnosticEngine kSharedDiagnosticEngine = { &_DiagnosticHandlerStd, NULL };
+static struct _DiagnosticEngine kSharedDiagnosticEngine = {&_DiagnosticHandlerStd, NULL};
 
 void DiagnosticEngineSetDefaultHandler(DiagnosticHandler handler, void *context) {
     kSharedDiagnosticEngine.handler = handler;
@@ -58,28 +58,28 @@ void ReportCriticalString(StringRef message) {
 
 void _DiagnosticHandlerStd(DiagnosticLevel level, const Char *message, void *context) {
     switch (level) {
-        case DiagnosticLevelDebug:
-            fprintf(stdout, "[DEBUG] %s\n", message);
-            break;
+    case DiagnosticLevelDebug:
+        fprintf(stdout, "[DEBUG] %s\n", message);
+        break;
 
-        case DiagnosticLevelInfo:
-            fprintf(stdout, "[INFO] %s\n", message);
-            break;
+    case DiagnosticLevelInfo:
+        fprintf(stdout, "[INFO] %s\n", message);
+        break;
 
-        case DiagnosticLevelWarning:
-            fprintf(stdout, "[WARNING] %s\n", message);
-            break;
+    case DiagnosticLevelWarning:
+        fprintf(stdout, "[WARNING] %s\n", message);
+        break;
 
-        case DiagnosticLevelError:
-            fprintf(stderr, "[ERROR] %s\n", message);
-            break;
+    case DiagnosticLevelError:
+        fprintf(stderr, "[ERROR] %s\n", message);
+        break;
 
-        case DiagnosticLevelCritical:
-            fprintf(stderr, "[CRITICAL] %s\n", message);
-            break;
+    case DiagnosticLevelCritical:
+        fprintf(stderr, "[CRITICAL] %s\n", message);
+        break;
 
-        default:
-            JELLY_UNREACHABLE("Unknown diagnostic level!");
+    default:
+        JELLY_UNREACHABLE("Unknown diagnostic level!");
     }
 }
 
@@ -93,4 +93,3 @@ void FatalError(const Char *message) {
     ReportInfo(message);
     exit(EXIT_FAILURE);
 }
-

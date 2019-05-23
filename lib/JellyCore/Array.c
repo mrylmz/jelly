@@ -13,11 +13,11 @@ void _ArrayReserveCapacity(ArrayRef array, Index capacity);
 ArrayRef ArrayCreate(AllocatorRef allocator, Index elementSize, const void *elements, Index elementCount) {
     ArrayRef array = AllocatorAllocate(allocator, sizeof(struct _Array));
     assert(array);
-    array->allocator = allocator;
-    array->elementSize = elementSize;
+    array->allocator    = allocator;
+    array->elementSize  = elementSize;
     array->elementCount = elementCount;
-    array->capacity = elementCount;
-    array->memory = AllocatorAllocate(allocator, elementSize * elementCount);
+    array->capacity     = elementCount;
+    array->memory       = AllocatorAllocate(allocator, elementSize * elementCount);
     assert(array->memory);
     memcpy(array->memory, elements, elementSize * elementCount);
     return array;
@@ -30,11 +30,11 @@ ArrayRef ArrayCreateCopy(AllocatorRef allocator, ArrayRef array) {
 ArrayRef ArrayCreateEmpty(AllocatorRef allocator, Index elementSize, Index capacity) {
     ArrayRef array = AllocatorAllocate(allocator, sizeof(struct _Array) + elementSize * capacity);
     assert(array);
-    array->allocator = allocator;
-    array->elementSize = elementSize;
+    array->allocator    = allocator;
+    array->elementSize  = elementSize;
     array->elementCount = 0;
-    array->capacity = capacity;
-    array->memory = AllocatorAllocate(allocator, elementSize * capacity);
+    array->capacity     = capacity;
+    array->memory       = AllocatorAllocate(allocator, elementSize * capacity);
     assert(array->memory);
     return array;
 }
@@ -78,13 +78,21 @@ void *ArrayAppendUninitializedElement(ArrayRef array) {
     return ArrayGetElementAtIndex(array, array->elementCount - 1);
 }
 
+void ArrayAppendArray(ArrayRef array, ArrayRef other) {
+    assert(array->elementSize == other->elementSize);
+
+    for (Index index = 0; index < other->elementCount; index++) {
+        ArrayAppendElement(array, ArrayGetElementAtIndex(other, index));
+    }
+}
+
 void ArrayInsertElementAtIndex(ArrayRef array, Index index, const void *element) {
     assert(index < array->elementCount);
     _ArrayReserveCapacity(array, array->elementCount + 1);
 
     Index tailLength = array->elementCount - index;
     if (tailLength > 0) {
-        void *source = ArrayGetElementAtIndex(array, index);
+        void *source      = ArrayGetElementAtIndex(array, index);
         void *destination = ArrayGetElementAtIndex(array, index + 1);
         memmove(destination, source, array->elementSize * tailLength);
     }
@@ -103,7 +111,7 @@ void ArrayRemoveElementAtIndex(ArrayRef array, Index index) {
 
     Index tailLength = array->elementCount - index - 1;
     if (tailLength > 0) {
-        void *source = ArrayGetElementAtIndex(array, index + 1);
+        void *source      = ArrayGetElementAtIndex(array, index + 1);
         void *destination = ArrayGetElementAtIndex(array, index);
         memmove(destination, source, array->elementSize * tailLength);
     }
@@ -116,10 +124,10 @@ void ArrayRemoveAllElements(ArrayRef array, Bool keepCapacity) {
 
     if (!keepCapacity) {
         Index newCapacity = array->capacity > 8 ? 8 : array->capacity;
-        UInt8 *newMemory = AllocatorReallocate(array->allocator, array->memory, newCapacity);
+        UInt8 *newMemory  = AllocatorReallocate(array->allocator, array->memory, newCapacity);
         assert(newMemory);
         array->capacity = newCapacity;
-        array->memory = newMemory;
+        array->memory   = newMemory;
     }
 }
 
@@ -156,6 +164,6 @@ void _ArrayReserveCapacity(ArrayRef array, Index capacity) {
         UInt8 *newMemory = AllocatorReallocate(array->allocator, array->memory, array->elementSize * newCapacity);
         assert(newMemory);
         array->capacity = newCapacity;
-        array->memory = newMemory;
+        array->memory   = newMemory;
     }
 }

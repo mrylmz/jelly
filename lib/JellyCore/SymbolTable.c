@@ -26,9 +26,9 @@ Index _ScopeGetVirtualEnd(ScopeRef scope, const Char *virtualEndOfScope);
 
 SymbolTableRef SymbolTableCreate(AllocatorRef allocator) {
     SymbolTableRef symbolTable = AllocatorAllocate(allocator, sizeof(struct _SymbolTable));
-    symbolTable->allocator = allocator;
-    symbolTable->scopes = ArrayCreateEmpty(allocator, sizeof(struct _Scope), 8);
-    symbolTable->currentScope = _SymbolTableCreateScope(symbolTable, ScopeKindGlobal, NULL);
+    symbolTable->allocator     = allocator;
+    symbolTable->scopes        = ArrayCreateEmpty(allocator, sizeof(struct _Scope), 8);
+    symbolTable->currentScope  = _SymbolTableCreateScope(symbolTable, ScopeKindGlobal, NULL);
     return symbolTable;
 }
 
@@ -79,14 +79,14 @@ SymbolRef ScopeInsertSymbol(ScopeRef scope, StringRef name, SourceRange location
     //       but it could be possible that this will not always be the case so we should
     //       do a binary insert in asscending location order or sort the array after insertion
     SymbolRef symbol = ArrayAppendUninitializedElement(scope->symbols);
-    symbol->name = name;
+    symbol->name     = name;
     symbol->location = location;
 
     if (scope->sourceRange.start == NULL) {
         scope->sourceRange = location;
     } else {
         scope->sourceRange.start = MIN(scope->sourceRange.start, location.start);
-        scope->sourceRange.end = MAX(scope->sourceRange.end, location.end);
+        scope->sourceRange.end   = MAX(scope->sourceRange.end, location.end);
     }
 
     return symbol;
@@ -108,11 +108,11 @@ StringRef SymbolGetName(SymbolRef symbol) {
 }
 
 ScopeRef _SymbolTableCreateScope(SymbolTableRef symbolTable, ScopeKind kind, ScopeRef parent) {
-    ScopeRef scope = ArrayAppendUninitializedElement(symbolTable->scopes);
-    scope->kind = kind;
-    scope->parent = parent;
+    ScopeRef scope     = ArrayAppendUninitializedElement(symbolTable->scopes);
+    scope->kind        = kind;
+    scope->parent      = parent;
     scope->sourceRange = SourceRangeMake(NULL, NULL);
-    scope->symbols = ArrayCreateEmpty(symbolTable->allocator, sizeof(struct _Symbol), 8);
+    scope->symbols     = ArrayCreateEmpty(symbolTable->allocator, sizeof(struct _Symbol), 8);
     return scope;
 }
 

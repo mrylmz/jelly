@@ -9,6 +9,7 @@ typedef enum {
     AllocatorModeAllocate,
     AllocatorModeReallocate,
     AllocatorModeDeallocate,
+    AllocatorModeDestroy,
 } AllocatorMode;
 
 typedef void *(*AllocatorCallback)(AllocatorMode mode, Index capacity, void *memory, void *context);

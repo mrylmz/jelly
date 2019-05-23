@@ -1,8 +1,8 @@
 #ifndef __JELLY_SYMBOLTABLE__
 #define __JELLY_SYMBOLTABLE__
 
-#include <JellyCore/Base.h>
 #include <JellyCore/Allocator.h>
+#include <JellyCore/Base.h>
 #include <JellyCore/SourceRange.h>
 #include <JellyCore/String.h>
 
@@ -13,9 +13,9 @@ enum _ScopeKind {
 };
 typedef enum _ScopeKind ScopeKind;
 
-typedef struct _Scope* ScopeRef;
-typedef struct _Symbol* SymbolRef;
-typedef struct _SymbolTable* SymbolTableRef;
+typedef struct _Scope *ScopeRef;
+typedef struct _Symbol *SymbolRef;
+typedef struct _SymbolTable *SymbolTableRef;
 
 SymbolTableRef SymbolTableCreate(AllocatorRef allocator);
 void SymbolTableDestroy(SymbolTableRef symbolTable);

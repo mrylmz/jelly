@@ -12,7 +12,10 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
 
 set(JELLY_CORE_HEADER_FILES "include/JellyCore/Allocator.h"
                             "include/JellyCore/Array.h"
+                            "include/JellyCore/ASTContext.h"
+                            "include/JellyCore/ASTNodes.h"
                             "include/JellyCore/Base.h"
+                            "include/JellyCore/BumpAllocator.h"
                             "include/JellyCore/Diagnostic.h"
                             "include/JellyCore/JellyCore.h"
                             "include/JellyCore/SourceRange.h"
@@ -20,6 +23,8 @@ set(JELLY_CORE_HEADER_FILES "include/JellyCore/Allocator.h"
                             "include/JellyCore/SymbolTable.h")
 set(JELLY_CORE_SOURCE_FILES "lib/JellyCore/Allocator.c"
                             "lib/JellyCore/Array.c"
+                            "lib/JellyCore/ASTContext.c"
+                            "lib/JellyCore/BumpAllocator.c"
                             "lib/JellyCore/Diagnostic.c"
                             "lib/JellyCore/String.c"
                             "lib/JellyCore/SymbolTable.c")

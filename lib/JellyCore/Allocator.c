@@ -12,14 +12,14 @@ void *_AllocatorNull(AllocatorMode mode, Index capacity, void *memory, void *con
 AllocatorRef _AllocatorGetDefault(AllocatorRef allocator);
 void *_AllocatorInvokeCallback(AllocatorRef allocator, AllocatorMode mode, Index capacity, void *memory);
 
-static struct _Allocator _kAllocatorSystemDefault = { NULL, &_AllocatorMalloc, NULL };
-static struct _Allocator _kAllocatorMalloc = { NULL, &_AllocatorMalloc, NULL };
-static struct _Allocator _kAllocatorNull = { NULL, &_AllocatorNull, NULL };
+static struct _Allocator _kAllocatorSystemDefault = {NULL, &_AllocatorMalloc, NULL};
+static struct _Allocator _kAllocatorMalloc        = {NULL, &_AllocatorMalloc, NULL};
+static struct _Allocator _kAllocatorNull          = {NULL, &_AllocatorNull, NULL};
 
-const AllocatorRef kAllocatorDefault = NULL;
+const AllocatorRef kAllocatorDefault       = NULL;
 const AllocatorRef kAllocatorSystemDefault = &_kAllocatorSystemDefault;
-const AllocatorRef kAllocatorMalloc = &_kAllocatorMalloc;
-const AllocatorRef kAllocatorNull = &_kAllocatorNull;
+const AllocatorRef kAllocatorMalloc        = &_kAllocatorMalloc;
+const AllocatorRef kAllocatorNull          = &_kAllocatorNull;
 
 static AllocatorRef kAllocatorCurrentDefault = kAllocatorDefault;
 
@@ -33,13 +33,14 @@ AllocatorRef AllocatorGetDefault() {
 
 AllocatorRef AllocatorCreate(AllocatorRef allocator, AllocatorCallback callback, void *context) {
     AllocatorRef newAllocator = (AllocatorRef)AllocatorAllocate(allocator, sizeof(struct _Allocator));
-    newAllocator->allocator = allocator;
-    newAllocator->callback = callback;
-    newAllocator->context = context;
+    newAllocator->allocator   = allocator;
+    newAllocator->callback    = callback;
+    newAllocator->context     = context;
     return newAllocator;
 }
 
 void AllocatorDestroy(AllocatorRef allocator) {
+    _AllocatorInvokeCallback(allocator, AllocatorModeDestroy, 0, NULL);
     assert(allocator->allocator);
     AllocatorDeallocate(allocator->allocator, allocator);
 }
@@ -58,18 +59,21 @@ void *AllocatorDeallocate(AllocatorRef allocator, void *memory) {
 
 void *_AllocatorMalloc(AllocatorMode mode, Index capacity, void *memory, void *context) {
     switch (mode) {
-        case AllocatorModeAllocate:
-            return malloc(capacity);
+    case AllocatorModeAllocate:
+        return malloc(capacity);
 
-        case AllocatorModeReallocate:
-            return realloc(memory, capacity);
+    case AllocatorModeReallocate:
+        return realloc(memory, capacity);
 
-        case AllocatorModeDeallocate:
-            free(memory);
-            return NULL;
+    case AllocatorModeDeallocate:
+        free(memory);
+        return NULL;
 
-        default:
-            JELLY_UNREACHABLE("Invalid value for mode!");
+    case AllocatorModeDestroy:
+        return NULL;
+
+    default:
+        JELLY_UNREACHABLE("Invalid value for mode!");
     }
 }
 

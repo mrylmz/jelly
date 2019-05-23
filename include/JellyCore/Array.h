@@ -1,12 +1,12 @@
 #ifndef __JELLY_ARRAY__
 #define __JELLY_ARRAY__
 
-#include <JellyCore/Base.h>
 #include <JellyCore/Allocator.h>
+#include <JellyCore/Base.h>
 
 JELLY_EXTERN_C_BEGIN
 
-typedef struct _Array* ArrayRef;
+typedef struct _Array *ArrayRef;
 
 typedef bool (*ArrayPredicate)(const void *elementLeft, const void *elementRight);
 
@@ -30,6 +30,8 @@ void ArrayCopyElementAtIndex(ArrayRef array, Index index, void *element);
 
 void ArrayAppendElement(ArrayRef array, const void *element);
 void *ArrayAppendUninitializedElement(ArrayRef array);
+
+void ArrayAppendArray(ArrayRef array, ArrayRef other);
 
 void ArrayInsertElementAtIndex(ArrayRef array, Index index, const void *element);
 
