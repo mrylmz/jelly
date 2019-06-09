@@ -10,6 +10,13 @@ JELLY_EXTERN_C_BEGIN
 
 enum _ScopeKind {
     ScopeKindGlobal,
+    ScopeKindBranch,
+    ScopeKindLoop,
+    ScopeKindCase,
+    ScopeKindSwitch,
+    ScopeKindEnumeration,
+    ScopeKindFunction,
+    ScopeKindStructure,
 };
 typedef enum _ScopeKind ScopeKind;
 

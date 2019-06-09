@@ -32,10 +32,20 @@ enum _ASTTag {
     ASTTagOpaqueType,
     ASTTagPointerType,
     ASTTagArrayType,
+    ASTTagBuiltinType,
 
     AST_TAG_COUNT
 };
 typedef enum _ASTTag ASTTag;
+
+typedef Index ASTOperatorPrecedence;
+
+enum _ASTOperatorAssociativity {
+    ASTOperatorAssociativityNone,
+    ASTOperatorAssociativityLeft,
+    ASTOperatorAssociativityRight,
+};
+typedef enum _ASTOperatorAssociativity ASTOperatorAssociativity;
 
 typedef struct _ASTNode *ASTNodeRef;
 typedef struct _ASTNode *ASTExpressionRef;
@@ -65,6 +75,7 @@ typedef struct _ASTValueDeclaration *ASTValueDeclarationRef;
 typedef struct _ASTOpaqueType *ASTOpaqueTypeRef;
 typedef struct _ASTPointerType *ASTPointerTypeRef;
 typedef struct _ASTArrayType *ASTArrayTypeRef;
+typedef struct _ASTBuiltinType *ASTBuiltinTypeRef;
 
 struct _ASTNode {
     ASTTag tag;
@@ -81,7 +92,7 @@ struct _ASTSourceUnit {
 struct _ASTLoadDirective {
     struct _ASTNode base;
 
-    StringRef filePath;
+    ASTConstantExpressionRef filePath;
 };
 
 struct _ASTBlock {
@@ -149,6 +160,7 @@ struct _ASTControlStatement {
 };
 
 enum _ASTUnaryOperator {
+    ASTUnaryOperatorUnknown,
     ASTUnaryOperatorLogicalNot,
     ASTUnaryOperatorBitwiseNot,
     ASTUnaryOperatorUnaryPlus,
@@ -164,6 +176,7 @@ struct _ASTUnaryExpression {
 };
 
 enum _ASTBinaryOperator {
+    ASTBinaryOperatorUnknown,
     ASTBinaryOperatorBitwiseLeftShift,
     ASTBinaryOperatorBitwiseRightShift,
     ASTBinaryOperatorMultiply,
@@ -225,7 +238,13 @@ struct _ASTCallExpression {
     ArrayRef arguments;
 };
 
-enum _ASTConstantKind { ASTConstantKindNil, ASTConstantKindBool, ASTConstantKindInt, ASTConstantKindFloat, ASTConstantKindString };
+enum _ASTConstantKind {
+    ASTConstantKindNil,
+    ASTConstantKindBool,
+    ASTConstantKindInt,
+    ASTConstantKindFloat,
+    ASTConstantKindString,
+};
 typedef enum _ASTConstantKind ASTConstantKind;
 
 struct _ASTConstantExpression {
@@ -293,24 +312,68 @@ struct _ASTValueDeclaration {
     ASTExpressionRef initializer;
 };
 
+enum _ASTTypeKind {
+    ASTTypeKindOpaque,
+    ASTTypeKindPointer,
+    ASTTypeKindArray,
+};
+typedef enum _ASTTypeKind ASTTypeKind;
+
 struct _ASTOpaqueType {
     struct _ASTNode base;
 
+    ASTTypeKind kind;
     StringRef name;
 };
 
 struct _ASTPointerType {
     struct _ASTNode base;
 
+    ASTTypeKind kind;
     ASTTypeRef pointeeType;
-    UInt64 depth;
 };
 
 struct _ASTArrayType {
     struct _ASTNode base;
 
+    ASTTypeKind kind;
     ASTTypeRef elementType;
     ASTExpressionRef size;
+};
+
+enum _ASTBuiltinTypeKind {
+    ASTBuiltinTypeKindError,
+    ASTBuiltinTypeKindVoid,
+    ASTBuiltinTypeKindBool,
+    ASTBuiltinTypeKindInt8,
+    ASTBuiltinTypeKindInt16,
+    ASTBuiltinTypeKindInt32,
+    ASTBuiltinTypeKindInt64,
+    ASTBuiltinTypeKindInt128,
+    ASTBuiltinTypeKindInt,
+    ASTBuiltinTypeKindUInt8,
+    ASTBuiltinTypeKindUInt16,
+    ASTBuiltinTypeKindUInt32,
+    ASTBuiltinTypeKindUInt64,
+    ASTBuiltinTypeKindUInt128,
+    ASTBuiltinTypeKindUInt,
+    ASTBuiltinTypeKindFloat16,
+    ASTBuiltinTypeKindFloat32,
+    ASTBuiltinTypeKindFloat64,
+    ASTBuiltinTypeKindFloat80,
+    ASTBuiltinTypeKindFloat128,
+    ASTBuiltinTypeKindFloat,
+
+    AST_BUILTIN_TYPE_KIND_COUNT,
+};
+typedef enum _ASTBuiltinTypeKind ASTBuiltinTypeKind;
+
+struct _ASTBuiltinType {
+    struct _ASTNode base;
+
+    ASTTypeKind kind;
+    ASTBuiltinTypeKind builtinKind;
+    StringRef name;
 };
 
 JELLY_EXTERN_C_END

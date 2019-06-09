@@ -10,6 +10,8 @@ typedef struct _String *StringRef;
 
 StringRef StringCreate(AllocatorRef allocator, const Char *rawString);
 
+StringRef StringCreateRange(AllocatorRef allocator, const Char *start, const Char *end);
+
 StringRef StringCreateCopy(AllocatorRef allocator, StringRef string);
 
 StringRef StringCreateEmpty(AllocatorRef allocator);

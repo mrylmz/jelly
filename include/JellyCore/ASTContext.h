@@ -4,6 +4,7 @@
 #include <JellyCore/ASTNodes.h>
 #include <JellyCore/Allocator.h>
 #include <JellyCore/Base.h>
+#include <JellyCore/SymbolTable.h>
 
 JELLY_EXTERN_C_BEGIN
 
@@ -13,9 +14,13 @@ ASTContextRef ASTContextCreate(AllocatorRef allocator);
 
 void ASTContextDestroy(ASTContextRef context);
 
+SymbolTableRef ASTContextGetSymbolTable(ASTContextRef context);
+
+ASTModuleDeclarationRef ASTContextGetModule(ASTContextRef context);
+
 ASTSourceUnitRef ASTContextCreateSourceUnit(ASTContextRef context, SourceRange location, StringRef filePath, ArrayRef declarations);
 
-ASTLoadDirectiveRef ASTContextCreateLoadDirective(ASTContextRef context, SourceRange location, StringRef filePath);
+ASTLoadDirectiveRef ASTContextCreateLoadDirective(ASTContextRef context, SourceRange location, ASTConstantExpressionRef filePath);
 
 ASTBlockRef ASTContextCreateBlock(ASTContextRef context, SourceRange location, ArrayRef statements);
 
@@ -57,9 +62,11 @@ ASTValueDeclarationRef ASTContextCreateValueDeclaration(ASTContextRef context, S
 
 ASTOpaqueTypeRef ASTContextCreateOpaqueType(ASTContextRef context, SourceRange location, StringRef name);
 
-ASTPointerTypeRef ASTContextCreatePointerType(ASTContextRef context, SourceRange location, ASTTypeRef pointeeType, UInt64 depth);
+ASTPointerTypeRef ASTContextCreatePointerType(ASTContextRef context, SourceRange location, ASTTypeRef pointeeType);
 
 ASTArrayTypeRef ASTContextCreateArrayType(ASTContextRef context, SourceRange location, ASTTypeRef elementType, ASTExpressionRef size);
+
+ASTBuiltinTypeRef ASTContextGetBuiltinType(ASTContextRef context, ASTBuiltinTypeKind kind);
 
 JELLY_EXTERN_C_END
 

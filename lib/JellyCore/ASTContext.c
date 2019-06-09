@@ -1,15 +1,20 @@
 #include "JellyCore/ASTContext.h"
 #include "JellyCore/ASTNodes.h"
 #include "JellyCore/BumpAllocator.h"
+#include "JellyCore/SymbolTable.h"
 
 // @Todo Add unified identifier storage
 struct _ASTContext {
     AllocatorRef allocator;
     ArrayRef nodes[AST_TAG_COUNT];
     ASTModuleDeclarationRef module;
+    ASTBuiltinTypeRef builtinTypes[AST_BUILTIN_TYPE_KIND_COUNT];
+    SymbolTableRef symbolTable;
 };
 
 ASTNodeRef _ASTContextCreateNode(ASTContextRef context, ASTTag tag, SourceRange location);
+ASTBuiltinTypeRef _ASTContextCreateBuiltinType(ASTContextRef context, SourceRange location, ASTBuiltinTypeKind builtinKind, StringRef name);
+void _ASTContextInitBuiltinTypes(ASTContextRef context);
 
 ASTContextRef ASTContextCreate(AllocatorRef allocator) {
     AllocatorRef bumpAllocator                   = BumpAllocatorCreate(allocator);
@@ -38,12 +43,22 @@ ASTContextRef ASTContextCreate(AllocatorRef allocator) {
     context->nodes[ASTTagOpaqueType]             = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTOpaqueType), 8);
     context->nodes[ASTTagPointerType]            = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTPointerType), 8);
     context->nodes[ASTTagArrayType]              = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTArrayType), 8);
-    context->module                              = ASTContextCreateModuleDeclaration(context, SourceRangeMake(NULL, NULL), NULL, NULL);
+    context->module                              = ASTContextCreateModuleDeclaration(context, kSourceRangeNull, NULL, NULL);
+    _ASTContextInitBuiltinTypes(context);
+    context->symbolTable = SymbolTableCreate(context->allocator);
     return context;
 }
 
 void ASTContextDestroy(ASTContextRef context) {
     AllocatorDestroy(context->allocator);
+}
+
+SymbolTableRef ASTContextGetSymbolTable(ASTContextRef context) {
+    return context->symbolTable;
+}
+
+ASTModuleDeclarationRef ASTContextGetModule(ASTContextRef context) {
+    return context->module;
 }
 
 ASTSourceUnitRef ASTContextCreateSourceUnit(ASTContextRef context, SourceRange location, StringRef filePath, ArrayRef declarations) {
@@ -56,11 +71,11 @@ ASTSourceUnitRef ASTContextCreateSourceUnit(ASTContextRef context, SourceRange l
     return node;
 }
 
-ASTLoadDirectiveRef ASTContextCreateLoadDirective(ASTContextRef context, SourceRange location, StringRef filePath) {
-    assert(filePath);
+ASTLoadDirectiveRef ASTContextCreateLoadDirective(ASTContextRef context, SourceRange location, ASTConstantExpressionRef filePath) {
+    assert(filePath && filePath->kind == ASTConstantKindString);
 
     ASTLoadDirectiveRef node = (ASTLoadDirectiveRef)_ASTContextCreateNode(context, ASTTagLoadDirective, location);
-    node->filePath           = StringCreateCopy(context->allocator, filePath);
+    node->filePath           = filePath;
     return node;
 }
 
@@ -279,16 +294,17 @@ ASTOpaqueTypeRef ASTContextCreateOpaqueType(ASTContextRef context, SourceRange l
     assert(name);
 
     ASTOpaqueTypeRef node = (ASTOpaqueTypeRef)_ASTContextCreateNode(context, ASTTagOpaqueType, location);
+    node->kind            = ASTTypeKindOpaque;
     node->name            = StringCreateCopy(context->allocator, name);
     return node;
 }
 
-ASTPointerTypeRef ASTContextCreatePointerType(ASTContextRef context, SourceRange location, ASTTypeRef pointeeType, UInt64 depth) {
-    assert(pointeeType && depth > 0);
+ASTPointerTypeRef ASTContextCreatePointerType(ASTContextRef context, SourceRange location, ASTTypeRef pointeeType) {
+    assert(pointeeType);
 
     ASTPointerTypeRef node = (ASTPointerTypeRef)_ASTContextCreateNode(context, ASTTagPointerType, location);
+    node->kind             = ASTTypeKindPointer;
     node->pointeeType      = pointeeType;
-    node->depth            = depth;
     return node;
 }
 
@@ -296,9 +312,14 @@ ASTArrayTypeRef ASTContextCreateArrayType(ASTContextRef context, SourceRange loc
     assert(elementType);
 
     ASTArrayTypeRef node = (ASTArrayTypeRef)_ASTContextCreateNode(context, ASTTagArrayType, location);
+    node->kind           = ASTTypeKindArray;
     node->elementType    = elementType;
     node->size           = size;
     return node;
+}
+
+ASTBuiltinTypeRef ASTContextGetBuiltinType(ASTContextRef context, ASTBuiltinTypeKind kind) {
+    return context->builtinTypes[kind];
 }
 
 ASTNodeRef _ASTContextCreateNode(ASTContextRef context, ASTTag tag, SourceRange location) {
@@ -306,4 +327,30 @@ ASTNodeRef _ASTContextCreateNode(ASTContextRef context, ASTTag tag, SourceRange 
     node->tag       = tag;
     node->location  = location;
     return node;
+}
+
+ASTBuiltinTypeRef _ASTContextCreateBuiltinType(ASTContextRef context, SourceRange location, ASTBuiltinTypeKind builtinKind,
+                                               StringRef name) {
+    ASTBuiltinTypeRef node = (ASTBuiltinTypeRef)_ASTContextCreateNode(context, ASTTagBuiltinType, location);
+    node->builtinKind      = builtinKind;
+    node->name             = StringCreateCopy(context->allocator, name);
+    return node;
+}
+
+void _ASTContextInitBuiltinTypes(ASTContextRef context) {
+    SymbolTableRef symbolTable = ASTContextGetSymbolTable(context);
+    ScopeRef globalScope       = SymbolTableGetGlobalScope(symbolTable);
+
+    const Char *builtinTypeNames[AST_BUILTIN_TYPE_KIND_COUNT] = {
+        "<error>", "Void",   "Bool",    "Int8", "Int16",   "Int32",   "Int64",   "Int128",  "Int",      "UInt8", "UInt16",
+        "UInt32",  "UInt64", "UInt128", "UInt", "Float16", "Float32", "Float64", "Float80", "Float128", "Float",
+    };
+
+    for (Index index = 0; index < AST_BUILTIN_TYPE_KIND_COUNT; index++) {
+        StringRef name               = StringCreate(context->allocator, builtinTypeNames[index]);
+        context->builtinTypes[index] = _ASTContextCreateBuiltinType(context, kSourceRangeNull, (ASTBuiltinTypeKind)index, name);
+
+        SymbolRef symbol = ScopeInsertSymbol(globalScope, name, kSourceRangeNull);
+        assert(symbol);
+    }
 }

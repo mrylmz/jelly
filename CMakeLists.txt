@@ -18,6 +18,7 @@ set(JELLY_CORE_HEADER_FILES "include/JellyCore/Allocator.h"
                             "include/JellyCore/BumpAllocator.h"
                             "include/JellyCore/Diagnostic.h"
                             "include/JellyCore/JellyCore.h"
+                            "include/JellyCore/Parser.h"
                             "include/JellyCore/SourceRange.h"
                             "include/JellyCore/String.h"
                             "include/JellyCore/SymbolTable.h")
@@ -26,6 +27,7 @@ set(JELLY_CORE_SOURCE_FILES "lib/JellyCore/Allocator.c"
                             "lib/JellyCore/ASTContext.c"
                             "lib/JellyCore/BumpAllocator.c"
                             "lib/JellyCore/Diagnostic.c"
+                            "lib/JellyCore/Parser.c"
                             "lib/JellyCore/String.c"
                             "lib/JellyCore/SymbolTable.c")
 add_library(JellyCore STATIC ${JELLY_CORE_HEADER_FILES} 

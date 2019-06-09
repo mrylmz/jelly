@@ -17,6 +17,19 @@ StringRef StringCreate(AllocatorRef allocator, const Char *rawString) {
     return string;
 }
 
+StringRef StringCreateRange(AllocatorRef allocator, const Char *start, const Char *end) {
+    Index length     = end - start;
+    StringRef string = AllocatorAllocate(allocator, sizeof(struct _String));
+    assert(string);
+    string->allocator = allocator;
+    string->length    = length;
+    string->memory    = AllocatorAllocate(allocator, sizeof(Char) * length + 1);
+    assert(string->memory);
+    memcpy(string->memory, start, sizeof(Char) * length);
+    string->memory[sizeof(Char) * length] = '\0';
+    return string;
+}
+
 StringRef StringCreateCopy(AllocatorRef allocator, StringRef string) {
     StringRef copy = AllocatorAllocate(allocator, sizeof(struct _String));
     assert(copy);
