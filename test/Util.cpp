@@ -30,42 +30,14 @@
 
 #include <gtest/gtest.h>
 
-FileTestDiagnosticHandler::FileTestDiagnosticHandler(FileTestMetadata metadata) : metadata(metadata) {}
-
-void FileTestDiagnosticHandler::begin(jelly::SourceBuffer buffer) {
-    index = 0;
-}
-
-void FileTestDiagnosticHandler::end() {
-    EXPECT_EQ(index, metadata.errorMessages.size());
-}
-
-void FileTestDiagnosticHandler::finish() {
-
-}
-
-void FileTestDiagnosticHandler::handle(jelly::Diagnostic diagnostic) {
-    printf("[  MESSAGE ] %s\n", diagnostic.getMessage().c_str());
-
-    if (metadata.errorMessages.size() <= index) {
-        FAIL();
-    }
-
-    EXPECT_STREQ(diagnostic.getMessage().c_str(), metadata.errorMessages[index].c_str());
-    index += 1;
-
-}
-
 bool readFileContent(std::string filePath, std::string& fileContent) {
     std::fstream file;
     file.open(filePath, std::fstream::in);
 
     bool is_open = file.is_open();
     if (is_open) {
-        fileContent = {
-            std::istreambuf_iterator<char>(file),
-            std::istreambuf_iterator<char>()
-        };
+        fileContent = std::string((std::istreambuf_iterator<char>(file)),
+                    std::istreambuf_iterator<char>());
     }
 
     file.close();

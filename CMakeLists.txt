@@ -13,6 +13,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
 set(JELLY_CORE_HEADER_FILES "include/JellyCore/Allocator.h"
                             "include/JellyCore/Array.h"
                             "include/JellyCore/ASTContext.h"
+                            "include/JellyCore/ASTFunctions.h"
                             "include/JellyCore/ASTNodes.h"
                             "include/JellyCore/Base.h"
                             "include/JellyCore/BumpAllocator.h"
@@ -25,9 +26,11 @@ set(JELLY_CORE_HEADER_FILES "include/JellyCore/Allocator.h"
 set(JELLY_CORE_SOURCE_FILES "lib/JellyCore/Allocator.c"
                             "lib/JellyCore/Array.c"
                             "lib/JellyCore/ASTContext.c"
+                            "lib/JellyCore/ASTFunctions.c"
                             "lib/JellyCore/BumpAllocator.c"
                             "lib/JellyCore/Diagnostic.c"
                             "lib/JellyCore/Parser.c"
+                            "lib/JellyCore/SourceRange.c"
                             "lib/JellyCore/String.c"
                             "lib/JellyCore/SymbolTable.c")
 add_library(JellyCore STATIC ${JELLY_CORE_HEADER_FILES} 
@@ -37,3 +40,6 @@ target_include_directories(JellyCore PUBLIC include)
 add_executable(${PROJECT_NAME} "src/main.c")
 target_include_directories(${PROJECT_NAME} PUBLIC include)
 target_link_libraries(${PROJECT_NAME} JellyCore)
+
+add_subdirectory(googletest)
+add_subdirectory(test)

@@ -24,7 +24,6 @@
 
 #include "Util.h"
 
-#include <Core/Core.h>
 #include <gtest/gtest.h>
 
 class SemaTest : public testing::TestWithParam<FileTestMetadata> {

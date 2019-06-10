@@ -2,6 +2,8 @@
 #define __JELLY_PARSER__
 
 #include <JellyCore/Base.h>
+#include <JellyCore/Allocator.h>
+#include <JellyCore/ASTContext.h>
 
 JELLY_EXTERN_C_BEGIN
 

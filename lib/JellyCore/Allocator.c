@@ -23,11 +23,27 @@ const AllocatorRef kAllocatorNull          = &_kAllocatorNull;
 
 static AllocatorRef kAllocatorCurrentDefault = kAllocatorDefault;
 
-void AllocatorSetDefault(AllocatorRef allocator) {
+AllocatorRef AllocatorGetDefault(void) {
+    return kAllocatorDefault;
+}
+
+AllocatorRef AllocatorGetSystemDefault(void) {
+    return kAllocatorSystemDefault;
+}
+
+AllocatorRef AllocatorGetMalloc(void) {
+    return kAllocatorMalloc;
+}
+
+AllocatorRef AllocatorGetNull(void) {
+    return kAllocatorNull;
+}
+
+void AllocatorSetCurrentDefault(AllocatorRef allocator) {
     kAllocatorCurrentDefault = allocator;
 }
 
-AllocatorRef AllocatorGetDefault() {
+AllocatorRef AllocatorGetCurrentDefault(void) {
     return kAllocatorCurrentDefault;
 }
 

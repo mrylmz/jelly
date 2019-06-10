@@ -1,8 +1,11 @@
 #ifndef __JELLY_JELLYCORE__
 #define __JELLY_JELLYCORE__
 
+#include <JellyCore/ASTContext.h>
+#include <JellyCore/ASTNodes.h>
 #include <JellyCore/Allocator.h>
 #include <JellyCore/Array.h>
+#include <JellyCore/BumpAllocator.h>
 #include <JellyCore/Diagnostic.h>
 #include <JellyCore/Parser.h>
 #include <JellyCore/SourceRange.h>

@@ -13,7 +13,7 @@ typedef struct _SourceRange SourceRange;
 
 SourceRange SourceRangeMake(const Char *start, const Char *end);
 
-const SourceRange kSourceRangeNull = {NULL, NULL};
+SourceRange SourceRangeNull(void);
 
 JELLY_EXTERN_C_END
 

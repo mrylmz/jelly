@@ -52,6 +52,29 @@ StringRef StringCreateEmpty(AllocatorRef allocator) {
     return string;
 }
 
+StringRef StringCreateFromFile(AllocatorRef allocator, const Char *filePath) {
+    FILE *file = fopen(filePath, "r");
+    if (!file) {
+        return NULL;
+    }
+
+    fseek(file, 0, SEEK_END);
+    Index length = ftell(file);
+    fseek(file, 0, SEEK_SET);
+    Char *memory = AllocatorAllocate(allocator, sizeof(Char) * length + 1);
+    assert(memory);
+    fread(memory, sizeof(Char), length, file);
+    memory[length] = 0;
+    fclose(file);
+
+    StringRef string = AllocatorAllocate(allocator, sizeof(struct _String));
+    assert(string);
+    string->allocator = allocator;
+    string->length    = length;
+    string->memory    = memory;
+    return string;
+}
+
 void StringDestroy(StringRef string) {
     AllocatorDeallocate(string->allocator, string->memory);
     AllocatorDeallocate(string->allocator, string);
@@ -96,7 +119,7 @@ bool StringIsEqual(StringRef lhs, StringRef rhs) {
     }
 
     if (lhs->length > 0) {
-        return memcmp(lhs->memory, rhs->memory, sizeof(Char) * lhs->length);
+        return memcmp(lhs->memory, rhs->memory, sizeof(Char) * lhs->length) == 0;
     }
 
     return true;

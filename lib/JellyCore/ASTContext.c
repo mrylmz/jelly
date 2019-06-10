@@ -43,9 +43,10 @@ ASTContextRef ASTContextCreate(AllocatorRef allocator) {
     context->nodes[ASTTagOpaqueType]             = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTOpaqueType), 8);
     context->nodes[ASTTagPointerType]            = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTPointerType), 8);
     context->nodes[ASTTagArrayType]              = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTArrayType), 8);
-    context->module                              = ASTContextCreateModuleDeclaration(context, kSourceRangeNull, NULL, NULL);
+    context->nodes[ASTTagBuiltinType]            = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTBuiltinType), 8);
+    context->module                              = ASTContextCreateModuleDeclaration(context, SourceRangeNull(), NULL, NULL);
+    context->symbolTable                         = SymbolTableCreate(context->allocator);
     _ASTContextInitBuiltinTypes(context);
-    context->symbolTable = SymbolTableCreate(context->allocator);
     return context;
 }
 
@@ -348,9 +349,9 @@ void _ASTContextInitBuiltinTypes(ASTContextRef context) {
 
     for (Index index = 0; index < AST_BUILTIN_TYPE_KIND_COUNT; index++) {
         StringRef name               = StringCreate(context->allocator, builtinTypeNames[index]);
-        context->builtinTypes[index] = _ASTContextCreateBuiltinType(context, kSourceRangeNull, (ASTBuiltinTypeKind)index, name);
+        context->builtinTypes[index] = _ASTContextCreateBuiltinType(context, SourceRangeNull(), (ASTBuiltinTypeKind)index, name);
 
-        SymbolRef symbol = ScopeInsertSymbol(globalScope, name, kSourceRangeNull);
+        SymbolRef symbol = ScopeInsertSymbol(globalScope, name, SourceRangeNull());
         assert(symbol);
     }
 }

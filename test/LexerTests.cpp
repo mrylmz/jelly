@@ -22,8 +22,6 @@
 // SOFTWARE.
 //
 
-#include <Core/Core.h>
-#include <Parse/Parse.h>
 #include <gtest/gtest.h>
 
 using namespace jelly;

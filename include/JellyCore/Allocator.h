@@ -16,14 +16,14 @@ typedef void *(*AllocatorCallback)(AllocatorMode mode, Index capacity, void *mem
 
 typedef struct _Allocator *AllocatorRef;
 
-const AllocatorRef kAllocatorDefault;
-const AllocatorRef kAllocatorSystemDefault;
-const AllocatorRef kAllocatorMalloc;
-const AllocatorRef kAllocatorNull;
+AllocatorRef AllocatorGetDefault(void);
+AllocatorRef AllocatorGetSystemDefault(void);
+AllocatorRef AllocatorGetMalloc(void);
+AllocatorRef AllocatorGetNull(void);
 
-void AllocatorSetDefault(AllocatorRef allocator);
+void AllocatorSetCurrentDefault(AllocatorRef allocator);
 
-AllocatorRef AllocatorGetDefault();
+AllocatorRef AllocatorGetCurrentDefault(void);
 
 AllocatorRef AllocatorCreate(AllocatorRef allocator, AllocatorCallback callback, void *context);
 

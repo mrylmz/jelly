@@ -70,7 +70,7 @@ ScopeRef ScopeGetParent(ScopeRef scope) {
 }
 
 SymbolRef ScopeInsertSymbol(ScopeRef scope, StringRef name, SourceRange location) {
-    if (ScopeLookupSymbol(scope, name, NULL)) {
+    if (ScopeLookupSymbol(scope, name, NULL) != NULL) {
         return NULL;
     }
 

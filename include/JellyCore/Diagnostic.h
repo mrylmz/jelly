@@ -12,6 +12,8 @@ enum _DiagnosticLevel {
     DiagnosticLevelWarning,
     DiagnosticLevelError,
     DiagnosticLevelCritical,
+
+    DIAGNOSTIC_LEVEL_COUNT,
 };
 typedef enum _DiagnosticLevel DiagnosticLevel;
 

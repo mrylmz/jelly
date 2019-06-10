@@ -16,6 +16,8 @@ StringRef StringCreateCopy(AllocatorRef allocator, StringRef string);
 
 StringRef StringCreateEmpty(AllocatorRef allocator);
 
+StringRef StringCreateFromFile(AllocatorRef allocator, const Char *filePath);
+
 void StringDestroy(StringRef string);
 
 Index StringGetLength(StringRef string);
