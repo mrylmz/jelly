@@ -32,7 +32,7 @@ class ParserTest : public testing::TestWithParam<FileTest> {
 
 TEST_P(ParserTest, run) {
     auto test = GetParam();
-    printf("[   TEST   ] %s\n", test.context.filePath.c_str());
+    printf("[   TEST   ] %s\n", test.context.filePath.substr(test.context.filePath.rfind("/")).c_str());
 
     if (!test.context.reports.empty()) {
         for (auto error : test.context.reports) {
@@ -55,6 +55,10 @@ TEST_P(ParserTest, run) {
         ASTContextDestroy(context);
 
         if (test.context.index < test.context.records.size()) {
+            for (auto index = test.context.index; index < test.context.records.size(); index++) {
+                printf("[ EXPECTED ] %s!\n", test.context.records[index].message.c_str());
+            }
+
             FAIL();
         }
 
