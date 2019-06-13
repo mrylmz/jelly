@@ -8,6 +8,8 @@ JELLY_EXTERN_C_BEGIN
 
 ASTOperatorPrecedence ASTGetBinaryOperatorPrecedence(ASTBinaryOperator binary);
 
+ASTOperatorPrecedence ASTGetPostfixOperatorPrecedence(ASTPostfixOperator op);
+
 ASTOperatorPrecedence ASTGetOperatorPrecedenceBefore(ASTOperatorPrecedence precedence);
 
 ASTOperatorAssociativity ASTGetBinaryOperatorAssociativity(ASTBinaryOperator binary);

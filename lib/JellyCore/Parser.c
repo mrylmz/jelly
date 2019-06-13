@@ -14,6 +14,8 @@ struct _Parser {
     Index line;
 };
 
+// TODO: Adopt old parser implementation by migrating old Lexer!
+
 static inline Bool _CharIsStartOfIdentifier(Char character);
 static inline Bool _CharIsContinuationOfIdentifier(Char character);
 static inline Bool _CharIsBinaryDigit(Char character);
@@ -30,6 +32,8 @@ static inline Bool _ParserConsumeKeyword(ParserRef parser, const Char *keyword);
 static inline StringRef _ParserConsumeIdentifier(ParserRef parser);
 static inline ASTUnaryOperator _ParserConsumeUnaryOperator(ParserRef parser);
 static inline ASTBinaryOperator _ParserConsumeBinaryOperator(ParserRef parser);
+static inline ASTPostfixOperator _ParserConsumePostfixOperatorHead(ParserRef parser);
+static inline Bool _ParserConsumePostfixOperatorTail(ParserRef parser, ASTPostfixOperator postfix);
 static inline ASTLoadDirectiveRef _ParserParseDirective(ParserRef parser);
 static inline ASTBlockRef _ParserParseBlock(ParserRef parser);
 static inline ASTIfStatementRef _ParserParseIfStatement(ParserRef parser);
@@ -199,6 +203,8 @@ static inline Bool _ParserIsChar(ParserRef parser, Char character) {
 }
 
 static inline Bool _ParserConsumeChar(ParserRef parser, Char character) {
+    _ParserSkipWhitespaceAndNewlines(parser);
+
     if (*parser->cursor != character) {
         return false;
     }
@@ -208,6 +214,8 @@ static inline Bool _ParserConsumeChar(ParserRef parser, Char character) {
 }
 
 static inline Bool _ParserConsumeString(ParserRef parser, const Char *string) {
+    _ParserSkipWhitespaceAndNewlines(parser);
+
     Index length = strlen(string);
     if (length != strnlen(parser->cursor, length)) {
         return false;
@@ -217,6 +225,7 @@ static inline Bool _ParserConsumeString(ParserRef parser, const Char *string) {
         return false;
     }
 
+    parser->cursor += length;
     return true;
 }
 
@@ -239,6 +248,8 @@ static inline Bool _ParserIsKeyword(ParserRef parser, const Char *keyword) {
 }
 
 static inline Bool _ParserConsumeKeyword(ParserRef parser, const Char *keyword) {
+    _ParserSkipWhitespaceAndNewlines(parser);
+
     Index length = strlen(keyword);
     if (length != strnlen(parser->cursor, length)) {
         return false;
@@ -261,6 +272,8 @@ static inline Bool _ParserConsumeKeyword(ParserRef parser, const Char *keyword) 
 /// grammar: identifier-head := "a" ... "z" | "A" ... "Z" | "_"
 /// grammar: identifier-tail := identifier-head | "0" ... "9"
 static inline StringRef _ParserConsumeIdentifier(ParserRef parser) {
+    _ParserSkipWhitespaceAndNewlines(parser);
+
     SourceRange location = {parser->cursor, parser->cursor};
 
     if (!_CharIsStartOfIdentifier(*parser->cursor)) {
@@ -277,6 +290,8 @@ static inline StringRef _ParserConsumeIdentifier(ParserRef parser) {
 }
 
 static inline ASTUnaryOperator _ParserConsumeUnaryOperator(ParserRef parser) {
+    _ParserSkipWhitespaceAndNewlines(parser);
+
     if (_ParserConsumeChar(parser, '!')) {
         return ASTUnaryOperatorLogicalNot;
     } else if (_ParserConsumeChar(parser, '~')) {
@@ -291,6 +306,8 @@ static inline ASTUnaryOperator _ParserConsumeUnaryOperator(ParserRef parser) {
 }
 
 static inline ASTBinaryOperator _ParserConsumeBinaryOperator(ParserRef parser) {
+    _ParserSkipWhitespaceAndNewlines(parser);
+
     // @TODO Order by ambiguity (string length in descending order)
     if (_ParserConsumeString(parser, "<<")) {
         return ASTBinaryOperatorBitwiseLeftShift;
@@ -359,6 +376,34 @@ static inline ASTBinaryOperator _ParserConsumeBinaryOperator(ParserRef parser) {
     }
 }
 
+static inline ASTPostfixOperator _ParserConsumePostfixOperatorHead(ParserRef parser) {
+    _ParserSkipWhitespaceAndNewlines(parser);
+
+    if (_ParserConsumeChar(parser, '.')) {
+        return ASTPostfixOperatorSelector;
+    } else if (_ParserConsumeChar(parser, '(')) {
+        return ASTPostfixOperatorCall;
+    } else {
+        return ASTPostfixOperatorUnknown;
+    }
+}
+
+static inline Bool _ParserConsumePostfixOperatorTail(ParserRef parser, ASTPostfixOperator postfix) {
+    _ParserSkipWhitespaceAndNewlines(parser);
+
+    switch (postfix) {
+    case ASTPostfixOperatorCall:
+        return _ParserConsumeChar(parser, ')');
+
+    case ASTPostfixOperatorUnknown:
+    case ASTPostfixOperatorSelector:
+        return true;
+
+    default:
+        return false;
+    }
+}
+
 /// grammar: directive      := load-directive
 /// grammar: load-directive := "#load" string-literal
 static inline ASTLoadDirectiveRef _ParserParseDirective(ParserRef parser) {
@@ -411,6 +456,7 @@ static inline ASTBlockRef _ParserParseBlock(ParserRef parser) {
 
         ASTNodeRef statement = _ParserParseStatement(parser);
         if (!statement) {
+            ReportError("Expected statement or '}' in block!");
             return NULL;
         }
 
@@ -474,6 +520,8 @@ static inline ASTIfStatementRef _ParserParseIfStatement(ParserRef parser) {
         }
 
         SymbolTablePopScope(symbolTable);
+    } else {
+        elseBlock = ASTContextCreateBlock(parser->context, location, NULL);
     }
 
     location.end = parser->cursor;
@@ -596,8 +644,9 @@ static inline ASTSwitchStatementRef _ParserParseSwitchStatement(ParserRef parser
         return NULL;
     }
 
-    ASTExpressionRef argument = _ParserParseExpression(parser, 0, false);
+    ASTExpressionRef argument = _ParserParseExpression(parser, 0, true);
     if (!argument) {
+        ReportError("Expected `condition` of `switch-statement`");
         return NULL;
     }
 
@@ -670,6 +719,8 @@ static inline ASTControlStatementRef _ParserParseControlStatement(ParserRef pars
 
 /// grammar: statement := variable-declaration | control-statement | loop-statement | if-statement | switch-statement | expression
 static inline ASTNodeRef _ParserParseStatement(ParserRef parser) {
+    _ParserSkipWhitespaceAndNewlines(parser);
+
     if (_ParserIsKeyword(parser, "var") || _ParserIsKeyword(parser, "let")) {
         ASTValueDeclarationRef value = _ParserParseValueDeclaration(parser);
         if (!value || (value->kind != ASTValueKindVariable && value->kind != ASTValueKindConstant)) {
@@ -756,7 +807,7 @@ static inline ASTUnaryExpressionRef _ParserParseUnaryExpression(ParserRef parser
         return NULL;
     }
 
-    if (unaryEnd != arguments[0]->location.start - 1) {
+    if (unaryEnd != arguments[0]->location.start) {
         ReportError("Unary operator has to be right bound!");
         return NULL;
     }
@@ -770,65 +821,85 @@ static inline ASTUnaryExpressionRef _ParserParseUnaryExpression(ParserRef parser
 static inline ASTExpressionRef _ParserParseExpression(ParserRef parser, ASTOperatorPrecedence minPrecedence, Bool silentDiagnostics) {
     SourceRange location = {parser->cursor, parser->cursor};
 
+    // TODO: Source location of expressions are not initialized correctly!
+
     ASTExpressionRef result = _ParserParsePrimaryExpression(parser);
     if (!result) {
+        if (!silentDiagnostics) {
+            ReportError("Expected `expression`");
+        }
+
         return NULL;
     }
 
-    location.end             = parser->cursor;
-    ASTBinaryOperator binary = _ParserConsumeBinaryOperator(parser);
+    location.end                     = parser->cursor;
+    ASTBinaryOperator binary         = _ParserConsumeBinaryOperator(parser);
+    ASTOperatorPrecedence precedence = ASTGetBinaryOperatorPrecedence(binary);
+
+    ASTPostfixOperator postfix = ASTPostfixOperatorUnknown;
     if (binary == ASTBinaryOperatorUnknown) {
+        postfix    = _ParserConsumePostfixOperatorHead(parser);
+        precedence = ASTGetPostfixOperatorPrecedence(postfix);
+    }
+
+    if (binary == ASTBinaryOperatorUnknown && postfix == ASTPostfixOperatorUnknown) {
         parser->cursor = location.end;
         return result;
     }
 
-    ASTOperatorPrecedence precedence = ASTGetBinaryOperatorPrecedence(binary);
     if (minPrecedence >= precedence) {
         parser->cursor = location.end;
         return result;
     }
 
     while (minPrecedence < precedence) {
-        ASTOperatorPrecedence nextPrecedence   = precedence;
-        ASTOperatorAssociativity associativity = ASTGetBinaryOperatorAssociativity(binary);
-        if (associativity == ASTOperatorAssociativityRight) {
-            nextPrecedence = ASTGetOperatorPrecedenceBefore(nextPrecedence);
-        }
+        ASTOperatorPrecedence nextPrecedence = precedence;
 
-        ASTExpressionRef right = _ParserParseExpression(parser, nextPrecedence, silentDiagnostics);
-        if (!right) {
+        if (binary != ASTBinaryOperatorUnknown) {
+            ASTOperatorAssociativity associativity = ASTGetBinaryOperatorAssociativity(binary);
+            if (associativity == ASTOperatorAssociativityRight) {
+                nextPrecedence = ASTGetOperatorPrecedenceBefore(nextPrecedence);
+            }
+
+            ASTExpressionRef right = _ParserParseExpression(parser, nextPrecedence, silentDiagnostics);
+            if (!right) {
+                return NULL;
+            }
+
+            location.end                  = parser->cursor;
+            ASTExpressionRef arguments[2] = {result, right};
+            result = (ASTExpressionRef)ASTContextCreateBinaryExpression(parser->context, location, binary, arguments);
+            if (!result) {
+                return NULL;
+            }
+        } else if (postfix == ASTPostfixOperatorSelector) {
+            StringRef memberName = _ParserConsumeIdentifier(parser);
+            if (!memberName) {
+                return NULL;
+            }
+
+            location.end = parser->cursor;
+            result       = (ASTExpressionRef)ASTContextCreateMemberAccessExpression(parser->context, location, result, memberName);
+        } else if (postfix == ASTPostfixOperatorCall) {
+            result = (ASTExpressionRef)_ParserParseCallExpression(parser, result);
+            if (!result) {
+                return NULL;
+            }
+        } else {
             return NULL;
         }
-
-        location.end                  = parser->cursor;
-        ASTExpressionRef arguments[2] = {result, right};
-        result                        = (ASTExpressionRef)ASTContextCreateBinaryExpression(parser->context, location, binary, arguments);
-        if (!result) {
-            return NULL;
-        }
-
-        // TODO: Add support for postfix operator!
-        //        else if (_ParserIsChar(parser, '.')) {
-        //            StringRef memberName = _ParserConsumeIdentifier(parser);
-        //            if (!memberName) {
-        //                return NULL;
-        //            }
-        //
-        //            location.end = parser->cursor;
-        //            result       = ASTContextCreateMemberAccessExpression(parser->context, location, result, memberName);
-        //        }
-        //        // @Bug postfix expressions should always be parsed as primary expressions without precedence!
-        //        else if (op == Operator::Subscript) {
-        //            left = parseSubscriptExpression(left);
-        //        } else if (op == Operator::Call) {
-        //            result = _ParserParseCallExpression(parser, result);
-        //        } else {
-        //            return NULL;
-        //        }
 
         location.end = parser->cursor;
         binary       = _ParserConsumeBinaryOperator(parser);
+        precedence   = ASTGetBinaryOperatorPrecedence(binary);
+        postfix      = ASTPostfixOperatorUnknown;
+
         if (binary == ASTBinaryOperatorUnknown) {
+            postfix    = _ParserConsumePostfixOperatorHead(parser);
+            precedence = ASTGetPostfixOperatorPrecedence(postfix);
+        }
+
+        if (binary == ASTBinaryOperatorUnknown && postfix == ASTPostfixOperatorUnknown) {
             parser->cursor = location.end;
             return result;
         }
@@ -855,9 +926,10 @@ static inline ASTIdentifierExpressionRef _ParserParseIdentifierExpression(Parser
 static inline ASTCallExpressionRef _ParserParseCallExpression(ParserRef parser, ASTExpressionRef callee) {
     SourceRange location = {callee->location.start, parser->cursor};
 
-    if (!_ParserConsumeChar(parser, '(')) {
-        return NULL;
-    }
+    // We expect that the postfix operator head is already consumed earlier
+    //    if (!_ParserConsumePostfixOperatorHead(parser)) {
+    //        return NULL;
+    //    }
 
     ArrayRef arguments = ArrayCreateEmpty(parser->allocator, sizeof(ASTNodeRef), 8);
     while (!_ParserIsChar(parser, ')')) {
@@ -877,7 +949,7 @@ static inline ASTCallExpressionRef _ParserParseCallExpression(ParserRef parser, 
         }
     }
 
-    if (!_ParserConsumeChar(parser, ')')) {
+    if (_ParserConsumePostfixOperatorTail(parser, ASTPostfixOperatorCall)) {
         return NULL;
     }
 
@@ -917,6 +989,10 @@ static inline ASTConstantExpressionRef _ParserParseConstantExpression(ParserRef 
 /// grammar: integer-literal := TODO: Describe int literal grammar
 /// grammar: float-literal   := TODO: Describe float literal grammar
 static inline ASTConstantExpressionRef _ParserParseNumericLiteral(ParserRef parser) {
+    _ParserSkipWhitespaceAndNewlines(parser);
+
+    // TODO: Remove all consume functions here because numeric literals are not allowed to be split by whitespaces, newlines and comments!
+
     SourceRange location = {parser->cursor, parser->cursor};
 
     if (!_CharIsDecimalDigit(*parser->cursor)) {
@@ -1165,6 +1241,7 @@ static inline ASTConstantExpressionRef _ParserParseNumericLiteral(ParserRef pars
             value += *cursor - '0';
 
             if (value < oldValue) {
+                ReportError("Integer overflow");
                 return NULL;
             }
         }
@@ -1259,14 +1336,17 @@ static inline ASTConstantExpressionRef _ParserParseNumericLiteral(ParserRef pars
     return ASTContextCreateConstantFloatExpression(parser->context, location, value);
 }
 
-/// grammar: string-literal      := """ {string-literal-body } """
+/// grammar: string-literal      := """ { string-literal-body } """
 /// grammar: string-literal-body := TODO: Add grammar description for string literal body!
 static inline ASTConstantExpressionRef _ParserParseStringLiteral(ParserRef parser) {
+    _ParserSkipWhitespaceAndNewlines(parser);
+
     SourceRange location = {parser->cursor, parser->cursor};
 
-    if (!_ParserConsumeChar(parser, '"')) {
+    if (*parser->cursor != '"') {
         return NULL;
     }
+    parser->cursor += 1;
 
     Bool valid    = true;
     Bool finished = false;
@@ -1312,10 +1392,12 @@ static inline ASTConstantExpressionRef _ParserParseStringLiteral(ParserRef parse
         }
     }
 
-    if (!valid || !_ParserConsumeChar(parser, '"')) {
+    if (!valid || *parser->cursor != '"') {
         return NULL;
     }
+    parser->cursor += 1;
 
+    location.end    = parser->cursor;
     StringRef value = StringCreateRange(parser->allocator, location.start + 1, location.end - 1);
     location.end    = parser->cursor;
     return ASTContextCreateConstantStringExpression(parser->context, location, value);
@@ -1330,10 +1412,12 @@ static inline ASTEnumerationDeclarationRef _ParserParseEnumerationDeclaration(Pa
 
     StringRef name = _ParserConsumeIdentifier(parser);
     if (!name) {
+        ReportError("Expected `name` of `enum-declaration`");
         return NULL;
     }
 
     if (!_ParserConsumeChar(parser, '{')) {
+        ReportError("Expected '{' after `name` of `enum-declaration`");
         return NULL;
     }
 
@@ -1346,17 +1430,18 @@ static inline ASTEnumerationDeclarationRef _ParserParseEnumerationDeclaration(Pa
 
         while (true) {
             if (ArrayGetElementCount(elements) > 0 && line == parser->line) {
-                ReportError("Consecutive enum elements on a line are not allowed!");
+                ReportError("Consecutive `enum-element`(s) on a line are not allowed");
                 return NULL;
             }
 
             ASTValueDeclarationRef element = _ParserParseValueDeclaration(parser);
             if (!element) {
+                ReportError("Expected 'case' or '}' in `enum-declaration`");
                 return NULL;
             }
 
             if (element->kind != ASTValueKindEnumerationElement) {
-                ReportError("Only enumeration elements are allowed inside of enumeration!");
+                ReportError("Only `enum-element`(s) are allowed inside of `enum-declaration`");
                 return NULL;
             }
 
@@ -1388,10 +1473,12 @@ static inline ASTFunctionDeclarationRef _ParserParseFunctionDeclaration(ParserRe
 
     StringRef name = _ParserConsumeIdentifier(parser);
     if (!name) {
+        ReportError("Expected name of 'func'");
         return NULL;
     }
 
     if (!_ParserConsumeChar(parser, '(')) {
+        ReportError("Expected parameter list after name of 'func'");
         return NULL;
     }
 
@@ -1418,26 +1505,31 @@ static inline ASTFunctionDeclarationRef _ParserParseFunctionDeclaration(ParserRe
             }
 
             if (!_ParserConsumeChar(parser, ',')) {
+                ReportError("Expected ',' or ')' in parameter list of 'func'");
                 return NULL;
             }
         }
     }
 
     if (!_ParserConsumeChar(parser, ')')) {
+        ReportError("Expected ')' after parameter list of 'func'");
         return NULL;
     }
 
     if (!_ParserConsumeString(parser, "->")) {
+        ReportError("Expected '->' after parameter list of 'func'");
         return NULL;
     }
 
     ASTTypeRef returnType = _ParserParseType(parser);
     if (!returnType) {
+        ReportError("Expected return type after '->' of 'func'");
         return NULL;
     }
 
     ASTBlockRef body = _ParserParseBlock(parser);
     if (!body) {
+        ReportError("Expected block of 'func'");
         return NULL;
     }
 
@@ -1466,10 +1558,12 @@ static inline ASTStructureDeclarationRef _ParserParseStructureDeclaration(Parser
 
     StringRef name = _ParserConsumeIdentifier(parser);
     if (!name) {
+        ReportError("Expected name after 'struct'");
         return NULL;
     }
 
     if (!_ParserConsumeChar(parser, '{')) {
+        ReportError("Expected '{' after name of 'struct'");
         return NULL;
     }
 
@@ -1549,6 +1643,7 @@ static inline ASTValueDeclarationRef _ParserParseValueDeclaration(ParserRef pars
 
         ASTBinaryOperator binary = _ParserConsumeBinaryOperator(parser);
         if (binary != ASTBinaryOperatorAssign) {
+            ReportError("Constant expression has to be initialized");
             return NULL;
         }
 
@@ -1571,10 +1666,12 @@ static inline ASTValueDeclarationRef _ParserParseValueDeclaration(ParserRef pars
     } else if (_ParserConsumeKeyword(parser, "var")) {
         StringRef name = _ParserConsumeIdentifier(parser);
         if (!name) {
+            ReportError("Expected name of 'var'");
             return NULL;
         }
 
         if (!_ParserConsumeChar(parser, ':')) {
+            ReportError("Expected ':' after name of 'var'");
             return NULL;
         }
 
@@ -1609,6 +1706,7 @@ static inline ASTValueDeclarationRef _ParserParseValueDeclaration(ParserRef pars
     } else if (_ParserConsumeKeyword(parser, "case")) {
         StringRef name = _ParserConsumeIdentifier(parser);
         if (!name) {
+            ReportError("Expected `name` of `enum-element`");
             return NULL;
         }
 
@@ -1617,6 +1715,7 @@ static inline ASTValueDeclarationRef _ParserParseValueDeclaration(ParserRef pars
         if (binary == ASTBinaryOperatorAssign) {
             initializer = _ParserParseExpression(parser, 0, false);
             if (!initializer) {
+                ReportError("Expected `expression` after '='");
                 return NULL;
             }
         } else if (binary != ASTBinaryOperatorUnknown) {
@@ -1640,6 +1739,7 @@ static inline ASTValueDeclarationRef _ParserParseValueDeclaration(ParserRef pars
     } else {
         StringRef name = _ParserConsumeIdentifier(parser);
         if (!name) {
+            ReportError("Expected identifier");
             return NULL;
         }
 
@@ -1739,6 +1839,7 @@ static inline ASTTypeRef _ParserParseType(ParserRef parser) {
     } else {
         StringRef name = _ParserConsumeIdentifier(parser);
         if (!name) {
+            ReportError("Expected type");
             return NULL;
         }
 
@@ -1799,7 +1900,7 @@ static inline ASTNodeRef _ParserParseTopLevelNode(ParserRef parser) {
         return NULL;
     }
 
-    if (*parser->cursor == '#') {
+    if (_ParserIsChar(parser, '#')) {
         return (ASTNodeRef)_ParserParseDirective(parser);
     }
 

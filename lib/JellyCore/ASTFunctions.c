@@ -54,6 +54,16 @@ ASTOperatorPrecedence ASTGetBinaryOperatorPrecedence(ASTBinaryOperator binary) {
     }
 }
 
+ASTOperatorPrecedence ASTGetPostfixOperatorPrecedence(ASTPostfixOperator op) {
+    switch (op) {
+        case ASTPostfixOperatorUnknown:
+            return 250;
+
+        default:
+            return 1000;
+    }
+}
+
 ASTOperatorPrecedence ASTGetOperatorPrecedenceBefore(ASTOperatorPrecedence precedence) {
     if (precedence > 900) {
         return 900;

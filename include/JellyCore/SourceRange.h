@@ -15,6 +15,8 @@ SourceRange SourceRangeMake(const Char *start, const Char *end);
 
 SourceRange SourceRangeNull(void);
 
+Bool SourceRangeIsEqual(SourceRange range, const Char *string);
+
 JELLY_EXTERN_C_END
 
 #endif

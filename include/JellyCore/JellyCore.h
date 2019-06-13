@@ -7,6 +7,7 @@
 #include <JellyCore/Array.h>
 #include <JellyCore/BumpAllocator.h>
 #include <JellyCore/Diagnostic.h>
+#include <JellyCore/Lexer.h>
 #include <JellyCore/Parser.h>
 #include <JellyCore/SourceRange.h>
 #include <JellyCore/String.h>

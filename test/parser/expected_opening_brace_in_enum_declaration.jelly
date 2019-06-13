@@ -1,1 +1,1 @@
-enum MyEnum } // expect-error: Expected token '{' found '}'
+enum MyEnum } // expect-error: Expected '{' after `name` of `enum-declaration`

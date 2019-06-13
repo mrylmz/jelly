@@ -13,3 +13,17 @@ SourceRange SourceRangeNull(void) {
     range.end   = NULL;
     return range;
 }
+
+Bool SourceRangeIsEqual(SourceRange range, const Char *string) {
+    Index length = range.end - range.start;
+
+    if (strlen(string) != length) {
+        return false;
+    }
+
+    if (strncmp(string, range.start, length) != 0) {
+        return false;
+    }
+
+    return true;
+}

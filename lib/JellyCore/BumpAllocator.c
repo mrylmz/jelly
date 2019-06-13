@@ -1,6 +1,7 @@
 #include "JellyCore/Allocator.h"
 
-// @Todo: BumpAllocator will always fail allocation if user-code requests capacities higher than kBumpAllocatorPageCapacity!
+// TODO: BumpAllocator will always fail allocation if user-code requests capacities higher than kBumpAllocatorPageCapacity!
+// TODO: @Bug something seams to be hardly broken here...
 
 const Index kBumpAllocatorPageCapacity = 65535;
 

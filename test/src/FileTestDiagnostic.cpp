@@ -79,7 +79,7 @@ void FileTestDiagnosticHandler(DiagnosticLevel level, const Char *message, void 
     printf("[  MESSAGE ] %s\n", message);
 
     FileTestDiagnosticContext *fileTestContext = (FileTestDiagnosticContext *)context;
-    if (fileTestContext->records.size() < fileTestContext->index) {
+    if (fileTestContext->records.size() <= fileTestContext->index) {
         FAIL();
     }
 

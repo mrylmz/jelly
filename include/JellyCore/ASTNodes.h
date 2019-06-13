@@ -218,6 +218,13 @@ struct _ASTBinaryExpression {
     ASTExpressionRef arguments[2];
 };
 
+enum _ASTPostfixOperator {
+    ASTPostfixOperatorUnknown,
+    ASTPostfixOperatorSelector,
+    ASTPostfixOperatorCall,
+};
+typedef enum _ASTPostfixOperator ASTPostfixOperator;
+
 struct _ASTIdentifierExpression {
     struct _ASTNode base;
 

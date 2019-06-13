@@ -26,6 +26,7 @@ Index _ScopeGetVirtualEnd(ScopeRef scope, const Char *virtualEndOfScope);
 
 SymbolTableRef SymbolTableCreate(AllocatorRef allocator) {
     SymbolTableRef symbolTable = AllocatorAllocate(allocator, sizeof(struct _SymbolTable));
+    assert(symbolTable);
     symbolTable->allocator     = allocator;
     symbolTable->scopes        = ArrayCreateEmpty(allocator, sizeof(struct _Scope), 8);
     symbolTable->currentScope  = _SymbolTableCreateScope(symbolTable, ScopeKindGlobal, NULL);
@@ -51,7 +52,9 @@ ScopeRef SymbolTableGetCurrentScope(SymbolTableRef symbolTable) {
 }
 
 ScopeRef SymbolTablePushScope(SymbolTableRef symbolTable, ScopeKind scopeKind) {
-    symbolTable->currentScope = _SymbolTableCreateScope(symbolTable, scopeKind, symbolTable->currentScope);
+    ScopeRef currentScope = _SymbolTableCreateScope(symbolTable, scopeKind, symbolTable->currentScope);
+    assert(currentScope);
+    symbolTable->currentScope = currentScope;
     return symbolTable->currentScope;
 }
 
@@ -121,11 +124,14 @@ Index _ScopeGetVirtualEnd(ScopeRef scope, const Char *virtualEndOfScope) {
         return ArrayGetElementCount(scope->symbols);
     }
 
-    // @TODO See @SortedSymbolInsertion
-    for (Index index = ArrayGetElementCount(scope->symbols) - 1; index >= 0; index--) {
-        SymbolRef symbol = ArrayGetElementAtIndex(scope->symbols, index);
-        if (symbol->location.start < virtualEndOfScope) {
-            return index + 1;
+    // TODO: See @SortedSymbolInsertion
+    Index symbolCount = ArrayGetElementCount(scope->symbols);
+    if (symbolCount > 0) {
+        for (Index index = symbolCount - 1; index > 0; index--) {
+            SymbolRef symbol = ArrayGetElementAtIndex(scope->symbols, index);
+            if (symbol->location.start < virtualEndOfScope) {
+                return index + 1;
+            }
         }
     }
 
