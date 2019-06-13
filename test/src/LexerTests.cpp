@@ -1,6 +1,8 @@
 #include <gtest/gtest.h>
 #include <JellyCore/JellyCore.h>
 
+static inline void _PrintTokenKindDescription(TokenKind kind);
+
 #define EXPECT_TOKEN_KINDS_EQ(__SOURCE__, ...)                                  \
 {                                                                               \
     const TokenKind kinds[] = {                                                 \
@@ -13,11 +15,24 @@
                                                                                 \
     for (Index i = 0; i < sizeof(kinds) / sizeof(TokenKind); i++) {             \
         LexerNextToken(lexer, &token);                                          \
-        EXPECT_EQ(token.kind, kinds[i]);                                        \
+        EXPECT_TOKEN_KIND_EQ(token.kind, kinds[i]);                             \
     }                                                                           \
                                                                                 \
     LexerDestroy(lexer);                                                        \
     StringDestroy(buffer);                                                      \
+}
+
+#define EXPECT_TOKEN_KIND_EQ(__VALUE__,__EXPECTED__)    \
+{                                                       \
+    if (__VALUE__ != __EXPECTED__) {                    \
+        printf("\n%s", "    Expected token kind: ");    \
+        _PrintTokenKindDescription(__EXPECTED__);       \
+        printf("%s", "\n");                             \
+        printf("%s", "    Received token kind: ");      \
+        _PrintTokenKindDescription(__VALUE__);          \
+        printf("%s", "\n\n");                           \
+        FAIL();                                         \
+    }                                                   \
 }
 
 TEST(Lexer, Directives) {
@@ -268,8 +283,18 @@ TEST(Lexer, HexFloatLiteralWithFraction) {
 }
 
 TEST(Lexer, InvalidHexFloatLiteral) {
-    EXPECT_TOKEN_KINDS_EQ("0xFgF.2p2k", TokenKindUnknown);
-//    EXPECT_TOKEN_KINDS_EQ("0xFgF.2p2k...10.2", TokenKindError, TokenKindOperator, TokenKindLiteralFloat);
+    EXPECT_TOKEN_KINDS_EQ("0xFgF.2p2k",
+                          TokenKindError,
+                          TokenKindDot,
+                          TokenKindError);
+    EXPECT_TOKEN_KINDS_EQ("0xFgF.2p2k...10.2",
+                          TokenKindError,
+                          TokenKindDot,
+                          TokenKindError,
+                          TokenKindDot,
+                          TokenKindDot,
+                          TokenKindDot,
+                          TokenKindLiteralFloat);
 }
 
 TEST(Lexer, StringLiteral) {
@@ -288,15 +313,15 @@ TEST(Lexer, StringLiteralWithEscapeCharacters) {
 
 TEST(Lexer, StringLiteralInvalidLineBreak) {
     EXPECT_TOKEN_KINDS_EQ("\"Hello \n"
-                         "World!\"", TokenKindError, TokenKindIdentifier, TokenKindExclamationMark, TokenKindUnknown);
+                         "World!\"", TokenKindError, TokenKindIdentifier, TokenKindExclamationMark, TokenKindError);
     EXPECT_TOKEN_KINDS_EQ("\"Hello \r"
-                         "World!\"", TokenKindError, TokenKindIdentifier, TokenKindExclamationMark, TokenKindUnknown);
+                         "World!\"", TokenKindError, TokenKindIdentifier, TokenKindExclamationMark, TokenKindError);
 }
 
 TEST(Lexer, InvalidStringLiteral) {
-    EXPECT_TOKEN_KINDS_EQ("\"Hello World!", TokenKindUnknown);
-    EXPECT_TOKEN_KINDS_EQ("\"Hello \\World \"", TokenKindUnknown);
-    EXPECT_TOKEN_KINDS_EQ("\"Hello \\\\\" World \"", TokenKindLiteralString, TokenKindIdentifier, TokenKindUnknown);
+    EXPECT_TOKEN_KINDS_EQ("\"Hello World!", TokenKindError);
+    EXPECT_TOKEN_KINDS_EQ("\"Hello \\World \"", TokenKindError);
+    EXPECT_TOKEN_KINDS_EQ("\"Hello \\\\\" World \"", TokenKindLiteralString, TokenKindIdentifier, TokenKindError);
 }
 
 TEST(Lexer, PrefixOperatorBinaryNot) {
@@ -487,7 +512,7 @@ TEST(Lexer, SkipHashBang) {
 TEST(Lexer, InvalidNestedMultilineComment) {
     EXPECT_TOKEN_KINDS_EQ("/* This is a /*\n"
                          "broken comment */",
-                         TokenKindUnknown);
+                         TokenKindError);
 }
 
 TEST(Lexer, LoadDirectiveStringLiteral) {
@@ -507,4 +532,360 @@ TEST(Lexer, ParameterList) {
                           TokenKindColon,
                           TokenKindKeywordInt,
                           TokenKindRightParenthesis);
+}
+
+static inline void _PrintTokenKindDescription(TokenKind kind) {
+    switch (kind) {
+        case TokenKindUnknown:
+            printf("%s", "UNKNOWN");
+            break;
+
+        case TokenKindError:
+            printf("%s", "ERROR");
+            break;
+
+        case TokenKindSlash:
+            printf("%s", "/");
+            break;
+
+        case TokenKindSlashEquals:
+            printf("%s", "/=");
+            break;
+
+        case TokenKindEqualsSign:
+            printf("%s", "=");
+            break;
+
+        case TokenKindEqualsEqualsSign:
+            printf("%s", "==");
+            break;
+
+        case TokenKindMinusSign:
+            printf("%s", "-");
+            break;
+
+        case TokenKindMinusEqualsSign:
+            printf("%s", "-=");
+            break;
+
+        case TokenKindPlusSign:
+            printf("%s", "+");
+            break;
+
+        case TokenKindPlusEquals:
+            printf("%s", "+=");
+            break;
+
+        case TokenKindExclamationMark:
+            printf("%s", "!");
+            break;
+
+        case TokenKindExclamationMarkEqualsSign:
+            printf("%s", "!=");
+            break;
+
+        case TokenKindAsterisk:
+            printf("%s", "*");
+            break;
+
+        case TokenKindAsteriskEquals:
+            printf("%s", "*=");
+            break;
+
+        case TokenKindPercentSign:
+            printf("%s", "%");
+            break;
+
+        case TokenKindPercentEquals:
+            printf("%s", "%=");
+            break;
+
+        case TokenKindDot:
+            printf("%s", ".");
+            break;
+
+        case TokenKindLessThan:
+            printf("%s", "<");
+            break;
+
+        case TokenKindLessThanLessThan:
+            printf("%s", "<<");
+            break;
+
+        case TokenKindLessThanLessThanEquals:
+            printf("%s", "<<=");
+            break;
+
+        case TokenKindLessThanEqualsSign:
+            printf("%s", "<=");
+            break;
+
+        case TokenKindGreaterThan:
+            printf("%s", ">");
+            break;
+
+        case TokenKindGreaterThanGreaterThan:
+            printf("%s", ">>");
+            break;
+
+        case TokenKindGreaterThanGreaterThanEquals:
+            printf("%s", ">>=");
+            break;
+
+        case TokenKindGreaterThanEqualsSign:
+            printf("%s", ">=");
+            break;
+
+        case TokenKindAmpersand:
+            printf("%s", "&");
+            break;
+
+        case TokenKindAmpersandAmpersand:
+            printf("%s", "&&");
+            break;
+
+        case TokenKindAmpersandEquals:
+            printf("%s", "&=");
+            break;
+
+        case TokenKindPipe:
+            printf("%s", "|");
+            break;
+
+        case TokenKindPipePipe:
+            printf("%s", "||");
+            break;
+
+        case TokenKindPipeEquals:
+            printf("%s", "|=");
+            break;
+
+        case TokenKindCircumflex:
+            printf("%s", "^");
+            break;
+
+        case TokenKindCircumflexEquals:
+            printf("%s", "^=");
+            break;
+
+        case TokenKindLeftParenthesis:
+            printf("%s", "(");
+            break;
+
+        case TokenKindRightParenthesis:
+            printf("%s", ")");
+            break;
+
+        case TokenKindColon:
+            printf("%s", ":");
+            break;
+
+        case TokenKindLeftBracket:
+            printf("%s", "[");
+            break;
+
+        case TokenKindRightBracket:
+            printf("%s", "]");
+            break;
+
+        case TokenKindLeftCurlyBracket:
+            printf("%s", "{");
+            break;
+
+        case TokenKindRightCurlyBracket:
+            printf("%s", "}");
+            break;
+
+        case TokenKindComma:
+            printf("%s", ",");
+            break;
+
+        case TokenKindTilde:
+            printf("%s", "~");
+            break;
+
+        case TokenKindArrow:
+            printf("%s", "->");
+            break;
+
+        case TokenKindIdentifier:
+            printf("%s", "IDENTIFIER");
+            break;
+
+        case TokenKindKeywordIs:
+            printf("%s", "is");
+            break;
+
+        case TokenKindKeywordAs:
+            printf("%s", "as");
+            break;
+
+        case TokenKindKeywordIf:
+            printf("%s", "if");
+            break;
+
+        case TokenKindKeywordElse:
+            printf("%s", "else");
+            break;
+
+        case TokenKindKeywordWhile:
+            printf("%s", "while");
+            break;
+
+        case TokenKindKeywordDo:
+            printf("%s", "do");
+            break;
+
+        case TokenKindKeywordCase:
+            printf("%s", "case");
+            break;
+
+        case TokenKindKeywordSwitch:
+            printf("%s", "switch");
+            break;
+
+        case TokenKindKeywordBreak:
+            printf("%s", "break");
+            break;
+
+        case TokenKindKeywordContinue:
+            printf("%s", "continue");
+            break;
+
+        case TokenKindKeywordFallthrough:
+            printf("%s", "fallthrough");
+            break;
+
+        case TokenKindKeywordReturn:
+            printf("%s", "return");
+            break;
+
+        case TokenKindKeywordNil:
+            printf("%s", "nil");
+            break;
+
+        case TokenKindKeywordTrue:
+            printf("%s", "true");
+            break;
+
+        case TokenKindKeywordFalse:
+            printf("%s", "false");
+            break;
+
+        case TokenKindKeywordEnum:
+            printf("%s", "enum");
+            break;
+
+        case TokenKindKeywordFunc:
+            printf("%s", "func");
+            break;
+
+        case TokenKindKeywordStruct:
+            printf("%s", "struct");
+            break;
+
+        case TokenKindKeywordLet:
+            printf("%s", "let");
+            break;
+
+        case TokenKindKeywordVar:
+            printf("%s", "var");
+            break;
+
+        case TokenKindKeywordVoid:
+            printf("%s", "Void");
+            break;
+
+        case TokenKindKeywordBool:
+            printf("%s", "Bool");
+            break;
+
+        case TokenKindKeywordInt8:
+            printf("%s", "Int8");
+            break;
+
+        case TokenKindKeywordInt16:
+            printf("%s", "Int16");
+            break;
+
+        case TokenKindKeywordInt32:
+            printf("%s", "Int32");
+            break;
+
+        case TokenKindKeywordInt64:
+            printf("%s", "Int64");
+            break;
+
+        case TokenKindKeywordInt128:
+            printf("%s", "Int128");
+            break;
+
+        case TokenKindKeywordInt:
+            printf("%s", "Int");
+            break;
+
+        case TokenKindKeywordUInt8:
+            printf("%s", "UInt8");
+            break;
+
+        case TokenKindKeywordUInt16:
+            printf("%s", "UInt16");
+            break;
+
+        case TokenKindKeywordUInt32:
+            printf("%s", "UInt32");
+            break;
+
+        case TokenKindKeywordUInt64:
+            printf("%s", "UInt64");
+            break;
+
+        case TokenKindKeywordUInt128:
+            printf("%s", "UInt128");
+            break;
+
+        case TokenKindKeywordUInt:
+            printf("%s", "UInt");
+            break;
+
+        case TokenKindKeywordFloat16:
+            printf("%s", "Float16");
+            break;
+
+        case TokenKindKeywordFloat32:
+            printf("%s", "Float32");
+            break;
+
+        case TokenKindKeywordFloat64:
+            printf("%s", "Float64");
+            break;
+
+        case TokenKindKeywordFloat128:
+            printf("%s", "Float128");
+            break;
+
+        case TokenKindKeywordFloat:
+            printf("%s", "Float");
+            break;
+
+        case TokenKindDirectiveLoad:
+            printf("%s", "#load");
+            break;
+
+        case TokenKindLiteralString:
+            printf("%s", "STRING");
+            break;
+
+        case TokenKindLiteralInt:
+            printf("%s", "INT");
+            break;
+
+        case TokenKindLiteralFloat:
+            printf("%s", "FLOAT");
+            break;
+
+        case TokenKindEndOfFile:
+            printf("%s", "EOF");
+            break;
+    }
 }

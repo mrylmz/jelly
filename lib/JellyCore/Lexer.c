@@ -219,6 +219,9 @@ static inline TokenKind _LexerLexNumericLiteral(LexerRef lexer) {
             }
 
             if (*lexer->state.cursor == '.') {
+                lexer->state.cursor += 1;
+                lexer->state.column += 1;
+
                 if (!_CharIsHexadecimalDigit(*lexer->state.cursor)) {
                     _LexerSkipAnyLiteralTail(lexer);
                     return TokenKindError;
@@ -267,11 +270,6 @@ static inline TokenKind _LexerLexNumericLiteral(LexerRef lexer) {
             // TODO: Assign floatValue of token and check for errors!
             return TokenKindLiteralFloat;
         }
-    }
-
-    if (!_CharIsDecimalDigit(*lexer->state.cursor)) {
-        _LexerSkipAnyLiteralTail(lexer);
-        return TokenKindError;
     }
 
     while (lexer->state.cursor < lexer->bufferEnd && _CharIsDecimalDigit(*lexer->state.cursor)) {
@@ -882,18 +880,30 @@ static inline void _LexerLexNextToken(LexerRef lexer) {
     }
 
     while (lexer->state.cursor < lexer->bufferEnd) {
-        Bool skippedWhitespace = _LexerSkipWhitespaceAndNewlines(lexer);
+        Bool skipped = _LexerSkipWhitespaceAndNewlines(lexer);
+
+        SourceRange location = SourceRangeMake(lexer->state.cursor, lexer->state.cursor);
 
         if (*lexer->state.cursor == '/' && *(lexer->state.cursor + 1) == '/') {
+            _LexerSkipToEndOfLine(lexer);
+        } else if (*lexer->state.cursor == '#' && *(lexer->state.cursor + 1) == '!') {
             _LexerSkipToEndOfLine(lexer);
         } else if (*lexer->state.cursor == '/' && *(lexer->state.cursor + 1) == '*') {
             lexer->state.cursor += 2;
             lexer->state.column += 2;
 
             if (!_LexerSkipMultilineCommentTail(lexer)) {
-                // TODO: Form error token for unbalanced multiline comment!
+                location.end = lexer->state.cursor;
+
+                lexer->state.token.kind           = TokenKindError;
+                lexer->state.token.location       = location;
+                lexer->state.token.line           = lexer->state.line;
+                lexer->state.token.column         = lexer->state.column;
+                lexer->state.token.leadingTrivia  = leadingTriviaLocation;
+                lexer->state.token.trailingTrivia = SourceRangeMake(lexer->state.cursor, lexer->state.cursor);
+                return;
             }
-        } else if (!skippedWhitespace) {
+        } else if (!skipped) {
             break;
         }
     }
@@ -1208,10 +1218,12 @@ static inline void _LexerLexNextToken(LexerRef lexer) {
 
 static inline Bool _CharIsAlphaNumeric(Char character) {
     switch (character) {
-        case 'a'...'z':
-        case 'A'...'Z':
-        case '0'...'9': return true;
-        default:        return false;
+    case 'a' ... 'z':
+    case 'A' ... 'Z':
+    case '0' ... '9':
+        return true;
+    default:
+        return false;
     }
 }
 
