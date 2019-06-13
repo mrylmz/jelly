@@ -1,1 +1,1 @@
-enum {} // expect-error: Expected token Identifier found '{'
+enum {} // expect-error: Expected `name` of `enum-declaration`

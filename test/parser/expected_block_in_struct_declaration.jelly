@@ -1,1 +1,1 @@
-struct MyStruct // expect-error: Expected token '{' found 'EOF'
+struct MyStruct // expect-error: Expected '{' after name of `struct-declaration`

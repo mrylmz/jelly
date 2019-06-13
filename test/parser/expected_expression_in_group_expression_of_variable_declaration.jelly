@@ -1,1 +1,1 @@
-var x: Int = () // expect-error: Expected Expression found ')'
+var x: Int = () // expect-error: Expected `expression`

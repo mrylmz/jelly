@@ -1,1 +1,1 @@
-func name(x: Int, y: Int) -> {} // expect-error: Expected TypeRef found '{'
+func name(x: Int, y: Int) -> {} // expect-error: Expected `type` for return value of `func-declaration`

@@ -1,3 +1,3 @@
 func main() -> Void {
-    do {} while true, // expect-error: Expected Expression found '}'
+    do {} while true, // expect-error: Expected `expression`
 }

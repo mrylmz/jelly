@@ -2,33 +2,25 @@
 #include "JellyCore/ASTFunctions.h"
 #include "JellyCore/ASTNodes.h"
 #include "JellyCore/Diagnostic.h"
+#include "JellyCore/Lexer.h"
 #include "JellyCore/Parser.h"
 #include "JellyCore/SourceRange.h"
+
+// TODO: Add missing scopes and add all declarations to scopes!
+// TODO: Write tests for correct scope creation and population!
+// TODO: Fix memory leaks!!!
 
 struct _Parser {
     AllocatorRef allocator;
     ASTContextRef context;
-    const Char *bufferStart;
-    const Char *bufferEnd;
-    const Char *cursor;
-    Index line;
+    LexerRef lexer;
+    Token token;
 };
 
-// TODO: Adopt old parser implementation by migrating old Lexer!
-
-static inline Bool _CharIsStartOfIdentifier(Char character);
-static inline Bool _CharIsContinuationOfIdentifier(Char character);
-static inline Bool _CharIsBinaryDigit(Char character);
-static inline Bool _CharIsOctalDigit(Char character);
-static inline Bool _CharIsDecimalDigit(Char character);
-static inline Bool _CharIsHexadecimalDigit(Char character);
 static inline Bool _StringIsValidFilePath(StringRef string);
-static inline void _ParserSkipWhitespaceAndNewlines(ParserRef parser);
-static inline Bool _ParserIsChar(ParserRef parser, Char character);
-static inline Bool _ParserConsumeChar(ParserRef parser, Char character);
-static inline Bool _ParserConsumeString(ParserRef parser, const Char *string);
-static inline Bool _ParserIsKeyword(ParserRef parser, const Char *keyword);
-static inline Bool _ParserConsumeKeyword(ParserRef parser, const Char *keyword);
+static inline Bool _ParserIsToken(ParserRef parser, TokenKind kind);
+static inline Bool _ParserConsumeToken(ParserRef parser, TokenKind kind);
+
 static inline StringRef _ParserConsumeIdentifier(ParserRef parser);
 static inline ASTUnaryOperator _ParserConsumeUnaryOperator(ParserRef parser);
 static inline ASTBinaryOperator _ParserConsumeBinaryOperator(ParserRef parser);
@@ -48,8 +40,6 @@ static inline ASTExpressionRef _ParserParseExpression(ParserRef parser, ASTOpera
 static inline ASTIdentifierExpressionRef _ParserParseIdentifierExpression(ParserRef parser);
 static inline ASTCallExpressionRef _ParserParseCallExpression(ParserRef parser, ASTExpressionRef callee);
 static inline ASTConstantExpressionRef _ParserParseConstantExpression(ParserRef parser);
-static inline ASTConstantExpressionRef _ParserParseNumericLiteral(ParserRef parser);
-static inline ASTConstantExpressionRef _ParserParseStringLiteral(ParserRef parser);
 static inline ASTEnumerationDeclarationRef _ParserParseEnumerationDeclaration(ParserRef parser);
 static inline ASTFunctionDeclarationRef _ParserParseFunctionDeclaration(ParserRef parser);
 static inline ASTStructureDeclarationRef _ParserParseStructureDeclaration(ParserRef parser);
@@ -59,13 +49,10 @@ static inline ASTExpressionRef _ParserParseConditionList(ParserRef parser);
 static inline ASTNodeRef _ParserParseTopLevelNode(ParserRef parser);
 
 ParserRef ParserCreate(AllocatorRef allocator, ASTContextRef context) {
-    ParserRef parser    = AllocatorAllocate(allocator, sizeof(struct _Parser));
-    parser->allocator   = allocator;
-    parser->context     = context;
-    parser->bufferStart = NULL;
-    parser->bufferEnd   = NULL;
-    parser->cursor      = NULL;
-    parser->line        = 0;
+    ParserRef parser  = AllocatorAllocate(allocator, sizeof(struct _Parser));
+    parser->allocator = allocator;
+    parser->context   = context;
+    parser->lexer     = NULL;
     return parser;
 }
 
@@ -76,17 +63,14 @@ void ParserDestroy(ParserRef parser) {
 ASTSourceUnitRef ParserParseSourceUnit(ParserRef parser, StringRef filePath, StringRef source) {
     ASTModuleDeclarationRef module = ASTContextGetModule(parser->context);
 
-    parser->bufferStart = StringGetCharacters(source);
-    parser->bufferEnd   = parser->bufferStart + StringGetLength(source);
-    parser->cursor      = parser->bufferStart;
-    parser->line        = 1;
+    parser->lexer = LexerCreate(parser->allocator, source);
 
-    SourceRange location               = {parser->cursor, parser->cursor};
+    SourceRange location               = parser->token.location;
     ArrayRef declarations              = ArrayCreateEmpty(parser->allocator, sizeof(ASTNodeRef), 8);
     Bool checkConsecutiveTopLevelNodes = false;
-    Index line                         = parser->line;
+    Index line                         = parser->token.line;
     while (true) {
-        Index nodeLine         = parser->line;
+        Index nodeLine         = parser->token.line;
         ASTNodeRef declaration = _ParserParseTopLevelNode(parser);
         if (!declaration) {
             break;
@@ -103,73 +87,10 @@ ASTSourceUnitRef ParserParseSourceUnit(ParserRef parser, StringRef filePath, Str
         ArrayAppendElement(declarations, declaration);
     }
 
-    location.end                = parser->cursor;
+    location.end                = parser->token.location.start;
     ASTSourceUnitRef sourceUnit = ASTContextCreateSourceUnit(parser->context, location, filePath, declarations);
     ArrayAppendElement(module->sourceUnits, sourceUnit);
     return sourceUnit;
-}
-
-static inline Bool _CharIsStartOfIdentifier(Char character) {
-    switch (character) {
-    case 'a' ... 'z':
-    case 'A' ... 'Z':
-    case '_':
-        return true;
-
-    default:
-        return false;
-    }
-}
-
-static inline Bool _CharIsContinuationOfIdentifier(Char character) {
-    switch (character) {
-    case 'a' ... 'z':
-    case 'A' ... 'Z':
-    case '_':
-    case '0' ... '9':
-        return true;
-
-    default:
-        return false;
-    }
-}
-
-static inline Bool _CharIsBinaryDigit(Char character) {
-    switch (character) {
-    case '0' ... '1':
-        return true;
-    default:
-        return false;
-    }
-}
-
-static inline Bool _CharIsOctalDigit(Char character) {
-    switch (character) {
-    case '0' ... '7':
-        return true;
-    default:
-        return false;
-    }
-}
-
-static inline Bool _CharIsDecimalDigit(Char character) {
-    switch (character) {
-    case '0' ... '9':
-        return true;
-    default:
-        return false;
-    }
-}
-
-static inline Bool _CharIsHexadecimalDigit(Char character) {
-    switch (character) {
-    case '0' ... '9':
-    case 'a' ... 'f':
-    case 'A' ... 'F':
-        return true;
-    default:
-        return false;
-    }
 }
 
 static inline Bool _StringIsValidFilePath(StringRef string) {
@@ -177,128 +98,40 @@ static inline Bool _StringIsValidFilePath(StringRef string) {
     return true;
 }
 
-static inline void _ParserSkipWhitespaceAndNewlines(ParserRef parser) {
-    while (parser->cursor != parser->bufferEnd)
-        switch (*parser->cursor) {
-        case 0x09:
-        case 0x20:
-            parser->cursor += 1;
-            break;
-
-        case 0x0A:
-        case 0x0B:
-        case 0x0C:
-        case 0x0D:
-            parser->cursor += 1;
-            parser->line += 1;
-            break;
-
-        default:
-            return;
-        }
+static inline Bool _ParserIsToken(ParserRef parser, TokenKind kind) {
+    return parser->token.kind == kind;
 }
 
-static inline Bool _ParserIsChar(ParserRef parser, Char character) {
-    return *parser->cursor == character;
-}
-
-static inline Bool _ParserConsumeChar(ParserRef parser, Char character) {
-    _ParserSkipWhitespaceAndNewlines(parser);
-
-    if (*parser->cursor != character) {
-        return false;
+static inline Bool _ParserConsumeToken(ParserRef parser, TokenKind kind) {
+    if (parser->token.kind == kind) {
+        LexerNextToken(parser->lexer, &parser->token);
+        return true;
     }
 
-    parser->cursor += 1;
-    return true;
-}
-
-static inline Bool _ParserConsumeString(ParserRef parser, const Char *string) {
-    _ParserSkipWhitespaceAndNewlines(parser);
-
-    Index length = strlen(string);
-    if (length != strnlen(parser->cursor, length)) {
-        return false;
-    }
-
-    if (strncmp(parser->cursor, string, length) != 0) {
-        return false;
-    }
-
-    parser->cursor += length;
-    return true;
-}
-
-static inline Bool _ParserIsKeyword(ParserRef parser, const Char *keyword) {
-    Index length = strlen(keyword);
-    if (length != strnlen(parser->cursor, length)) {
-        return false;
-    }
-
-    if (strncmp(parser->cursor, keyword, length) != 0) {
-        return false;
-    }
-
-    const Char *next = parser->cursor + length;
-    if (_CharIsContinuationOfIdentifier(*next)) {
-        return false;
-    }
-
-    return true;
-}
-
-static inline Bool _ParserConsumeKeyword(ParserRef parser, const Char *keyword) {
-    _ParserSkipWhitespaceAndNewlines(parser);
-
-    Index length = strlen(keyword);
-    if (length != strnlen(parser->cursor, length)) {
-        return false;
-    }
-
-    if (strncmp(parser->cursor, keyword, length) != 0) {
-        return false;
-    }
-
-    const Char *next = parser->cursor + length;
-    if (_CharIsContinuationOfIdentifier(*next)) {
-        return false;
-    }
-
-    parser->cursor = next;
-    return true;
+    return false;
 }
 
 /// grammar: identifier := identifier-head { identifier-tail }
 /// grammar: identifier-head := "a" ... "z" | "A" ... "Z" | "_"
 /// grammar: identifier-tail := identifier-head | "0" ... "9"
 static inline StringRef _ParserConsumeIdentifier(ParserRef parser) {
-    _ParserSkipWhitespaceAndNewlines(parser);
-
-    SourceRange location = {parser->cursor, parser->cursor};
-
-    if (!_CharIsStartOfIdentifier(*parser->cursor)) {
-        return NULL;
+    if (parser->token.kind == TokenKindIdentifier) {
+        StringRef result = StringCreateCopy(parser->allocator, parser->token.stringValue);
+        LexerNextToken(parser->lexer, &parser->token);
+        return result;
     }
 
-    parser->cursor += 1;
-    while (_CharIsContinuationOfIdentifier(*parser->cursor)) {
-        parser->cursor += 1;
-    }
-
-    location.end = parser->cursor;
-    return StringCreateRange(parser->allocator, location.start, location.end);
+    return NULL;
 }
 
 static inline ASTUnaryOperator _ParserConsumeUnaryOperator(ParserRef parser) {
-    _ParserSkipWhitespaceAndNewlines(parser);
-
-    if (_ParserConsumeChar(parser, '!')) {
+    if (_ParserConsumeToken(parser, TokenKindExclamationMark)) {
         return ASTUnaryOperatorLogicalNot;
-    } else if (_ParserConsumeChar(parser, '~')) {
+    } else if (_ParserConsumeToken(parser, TokenKindTilde)) {
         return ASTUnaryOperatorBitwiseNot;
-    } else if (_ParserConsumeChar(parser, '+')) {
+    } else if (_ParserConsumeToken(parser, TokenKindPlusSign)) {
         return ASTUnaryOperatorUnaryPlus;
-    } else if (_ParserConsumeChar(parser, '-')) {
+    } else if (_ParserConsumeToken(parser, TokenKindMinusSign)) {
         return ASTUnaryOperatorUnaryMinus;
     } else {
         return ASTUnaryOperatorUnknown;
@@ -306,70 +139,67 @@ static inline ASTUnaryOperator _ParserConsumeUnaryOperator(ParserRef parser) {
 }
 
 static inline ASTBinaryOperator _ParserConsumeBinaryOperator(ParserRef parser) {
-    _ParserSkipWhitespaceAndNewlines(parser);
-
-    // @TODO Order by ambiguity (string length in descending order)
-    if (_ParserConsumeString(parser, "<<")) {
+    if (_ParserConsumeToken(parser, TokenKindLessThanLessThan)) {
         return ASTBinaryOperatorBitwiseLeftShift;
-    } else if (_ParserConsumeString(parser, ">>")) {
+    } else if (_ParserConsumeToken(parser, TokenKindGreaterThanGreaterThan)) {
         return ASTBinaryOperatorBitwiseRightShift;
-    } else if (_ParserConsumeChar(parser, '*')) {
+    } else if (_ParserConsumeToken(parser, TokenKindAsterisk)) {
         return ASTBinaryOperatorMultiply;
-    } else if (_ParserConsumeChar(parser, '/')) {
+    } else if (_ParserConsumeToken(parser, TokenKindSlash)) {
         return ASTBinaryOperatorDivide;
-    } else if (_ParserConsumeChar(parser, '%')) {
+    } else if (_ParserConsumeToken(parser, TokenKindPercentSign)) {
         return ASTBinaryOperatorReminder;
-    } else if (_ParserConsumeChar(parser, '&')) {
+    } else if (_ParserConsumeToken(parser, TokenKindAmpersand)) {
         return ASTBinaryOperatorBitwiseAnd;
-    } else if (_ParserConsumeChar(parser, '+')) {
+    } else if (_ParserConsumeToken(parser, TokenKindPlusSign)) {
         return ASTBinaryOperatorAdd;
-    } else if (_ParserConsumeChar(parser, '-')) {
+    } else if (_ParserConsumeToken(parser, TokenKindMinusSign)) {
         return ASTBinaryOperatorSubtract;
-    } else if (_ParserConsumeChar(parser, '|')) {
+    } else if (_ParserConsumeToken(parser, TokenKindPipe)) {
         return ASTBinaryOperatorBitwiseOr;
-    } else if (_ParserConsumeChar(parser, '^')) {
+    } else if (_ParserConsumeToken(parser, TokenKindCircumflex)) {
         return ASTBinaryOperatorBitwiseXor;
-    } else if (_ParserConsumeKeyword(parser, "is")) {
+    } else if (_ParserConsumeToken(parser, TokenKindKeywordIs)) {
         return ASTBinaryOperatorTypeCheck;
-    } else if (_ParserConsumeKeyword(parser, "as")) {
+    } else if (_ParserConsumeToken(parser, TokenKindKeywordAs)) {
         return ASTBinaryOperatorTypeCast;
-    } else if (_ParserConsumeChar(parser, '<')) {
+    } else if (_ParserConsumeToken(parser, TokenKindLessThan)) {
         return ASTBinaryOperatorLessThan;
-    } else if (_ParserConsumeString(parser, "<=")) {
+    } else if (_ParserConsumeToken(parser, TokenKindLessThanEqualsSign)) {
         return ASTBinaryOperatorLessThanEqual;
-    } else if (_ParserConsumeChar(parser, '>')) {
+    } else if (_ParserConsumeToken(parser, TokenKindGreaterThan)) {
         return ASTBinaryOperatorGreaterThan;
-    } else if (_ParserConsumeString(parser, ">=")) {
+    } else if (_ParserConsumeToken(parser, TokenKindGreaterThanEqualsSign)) {
         return ASTBinaryOperatorGreaterThanEqual;
-    } else if (_ParserConsumeString(parser, "==")) {
+    } else if (_ParserConsumeToken(parser, TokenKindEqualsEqualsSign)) {
         return ASTBinaryOperatorEqual;
-    } else if (_ParserConsumeString(parser, "!=")) {
+    } else if (_ParserConsumeToken(parser, TokenKindExclamationMarkEqualsSign)) {
         return ASTBinaryOperatorNotEqual;
-    } else if (_ParserConsumeString(parser, "&&")) {
+    } else if (_ParserConsumeToken(parser, TokenKindAmpersandAmpersand)) {
         return ASTBinaryOperatorLogicalAnd;
-    } else if (_ParserConsumeString(parser, "||")) {
+    } else if (_ParserConsumeToken(parser, TokenKindPipePipe)) {
         return ASTBinaryOperatorLogicalOr;
-    } else if (_ParserConsumeChar(parser, '=')) {
+    } else if (_ParserConsumeToken(parser, TokenKindEqualsSign)) {
         return ASTBinaryOperatorAssign;
-    } else if (_ParserConsumeString(parser, "*=")) {
+    } else if (_ParserConsumeToken(parser, TokenKindAsteriskEquals)) {
         return ASTBinaryOperatorMultiplyAssign;
-    } else if (_ParserConsumeString(parser, "/=")) {
+    } else if (_ParserConsumeToken(parser, TokenKindSlashEquals)) {
         return ASTBinaryOperatorDivideAssign;
-    } else if (_ParserConsumeString(parser, "%=")) {
+    } else if (_ParserConsumeToken(parser, TokenKindPercentEquals)) {
         return ASTBinaryOperatorReminderAssign;
-    } else if (_ParserConsumeString(parser, "+=")) {
+    } else if (_ParserConsumeToken(parser, TokenKindPlusEquals)) {
         return ASTBinaryOperatorAddAssign;
-    } else if (_ParserConsumeString(parser, "-=")) {
+    } else if (_ParserConsumeToken(parser, TokenKindMinusEqualsSign)) {
         return ASTBinaryOperatorSubtractAssign;
-    } else if (_ParserConsumeString(parser, "<<=")) {
+    } else if (_ParserConsumeToken(parser, TokenKindLessThanLessThanEquals)) {
         return ASTBinaryOperatorBitwiseLeftShiftAssign;
-    } else if (_ParserConsumeString(parser, ">>=")) {
+    } else if (_ParserConsumeToken(parser, TokenKindGreaterThanGreaterThanEquals)) {
         return ASTBinaryOperatorBitwiseRightShiftAssign;
-    } else if (_ParserConsumeString(parser, "&=")) {
+    } else if (_ParserConsumeToken(parser, TokenKindAmpersandEquals)) {
         return ASTBinaryOperatorBitwiseAndAssign;
-    } else if (_ParserConsumeString(parser, "|=")) {
+    } else if (_ParserConsumeToken(parser, TokenKindPipeEquals)) {
         return ASTBinaryOperatorBitwiseOrAssign;
-    } else if (_ParserConsumeString(parser, "^=")) {
+    } else if (_ParserConsumeToken(parser, TokenKindCircumflexEquals)) {
         return ASTBinaryOperatorBitwiseXorAssign;
     } else {
         return ASTBinaryOperatorUnknown;
@@ -377,11 +207,9 @@ static inline ASTBinaryOperator _ParserConsumeBinaryOperator(ParserRef parser) {
 }
 
 static inline ASTPostfixOperator _ParserConsumePostfixOperatorHead(ParserRef parser) {
-    _ParserSkipWhitespaceAndNewlines(parser);
-
-    if (_ParserConsumeChar(parser, '.')) {
+    if (_ParserConsumeToken(parser, TokenKindDot)) {
         return ASTPostfixOperatorSelector;
-    } else if (_ParserConsumeChar(parser, '(')) {
+    } else if (_ParserConsumeToken(parser, TokenKindLeftParenthesis)) {
         return ASTPostfixOperatorCall;
     } else {
         return ASTPostfixOperatorUnknown;
@@ -389,11 +217,9 @@ static inline ASTPostfixOperator _ParserConsumePostfixOperatorHead(ParserRef par
 }
 
 static inline Bool _ParserConsumePostfixOperatorTail(ParserRef parser, ASTPostfixOperator postfix) {
-    _ParserSkipWhitespaceAndNewlines(parser);
-
     switch (postfix) {
     case ASTPostfixOperatorCall:
-        return _ParserConsumeChar(parser, ')');
+        return _ParserConsumeToken(parser, TokenKindRightParenthesis);
 
     case ASTPostfixOperatorUnknown:
     case ASTPostfixOperatorSelector:
@@ -407,11 +233,9 @@ static inline Bool _ParserConsumePostfixOperatorTail(ParserRef parser, ASTPostfi
 /// grammar: directive      := load-directive
 /// grammar: load-directive := "#load" string-literal
 static inline ASTLoadDirectiveRef _ParserParseDirective(ParserRef parser) {
-    assert(*parser->cursor == '#');
+    SourceRange location = parser->token.location;
 
-    SourceRange location = {parser->cursor, parser->cursor};
-
-    if (_ParserConsumeKeyword(parser, "#load")) {
+    if (_ParserConsumeToken(parser, TokenKindDirectiveLoad)) {
         ASTConstantExpressionRef filePath = _ParserParseConstantExpression(parser);
         if (!filePath || filePath->kind != ASTConstantKindString) {
             ReportError("Expected string literal after `#load` directive!");
@@ -425,7 +249,7 @@ static inline ASTLoadDirectiveRef _ParserParseDirective(ParserRef parser) {
             return NULL;
         }
 
-        location.end = parser->cursor;
+        location.end = parser->token.location.start;
         return ASTContextCreateLoadDirective(parser->context, location, filePath);
     }
 
@@ -435,9 +259,10 @@ static inline ASTLoadDirectiveRef _ParserParseDirective(ParserRef parser) {
 
 /// grammar: block := '{' { statement } '}'
 static inline ASTBlockRef _ParserParseBlock(ParserRef parser) {
-    SourceRange location = {parser->cursor, parser->cursor};
+    SourceRange location = parser->token.location;
 
-    if (!_ParserConsumeChar(parser, '{')) {
+    if (!_ParserConsumeToken(parser, TokenKindLeftCurlyBracket)) {
+        ReportError("Expected '{' at start of `block-statement`");
         return NULL;
     }
 
@@ -445,14 +270,14 @@ static inline ASTBlockRef _ParserParseBlock(ParserRef parser) {
     // @TODO: Add temporary pool allocator to parser, for now this will leak memory!
     ArrayRef statements = ArrayCreateEmpty(parser->allocator, sizeof(ASTNodeRef), 8);
 
-    Index line = parser->line;
-    while (*parser->cursor != '}') {
-        if (ArrayGetElementCount(statements) > 0 && line == parser->line) {
+    Index line = parser->token.line;
+    while (!_ParserIsToken(parser, TokenKindRightCurlyBracket)) {
+        if (ArrayGetElementCount(statements) > 0 && line == parser->token.line) {
             ReportError("Consecutive statements on a line are not allowed!");
             return NULL;
         }
 
-        line = parser->line;
+        line = parser->token.line;
 
         ASTNodeRef statement = _ParserParseStatement(parser);
         if (!statement) {
@@ -463,19 +288,19 @@ static inline ASTBlockRef _ParserParseBlock(ParserRef parser) {
         ArrayAppendElement(statements, statement);
     }
 
-    if (!_ParserConsumeChar(parser, '}')) {
+    if (!_ParserConsumeToken(parser, TokenKindRightCurlyBracket)) {
         return NULL;
     }
 
-    location.end = parser->cursor;
+    location.end = parser->token.location.start;
     return ASTContextCreateBlock(parser->context, location, statements);
 }
 
 /// grammar: if-statement := "if" expression { "," expression } block [ "else" ( if-statement | block ) ]
 static inline ASTIfStatementRef _ParserParseIfStatement(ParserRef parser) {
-    SourceRange location = {parser->cursor, parser->cursor};
+    SourceRange location = parser->token.location;
 
-    if (!_ParserConsumeKeyword(parser, "if")) {
+    if (!_ParserConsumeToken(parser, TokenKindKeywordIf)) {
         return NULL;
     }
 
@@ -495,12 +320,12 @@ static inline ASTIfStatementRef _ParserParseIfStatement(ParserRef parser) {
     SymbolTablePopScope(symbolTable);
 
     ASTBlockRef elseBlock = NULL;
-    if (_ParserConsumeKeyword(parser, "else")) {
+    if (_ParserConsumeToken(parser, TokenKindKeywordElse)) {
         SymbolTablePushScope(symbolTable, ScopeKindBranch);
 
-        location.end = parser->cursor;
-        if (_ParserIsKeyword(parser, "if")) {
-            SourceRange location          = {parser->cursor, parser->cursor};
+        location.end = parser->token.location.start;
+        if (_ParserIsToken(parser, TokenKindKeywordIf)) {
+            SourceRange location          = parser->token.location;
             ASTIfStatementRef ifStatement = _ParserParseIfStatement(parser);
             if (!ifStatement) {
                 return NULL;
@@ -510,7 +335,7 @@ static inline ASTIfStatementRef _ParserParseIfStatement(ParserRef parser) {
             ArrayRef statements = ArrayCreateEmpty(parser->allocator, sizeof(ASTNodeRef), 1);
             ArrayAppendElement(statements, ifStatement);
 
-            location.end = parser->cursor;
+            location.end = parser->token.location.start;
             elseBlock    = ASTContextCreateBlock(parser->context, location, statements);
         } else {
             elseBlock = _ParserParseBlock(parser);
@@ -524,7 +349,7 @@ static inline ASTIfStatementRef _ParserParseIfStatement(ParserRef parser) {
         elseBlock = ASTContextCreateBlock(parser->context, location, NULL);
     }
 
-    location.end = parser->cursor;
+    location.end = parser->token.location.start;
     return ASTContextCreateIfStatement(parser->context, location, condition, thenBlock, elseBlock);
 }
 
@@ -532,9 +357,9 @@ static inline ASTIfStatementRef _ParserParseIfStatement(ParserRef parser) {
 /// grammar: while-statement := "while" expression { "," expression } block
 /// grammar: do-statement    := "do" block "while" expression
 static inline ASTLoopStatementRef _ParserParseLoopStatement(ParserRef parser) {
-    SourceRange location = {parser->cursor, parser->cursor};
+    SourceRange location = parser->token.location;
 
-    if (_ParserConsumeKeyword(parser, "while")) {
+    if (_ParserConsumeToken(parser, TokenKindKeywordWhile)) {
         ASTExpressionRef condition = _ParserParseConditionList(parser);
         if (!condition) {
             return NULL;
@@ -545,16 +370,17 @@ static inline ASTLoopStatementRef _ParserParseLoopStatement(ParserRef parser) {
 
         ASTBlockRef loopBlock = _ParserParseBlock(parser);
         if (!loopBlock) {
+
             return NULL;
         }
 
         SymbolTablePopScope(symbolTable);
 
-        location.end = parser->cursor;
+        location.end = parser->token.location.start;
         return ASTContextCreateLoopStatement(parser->context, location, ASTLoopKindWhile, condition, loopBlock);
     }
 
-    if (_ParserConsumeKeyword(parser, "do")) {
+    if (_ParserConsumeToken(parser, TokenKindKeywordDo)) {
         SymbolTableRef symbolTable = ASTContextGetSymbolTable(parser->context);
         SymbolTablePushScope(symbolTable, ScopeKindLoop);
 
@@ -563,7 +389,7 @@ static inline ASTLoopStatementRef _ParserParseLoopStatement(ParserRef parser) {
             return NULL;
         }
 
-        if (!_ParserConsumeKeyword(parser, "while")) {
+        if (!_ParserConsumeToken(parser, TokenKindKeywordWhile)) {
             return NULL;
         }
 
@@ -574,7 +400,7 @@ static inline ASTLoopStatementRef _ParserParseLoopStatement(ParserRef parser) {
 
         SymbolTablePopScope(symbolTable);
 
-        location.end = parser->cursor;
+        location.end = parser->token.location.start;
         return ASTContextCreateLoopStatement(parser->context, location, ASTLoopKindDo, condition, loopBlock);
     }
 
@@ -586,39 +412,41 @@ static inline ASTLoopStatementRef _ParserParseLoopStatement(ParserRef parser) {
 /// grammar: conditional-case-statement := "case" expression ":" statement { line-break statement }
 /// grammar: else-case-statement        := "else" ":" statement { line-break statement }
 static inline ASTCaseStatementRef _ParserParseCaseStatement(ParserRef parser) {
-    SourceRange location = {parser->cursor, parser->cursor};
+    SourceRange location = parser->token.location;
 
     ASTCaseKind kind           = ASTCaseKindElse;
     ASTExpressionRef condition = NULL;
-    if (_ParserConsumeKeyword(parser, "case")) {
+    if (_ParserConsumeToken(parser, TokenKindKeywordCase)) {
         kind      = ASTCaseKindConditional;
         condition = _ParserParseExpression(parser, 0, false);
         if (!condition) {
             return NULL;
         }
-    } else if (!_ParserConsumeKeyword(parser, "else")) {
-        ReportError("Expected 'case' or 'else' at start of case-statement!");
+    } else if (!_ParserConsumeToken(parser, TokenKindKeywordElse)) {
+        ReportError("Expected 'case' or 'else' at start of `case-statement`!");
         return NULL;
     }
 
-    if (!_ParserConsumeChar(parser, ':')) {
+    if (!_ParserConsumeToken(parser, TokenKindColon)) {
+        ReportError("Expected token ':' in `case-statement`");
         return NULL;
     }
 
-    SourceRange blockLocation  = {parser->cursor, parser->cursor};
+    SourceRange blockLocation  = parser->token.location;
     SymbolTableRef symbolTable = ASTContextGetSymbolTable(parser->context);
     SymbolTablePushScope(symbolTable, ScopeKindCase);
 
     ArrayRef statements = ArrayCreateEmpty(parser->allocator, sizeof(ASTNodeRef), 8);
-    Index line          = parser->line;
+    Index line          = parser->token.line;
 
-    while (!_ParserIsKeyword(parser, "case") && !_ParserIsKeyword(parser, "else") && !_ParserIsChar(parser, '}')) {
-        if (ArrayGetElementCount(statements) > 0 && line == parser->line) {
+    while (!_ParserIsToken(parser, TokenKindKeywordCase) && !_ParserIsToken(parser, TokenKindKeywordElse) &&
+           !_ParserIsToken(parser, TokenKindRightCurlyBracket)) {
+        if (ArrayGetElementCount(statements) > 0 && line == parser->token.line) {
             ReportError("Consecutive statements on a line are not allowed!");
             return NULL;
         }
 
-        line                 = parser->line;
+        line                 = parser->token.line;
         ASTNodeRef statement = _ParserParseStatement(parser);
         if (!statement) {
             return NULL;
@@ -629,18 +457,18 @@ static inline ASTCaseStatementRef _ParserParseCaseStatement(ParserRef parser) {
 
     SymbolTablePopScope(symbolTable);
 
-    blockLocation.end = parser->cursor;
+    blockLocation.end = parser->token.location.start;
     ASTBlockRef body  = ASTContextCreateBlock(parser->context, blockLocation, statements);
 
-    location.end = parser->cursor;
+    location.end = parser->token.location.start;
     return ASTContextCreateCaseStatement(parser->context, location, kind, condition, body);
 }
 
 /// grammar: switch-statement := "switch" expression "{" [ case-statement { line-break case-statement } ] "}"
 static inline ASTSwitchStatementRef _ParserParseSwitchStatement(ParserRef parser) {
-    SourceRange location = {parser->cursor, parser->cursor};
+    SourceRange location = parser->token.location;
 
-    if (!_ParserConsumeKeyword(parser, "switch")) {
+    if (!_ParserConsumeToken(parser, TokenKindKeywordSwitch)) {
         return NULL;
     }
 
@@ -650,7 +478,7 @@ static inline ASTSwitchStatementRef _ParserParseSwitchStatement(ParserRef parser
         return NULL;
     }
 
-    if (!_ParserConsumeChar(parser, '{')) {
+    if (!_ParserConsumeToken(parser, TokenKindLeftCurlyBracket)) {
         return NULL;
     }
 
@@ -658,14 +486,14 @@ static inline ASTSwitchStatementRef _ParserParseSwitchStatement(ParserRef parser
     SymbolTablePushScope(symbolTable, ScopeKindSwitch);
 
     ArrayRef statements = ArrayCreateEmpty(parser->allocator, sizeof(ASTNodeRef), 8);
-    Index line          = parser->line;
-    while (!_ParserIsChar(parser, '}')) {
-        if (ArrayGetElementCount(statements) > 0 && line == parser->line) {
+    Index line          = parser->token.line;
+    while (!_ParserIsToken(parser, TokenKindRightCurlyBracket)) {
+        if (ArrayGetElementCount(statements) > 0 && line == parser->token.line) {
             ReportError("Consecutive statements on a line are not allowed!");
             return NULL;
         }
 
-        line = parser->line;
+        line = parser->token.line;
 
         ASTCaseStatementRef statement = _ParserParseCaseStatement(parser);
         if (!statement) {
@@ -675,13 +503,13 @@ static inline ASTSwitchStatementRef _ParserParseSwitchStatement(ParserRef parser
         ArrayAppendElement(statements, statement);
     }
 
-    if (!_ParserConsumeChar(parser, '}')) {
+    if (!_ParserConsumeToken(parser, TokenKindRightCurlyBracket)) {
         return NULL;
     }
 
     SymbolTablePopScope(symbolTable);
 
-    location.end = parser->cursor;
+    location.end = parser->token.location.start;
     return ASTContextCreateSwitchStatement(parser->context, location, argument, statements);
 }
 
@@ -691,37 +519,36 @@ static inline ASTSwitchStatementRef _ParserParseSwitchStatement(ParserRef parser
 /// grammar: fallthrough-statement  := "fallthrough"
 /// grammar: return-statement       := "return" [ expression ]
 static inline ASTControlStatementRef _ParserParseControlStatement(ParserRef parser) {
-    SourceRange location = {parser->cursor, parser->cursor};
+    SourceRange location = parser->token.location;
 
     ASTControlKind kind;
     ASTExpressionRef result = NULL;
-    if (_ParserConsumeKeyword(parser, "break")) {
+    if (_ParserConsumeToken(parser, TokenKindKeywordBreak)) {
         kind = ASTControlKindBreak;
-    } else if (_ParserConsumeKeyword(parser, "continue")) {
+    } else if (_ParserConsumeToken(parser, TokenKindKeywordContinue)) {
         kind = ASTControlKindContinue;
-    } else if (_ParserConsumeKeyword(parser, "fallthrough")) {
+    } else if (_ParserConsumeToken(parser, TokenKindKeywordFallthrough)) {
         kind = ASTControlKindFallthrough;
-    } else if (_ParserConsumeKeyword(parser, "return")) {
-        kind         = ASTControlKindReturn;
-        location.end = parser->cursor;
-        result       = _ParserParseExpression(parser, 0, true);
+    } else if (_ParserConsumeToken(parser, TokenKindKeywordReturn)) {
+        kind = ASTControlKindReturn;
+
+        LexerStateRef state = LexerGetState(parser->lexer);
+        result              = _ParserParseExpression(parser, 0, true);
         if (!result) {
-            parser->cursor = location.end;
+            LexerSetState(parser->lexer, state);
         }
     } else {
         ReportError("Expected 'break', 'continue', 'fallthrough' or 'return' at start of control-statement!");
         return NULL;
     }
 
-    location.end = parser->cursor;
+    location.end = parser->token.location.start;
     return ASTContextCreateControlStatement(parser->context, location, kind, result);
 }
 
 /// grammar: statement := variable-declaration | control-statement | loop-statement | if-statement | switch-statement | expression
 static inline ASTNodeRef _ParserParseStatement(ParserRef parser) {
-    _ParserSkipWhitespaceAndNewlines(parser);
-
-    if (_ParserIsKeyword(parser, "var") || _ParserIsKeyword(parser, "let")) {
+    if (_ParserIsToken(parser, TokenKindKeywordVar) || _ParserIsToken(parser, TokenKindKeywordLet)) {
         ASTValueDeclarationRef value = _ParserParseValueDeclaration(parser);
         if (!value || (value->kind != ASTValueKindVariable && value->kind != ASTValueKindConstant)) {
             return NULL;
@@ -730,20 +557,20 @@ static inline ASTNodeRef _ParserParseStatement(ParserRef parser) {
         return (ASTNodeRef)value;
     }
 
-    if (_ParserIsKeyword(parser, "break") || _ParserIsKeyword(parser, "continue") || _ParserIsKeyword(parser, "fallthrough") ||
-        _ParserIsKeyword(parser, "return")) {
+    if (_ParserIsToken(parser, TokenKindKeywordBreak) || _ParserIsToken(parser, TokenKindKeywordContinue) ||
+        _ParserIsToken(parser, TokenKindKeywordFallthrough) || _ParserIsToken(parser, TokenKindKeywordReturn)) {
         return (ASTNodeRef)_ParserParseControlStatement(parser);
     }
 
-    if (_ParserIsKeyword(parser, "do") || _ParserIsKeyword(parser, "while")) {
+    if (_ParserIsToken(parser, TokenKindKeywordDo) || _ParserIsToken(parser, TokenKindKeywordWhile)) {
         return (ASTNodeRef)_ParserParseLoopStatement(parser);
     }
 
-    if (_ParserIsKeyword(parser, "if")) {
+    if (_ParserIsToken(parser, TokenKindKeywordIf)) {
         return (ASTNodeRef)_ParserParseIfStatement(parser);
     }
 
-    if (_ParserIsKeyword(parser, "switch")) {
+    if (_ParserIsToken(parser, TokenKindKeywordSwitch)) {
         return (ASTNodeRef)_ParserParseSwitchStatement(parser);
     }
 
@@ -755,21 +582,22 @@ static inline ASTNodeRef _ParserParseStatement(ParserRef parser) {
 /// grammar: literal-expression    := literal
 /// grammar: identifier-expression := identifier
 static inline ASTExpressionRef _ParserParseAtomExpression(ParserRef parser) {
-    if (_ParserConsumeChar(parser, '(')) {
+    if (_ParserConsumeToken(parser, TokenKindLeftParenthesis)) {
         ASTExpressionRef expression = _ParserParseExpression(parser, 0, false);
         if (!expression) {
             return NULL;
         }
 
-        if (!_ParserConsumeChar(parser, ')')) {
+        if (!_ParserConsumeToken(parser, TokenKindRightParenthesis)) {
             return NULL;
         }
 
         return expression;
     }
 
-    if (_ParserIsKeyword(parser, "nil") || _ParserIsKeyword(parser, "true") || _ParserIsKeyword(parser, "false") ||
-        _CharIsDecimalDigit(*parser->cursor) || *parser->cursor == '"') {
+    if (_ParserIsToken(parser, TokenKindKeywordNil) || _ParserIsToken(parser, TokenKindKeywordTrue) ||
+        _ParserIsToken(parser, TokenKindKeywordFalse) || _ParserIsToken(parser, TokenKindLiteralInt) ||
+        _ParserIsToken(parser, TokenKindLiteralFloat) || _ParserIsToken(parser, TokenKindLiteralString)) {
         return (ASTExpressionRef)_ParserParseConstantExpression(parser);
     }
 
@@ -778,10 +606,10 @@ static inline ASTExpressionRef _ParserParseAtomExpression(ParserRef parser) {
 
 /// grammar: primary-expression := unary-expression | atom-expression
 static inline ASTExpressionRef _ParserParsePrimaryExpression(ParserRef parser) {
-    SourceRange location   = {parser->cursor, parser->cursor};
+    LexerStateRef state    = LexerGetState(parser->lexer);
     ASTUnaryOperator unary = _ParserConsumeUnaryOperator(parser);
     if (unary != ASTUnaryOperatorUnknown) {
-        parser->cursor = location.start;
+        LexerSetState(parser->lexer, state);
         return (ASTExpressionRef)_ParserParseUnaryExpression(parser);
     }
 
@@ -791,15 +619,19 @@ static inline ASTExpressionRef _ParserParsePrimaryExpression(ParserRef parser) {
 /// grammar: unary-expression := prefix-operator expression
 /// grammar: prefix-operator  := '!' | '~' | '+' | '-'
 static inline ASTUnaryExpressionRef _ParserParseUnaryExpression(ParserRef parser) {
-    SourceRange location = {parser->cursor, parser->cursor};
+    SourceRange location = parser->token.location;
 
+    Token token            = parser->token;
     ASTUnaryOperator unary = _ParserConsumeUnaryOperator(parser);
     if (unary == ASTUnaryOperatorUnknown) {
         ReportError("Unknown unary operator!");
         return NULL;
     }
 
-    const Char *unaryEnd = parser->cursor;
+    if (token.location.end != parser->token.location.start) {
+        ReportError("Unary operator has to be right bound!");
+        return NULL;
+    }
 
     ASTExpressionRef arguments[1];
     arguments[0] = _ParserParsePrimaryExpression(parser);
@@ -807,19 +639,14 @@ static inline ASTUnaryExpressionRef _ParserParseUnaryExpression(ParserRef parser
         return NULL;
     }
 
-    if (unaryEnd != arguments[0]->location.start) {
-        ReportError("Unary operator has to be right bound!");
-        return NULL;
-    }
-
-    location.end = parser->cursor;
+    location.end = parser->token.location.start;
     return ASTContextCreateUnaryExpression(parser->context, location, unary, arguments);
 }
 
 /// grammar: expression        := binary-expression | primary-expression
 /// grammar: binary-expression := primary-expression infix-operator expression
 static inline ASTExpressionRef _ParserParseExpression(ParserRef parser, ASTOperatorPrecedence minPrecedence, Bool silentDiagnostics) {
-    SourceRange location = {parser->cursor, parser->cursor};
+    SourceRange location = parser->token.location;
 
     // TODO: Source location of expressions are not initialized correctly!
 
@@ -832,7 +659,8 @@ static inline ASTExpressionRef _ParserParseExpression(ParserRef parser, ASTOpera
         return NULL;
     }
 
-    location.end                     = parser->cursor;
+    location.end                     = parser->token.location.start;
+    LexerStateRef state              = LexerGetState(parser->lexer);
     ASTBinaryOperator binary         = _ParserConsumeBinaryOperator(parser);
     ASTOperatorPrecedence precedence = ASTGetBinaryOperatorPrecedence(binary);
 
@@ -842,13 +670,8 @@ static inline ASTExpressionRef _ParserParseExpression(ParserRef parser, ASTOpera
         precedence = ASTGetPostfixOperatorPrecedence(postfix);
     }
 
-    if (binary == ASTBinaryOperatorUnknown && postfix == ASTPostfixOperatorUnknown) {
-        parser->cursor = location.end;
-        return result;
-    }
-
-    if (minPrecedence >= precedence) {
-        parser->cursor = location.end;
+    if ((binary == ASTBinaryOperatorUnknown && postfix == ASTPostfixOperatorUnknown) || minPrecedence >= precedence) {
+        LexerSetState(parser->lexer, state);
         return result;
     }
 
@@ -866,7 +689,7 @@ static inline ASTExpressionRef _ParserParseExpression(ParserRef parser, ASTOpera
                 return NULL;
             }
 
-            location.end                  = parser->cursor;
+            location.end                  = parser->token.location.start;
             ASTExpressionRef arguments[2] = {result, right};
             result = (ASTExpressionRef)ASTContextCreateBinaryExpression(parser->context, location, binary, arguments);
             if (!result) {
@@ -878,7 +701,7 @@ static inline ASTExpressionRef _ParserParseExpression(ParserRef parser, ASTOpera
                 return NULL;
             }
 
-            location.end = parser->cursor;
+            location.end = parser->token.location.start;
             result       = (ASTExpressionRef)ASTContextCreateMemberAccessExpression(parser->context, location, result, memberName);
         } else if (postfix == ASTPostfixOperatorCall) {
             result = (ASTExpressionRef)_ParserParseCallExpression(parser, result);
@@ -889,10 +712,10 @@ static inline ASTExpressionRef _ParserParseExpression(ParserRef parser, ASTOpera
             return NULL;
         }
 
-        location.end = parser->cursor;
-        binary       = _ParserConsumeBinaryOperator(parser);
-        precedence   = ASTGetBinaryOperatorPrecedence(binary);
-        postfix      = ASTPostfixOperatorUnknown;
+        LexerStateRef state = LexerGetState(parser->lexer);
+        binary              = _ParserConsumeBinaryOperator(parser);
+        precedence          = ASTGetBinaryOperatorPrecedence(binary);
+        postfix             = ASTPostfixOperatorUnknown;
 
         if (binary == ASTBinaryOperatorUnknown) {
             postfix    = _ParserConsumePostfixOperatorHead(parser);
@@ -900,7 +723,7 @@ static inline ASTExpressionRef _ParserParseExpression(ParserRef parser, ASTOpera
         }
 
         if (binary == ASTBinaryOperatorUnknown && postfix == ASTPostfixOperatorUnknown) {
-            parser->cursor = location.end;
+            LexerSetState(parser->lexer, state);
             return result;
         }
     }
@@ -912,19 +735,19 @@ static inline ASTExpressionRef _ParserParseExpression(ParserRef parser, ASTOpera
 /// grammar: identifier-head := "a" ... "z" | "A" ... "Z" | "_"
 /// grammar: identifier-tail := identifier-head | "0" ... "9"
 static inline ASTIdentifierExpressionRef _ParserParseIdentifierExpression(ParserRef parser) {
-    SourceRange location = {parser->cursor, parser->cursor};
+    SourceRange location = parser->token.location;
     StringRef name       = _ParserConsumeIdentifier(parser);
     if (!name) {
         return NULL;
     }
 
-    location.end = parser->cursor;
+    location.end = parser->token.location.start;
     return ASTContextCreateIdentifierExpression(parser->context, location, name);
 }
 
 /// grammar: call-expression := expression "(" [ expression { "," expression } ] ")"
 static inline ASTCallExpressionRef _ParserParseCallExpression(ParserRef parser, ASTExpressionRef callee) {
-    SourceRange location = {callee->location.start, parser->cursor};
+    SourceRange location = {callee->location.start, parser->token.location.start};
 
     // We expect that the postfix operator head is already consumed earlier
     //    if (!_ParserConsumePostfixOperatorHead(parser)) {
@@ -932,7 +755,7 @@ static inline ASTCallExpressionRef _ParserParseCallExpression(ParserRef parser, 
     //    }
 
     ArrayRef arguments = ArrayCreateEmpty(parser->allocator, sizeof(ASTNodeRef), 8);
-    while (!_ParserIsChar(parser, ')')) {
+    while (!_ParserIsToken(parser, TokenKindRightParenthesis)) {
         ASTExpressionRef argument = _ParserParseExpression(parser, 0, false);
         if (!argument) {
             return NULL;
@@ -940,11 +763,11 @@ static inline ASTCallExpressionRef _ParserParseCallExpression(ParserRef parser, 
 
         ArrayAppendElement(arguments, argument);
 
-        if (_ParserIsChar(parser, ')')) {
+        if (_ParserIsToken(parser, TokenKindRightParenthesis)) {
             break;
         }
 
-        if (!_ParserConsumeChar(parser, ',')) {
+        if (!_ParserConsumeToken(parser, TokenKindComma)) {
             return NULL;
         }
     }
@@ -953,7 +776,7 @@ static inline ASTCallExpressionRef _ParserParseCallExpression(ParserRef parser, 
         return NULL;
     }
 
-    location.end = parser->cursor;
+    location.end = parser->token.location.start;
     return ASTContextCreateCallExpression(parser->context, location, callee, arguments);
 }
 
@@ -961,452 +784,50 @@ static inline ASTCallExpressionRef _ParserParseCallExpression(ParserRef parser, 
 /// grammar: nil-literal         := "nil"
 /// grammar: bool-literal        := "true" | "false"
 static inline ASTConstantExpressionRef _ParserParseConstantExpression(ParserRef parser) {
-    SourceRange location = {parser->cursor, parser->cursor};
+    SourceRange location = parser->token.location;
 
-    if (_ParserConsumeKeyword(parser, "nil")) {
-        location.end = parser->cursor;
+    if (_ParserConsumeToken(parser, TokenKindKeywordNil)) {
+        location.end = parser->token.location.start;
         return ASTContextCreateConstantNilExpression(parser->context, location);
     }
 
-    if (_ParserConsumeKeyword(parser, "true")) {
-        location.end = parser->cursor;
+    if (_ParserConsumeToken(parser, TokenKindKeywordTrue)) {
+        location.end = parser->token.location.start;
         return ASTContextCreateConstantBoolExpression(parser->context, location, true);
     }
 
-    if (_ParserConsumeKeyword(parser, "false")) {
-        location.end = parser->cursor;
+    if (_ParserConsumeToken(parser, TokenKindKeywordFalse)) {
+        location.end = parser->token.location.start;
         return ASTContextCreateConstantBoolExpression(parser->context, location, false);
     }
 
-    if (_ParserIsChar(parser, '"')) {
-        return _ParserParseStringLiteral(parser);
+    UInt64 intValue = parser->token.intValue;
+    if (_ParserConsumeToken(parser, TokenKindLiteralInt)) {
+        location.end = parser->token.location.start;
+        return ASTContextCreateConstantIntExpression(parser->context, location, intValue);
     }
 
-    return _ParserParseNumericLiteral(parser);
-}
-
-/// grammar: numeric-literal := integer-literal | float-litereal
-/// grammar: integer-literal := TODO: Describe int literal grammar
-/// grammar: float-literal   := TODO: Describe float literal grammar
-static inline ASTConstantExpressionRef _ParserParseNumericLiteral(ParserRef parser) {
-    _ParserSkipWhitespaceAndNewlines(parser);
-
-    // TODO: Remove all consume functions here because numeric literals are not allowed to be split by whitespaces, newlines and comments!
-
-    SourceRange location = {parser->cursor, parser->cursor};
-
-    if (!_CharIsDecimalDigit(*parser->cursor)) {
-        return NULL;
-    }
-    parser->cursor += 1;
-
-    if (*(parser->cursor - 1) == '0') {
-        if (_ParserConsumeChar(parser, 'b')) {
-            parser->cursor += 1;
-
-            if (!_CharIsBinaryDigit(*parser->cursor)) {
-                return NULL;
-            }
-
-            while (_CharIsBinaryDigit(*parser->cursor)) {
-                parser->cursor += 1;
-            }
-
-            if (_CharIsContinuationOfIdentifier(*parser->cursor)) {
-                return NULL;
-            }
-
-            location.end              = parser->cursor;
-            SourceRange valueLocation = {location.start + 2, location.end};
-            if (valueLocation.end - valueLocation.start - 1 > 64) {
-                return NULL;
-            }
-
-            UInt64 value = 0;
-            for (const Char *cursor = valueLocation.start; cursor < valueLocation.end; cursor++) {
-                value *= 2;
-                value += *cursor - '0';
-            }
-
-            return ASTContextCreateConstantIntExpression(parser->context, location, value);
-        }
-
-        if (_ParserConsumeChar(parser, 'o')) {
-            parser->cursor += 1;
-
-            if (!_CharIsOctalDigit(*parser->cursor)) {
-                return NULL;
-            }
-
-            while (_CharIsOctalDigit(*parser->cursor)) {
-                parser->cursor += 1;
-            }
-
-            if (_CharIsContinuationOfIdentifier(*parser->cursor)) {
-                return NULL;
-            }
-
-            location.end              = parser->cursor;
-            SourceRange valueLocation = {location.start + 2, location.end};
-
-            UInt64 value = 0;
-            for (const Char *cursor = valueLocation.start; cursor < valueLocation.end; cursor++) {
-                UInt64 oldValue = value;
-
-                value *= 8;
-                value += *cursor - '0';
-
-                if (value < oldValue) {
-                    return NULL;
-                }
-            }
-
-            return ASTContextCreateConstantIntExpression(parser->context, location, value);
-        }
-
-        if (_ParserConsumeChar(parser, 'x')) {
-            if (!_CharIsHexadecimalDigit(*parser->cursor)) {
-                return NULL;
-            }
-
-            while (_CharIsHexadecimalDigit(*parser->cursor)) {
-                parser->cursor += 1;
-            }
-
-            Bool isInteger = !(_ParserIsChar(parser, '.') || _ParserIsChar(parser, 'p') || _ParserIsChar(parser, 'P'));
-            if (isInteger) {
-                if (_CharIsContinuationOfIdentifier(*parser->cursor)) {
-                    return NULL;
-                }
-
-                location.end              = parser->cursor;
-                SourceRange valueLocation = {location.start + 2, location.end};
-
-                UInt64 value = 0;
-                for (const Char *cursor = valueLocation.start; cursor < valueLocation.end; cursor++) {
-                    UInt64 oldValue = value;
-
-                    value *= 16;
-
-                    if ('0' <= *cursor && *cursor <= '9') {
-                        value += *cursor - '0';
-                    } else if ('a' <= *cursor && *cursor <= 'f') {
-                        value += *cursor - 'a' + 10;
-                    } else if ('A' <= *cursor && *cursor <= 'F') {
-                        value += *cursor - 'A' + 10;
-                    } else {
-                        return NULL;
-                    }
-
-                    if (value < oldValue) {
-                        return NULL;
-                    }
-                }
-
-                return ASTContextCreateConstantIntExpression(parser->context, location, value);
-            }
-
-            SourceRange headLocation     = {location.start + 2, parser->cursor};
-            SourceRange tailLocation     = SourceRangeNull();
-            SourceRange exponentLocation = SourceRangeNull();
-
-            if (_ParserConsumeChar(parser, '.')) {
-                tailLocation.start = parser->cursor;
-
-                if (!_CharIsHexadecimalDigit(*parser->cursor)) {
-                    return NULL;
-                }
-
-                while (_CharIsHexadecimalDigit(*parser->cursor)) {
-                    parser->cursor += 1;
-                }
-
-                tailLocation.end = parser->cursor;
-            }
-
-            Bool isExponentPositive = true;
-            if (_ParserConsumeChar(parser, 'p') || _ParserConsumeChar(parser, 'P')) {
-                if (_ParserConsumeChar(parser, '-')) {
-                    isExponentPositive = false;
-                } else {
-                    _ParserConsumeChar(parser, '+');
-                }
-
-                exponentLocation.start = parser->cursor;
-
-                if (!_CharIsHexadecimalDigit(*parser->cursor)) {
-                    return NULL;
-                }
-
-                while (_CharIsHexadecimalDigit(*parser->cursor)) {
-                    parser->cursor += 1;
-                }
-
-                exponentLocation.end = parser->cursor;
-            }
-
-            if (_CharIsContinuationOfIdentifier(*parser->cursor)) {
-                return NULL;
-            }
-
-            location.end = parser->cursor;
-
-            Float64 value = 0;
-            for (const Char *cursor = headLocation.start; cursor < headLocation.end; cursor++) {
-                value *= 16;
-
-                if ('0' <= *cursor && *cursor <= '9') {
-                    value += *cursor - '0';
-                } else if ('a' <= *cursor && *cursor <= 'f') {
-                    value += *cursor - 'a' + 10;
-                } else if ('A' <= *cursor && *cursor <= 'F') {
-                    value += *cursor - 'A' + 10;
-                } else {
-                    return NULL;
-                }
-            }
-
-            if (tailLocation.start) {
-                Float64 fraction = 0;
-                for (const Char *cursor = tailLocation.start; cursor < tailLocation.end; cursor++) {
-                    fraction *= 16;
-
-                    if ('0' <= *cursor && *cursor <= '9') {
-                        fraction += *cursor - '0';
-                    } else if ('a' <= *cursor && *cursor <= 'f') {
-                        fraction += *cursor - 'a' + 10;
-                    } else if ('A' <= *cursor && *cursor <= 'F') {
-                        fraction += *cursor - 'A' + 10;
-                    } else {
-                        return NULL;
-                    }
-                }
-
-                for (const Char *cursor = tailLocation.start; cursor < tailLocation.end; cursor++) {
-                    fraction /= 16;
-                }
-
-                value += fraction;
-            }
-
-            if (exponentLocation.start) {
-                UInt64 exponent = 0;
-                for (const Char *cursor = exponentLocation.start; cursor < exponentLocation.end; cursor++) {
-                    UInt64 oldValue = exponent;
-
-                    exponent *= 16;
-
-                    if ('0' <= *cursor && *cursor <= '9') {
-                        exponent += *cursor - '0';
-                    } else if ('a' <= *cursor && *cursor <= 'f') {
-                        exponent += *cursor - 'a' + 10;
-                    } else if ('A' <= *cursor && *cursor <= 'F') {
-                        exponent += *cursor - 'A' + 10;
-                    } else {
-                        return NULL;
-                    }
-
-                    if (exponent < oldValue) {
-                        return NULL;
-                    }
-                }
-
-                Float64 sign = isExponentPositive ? 10 : 0.1;
-                while (exponent--) {
-                    value *= sign;
-                }
-            }
-
-            return ASTContextCreateConstantFloatExpression(parser->context, location, value);
-        }
+    Float64 floatValue = parser->token.floatValue;
+    if (_ParserConsumeToken(parser, TokenKindLiteralFloat)) {
+        location.end = parser->token.location.start;
+        return ASTContextCreateConstantFloatExpression(parser->context, location, floatValue);
     }
 
-    while (_CharIsDecimalDigit(*parser->cursor)) {
-        parser->cursor += 1;
+    if (_ParserIsToken(parser, TokenKindLiteralString)) {
+        location.end = parser->token.location.start;
+
+        StringRef value = StringCreateCopy(parser->allocator, parser->token.stringValue);
+        _ParserConsumeToken(parser, TokenKindLiteralString);
+        return ASTContextCreateConstantStringExpression(parser->context, location, value);
     }
 
-    Bool isInteger = !(_ParserIsChar(parser, '.') || _ParserIsChar(parser, 'e') || _ParserIsChar(parser, 'E'));
-    if (isInteger) {
-        if (_CharIsContinuationOfIdentifier(*parser->cursor)) {
-            return NULL;
-        }
-
-        location.end = parser->cursor;
-
-        UInt64 value = 0;
-        for (const Char *cursor = location.start; cursor < location.end; cursor++) {
-            UInt64 oldValue = value;
-
-            value *= 10;
-            value += *cursor - '0';
-
-            if (value < oldValue) {
-                ReportError("Integer overflow");
-                return NULL;
-            }
-        }
-
-        return ASTContextCreateConstantIntExpression(parser->context, location, value);
-    }
-
-    SourceRange headLocation     = {location.start, parser->cursor};
-    SourceRange tailLocation     = SourceRangeNull();
-    SourceRange exponentLocation = SourceRangeNull();
-
-    if (_ParserConsumeChar(parser, '.')) {
-        tailLocation.start = parser->cursor;
-
-        if (!_CharIsDecimalDigit(*parser->cursor)) {
-            return NULL;
-        }
-
-        while (_CharIsDecimalDigit(*parser->cursor)) {
-            parser->cursor += 1;
-        }
-
-        tailLocation.end = parser->cursor;
-    }
-
-    Bool isExponentPositive = true;
-    if (_ParserConsumeChar(parser, 'e') || _ParserConsumeChar(parser, 'E')) {
-        if (_ParserConsumeChar(parser, '-')) {
-            isExponentPositive = false;
-        } else {
-            _ParserConsumeChar(parser, '+');
-        }
-
-        exponentLocation.start = parser->cursor;
-
-        if (!_CharIsDecimalDigit(*parser->cursor)) {
-            return NULL;
-        }
-
-        while (_CharIsDecimalDigit(*parser->cursor)) {
-            parser->cursor += 1;
-        }
-
-        exponentLocation.end = parser->cursor;
-    }
-
-    if (_CharIsContinuationOfIdentifier(*parser->cursor)) {
-        return NULL;
-    }
-
-    location.end = parser->cursor;
-
-    Float64 value = 0;
-    for (const Char *cursor = headLocation.start; cursor < headLocation.end; cursor++) {
-        value *= 10;
-        value += *cursor - '0';
-    }
-
-    if (tailLocation.start) {
-        Float64 fraction = 0;
-        for (const Char *cursor = tailLocation.start; cursor < tailLocation.end; cursor++) {
-            fraction *= 10;
-            fraction += *cursor - '0';
-        }
-
-        for (const Char *cursor = tailLocation.start; cursor < tailLocation.end; cursor++) {
-            fraction /= 10;
-        }
-
-        value += fraction;
-    }
-
-    if (exponentLocation.start) {
-        UInt64 exponent = 0;
-        for (const Char *cursor = exponentLocation.start; cursor < exponentLocation.end; cursor++) {
-            UInt64 oldValue = exponent;
-
-            exponent *= 10;
-            exponent += *cursor - '0';
-
-            if (exponent < oldValue) {
-                return NULL;
-            }
-        }
-
-        Float64 sign = isExponentPositive ? 10 : 0.1;
-        while (exponent--) {
-            value *= sign;
-        }
-    }
-
-    return ASTContextCreateConstantFloatExpression(parser->context, location, value);
-}
-
-/// grammar: string-literal      := """ { string-literal-body } """
-/// grammar: string-literal-body := TODO: Add grammar description for string literal body!
-static inline ASTConstantExpressionRef _ParserParseStringLiteral(ParserRef parser) {
-    _ParserSkipWhitespaceAndNewlines(parser);
-
-    SourceRange location = {parser->cursor, parser->cursor};
-
-    if (*parser->cursor != '"') {
-        return NULL;
-    }
-    parser->cursor += 1;
-
-    Bool valid    = true;
-    Bool finished = false;
-    while (!finished) {
-        if (parser->cursor == parser->bufferEnd) {
-            return NULL;
-        }
-
-        switch (*parser->cursor) {
-        case '\n':
-        case '\r':
-        case '\0':
-            return NULL;
-
-        case '"':
-            finished = true;
-            break;
-
-        case '\\':
-            parser->cursor += 1;
-
-            switch (*parser->cursor) {
-            case '0':
-            case '\\':
-            case 'r':
-            case 'n':
-            case 't':
-            case '"':
-            case '\'':
-                parser->cursor += 1;
-                break;
-
-            default:
-                valid = false;
-                break;
-            }
-
-            break;
-
-        default:
-            parser->cursor += 1;
-            break;
-        }
-    }
-
-    if (!valid || *parser->cursor != '"') {
-        return NULL;
-    }
-    parser->cursor += 1;
-
-    location.end    = parser->cursor;
-    StringRef value = StringCreateRange(parser->allocator, location.start + 1, location.end - 1);
-    location.end    = parser->cursor;
-    return ASTContextCreateConstantStringExpression(parser->context, location, value);
+    return NULL;
 }
 
 /// grammar: enum-declaration := "enum" identifier "{" [ enum-element { line-break enum-element } ] "}"
 static inline ASTEnumerationDeclarationRef _ParserParseEnumerationDeclaration(ParserRef parser) {
-    SourceRange location = {parser->cursor, parser->cursor};
-    if (!_ParserConsumeKeyword(parser, "enum")) {
+    SourceRange location = parser->token.location;
+    if (!_ParserConsumeToken(parser, TokenKindKeywordEnum)) {
         return NULL;
     }
 
@@ -1416,7 +837,7 @@ static inline ASTEnumerationDeclarationRef _ParserParseEnumerationDeclaration(Pa
         return NULL;
     }
 
-    if (!_ParserConsumeChar(parser, '{')) {
+    if (!_ParserConsumeToken(parser, TokenKindLeftCurlyBracket)) {
         ReportError("Expected '{' after `name` of `enum-declaration`");
         return NULL;
     }
@@ -1425,11 +846,11 @@ static inline ASTEnumerationDeclarationRef _ParserParseEnumerationDeclaration(Pa
     ScopeRef scope             = SymbolTablePushScope(symbolTable, ScopeKindEnumeration);
 
     ArrayRef elements = ArrayCreateEmpty(parser->allocator, sizeof(ASTNodeRef), 8);
-    if (!_ParserIsChar(parser, '}')) {
-        Index line = parser->line;
+    if (!_ParserIsToken(parser, TokenKindRightCurlyBracket)) {
+        Index line = parser->token.line;
 
         while (true) {
-            if (ArrayGetElementCount(elements) > 0 && line == parser->line) {
+            if (ArrayGetElementCount(elements) > 0 && line == parser->token.line) {
                 ReportError("Consecutive `enum-element`(s) on a line are not allowed");
                 return NULL;
             }
@@ -1447,27 +868,27 @@ static inline ASTEnumerationDeclarationRef _ParserParseEnumerationDeclaration(Pa
 
             ArrayAppendElement(elements, element);
 
-            if (_ParserIsChar(parser, '}')) {
+            if (_ParserIsToken(parser, TokenKindRightCurlyBracket)) {
                 break;
             }
         }
     }
 
-    if (!_ParserConsumeChar(parser, '}')) {
+    if (!_ParserConsumeToken(parser, TokenKindRightCurlyBracket)) {
         return NULL;
     }
 
     SymbolTablePopScope(symbolTable);
 
-    location.end = parser->cursor;
+    location.end = parser->token.location.start;
     return ASTContextCreateEnumerationDeclaration(parser->context, location, name, elements);
 }
 
 /// grammar: func-declaration := "func" identifier "(" [ parameter { "," parameter } ] ")" "->" type-identifier block
 static inline ASTFunctionDeclarationRef _ParserParseFunctionDeclaration(ParserRef parser) {
-    SourceRange location = {parser->cursor, parser->cursor};
+    SourceRange location = parser->token.location;
 
-    if (!_ParserConsumeKeyword(parser, "func")) {
+    if (!_ParserConsumeToken(parser, TokenKindKeywordFunc)) {
         return NULL;
     }
 
@@ -1477,7 +898,7 @@ static inline ASTFunctionDeclarationRef _ParserParseFunctionDeclaration(ParserRe
         return NULL;
     }
 
-    if (!_ParserConsumeChar(parser, '(')) {
+    if (!_ParserConsumeToken(parser, TokenKindLeftParenthesis)) {
         ReportError("Expected parameter list after name of 'func'");
         return NULL;
     }
@@ -1486,10 +907,11 @@ static inline ASTFunctionDeclarationRef _ParserParseFunctionDeclaration(ParserRe
     ScopeRef scope             = SymbolTablePushScope(symbolTable, ScopeKindFunction);
     ArrayRef parameters        = ArrayCreateEmpty(parser->allocator, sizeof(ASTNodeRef), 8);
 
-    if (!_ParserIsChar(parser, ')')) {
+    if (!_ParserIsToken(parser, TokenKindRightParenthesis)) {
         while (true) {
             ASTValueDeclarationRef parameter = _ParserParseValueDeclaration(parser);
             if (!parameter) {
+                ReportError("Expected `type` for parameter of `func-declaration`");
                 return NULL;
             }
 
@@ -1500,30 +922,35 @@ static inline ASTFunctionDeclarationRef _ParserParseFunctionDeclaration(ParserRe
 
             ArrayAppendElement(parameters, parameter);
 
-            if (_ParserIsChar(parser, ')')) {
+            SymbolRef symbol = ScopeInsertSymbol(scope, parameter->name, parameter->base.location);
+            if (!symbol) {
+                ReportError("Invalid redeclaration of identifier");
+            }
+
+            if (_ParserIsToken(parser, TokenKindRightParenthesis)) {
                 break;
             }
 
-            if (!_ParserConsumeChar(parser, ',')) {
+            if (!_ParserConsumeToken(parser, TokenKindComma)) {
                 ReportError("Expected ',' or ')' in parameter list of 'func'");
                 return NULL;
             }
         }
     }
 
-    if (!_ParserConsumeChar(parser, ')')) {
+    if (!_ParserConsumeToken(parser, TokenKindRightParenthesis)) {
         ReportError("Expected ')' after parameter list of 'func'");
         return NULL;
     }
 
-    if (!_ParserConsumeString(parser, "->")) {
+    if (!_ParserConsumeToken(parser, TokenKindArrow)) {
         ReportError("Expected '->' after parameter list of 'func'");
         return NULL;
     }
 
     ASTTypeRef returnType = _ParserParseType(parser);
     if (!returnType) {
-        ReportError("Expected return type after '->' of 'func'");
+        ReportError("Expected `type` for return value of `func-declaration`");
         return NULL;
     }
 
@@ -1535,13 +962,13 @@ static inline ASTFunctionDeclarationRef _ParserParseFunctionDeclaration(ParserRe
 
     SymbolTablePopScope(symbolTable);
 
-    location.end                          = parser->cursor;
+    location.end                          = parser->token.location.start;
     ASTFunctionDeclarationRef declaration = ASTContextCreateFunctionDeclaration(parser->context, location, name, parameters, returnType,
                                                                                 body);
 
     SymbolRef symbol = ScopeInsertSymbol(SymbolTableGetCurrentScope(symbolTable), name, location);
     if (!symbol) {
-        ReportError("Invalid redeclaration of identifier!");
+        ReportError("Invalid redeclaration of identifier");
         return NULL;
     }
 
@@ -1550,20 +977,20 @@ static inline ASTFunctionDeclarationRef _ParserParseFunctionDeclaration(ParserRe
 
 /// grammar: struct-declaration := "struct" identifier "{" { value-declaration } "}"
 static inline ASTStructureDeclarationRef _ParserParseStructureDeclaration(ParserRef parser) {
-    SourceRange location = {parser->cursor, parser->cursor};
+    SourceRange location = parser->token.location;
 
-    if (!_ParserConsumeKeyword(parser, "struct")) {
+    if (!_ParserConsumeToken(parser, TokenKindKeywordStruct)) {
         return NULL;
     }
 
     StringRef name = _ParserConsumeIdentifier(parser);
     if (!name) {
-        ReportError("Expected name after 'struct'");
+        ReportError("Expected `name` of `struct-declaration`");
         return NULL;
     }
 
-    if (!_ParserConsumeChar(parser, '{')) {
-        ReportError("Expected '{' after name of 'struct'");
+    if (!_ParserConsumeToken(parser, TokenKindLeftCurlyBracket)) {
+        ReportError("Expected '{' after name of `struct-declaration`");
         return NULL;
     }
 
@@ -1571,15 +998,15 @@ static inline ASTStructureDeclarationRef _ParserParseStructureDeclaration(Parser
     ScopeRef scope             = SymbolTablePushScope(symbolTable, ScopeKindStructure);
     ArrayRef values            = ArrayCreateEmpty(parser->allocator, sizeof(ASTNodeRef), 8);
 
-    if (!_ParserIsChar(parser, '}')) {
-        Index line = parser->line;
+    if (!_ParserIsToken(parser, TokenKindRightCurlyBracket)) {
+        Index line = parser->token.line;
         while (true) {
-            if (ArrayGetElementCount(values) > 0 && line == parser->line) {
+            if (ArrayGetElementCount(values) > 0 && line == parser->token.line) {
                 ReportError("Consecutive statements on a line are not allowed!");
                 return NULL;
             }
 
-            line = parser->line;
+            line = parser->token.line;
 
             ASTValueDeclarationRef value = _ParserParseValueDeclaration(parser);
             if (!value) {
@@ -1593,24 +1020,24 @@ static inline ASTStructureDeclarationRef _ParserParseStructureDeclaration(Parser
 
             ArrayAppendElement(values, value);
 
-            if (_ParserIsChar(parser, '}')) {
+            if (_ParserIsToken(parser, TokenKindRightCurlyBracket)) {
                 break;
             }
         }
     }
 
-    if (!_ParserConsumeChar(parser, '}')) {
+    if (!_ParserConsumeToken(parser, TokenKindRightCurlyBracket)) {
         return NULL;
     }
 
     SymbolTablePopScope(symbolTable);
 
-    location.end                           = parser->cursor;
+    location.end                           = parser->token.location.start;
     ASTStructureDeclarationRef declaration = ASTContextCreateStructureDeclaration(parser->context, location, name, values);
 
     SymbolRef symbol = ScopeInsertSymbol(SymbolTableGetCurrentScope(symbolTable), name, location);
     if (!symbol) {
-        ReportError("Invalid redeclaration of identifier!");
+        ReportError("Invalid redeclaration of identifier");
         return NULL;
     }
 
@@ -1624,15 +1051,15 @@ static inline ASTStructureDeclarationRef _ParserParseStructureDeclaration(Parser
 /// grammar: parameter-declaration           := identifier ":" type-identifier
 /// grammar: enumeration-element-declaration := "case" identifier [ "=" expression ]
 static inline ASTValueDeclarationRef _ParserParseValueDeclaration(ParserRef parser) {
-    SourceRange location = {parser->cursor, parser->cursor};
+    SourceRange location = parser->token.location;
 
-    if (_ParserConsumeKeyword(parser, "let")) {
+    if (_ParserConsumeToken(parser, TokenKindKeywordLet)) {
         StringRef name = _ParserConsumeIdentifier(parser);
         if (!name) {
             return NULL;
         }
 
-        if (!_ParserConsumeChar(parser, ':')) {
+        if (!_ParserConsumeToken(parser, TokenKindColon)) {
             return NULL;
         }
 
@@ -1652,31 +1079,32 @@ static inline ASTValueDeclarationRef _ParserParseValueDeclaration(ParserRef pars
             return NULL;
         }
 
-        location.end                       = parser->cursor;
+        location.end                       = parser->token.location.start;
         ASTValueDeclarationRef declaration = ASTContextCreateValueDeclaration(parser->context, location, ASTValueKindConstant, name, type,
                                                                               initializer);
         SymbolTableRef symbolTable         = ASTContextGetSymbolTable(parser->context);
         ScopeRef scope                     = SymbolTableGetCurrentScope(symbolTable);
         SymbolRef symbol                   = ScopeInsertSymbol(scope, name, location);
         if (!symbol) {
-            ReportError("Invalid redeclaration of identifier!");
+            ReportError("Invalid redeclaration of identifier");
         }
 
         return declaration;
-    } else if (_ParserConsumeKeyword(parser, "var")) {
+    } else if (_ParserConsumeToken(parser, TokenKindKeywordVar)) {
         StringRef name = _ParserConsumeIdentifier(parser);
         if (!name) {
-            ReportError("Expected name of 'var'");
+            ReportError("Expected `name` of 'var-declaration'");
             return NULL;
         }
 
-        if (!_ParserConsumeChar(parser, ':')) {
-            ReportError("Expected ':' after name of 'var'");
+        if (!_ParserConsumeToken(parser, TokenKindColon)) {
+            ReportError("Expected ':' after name of 'var-declaration'");
             return NULL;
         }
 
         ASTTypeRef type = _ParserParseType(parser);
         if (!type) {
+            ReportError("Expected `type` of 'var-declaration'");
             return NULL;
         }
 
@@ -1692,18 +1120,18 @@ static inline ASTValueDeclarationRef _ParserParseValueDeclaration(ParserRef pars
             return NULL;
         }
 
-        location.end                       = parser->cursor;
+        location.end                       = parser->token.location.start;
         ASTValueDeclarationRef declaration = ASTContextCreateValueDeclaration(parser->context, location, ASTValueKindVariable, name, type,
                                                                               initializer);
         SymbolTableRef symbolTable         = ASTContextGetSymbolTable(parser->context);
         ScopeRef scope                     = SymbolTableGetCurrentScope(symbolTable);
         SymbolRef symbol                   = ScopeInsertSymbol(scope, name, location);
         if (!symbol) {
-            ReportError("Invalid redeclaration of identifier!");
+            ReportError("Invalid redeclaration of identifier");
         }
 
         return declaration;
-    } else if (_ParserConsumeKeyword(parser, "case")) {
+    } else if (_ParserConsumeToken(parser, TokenKindKeywordCase)) {
         StringRef name = _ParserConsumeIdentifier(parser);
         if (!name) {
             ReportError("Expected `name` of `enum-element`");
@@ -1725,14 +1153,14 @@ static inline ASTValueDeclarationRef _ParserParseValueDeclaration(ParserRef pars
 
         ASTTypeRef type = (ASTTypeRef)ASTContextGetBuiltinType(parser->context, ASTBuiltinTypeKindInt);
 
-        location.end                       = parser->cursor;
+        location.end                       = parser->token.location.start;
         ASTValueDeclarationRef declaration = ASTContextCreateValueDeclaration(parser->context, location, ASTValueKindEnumerationElement,
                                                                               name, type, initializer);
         SymbolTableRef symbolTable         = ASTContextGetSymbolTable(parser->context);
         ScopeRef scope                     = SymbolTableGetCurrentScope(symbolTable);
         SymbolRef symbol                   = ScopeInsertSymbol(scope, name, location);
         if (!symbol) {
-            ReportError("Invalid redeclaration of identifier!");
+            ReportError("Invalid redeclaration of identifier");
         }
 
         return declaration;
@@ -1743,7 +1171,7 @@ static inline ASTValueDeclarationRef _ParserParseValueDeclaration(ParserRef pars
             return NULL;
         }
 
-        if (!_ParserConsumeChar(parser, ':')) {
+        if (!_ParserConsumeToken(parser, TokenKindColon)) {
             return NULL;
         }
 
@@ -1752,14 +1180,14 @@ static inline ASTValueDeclarationRef _ParserParseValueDeclaration(ParserRef pars
             return NULL;
         }
 
-        location.end                       = parser->cursor;
+        location.end                       = parser->token.location.start;
         ASTValueDeclarationRef declaration = ASTContextCreateValueDeclaration(parser->context, location, ASTValueKindParameter, name, type,
                                                                               NULL);
         SymbolTableRef symbolTable         = ASTContextGetSymbolTable(parser->context);
         ScopeRef scope                     = SymbolTableGetCurrentScope(symbolTable);
         SymbolRef symbol                   = ScopeInsertSymbol(scope, name, location);
         if (!symbol) {
-            ReportError("Invalid redeclaration of identifier!");
+            ReportError("Invalid redeclaration of identifier");
         }
 
         return declaration;
@@ -1775,96 +1203,96 @@ static inline ASTValueDeclarationRef _ParserParseValueDeclaration(ParserRef pars
 /// grammar: pointer-type := type "*"
 /// grammar: array-type   := type "[" [ expression ] "]"
 static inline ASTTypeRef _ParserParseType(ParserRef parser) {
-    SourceRange location = {parser->cursor, parser->cursor};
+    SourceRange location = parser->token.location;
     ASTTypeRef result    = NULL;
 
     // TODO: Add support for source location of builtin type!
-    if (_ParserConsumeKeyword(parser, "Void")) {
-        location.end = parser->cursor;
+    if (_ParserConsumeToken(parser, TokenKindKeywordVoid)) {
+        location.end = parser->token.location.start;
         result       = (ASTTypeRef)ASTContextGetBuiltinType(parser->context, ASTBuiltinTypeKindVoid);
-    } else if (_ParserConsumeKeyword(parser, "Bool")) {
-        location.end = parser->cursor;
+    } else if (_ParserConsumeToken(parser, TokenKindKeywordBool)) {
+        location.end = parser->token.location.start;
         result       = (ASTTypeRef)ASTContextGetBuiltinType(parser->context, ASTBuiltinTypeKindBool);
-    } else if (_ParserConsumeKeyword(parser, "Int8")) {
-        location.end = parser->cursor;
+    } else if (_ParserConsumeToken(parser, TokenKindKeywordInt8)) {
+        location.end = parser->token.location.start;
         result       = (ASTTypeRef)ASTContextGetBuiltinType(parser->context, ASTBuiltinTypeKindInt8);
-    } else if (_ParserConsumeKeyword(parser, "Int16")) {
-        location.end = parser->cursor;
+    } else if (_ParserConsumeToken(parser, TokenKindKeywordInt16)) {
+        location.end = parser->token.location.start;
         result       = (ASTTypeRef)ASTContextGetBuiltinType(parser->context, ASTBuiltinTypeKindInt16);
-    } else if (_ParserConsumeKeyword(parser, "Int32")) {
-        location.end = parser->cursor;
+    } else if (_ParserConsumeToken(parser, TokenKindKeywordInt32)) {
+        location.end = parser->token.location.start;
         result       = (ASTTypeRef)ASTContextGetBuiltinType(parser->context, ASTBuiltinTypeKindInt32);
-    } else if (_ParserConsumeKeyword(parser, "Int64")) {
-        location.end = parser->cursor;
+    } else if (_ParserConsumeToken(parser, TokenKindKeywordInt64)) {
+        location.end = parser->token.location.start;
         result       = (ASTTypeRef)ASTContextGetBuiltinType(parser->context, ASTBuiltinTypeKindInt64);
-    } else if (_ParserConsumeKeyword(parser, "Int128")) {
-        location.end = parser->cursor;
+    } else if (_ParserConsumeToken(parser, TokenKindKeywordInt128)) {
+        location.end = parser->token.location.start;
         result       = (ASTTypeRef)ASTContextGetBuiltinType(parser->context, ASTBuiltinTypeKindInt128);
-    } else if (_ParserConsumeKeyword(parser, "Int")) {
-        location.end = parser->cursor;
+    } else if (_ParserConsumeToken(parser, TokenKindKeywordInt)) {
+        location.end = parser->token.location.start;
         result       = (ASTTypeRef)ASTContextGetBuiltinType(parser->context, ASTBuiltinTypeKindInt);
-    } else if (_ParserConsumeKeyword(parser, "UInt8")) {
-        location.end = parser->cursor;
+    } else if (_ParserConsumeToken(parser, TokenKindKeywordUInt8)) {
+        location.end = parser->token.location.start;
         result       = (ASTTypeRef)ASTContextGetBuiltinType(parser->context, ASTBuiltinTypeKindUInt8);
-    } else if (_ParserConsumeKeyword(parser, "UInt16")) {
-        location.end = parser->cursor;
+    } else if (_ParserConsumeToken(parser, TokenKindKeywordUInt16)) {
+        location.end = parser->token.location.start;
         result       = (ASTTypeRef)ASTContextGetBuiltinType(parser->context, ASTBuiltinTypeKindUInt16);
-    } else if (_ParserConsumeKeyword(parser, "UInt32")) {
-        location.end = parser->cursor;
+    } else if (_ParserConsumeToken(parser, TokenKindKeywordUInt32)) {
+        location.end = parser->token.location.start;
         result       = (ASTTypeRef)ASTContextGetBuiltinType(parser->context, ASTBuiltinTypeKindUInt32);
-    } else if (_ParserConsumeKeyword(parser, "UInt64")) {
-        location.end = parser->cursor;
+    } else if (_ParserConsumeToken(parser, TokenKindKeywordUInt64)) {
+        location.end = parser->token.location.start;
         result       = (ASTTypeRef)ASTContextGetBuiltinType(parser->context, ASTBuiltinTypeKindUInt64);
-    } else if (_ParserConsumeKeyword(parser, "UInt128")) {
-        location.end = parser->cursor;
+    } else if (_ParserConsumeToken(parser, TokenKindKeywordUInt128)) {
+        location.end = parser->token.location.start;
         result       = (ASTTypeRef)ASTContextGetBuiltinType(parser->context, ASTBuiltinTypeKindUInt128);
-    } else if (_ParserConsumeKeyword(parser, "UInt")) {
-        location.end = parser->cursor;
+    } else if (_ParserConsumeToken(parser, TokenKindKeywordUInt)) {
+        location.end = parser->token.location.start;
         result       = (ASTTypeRef)ASTContextGetBuiltinType(parser->context, ASTBuiltinTypeKindUInt);
-    } else if (_ParserConsumeKeyword(parser, "Float16")) {
-        location.end = parser->cursor;
+    } else if (_ParserConsumeToken(parser, TokenKindKeywordFloat16)) {
+        location.end = parser->token.location.start;
         result       = (ASTTypeRef)ASTContextGetBuiltinType(parser->context, ASTBuiltinTypeKindFloat16);
-    } else if (_ParserConsumeKeyword(parser, "Float32")) {
-        location.end = parser->cursor;
+    } else if (_ParserConsumeToken(parser, TokenKindKeywordFloat32)) {
+        location.end = parser->token.location.start;
         result       = (ASTTypeRef)ASTContextGetBuiltinType(parser->context, ASTBuiltinTypeKindFloat32);
-    } else if (_ParserConsumeKeyword(parser, "Float64")) {
-        location.end = parser->cursor;
+    } else if (_ParserConsumeToken(parser, TokenKindKeywordFloat64)) {
+        location.end = parser->token.location.start;
         result       = (ASTTypeRef)ASTContextGetBuiltinType(parser->context, ASTBuiltinTypeKindFloat64);
-    } else if (_ParserConsumeKeyword(parser, "Float128")) {
-        location.end = parser->cursor;
+    } else if (_ParserConsumeToken(parser, TokenKindKeywordFloat128)) {
+        location.end = parser->token.location.start;
         result       = (ASTTypeRef)ASTContextGetBuiltinType(parser->context, ASTBuiltinTypeKindFloat128);
-    } else if (_ParserConsumeKeyword(parser, "Float")) {
-        location.end = parser->cursor;
+    } else if (_ParserConsumeToken(parser, TokenKindKeywordFloat)) {
+        location.end = parser->token.location.start;
         result       = (ASTTypeRef)ASTContextGetBuiltinType(parser->context, ASTBuiltinTypeKindFloat);
     } else {
         StringRef name = _ParserConsumeIdentifier(parser);
         if (!name) {
-            ReportError("Expected type");
+            ReportError("Expected `type`");
             return NULL;
         }
 
-        location.end = parser->cursor;
+        location.end = parser->token.location.start;
         result       = (ASTTypeRef)ASTContextCreateOpaqueType(parser->context, location, name);
     }
 
     while (true) {
-        if (_ParserConsumeChar(parser, '*')) {
-            location.end = parser->cursor;
+        if (_ParserConsumeToken(parser, TokenKindAsterisk)) {
+            location.end = parser->token.location.start;
             result       = (ASTTypeRef)ASTContextCreatePointerType(parser->context, location, result);
-        } else if (_ParserConsumeChar(parser, '[')) {
+        } else if (_ParserConsumeToken(parser, TokenKindLeftBracket)) {
             ASTExpressionRef size = NULL;
-            if (!_ParserIsChar(parser, ']')) {
+            if (!_ParserIsToken(parser, TokenKindRightBracket)) {
                 size = _ParserParseExpression(parser, 0, false);
                 if (!size) {
                     return NULL;
                 }
             }
 
-            if (!_ParserConsumeChar(parser, ']')) {
+            if (!_ParserConsumeToken(parser, TokenKindRightBracket)) {
                 return NULL;
             }
 
-            location.end = parser->cursor;
+            location.end = parser->token.location.start;
             result       = (ASTTypeRef)ASTContextCreateArrayType(parser->context, location, result, size);
         } else {
             break;
@@ -1880,7 +1308,7 @@ static inline ASTExpressionRef _ParserParseConditionList(ParserRef parser) {
         return NULL;
     }
 
-    while (_ParserConsumeChar(parser, ',')) {
+    while (_ParserConsumeToken(parser, TokenKindComma)) {
         ASTExpressionRef expression = _ParserParseExpression(parser, 0, false);
         if (!expression) {
             return NULL;
@@ -1896,27 +1324,29 @@ static inline ASTExpressionRef _ParserParseConditionList(ParserRef parser) {
 
 /// grammar: top-level-node := load-declaration | enum-declaration | func-declaration | struct-declaration | variable-declaration
 static inline ASTNodeRef _ParserParseTopLevelNode(ParserRef parser) {
-    if (parser->cursor >= parser->bufferEnd) {
+    LexerNextToken(parser->lexer, &parser->token);
+
+    if (parser->token.kind == TokenKindEndOfFile) {
         return NULL;
     }
 
-    if (_ParserIsChar(parser, '#')) {
+    if (_ParserIsToken(parser, TokenKindDirectiveLoad)) {
         return (ASTNodeRef)_ParserParseDirective(parser);
     }
 
-    if (_ParserIsKeyword(parser, "enum")) {
+    if (_ParserIsToken(parser, TokenKindKeywordEnum)) {
         return (ASTNodeRef)_ParserParseEnumerationDeclaration(parser);
     }
 
-    if (_ParserIsKeyword(parser, "func")) {
+    if (_ParserIsToken(parser, TokenKindKeywordFunc)) {
         return (ASTNodeRef)_ParserParseFunctionDeclaration(parser);
     }
 
-    if (_ParserIsKeyword(parser, "struct")) {
+    if (_ParserIsToken(parser, TokenKindKeywordStruct)) {
         return (ASTNodeRef)_ParserParseStructureDeclaration(parser);
     }
 
-    if (_ParserIsKeyword(parser, "var") || _ParserIsKeyword(parser, "let")) {
+    if (_ParserIsToken(parser, TokenKindKeywordVar) || _ParserIsToken(parser, TokenKindKeywordLet)) {
         ASTValueDeclarationRef value = _ParserParseValueDeclaration(parser);
         if (!value || (value->kind != ASTValueKindVariable && value->kind != ASTValueKindConstant)) {
             return NULL;

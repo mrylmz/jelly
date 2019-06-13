@@ -1,1 +1,1 @@
-func main(x:, y: Int) -> Void {} // expect-error: Expected TypeRef found ','
+func main(x:, y: Int) -> Void {} // expect-error: Expected `type` for parameter of `func-declaration`

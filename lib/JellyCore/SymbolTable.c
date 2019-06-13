@@ -120,7 +120,7 @@ ScopeRef _SymbolTableCreateScope(SymbolTableRef symbolTable, ScopeKind kind, Sco
 }
 
 Index _ScopeGetVirtualEnd(ScopeRef scope, const Char *virtualEndOfScope) {
-    if (scope->kind == ScopeKindGlobal) {
+    if (scope->kind == ScopeKindGlobal || virtualEndOfScope == NULL) {
         return ArrayGetElementCount(scope->symbols);
     }
 

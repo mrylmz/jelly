@@ -1,3 +1,0 @@
-func main() -> Void {
-    guard true, true true else { return } // expect-error: Expected token 'else' found 'true'
-}

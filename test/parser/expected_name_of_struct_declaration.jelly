@@ -1,1 +1,1 @@
-struct { } // expect-error: Expected token Identifier found '{'
+struct { } // expect-error: Expected `name` of `struct-declaration`

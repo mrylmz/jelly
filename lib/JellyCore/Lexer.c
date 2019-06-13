@@ -717,7 +717,8 @@ static inline TokenKind _LexerLexDirective(LexerRef lexer) {
 static inline TokenKind _LexerLexStringLiteral(LexerRef lexer) {
     assert(*(lexer->state.cursor - 1) == '"');
 
-    Bool valid = true;
+    SourceRange range = {lexer->state.cursor, lexer->state.cursor};
+    Bool valid        = true;
     while (true) {
         if (lexer->state.cursor >= lexer->bufferEnd) {
             return TokenKindError;
@@ -732,8 +733,14 @@ static inline TokenKind _LexerLexStringLiteral(LexerRef lexer) {
         case '"':
             lexer->state.cursor += 1;
             lexer->state.column += 1;
-            // TODO: Assign stringValue of token!
-            return valid ? TokenKindLiteralString : TokenKindError;
+
+            if (valid) {
+                range.end                      = lexer->state.cursor;
+                lexer->state.token.stringValue = StringCreateRange(lexer->allocator, range.start, range.end);
+                return TokenKindLiteralString;
+            }
+
+            return TokenKindError;
 
         case '\\':
             lexer->state.cursor += 1;
@@ -781,7 +788,7 @@ static inline TokenKind _LexerLexIdentifierOrKeyword(LexerRef lexer) {
     }
 
     range.end      = lexer->state.cursor;
-    TokenKind kind = TokenKindIdentifier;
+    TokenKind kind = TokenKindUnknown;
 
     if (SourceRangeIsEqual(range, "is")) {
         kind = TokenKindKeywordIs;
@@ -861,6 +868,9 @@ static inline TokenKind _LexerLexIdentifierOrKeyword(LexerRef lexer) {
         kind = TokenKindKeywordFloat128;
     } else if (SourceRangeIsEqual(range, "Float")) {
         kind = TokenKindKeywordFloat;
+    } else {
+        kind                           = TokenKindIdentifier;
+        lexer->state.token.stringValue = StringCreateRange(lexer->allocator, range.start, range.end);
     }
 
     return kind;

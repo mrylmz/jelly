@@ -1,3 +1,0 @@
-func main() -> Void {
-    guard else { return } // expect-error:Expected Expression found 'else'
-}

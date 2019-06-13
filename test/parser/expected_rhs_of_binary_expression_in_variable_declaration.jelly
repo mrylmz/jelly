@@ -1,1 +1,1 @@
-var x: Int = -10 + // expect-error: Expected Expression found 'EOF'
+var x: Int = -10 + // expect-error: Expected `expression`

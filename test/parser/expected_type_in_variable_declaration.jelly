@@ -1,1 +1,1 @@
-var x: = 0 // expect-error: Expected TypeRef found Operator = '='
+var x: = 0 // expect-error: Expected `type` of `var-declaration`
