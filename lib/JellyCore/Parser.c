@@ -18,6 +18,8 @@ struct _Parser {
 };
 
 static inline Bool _StringIsValidFilePath(StringRef string);
+static inline Bool _SourceRangeContainsLineBreakCharacter(SourceRange range);
+
 static inline Bool _ParserIsToken(ParserRef parser, TokenKind kind);
 static inline Bool _ParserConsumeToken(ParserRef parser, TokenKind kind);
 
@@ -68,20 +70,17 @@ ASTSourceUnitRef ParserParseSourceUnit(ParserRef parser, StringRef filePath, Str
     parser->lexer = LexerCreate(parser->allocator, source);
     LexerNextToken(parser->lexer, &parser->token);
 
-    SourceRange location               = parser->token.location;
-    ArrayRef declarations              = ArrayCreateEmpty(parser->allocator, sizeof(ASTNodeRef), 8);
-    Index line                         = parser->token.line;
+    SourceRange location  = parser->token.location;
+    ArrayRef declarations = ArrayCreateEmpty(parser->allocator, sizeof(ASTNodeRef), 8);
     while (true) {
-        Bool consecutive = ArrayGetElementCount(declarations) > 0 && line == parser->token.line;
-        line = parser->token.line;
-
+        SourceRange leadingTrivia = parser->token.leadingTrivia;
         ASTNodeRef declaration = _ParserParseTopLevelNode(parser);
         if (!declaration) {
             break;
         }
 
-        if (consecutive) {
-            ReportError("Consecutive top level nodes on a line are not allowed!");
+        if (ArrayGetElementCount(declarations) > 0 && !_SourceRangeContainsLineBreakCharacter(leadingTrivia)) {
+            ReportError("Consecutive statements on a line are not allowed");
         }
 
         ArrayAppendElement(declarations, declaration);
@@ -96,6 +95,23 @@ ASTSourceUnitRef ParserParseSourceUnit(ParserRef parser, StringRef filePath, Str
 static inline Bool _StringIsValidFilePath(StringRef string) {
     // TODO: Implement check for file path validation
     return true;
+}
+
+static inline Bool _SourceRangeContainsLineBreakCharacter(SourceRange range) {
+    for (const Char *cursor = range.start; cursor < range.end; cursor++) {
+        switch (*cursor) {
+        case 0x0A:
+        case 0x0B:
+        case 0x0C:
+        case 0x0D:
+            return true;
+
+        default:
+            break;
+        }
+    }
+
+    return false;
 }
 
 static inline Bool _ParserIsToken(ParserRef parser, TokenKind kind) {
@@ -269,17 +285,14 @@ static inline ASTBlockRef _ParserParseBlock(ParserRef parser) {
     // @TODO: Push block scope externally !
     // @TODO: Add temporary pool allocator to parser, for now this will leak memory!
     ArrayRef statements = ArrayCreateEmpty(parser->allocator, sizeof(ASTNodeRef), 8);
-    Index line = parser->token.line;
     while (!_ParserIsToken(parser, TokenKindRightCurlyBracket)) {
-        Bool consecutive = ArrayGetElementCount(statements) > 0 && line == parser->token.line;
-        line             = parser->token.line;
-
+        SourceRange leadingTrivia = parser->token.leadingTrivia;
         ASTNodeRef statement = _ParserParseStatement(parser);
         if (!statement) {
             return NULL;
         }
 
-        if (consecutive) {
+        if (ArrayGetElementCount(statements) > 0 && !_SourceRangeContainsLineBreakCharacter(leadingTrivia)) {
             ReportError("Consecutive statements on a line are not allowed");
         }
 
@@ -439,19 +452,15 @@ static inline ASTCaseStatementRef _ParserParseCaseStatement(ParserRef parser) {
     SymbolTablePushScope(symbolTable, ScopeKindCase);
 
     ArrayRef statements = ArrayCreateEmpty(parser->allocator, sizeof(ASTNodeRef), 8);
-    Index line          = parser->token.line;
-
     while (!_ParserIsToken(parser, TokenKindKeywordCase) && !_ParserIsToken(parser, TokenKindKeywordElse) &&
            !_ParserIsToken(parser, TokenKindRightCurlyBracket)) {
-        Bool consecutive = ArrayGetElementCount(statements) > 0 && line == parser->token.line;
-        line                 = parser->token.line;
-
+        SourceRange leadingTrivia = parser->token.leadingTrivia;
         ASTNodeRef statement = _ParserParseStatement(parser);
         if (!statement) {
             return NULL;
         }
 
-        if (consecutive) {
+        if (ArrayGetElementCount(statements) > 0 && !_SourceRangeContainsLineBreakCharacter(leadingTrivia)) {
             ReportError("Consecutive statements on a line are not allowed");
         }
 
@@ -494,16 +503,13 @@ static inline ASTSwitchStatementRef _ParserParseSwitchStatement(ParserRef parser
     SymbolTablePushScope(symbolTable, ScopeKindSwitch);
 
     ArrayRef statements = ArrayCreateEmpty(parser->allocator, sizeof(ASTNodeRef), 8);
-    Index line          = parser->token.line;
 
     if (_ParserIsToken(parser, TokenKindRightCurlyBracket)) {
         ReportError("'switch' statement body must have at least one 'case' or 'else' block");
     }
 
     while (!_ParserIsToken(parser, TokenKindRightCurlyBracket)) {
-        Bool consecutive = ArrayGetElementCount(statements) > 0 && line == parser->token.line;
-        line             = parser->token.line;
-
+        SourceRange leadingTrivia = parser->token.leadingTrivia;
         ASTCaseStatementRef statement = _ParserParseCaseStatement(parser);
         if (!statement) {
             if (ArrayGetElementCount(statements) > 0) {
@@ -513,7 +519,7 @@ static inline ASTSwitchStatementRef _ParserParseSwitchStatement(ParserRef parser
             break;
         }
 
-        if (consecutive) {
+        if (ArrayGetElementCount(statements) > 0 && !_SourceRangeContainsLineBreakCharacter(leadingTrivia)) {
             ReportError("Consecutive statements on a line are not allowed");
         }
 
@@ -632,7 +638,7 @@ static inline ASTExpressionRef _ParserParseAtomExpression(ParserRef parser) {
 
 /// grammar: primary-expression := unary-expression | atom-expression
 static inline ASTExpressionRef _ParserParsePrimaryExpression(ParserRef parser) {
-    SourceRange location = parser->token.location;
+    SourceRange location   = parser->token.location;
     ASTUnaryOperator unary = _ParserConsumeUnaryOperator(parser);
     if (unary != ASTUnaryOperatorUnknown) {
         return (ASTExpressionRef)_ParserParseUnaryExpression(parser, unary, location);
@@ -870,10 +876,8 @@ static inline ASTEnumerationDeclarationRef _ParserParseEnumerationDeclaration(Pa
 
     ArrayRef elements = ArrayCreateEmpty(parser->allocator, sizeof(ASTNodeRef), 8);
     if (!_ParserIsToken(parser, TokenKindRightCurlyBracket)) {
-        Index line = parser->token.line;
-
         while (true) {
-            Index elementLine              = parser->token.line;
+            SourceRange leadingTrivia = parser->token.leadingTrivia;
             ASTValueDeclarationRef element = _ParserParseEnumerationElementDeclaration(parser);
             if (!element) {
                 return NULL;
@@ -881,9 +885,8 @@ static inline ASTEnumerationDeclarationRef _ParserParseEnumerationDeclaration(Pa
 
             assert(element->kind == ASTValueKindEnumerationElement);
 
-            if (ArrayGetElementCount(elements) > 0 && line == elementLine) {
-                ReportError("Consecutive enumeration elements on a line are not allowed");
-                return NULL;
+            if (ArrayGetElementCount(elements) > 0 && !_SourceRangeContainsLineBreakCharacter(leadingTrivia)) {
+                ReportError("Consecutive statements on a line are not allowed");
             }
 
             if (element->kind != ASTValueKindEnumerationElement) {
@@ -1014,11 +1017,8 @@ static inline ASTStructureDeclarationRef _ParserParseStructureDeclaration(Parser
     ArrayRef values            = ArrayCreateEmpty(parser->allocator, sizeof(ASTNodeRef), 8);
 
     if (!_ParserIsToken(parser, TokenKindRightCurlyBracket)) {
-        Index line = parser->token.line;
         while (true) {
-            Bool consecutive = ArrayGetElementCount(values) > 0 && line == parser->token.line;
-            line             = parser->token.line;
-
+            SourceRange leadingTrivia = parser->token.leadingTrivia;
             ASTValueDeclarationRef value = _ParserParseVariableDeclaration(parser);
             if (!value) {
                 return NULL;
@@ -1026,7 +1026,7 @@ static inline ASTStructureDeclarationRef _ParserParseStructureDeclaration(Parser
 
             assert(value->kind == ASTValueKindVariable);
 
-            if (consecutive) {
+            if (ArrayGetElementCount(values) > 0 && !_SourceRangeContainsLineBreakCharacter(leadingTrivia)) {
                 ReportError("Consecutive statements on a line are not allowed");
             }
 

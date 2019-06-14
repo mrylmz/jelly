@@ -1190,8 +1190,10 @@ static inline void _LexerLexNextToken(LexerRef lexer) {
     tokenLocation.end = lexer->state.cursor;
 
     SourceRange trailingTriviaLocation = SourceRangeMake(lexer->state.cursor, lexer->state.cursor);
-    _LexerSkipWhitespaceAndNewlines(lexer);
-    trailingTriviaLocation.end = lexer->state.cursor;
+    if (lexer->state.cursor >= lexer->bufferEnd || lexer->state.cursor == '\0') {
+        _LexerSkipWhitespaceAndNewlines(lexer);
+        trailingTriviaLocation.end = lexer->state.cursor;
+    }
 
     lexer->state.token.kind           = kind;
     lexer->state.token.location       = tokenLocation;

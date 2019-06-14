@@ -1,1 +1,1 @@
-enum Test { case x case y } // expect-error: Consecutive enumeration elements on a line are not allowed
+enum Test { case x case y } // expect-error: Consecutive statements on a line are not allowed

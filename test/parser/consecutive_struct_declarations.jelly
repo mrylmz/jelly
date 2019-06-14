@@ -1,0 +1,6 @@
+
+
+
+struct S1 { } struct S2 { } // expect-error: Consecutive statements on a line are not allowed
+
+

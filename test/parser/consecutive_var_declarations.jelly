@@ -1,0 +1,4 @@
+
+
+var x: Int = 1 var y: Int = 2 // expect-error: Consecutive statements on a line are not allowed
+
