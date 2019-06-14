@@ -1,7 +1,7 @@
 func main(val: Int) -> Int {
     switch val {
     case 0:
-        return 1 return 2 // expect-error: Consecutive statements on a line are not allowed!
+        return 1 return 2 // expect-error: Consecutive statements on a line are not allowed
     case 1:
         return 0
     }

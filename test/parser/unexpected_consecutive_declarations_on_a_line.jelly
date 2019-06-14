@@ -1,1 +1,1 @@
-struct Test { var x: Int var y: Int } // expect-error: Consecutive statements on a line are not allowed!
+struct Test { var x: Int var y: Int } // expect-error: Consecutive statements on a line are not allowed

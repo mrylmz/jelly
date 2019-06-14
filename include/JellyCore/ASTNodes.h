@@ -303,7 +303,6 @@ struct _ASTOpaqueDeclaration {
 };
 
 enum _ASTValueKind {
-    ASTValueKindConstant,
     ASTValueKindVariable,
     ASTValueKindParameter,
     ASTValueKindEnumerationElement,

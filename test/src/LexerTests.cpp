@@ -51,12 +51,11 @@ TEST(Lexer, InvalidDirectiveWithoutName) {
 }
 
 TEST(Lexer, Keywords) {
-    EXPECT_TOKEN_KINDS_EQ("func enum struct var let break case continue do else fallthrough if return switch while as false is nil true",
+    EXPECT_TOKEN_KINDS_EQ("func enum struct var break case continue do else fallthrough if return switch while as false is nil true",
                           TokenKindKeywordFunc,
                           TokenKindKeywordEnum,
                           TokenKindKeywordStruct,
                           TokenKindKeywordVar,
-                          TokenKindKeywordLet,
                           TokenKindKeywordBreak,
                           TokenKindKeywordCase,
                           TokenKindKeywordContinue,
@@ -108,14 +107,6 @@ TEST(Lexer, IntVarDecl) {
                           TokenKindIdentifier,
                           TokenKindColon,
                           TokenKindKeywordInt);
-}
-
-TEST(Lexer, BoolLetDecl) {
-    EXPECT_TOKEN_KINDS_EQ("let myVar1: Bool",
-                          TokenKindKeywordLet,
-                          TokenKindIdentifier,
-                          TokenKindColon,
-                          TokenKindKeywordBool);
 }
 
 TEST(Lexer, FuncDeclBreakStmt) {
@@ -782,10 +773,6 @@ static inline void _PrintTokenKindDescription(TokenKind kind) {
 
         case TokenKindKeywordStruct:
             printf("%s", "struct");
-            break;
-
-        case TokenKindKeywordLet:
-            printf("%s", "let");
             break;
 
         case TokenKindKeywordVar:

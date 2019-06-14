@@ -71,7 +71,6 @@ enum _TokenKind {
     TokenKindKeywordEnum,
     TokenKindKeywordFunc,
     TokenKindKeywordStruct,
-    TokenKindKeywordLet,
     TokenKindKeywordVar,
     TokenKindKeywordVoid,
     TokenKindKeywordBool,

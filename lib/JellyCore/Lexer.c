@@ -826,8 +826,6 @@ static inline TokenKind _LexerLexIdentifierOrKeyword(LexerRef lexer) {
         kind = TokenKindKeywordFunc;
     } else if (SourceRangeIsEqual(range, "struct")) {
         kind = TokenKindKeywordStruct;
-    } else if (SourceRangeIsEqual(range, "let")) {
-        kind = TokenKindKeywordLet;
     } else if (SourceRangeIsEqual(range, "var")) {
         kind = TokenKindKeywordVar;
     } else if (SourceRangeIsEqual(range, "Void")) {

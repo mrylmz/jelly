@@ -1,3 +1,3 @@
 func main() -> Void {
-    switch { } // expect-error: Expected `condition` of `switch-statement`
+    switch { } // expect-error: Expected expression in 'switch' statement
 }

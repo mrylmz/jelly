@@ -283,8 +283,7 @@ ASTOpaqueDeclarationRef ASTContextCreateOpaqueDeclaration(ASTContextRef context,
 ASTValueDeclarationRef ASTContextCreateValueDeclaration(ASTContextRef context, SourceRange location, ASTValueKind kind, StringRef name,
                                                         ASTTypeRef type, ASTExpressionRef initializer) {
     assert(name && type);
-    assert((kind == ASTValueKindConstant && initializer) || (kind == ASTValueKindParameter && !initializer) ||
-           (kind == ASTValueKindVariable || kind == ASTValueKindEnumerationElement));
+    assert((kind == ASTValueKindParameter && !initializer) || (kind == ASTValueKindVariable || kind == ASTValueKindEnumerationElement));
 
     ASTValueDeclarationRef node = (ASTValueDeclarationRef)_ASTContextCreateNode(context, ASTTagValueDeclaration, location);
     node->kind                  = kind;
