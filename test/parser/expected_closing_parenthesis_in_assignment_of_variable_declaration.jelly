@@ -1,1 +1,1 @@
-var x: Int = (10 + (2 - 1) // expect-error: Expected token ')' found 'EOF'
+var x: Int = (10 + (2 - 1) // expect-error: Expected expression

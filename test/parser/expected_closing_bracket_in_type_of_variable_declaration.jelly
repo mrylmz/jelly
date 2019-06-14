@@ -1,1 +1,1 @@
-var x: Int[10 = nil // expect-error: Expected token ']' found 'EOF'
+var x: Int[10 = nil // expect-error: Expected type of variable declaration

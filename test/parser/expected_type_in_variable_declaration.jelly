@@ -1,1 +1,1 @@
-var x: = 0 // expect-error: Expected `type` of `var-declaration`
+var x: = 0 // expect-error: Expected type of variable declaration

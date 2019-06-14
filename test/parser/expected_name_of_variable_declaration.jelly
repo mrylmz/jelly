@@ -1,1 +1,1 @@
-var : Int // expect-error: Expected token Identifier found ':'
+var : Int // expect-error: Expected name of variable declaration

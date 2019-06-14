@@ -1,1 +1,1 @@
-var x Int // expect-error: Expected token ':' found Identifier = 'Int'
+var x Int // expect-error: Expected ':' after name of variable declaration

@@ -4,7 +4,6 @@ func zero() -> Int {
 
 func lvalue_assignment_validation() -> Void {
     var x: Int = 0
-    
     nil = nil
     true = false
     false = true

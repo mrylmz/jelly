@@ -1,3 +1,4 @@
+#include "JellyCore/Diagnostic.h"
 #include "JellyCore/Lexer.h"
 
 struct _LexerState {
@@ -167,7 +168,19 @@ static inline TokenKind _LexerLexNumericLiteral(LexerRef lexer) {
                 return TokenKindError;
             }
 
-            // TODO: Assign intValue of token and check for overflows!
+            location.end              = lexer->state.cursor;
+            SourceRange valueLocation = {location.start + 2, location.end};
+            if (valueLocation.end - valueLocation.start - 1 > 64) {
+                ReportError("Integer literal overflows");
+            }
+
+            UInt64 value = 0;
+            for (const Char *cursor = valueLocation.start; cursor < valueLocation.end; cursor++) {
+                value *= 2;
+                value += *cursor - '0';
+            }
+
+            lexer->state.token.intValue = value;
             return TokenKindLiteralInt;
         }
 
@@ -190,7 +203,26 @@ static inline TokenKind _LexerLexNumericLiteral(LexerRef lexer) {
                 return TokenKindError;
             }
 
-            // TODO: Assign intValue of token and check for overflows!
+            location.end              = lexer->state.cursor;
+            SourceRange valueLocation = {location.start + 2, location.end};
+            UInt64 value              = 0;
+            Bool overflow             = false;
+            for (const Char *cursor = valueLocation.start; cursor < valueLocation.end; cursor++) {
+                UInt64 oldValue = value;
+
+                value *= 8;
+                value += *cursor - '0';
+
+                if (value < oldValue) {
+                    overflow = true;
+                }
+            }
+
+            if (overflow) {
+                ReportError("Integer literal overflows");
+            }
+
+            lexer->state.token.intValue = value;
             return TokenKindLiteralInt;
         }
 
@@ -283,7 +315,25 @@ static inline TokenKind _LexerLexNumericLiteral(LexerRef lexer) {
             return TokenKindError;
         }
 
-        // TODO: Assign intValue of token and check for overflows!
+        location.end  = lexer->state.cursor;
+        UInt64 value  = 0;
+        Bool overflow = false;
+        for (const Char *cursor = location.start; cursor < location.end; cursor++) {
+            UInt64 oldValue = value;
+
+            value *= 10;
+            value += *cursor - '0';
+
+            if (value < oldValue) {
+                overflow = true;
+            }
+        }
+
+        if (overflow) {
+            ReportError("Integer literal overflows");
+        }
+
+        lexer->state.token.intValue = value;
         return TokenKindLiteralInt;
     }
 
@@ -340,77 +390,6 @@ static inline TokenKind _LexerLexNumericLiteral(LexerRef lexer) {
     return TokenKindLiteralFloat;
 
     /*
-
-    if (*(lexer->state.cursor - 1) == '0') {
-        if (*lexer->state.cursor == 'b' || *lexer->state.cursor == 'B') {
-            lexer->state.cursor += 1;
-            lexer->state.column += 1;
-
-            if (!_CharIsBinaryDigit(*lexer->state.cursor)) {
-                return TokenKindError;
-            }
-
-            while (lexer->state.cursor < lexer->bufferEnd && _CharIsBinaryDigit(*lexer->state.cursor)) {
-                lexer->state.cursor += 1;
-                lexer->state.column += 1;
-            }
-
-            if (_CharIsContinuationOfIdentifier(*lexer->state.cursor)) {
-                return TokenKindError;
-            }
-
-            location.end              = lexer->state.cursor;
-            SourceRange valueLocation = {location.start + 2, location.end};
-            if (valueLocation.end - valueLocation.start - 1 > 64) {
-                return TokenKindError;
-            }
-
-            UInt64 value = 0;
-            for (const Char *cursor = valueLocation.start; cursor < valueLocation.end; cursor++) {
-                value *= 2;
-                value += *cursor - '0';
-            }
-
-            lexer->state.token.intValue = value;
-            return TokenKindLiteralInt;
-        }
-
-        if (*lexer->state.cursor == 'o' || *lexer->state.cursor == 'O') {
-            lexer->state.cursor += 1;
-            lexer->state.column += 1;
-
-            if (!_CharIsOctalDigit(*lexer->state.cursor)) {
-                return TokenKindError;
-            }
-
-            while (lexer->state.cursor < lexer->bufferEnd && _CharIsOctalDigit(*lexer->state.cursor)) {
-                lexer->state.cursor += 1;
-                lexer->state.column += 1;
-            }
-
-            if (_CharIsContinuationOfIdentifier(*lexer->state.cursor)) {
-                return TokenKindError;
-            }
-
-            location.end              = lexer->state.cursor;
-            SourceRange valueLocation = {location.start + 2, location.end};
-
-            UInt64 value = 0;
-            for (const Char *cursor = valueLocation.start; cursor < valueLocation.end; cursor++) {
-                UInt64 oldValue = value;
-
-                value *= 8;
-                value += *cursor - '0';
-
-                if (value < oldValue) {
-                    return TokenKindError;
-                }
-            }
-
-            lexer->state.token.intValue = value;
-            return TokenKindLiteralInt;
-        }
-
         if (*lexer->state.cursor == 'x' || *lexer->state.cursor == 'X') {
             lexer->state.cursor += 1;
             lexer->state.column += 1;
@@ -572,10 +551,6 @@ static inline TokenKind _LexerLexNumericLiteral(LexerRef lexer) {
 
             return ASTContextCreateConstantFloatExpression(parser->context, location, value);
         }
-    }
-
-    while (_CharIsDecimalDigit(*parser->cursor)) {
-        parser->cursor += 1;
     }
 
     Bool isInteger = !(_ParserIsChar(parser, '.') || _ParserIsChar(parser, 'e') || _ParserIsChar(parser, 'E'));
@@ -920,6 +895,8 @@ static inline void _LexerLexNextToken(LexerRef lexer) {
 
     SourceRange tokenLocation = SourceRangeMake(lexer->state.cursor, lexer->state.cursor);
     TokenKind kind            = TokenKindUnknown;
+    lexer->state.token.line   = lexer->state.line;
+    lexer->state.token.column = lexer->state.column;
 
     switch (*lexer->state.cursor) {
     case '0' ... '9':
@@ -1218,8 +1195,6 @@ static inline void _LexerLexNextToken(LexerRef lexer) {
 
     lexer->state.token.kind           = kind;
     lexer->state.token.location       = tokenLocation;
-    lexer->state.token.line           = lexer->state.line;
-    lexer->state.token.column         = lexer->state.column;
     lexer->state.token.leadingTrivia  = leadingTriviaLocation;
     lexer->state.token.trailingTrivia = trailingTriviaLocation;
 }

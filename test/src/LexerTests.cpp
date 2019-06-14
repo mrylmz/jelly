@@ -212,6 +212,17 @@ TEST(Lexer, AssignNil) {
                           TokenKindKeywordNil);
 }
 
+TEST(Lexer, AssignUnaryExpression) {
+    EXPECT_TOKEN_KINDS_EQ("var x: Int = -10",
+                          TokenKindKeywordVar,
+                          TokenKindIdentifier,
+                          TokenKindColon,
+                          TokenKindKeywordInt,
+                          TokenKindEqualsSign,
+                          TokenKindMinusSign,
+                          TokenKindLiteralInt);
+}
+
 TEST(Lexer, SelfDotPosition) {
     EXPECT_TOKEN_KINDS_EQ("self.position",
                           TokenKindIdentifier,

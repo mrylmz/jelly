@@ -1,4 +1,4 @@
 func main() -> Void {
     if condition0, condition1, condition2 {}
-    {} // expect-error: Expected Statement found '{'
+    {} // expect-error: Expected statement
 }

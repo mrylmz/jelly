@@ -1,6 +1,6 @@
 func main() -> Void {
     switch expr {
-    case:   return // expect-error: Expected `expression`
+    case:   return // expect-error: Expected expression
     case 1: return
     else:   return
     }

@@ -1,1 +1,1 @@
-func name( -> Void {} // expect-error: Expected token Identifier found '->'
+func name( -> Void {} // expect-error: Expected parameter name followed by ':'

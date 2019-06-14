@@ -35,7 +35,7 @@ static inline ASTSwitchStatementRef _ParserParseSwitchStatement(ParserRef parser
 static inline ASTControlStatementRef _ParserParseControlStatement(ParserRef parser);
 static inline ASTNodeRef _ParserParseStatement(ParserRef parser);
 static inline ASTExpressionRef _ParserParsePrimaryExpression(ParserRef parser);
-static inline ASTUnaryExpressionRef _ParserParseUnaryExpression(ParserRef parser);
+static inline ASTUnaryExpressionRef _ParserParseUnaryExpression(ParserRef parser, ASTUnaryOperator unary, SourceRange location);
 static inline ASTExpressionRef _ParserParseExpression(ParserRef parser, ASTOperatorPrecedence minPrecedence, Bool silentDiagnostics);
 static inline ASTIdentifierExpressionRef _ParserParseIdentifierExpression(ParserRef parser);
 static inline ASTCallExpressionRef _ParserParseCallExpression(ParserRef parser, ASTExpressionRef callee);
@@ -43,7 +43,9 @@ static inline ASTConstantExpressionRef _ParserParseConstantExpression(ParserRef 
 static inline ASTEnumerationDeclarationRef _ParserParseEnumerationDeclaration(ParserRef parser);
 static inline ASTFunctionDeclarationRef _ParserParseFunctionDeclaration(ParserRef parser);
 static inline ASTStructureDeclarationRef _ParserParseStructureDeclaration(ParserRef parser);
-static inline ASTValueDeclarationRef _ParserParseValueDeclaration(ParserRef parser);
+static inline ASTValueDeclarationRef _ParserParseVariableDeclaration(ParserRef parser);
+static inline ASTValueDeclarationRef _ParserParseEnumerationElementDeclaration(ParserRef parser);
+static inline ASTValueDeclarationRef _ParserParseParameterDeclaration(ParserRef parser);
 static inline ASTTypeRef _ParserParseType(ParserRef parser);
 static inline ASTExpressionRef _ParserParseConditionList(ParserRef parser);
 static inline ASTNodeRef _ParserParseTopLevelNode(ParserRef parser);
@@ -64,25 +66,23 @@ ASTSourceUnitRef ParserParseSourceUnit(ParserRef parser, StringRef filePath, Str
     ASTModuleDeclarationRef module = ASTContextGetModule(parser->context);
 
     parser->lexer = LexerCreate(parser->allocator, source);
+    LexerNextToken(parser->lexer, &parser->token);
 
     SourceRange location               = parser->token.location;
     ArrayRef declarations              = ArrayCreateEmpty(parser->allocator, sizeof(ASTNodeRef), 8);
-    Bool checkConsecutiveTopLevelNodes = false;
     Index line                         = parser->token.line;
     while (true) {
-        Index nodeLine         = parser->token.line;
+        Bool consecutive = ArrayGetElementCount(declarations) > 0 && line == parser->token.line;
+        line = parser->token.line;
+
         ASTNodeRef declaration = _ParserParseTopLevelNode(parser);
         if (!declaration) {
             break;
         }
 
-        if (checkConsecutiveTopLevelNodes && line == nodeLine) {
+        if (consecutive) {
             ReportError("Consecutive top level nodes on a line are not allowed!");
-            break;
         }
-
-        checkConsecutiveTopLevelNodes = true;
-        line                          = nodeLine;
 
         ArrayAppendElement(declarations, declaration);
     }
@@ -238,14 +238,14 @@ static inline ASTLoadDirectiveRef _ParserParseDirective(ParserRef parser) {
     if (_ParserConsumeToken(parser, TokenKindDirectiveLoad)) {
         ASTConstantExpressionRef filePath = _ParserParseConstantExpression(parser);
         if (!filePath || filePath->kind != ASTConstantKindString) {
-            ReportError("Expected string literal after `#load` directive!");
+            ReportError("Expected string literal after `#load` directive");
             return NULL;
         }
 
         assert(filePath->kind == ASTConstantKindString);
 
         if (!_StringIsValidFilePath(filePath->stringValue)) {
-            ReportError("Expected valid file path after `#load` directive!");
+            ReportError("Expected valid file path after `#load` directive");
             return NULL;
         }
 
@@ -253,7 +253,7 @@ static inline ASTLoadDirectiveRef _ParserParseDirective(ParserRef parser) {
         return ASTContextCreateLoadDirective(parser->context, location, filePath);
     }
 
-    ReportError("Unknown compiler directive!");
+    ReportError("Unknown compiler directive");
     return NULL;
 }
 
@@ -269,18 +269,18 @@ static inline ASTBlockRef _ParserParseBlock(ParserRef parser) {
     // @TODO: Push block scope externally !
     // @TODO: Add temporary pool allocator to parser, for now this will leak memory!
     ArrayRef statements = ArrayCreateEmpty(parser->allocator, sizeof(ASTNodeRef), 8);
-
     Index line = parser->token.line;
     while (!_ParserIsToken(parser, TokenKindRightCurlyBracket)) {
-        if (ArrayGetElementCount(statements) > 0 && line == parser->token.line) {
-            ReportError("Consecutive statements on a line are not allowed!");
-        }
-
-        line = parser->token.line;
+        Bool consecutive = ArrayGetElementCount(statements) > 0 && line == parser->token.line;
+        line             = parser->token.line;
 
         ASTNodeRef statement = _ParserParseStatement(parser);
         if (!statement) {
             return NULL;
+        }
+
+        if (consecutive) {
+            ReportError("Consecutive statements on a line are not allowed");
         }
 
         ArrayAppendElement(statements, statement);
@@ -388,6 +388,7 @@ static inline ASTLoopStatementRef _ParserParseLoopStatement(ParserRef parser) {
         }
 
         if (!_ParserConsumeToken(parser, TokenKindKeywordWhile)) {
+            ReportError("Expected 'while' after block of 'do' statement");
             return NULL;
         }
 
@@ -442,18 +443,23 @@ static inline ASTCaseStatementRef _ParserParseCaseStatement(ParserRef parser) {
 
     while (!_ParserIsToken(parser, TokenKindKeywordCase) && !_ParserIsToken(parser, TokenKindKeywordElse) &&
            !_ParserIsToken(parser, TokenKindRightCurlyBracket)) {
-        if (ArrayGetElementCount(statements) > 0 && line == parser->token.line) {
-            ReportError("Consecutive statements on a line are not allowed");
-            return NULL;
-        }
-
+        Bool consecutive = ArrayGetElementCount(statements) > 0 && line == parser->token.line;
         line                 = parser->token.line;
+
         ASTNodeRef statement = _ParserParseStatement(parser);
         if (!statement) {
             return NULL;
         }
 
+        if (consecutive) {
+            ReportError("Consecutive statements on a line are not allowed");
+        }
+
         ArrayAppendElement(statements, statement);
+    }
+
+    if (ArrayGetElementSize(statements) < 1) {
+        ReportError("case statement in a switch should contain at least one statement");
     }
 
     SymbolTablePopScope(symbolTable);
@@ -480,6 +486,7 @@ static inline ASTSwitchStatementRef _ParserParseSwitchStatement(ParserRef parser
     }
 
     if (!_ParserConsumeToken(parser, TokenKindLeftCurlyBracket)) {
+        ReportError("Expected '{' at start of 'switch' statement");
         return NULL;
     }
 
@@ -494,11 +501,8 @@ static inline ASTSwitchStatementRef _ParserParseSwitchStatement(ParserRef parser
     }
 
     while (!_ParserIsToken(parser, TokenKindRightCurlyBracket)) {
-        if (ArrayGetElementCount(statements) > 0 && line == parser->token.line) {
-            ReportError("Consecutive statements on a line are not allowed");
-        }
-
-        line = parser->token.line;
+        Bool consecutive = ArrayGetElementCount(statements) > 0 && line == parser->token.line;
+        line             = parser->token.line;
 
         ASTCaseStatementRef statement = _ParserParseCaseStatement(parser);
         if (!statement) {
@@ -507,6 +511,10 @@ static inline ASTSwitchStatementRef _ParserParseSwitchStatement(ParserRef parser
             }
 
             break;
+        }
+
+        if (consecutive) {
+            ReportError("Consecutive statements on a line are not allowed");
         }
 
         ArrayAppendElement(statements, statement);
@@ -545,6 +553,7 @@ static inline ASTControlStatementRef _ParserParseControlStatement(ParserRef pars
         result              = _ParserParseExpression(parser, 0, true);
         if (!result) {
             LexerSetState(parser->lexer, state);
+            LexerPeekToken(parser->lexer, &parser->token);
         }
     } else {
         ReportError("Expected 'break', 'continue', 'fallthrough' or 'return' at start of control-statement!");
@@ -558,10 +567,12 @@ static inline ASTControlStatementRef _ParserParseControlStatement(ParserRef pars
 /// grammar: statement := variable-declaration | control-statement | loop-statement | if-statement | switch-statement | expression
 static inline ASTNodeRef _ParserParseStatement(ParserRef parser) {
     if (_ParserIsToken(parser, TokenKindKeywordVar)) {
-        ASTValueDeclarationRef value = _ParserParseValueDeclaration(parser);
-        if (!value || (value->kind != ASTValueKindVariable)) {
+        ASTValueDeclarationRef value = _ParserParseVariableDeclaration(parser);
+        if (!value) {
             return NULL;
         }
+
+        assert(value->kind == ASTValueKindVariable);
 
         return (ASTNodeRef)value;
     }
@@ -583,7 +594,13 @@ static inline ASTNodeRef _ParserParseStatement(ParserRef parser) {
         return (ASTNodeRef)_ParserParseSwitchStatement(parser);
     }
 
-    return (ASTNodeRef)_ParserParseExpression(parser, 0, false);
+    ASTExpressionRef expression = _ParserParseExpression(parser, 0, true);
+    if (!expression) {
+        ReportError("Expected statement");
+        return NULL;
+    }
+
+    return (ASTNodeRef)expression;
 }
 
 /// grammar: atom-expression       := group-expression | literal-expression | identifier-expression
@@ -592,7 +609,7 @@ static inline ASTNodeRef _ParserParseStatement(ParserRef parser) {
 /// grammar: identifier-expression := identifier
 static inline ASTExpressionRef _ParserParseAtomExpression(ParserRef parser) {
     if (_ParserConsumeToken(parser, TokenKindLeftParenthesis)) {
-        ASTExpressionRef expression = _ParserParseExpression(parser, 0, false);
+        ASTExpressionRef expression = _ParserParseExpression(parser, 0, true);
         if (!expression) {
             return NULL;
         }
@@ -615,11 +632,10 @@ static inline ASTExpressionRef _ParserParseAtomExpression(ParserRef parser) {
 
 /// grammar: primary-expression := unary-expression | atom-expression
 static inline ASTExpressionRef _ParserParsePrimaryExpression(ParserRef parser) {
-    LexerStateRef state    = LexerGetState(parser->lexer);
+    SourceRange location = parser->token.location;
     ASTUnaryOperator unary = _ParserConsumeUnaryOperator(parser);
     if (unary != ASTUnaryOperatorUnknown) {
-        LexerSetState(parser->lexer, state);
-        return (ASTExpressionRef)_ParserParseUnaryExpression(parser);
+        return (ASTExpressionRef)_ParserParseUnaryExpression(parser, unary, location);
     }
 
     return _ParserParseAtomExpression(parser);
@@ -627,25 +643,17 @@ static inline ASTExpressionRef _ParserParsePrimaryExpression(ParserRef parser) {
 
 /// grammar: unary-expression := prefix-operator expression
 /// grammar: prefix-operator  := '!' | '~' | '+' | '-'
-static inline ASTUnaryExpressionRef _ParserParseUnaryExpression(ParserRef parser) {
-    SourceRange location = parser->token.location;
-
-    Token token            = parser->token;
-    ASTUnaryOperator unary = _ParserConsumeUnaryOperator(parser);
-    if (unary == ASTUnaryOperatorUnknown) {
-        // TODO: Emit message "'<<' is not a prefix unary operator"
-        ReportError("Unknown unary operator!");
-        return NULL;
-    }
-
-    if (token.location.end != parser->token.location.start) {
-        ReportError("Unary operator cannot be separated from its operand");
-        return NULL;
-    }
+static inline ASTUnaryExpressionRef _ParserParseUnaryExpression(ParserRef parser, ASTUnaryOperator unary, SourceRange location) {
+    assert(unary != ASTUnaryOperatorUnknown);
 
     ASTExpressionRef arguments[1];
     arguments[0] = _ParserParsePrimaryExpression(parser);
     if (!arguments[0]) {
+        return NULL;
+    }
+
+    if (location.end != arguments[0]->location.start) {
+        ReportError("Unary operator cannot be separated from its operand");
         return NULL;
     }
 
@@ -663,7 +671,7 @@ static inline ASTExpressionRef _ParserParseExpression(ParserRef parser, ASTOpera
     ASTExpressionRef result = _ParserParsePrimaryExpression(parser);
     if (!result) {
         if (!silentDiagnostics) {
-            ReportError("Expected `expression`");
+            ReportError("Expected expression");
         }
 
         return NULL;
@@ -680,8 +688,13 @@ static inline ASTExpressionRef _ParserParseExpression(ParserRef parser, ASTOpera
         precedence = ASTGetPostfixOperatorPrecedence(postfix);
     }
 
-    if ((binary == ASTBinaryOperatorUnknown && postfix == ASTPostfixOperatorUnknown) || minPrecedence >= precedence) {
+    if (binary == ASTBinaryOperatorUnknown && postfix == ASTPostfixOperatorUnknown) {
+        return result;
+    }
+
+    if (minPrecedence >= precedence) {
         LexerSetState(parser->lexer, state);
+        LexerPeekToken(parser->lexer, &parser->token);
         return result;
     }
 
@@ -702,9 +715,7 @@ static inline ASTExpressionRef _ParserParseExpression(ParserRef parser, ASTOpera
             location.end                  = parser->token.location.start;
             ASTExpressionRef arguments[2] = {result, right};
             result = (ASTExpressionRef)ASTContextCreateBinaryExpression(parser->context, location, binary, arguments);
-            if (!result) {
-                return NULL;
-            }
+            assert(result);
         } else if (postfix == ASTPostfixOperatorSelector) {
             StringRef memberName = _ParserConsumeIdentifier(parser);
             if (!memberName) {
@@ -715,9 +726,7 @@ static inline ASTExpressionRef _ParserParseExpression(ParserRef parser, ASTOpera
             result       = (ASTExpressionRef)ASTContextCreateMemberAccessExpression(parser->context, location, result, memberName);
         } else if (postfix == ASTPostfixOperatorCall) {
             result = (ASTExpressionRef)_ParserParseCallExpression(parser, result);
-            if (!result) {
-                return NULL;
-            }
+            assert(result);
         } else {
             return NULL;
         }
@@ -733,7 +742,12 @@ static inline ASTExpressionRef _ParserParseExpression(ParserRef parser, ASTOpera
         }
 
         if (binary == ASTBinaryOperatorUnknown && postfix == ASTPostfixOperatorUnknown) {
+            return result;
+        }
+
+        if (minPrecedence >= precedence) {
             LexerSetState(parser->lexer, state);
+            LexerPeekToken(parser->lexer, &parser->token);
             return result;
         }
     }
@@ -782,7 +796,7 @@ static inline ASTCallExpressionRef _ParserParseCallExpression(ParserRef parser, 
         }
     }
 
-    if (_ParserConsumePostfixOperatorTail(parser, ASTPostfixOperatorCall)) {
+    if (!_ParserConsumePostfixOperatorTail(parser, ASTPostfixOperatorCall)) {
         return NULL;
     }
 
@@ -824,10 +838,9 @@ static inline ASTConstantExpressionRef _ParserParseConstantExpression(ParserRef 
     }
 
     if (_ParserIsToken(parser, TokenKindLiteralString)) {
-        location.end = parser->token.location.start;
-
         StringRef value = StringCreateCopy(parser->allocator, parser->token.stringValue);
         _ParserConsumeToken(parser, TokenKindLiteralString);
+        location.end = parser->token.location.start;
         return ASTContextCreateConstantStringExpression(parser->context, location, value);
     }
 
@@ -860,14 +873,16 @@ static inline ASTEnumerationDeclarationRef _ParserParseEnumerationDeclaration(Pa
         Index line = parser->token.line;
 
         while (true) {
-            if (ArrayGetElementCount(elements) > 0 && line == parser->token.line) {
-                ReportError("Consecutive `enum-element`(s) on a line are not allowed");
+            Index elementLine              = parser->token.line;
+            ASTValueDeclarationRef element = _ParserParseEnumerationElementDeclaration(parser);
+            if (!element) {
                 return NULL;
             }
 
-            ASTValueDeclarationRef element = _ParserParseValueDeclaration(parser);
-            if (!element) {
-                ReportError("Expected 'case' or '}' in `enum-declaration`");
+            assert(element->kind == ASTValueKindEnumerationElement);
+
+            if (ArrayGetElementCount(elements) > 0 && line == elementLine) {
+                ReportError("Consecutive enumeration elements on a line are not allowed");
                 return NULL;
             }
 
@@ -919,16 +934,12 @@ static inline ASTFunctionDeclarationRef _ParserParseFunctionDeclaration(ParserRe
 
     if (!_ParserIsToken(parser, TokenKindRightParenthesis)) {
         while (true) {
-            ASTValueDeclarationRef parameter = _ParserParseValueDeclaration(parser);
+            ASTValueDeclarationRef parameter = _ParserParseParameterDeclaration(parser);
             if (!parameter) {
-                ReportError("Expected `type` for parameter of `func-declaration`");
                 return NULL;
             }
 
-            if (parameter->kind != ASTValueKindParameter) {
-                ReportError("Only parameter declarations are allowed in parameter list of function declaration!");
-                return NULL;
-            }
+            assert(parameter->kind == ASTValueKindParameter);
 
             ArrayAppendElement(parameters, parameter);
 
@@ -1005,21 +1016,18 @@ static inline ASTStructureDeclarationRef _ParserParseStructureDeclaration(Parser
     if (!_ParserIsToken(parser, TokenKindRightCurlyBracket)) {
         Index line = parser->token.line;
         while (true) {
-            if (ArrayGetElementCount(values) > 0 && line == parser->token.line) {
-                ReportError("Consecutive statements on a line are not allowed!");
-                return NULL;
-            }
+            Bool consecutive = ArrayGetElementCount(values) > 0 && line == parser->token.line;
+            line             = parser->token.line;
 
-            line = parser->token.line;
-
-            ASTValueDeclarationRef value = _ParserParseValueDeclaration(parser);
+            ASTValueDeclarationRef value = _ParserParseVariableDeclaration(parser);
             if (!value) {
                 return NULL;
             }
 
-            if (value->kind != ASTValueKindVariable) {
-                ReportError("Only variable declarations are allowed in structure declarations!");
-                return NULL;
+            assert(value->kind == ASTValueKindVariable);
+
+            if (consecutive) {
+                ReportError("Consecutive statements on a line are not allowed");
             }
 
             ArrayAppendElement(values, value);
@@ -1048,116 +1056,133 @@ static inline ASTStructureDeclarationRef _ParserParseStructureDeclaration(Parser
     return declaration;
 }
 
-/// grammar: value-declaration               := variable-declaration | parameter-declaration |
-///                                             enumeration-element-declaration
-/// grammar: variable-declaration            := "var" identifier ":" type-identifier [ "=" expression ]
-/// grammar: parameter-declaration           := identifier ":" type-identifier
-/// grammar: enumeration-element-declaration := "case" identifier [ "=" expression ]
-static inline ASTValueDeclarationRef _ParserParseValueDeclaration(ParserRef parser) {
+/// grammar: variable-declaration := "var" identifier ":" type-identifier [ "=" expression ]
+static inline ASTValueDeclarationRef _ParserParseVariableDeclaration(ParserRef parser) {
     SourceRange location = parser->token.location;
 
-    if (_ParserConsumeToken(parser, TokenKindKeywordVar)) {
-        StringRef name = _ParserConsumeIdentifier(parser);
-        if (!name) {
-            ReportError("Expected `name` of 'var-declaration'");
-            return NULL;
-        }
-
-        if (!_ParserConsumeToken(parser, TokenKindColon)) {
-            ReportError("Expected ':' after name of 'var-declaration'");
-            return NULL;
-        }
-
-        ASTTypeRef type = _ParserParseType(parser);
-        if (!type) {
-            ReportError("Expected `type` of 'var-declaration'");
-            return NULL;
-        }
-
-        ASTExpressionRef initializer = NULL;
-        ASTBinaryOperator binary     = _ParserConsumeBinaryOperator(parser);
-        if (binary == ASTBinaryOperatorAssign) {
-            initializer = _ParserParseExpression(parser, 0, false);
-            if (!initializer) {
-                return NULL;
-            }
-        } else if (binary != ASTBinaryOperatorUnknown) {
-            ReportError("Unexpected binary operator found!");
-            return NULL;
-        }
-
-        location.end                       = parser->token.location.start;
-        ASTValueDeclarationRef declaration = ASTContextCreateValueDeclaration(parser->context, location, ASTValueKindVariable, name, type,
-                                                                              initializer);
-        SymbolTableRef symbolTable         = ASTContextGetSymbolTable(parser->context);
-        ScopeRef scope                     = SymbolTableGetCurrentScope(symbolTable);
-        SymbolRef symbol                   = ScopeInsertSymbol(scope, name, location);
-        if (!symbol) {
-            ReportError("Invalid redeclaration of identifier");
-        }
-
-        return declaration;
-    } else if (_ParserConsumeToken(parser, TokenKindKeywordCase)) {
-        StringRef name = _ParserConsumeIdentifier(parser);
-        if (!name) {
-            ReportError("Expected `name` of `enum-element`");
-            return NULL;
-        }
-
-        ASTExpressionRef initializer = NULL;
-        ASTBinaryOperator binary     = _ParserConsumeBinaryOperator(parser);
-        if (binary == ASTBinaryOperatorAssign) {
-            initializer = _ParserParseExpression(parser, 0, false);
-            if (!initializer) {
-                ReportError("Expected `expression` after '='");
-                return NULL;
-            }
-        } else if (binary != ASTBinaryOperatorUnknown) {
-            ReportError("Unexpected binary operator found!");
-            return NULL;
-        }
-
-        ASTTypeRef type = (ASTTypeRef)ASTContextGetBuiltinType(parser->context, ASTBuiltinTypeKindInt);
-
-        location.end                       = parser->token.location.start;
-        ASTValueDeclarationRef declaration = ASTContextCreateValueDeclaration(parser->context, location, ASTValueKindEnumerationElement,
-                                                                              name, type, initializer);
-        SymbolTableRef symbolTable         = ASTContextGetSymbolTable(parser->context);
-        ScopeRef scope                     = SymbolTableGetCurrentScope(symbolTable);
-        SymbolRef symbol                   = ScopeInsertSymbol(scope, name, location);
-        if (!symbol) {
-            ReportError("Invalid redeclaration of identifier");
-        }
-
-        return declaration;
-    } else {
-        StringRef name = _ParserConsumeIdentifier(parser);
-        if (!name) {
-            ReportError("Expected identifier");
-            return NULL;
-        }
-
-        if (!_ParserConsumeToken(parser, TokenKindColon)) {
-            return NULL;
-        }
-
-        ASTTypeRef type = _ParserParseType(parser);
-        if (!type) {
-            return NULL;
-        }
-
-        location.end                       = parser->token.location.start;
-        ASTValueDeclarationRef declaration = ASTContextCreateValueDeclaration(parser->context, location, ASTValueKindParameter, name, type,
-                                                                              NULL);
-        SymbolTableRef symbolTable         = ASTContextGetSymbolTable(parser->context);
-        ScopeRef scope                     = SymbolTableGetCurrentScope(symbolTable);
-        SymbolRef symbol                   = ScopeInsertSymbol(scope, name, location);
-        if (!symbol) {
-            ReportError("Invalid redeclaration of identifier");
-        }
-
-        return declaration;
+    if (!_ParserConsumeToken(parser, TokenKindKeywordVar)) {
+        return NULL;
     }
+
+    StringRef name = _ParserConsumeIdentifier(parser);
+    if (!name) {
+        ReportError("Expected name of variable declaration");
+        return NULL;
+    }
+
+    if (!_ParserConsumeToken(parser, TokenKindColon)) {
+        ReportError("Expected ':' after name of variable declaration");
+        return NULL;
+    }
+
+    ASTTypeRef type = _ParserParseType(parser);
+    if (!type) {
+        ReportError("Expected type of variable declaration");
+        return NULL;
+    }
+
+    ASTExpressionRef initializer = NULL;
+    ASTBinaryOperator binary     = _ParserConsumeBinaryOperator(parser);
+    if (binary == ASTBinaryOperatorAssign) {
+        initializer = _ParserParseExpression(parser, 0, true);
+        if (!initializer) {
+            ReportError("Expected expression");
+            return NULL;
+        }
+    } else if (binary != ASTBinaryOperatorUnknown) {
+        ReportError("Unexpected binary operator found!");
+        return NULL;
+    }
+
+    location.end                       = parser->token.location.start;
+    ASTValueDeclarationRef declaration = ASTContextCreateValueDeclaration(parser->context, location, ASTValueKindVariable, name, type,
+                                                                          initializer);
+    SymbolTableRef symbolTable         = ASTContextGetSymbolTable(parser->context);
+    ScopeRef scope                     = SymbolTableGetCurrentScope(symbolTable);
+    SymbolRef symbol                   = ScopeInsertSymbol(scope, name, location);
+    if (!symbol) {
+        ReportError("Invalid redeclaration of identifier");
+    }
+
+    return declaration;
+}
+
+/// grammar: enumeration-element-declaration := "case" identifier [ "=" expression ]
+static inline ASTValueDeclarationRef _ParserParseEnumerationElementDeclaration(ParserRef parser) {
+    SourceRange location = parser->token.location;
+
+    if (!_ParserConsumeToken(parser, TokenKindKeywordCase)) {
+        // We assume that we are in a enumeration declaration here...
+        ReportError("Expected 'case' or '}' in enumeration declaration");
+        return NULL;
+    }
+
+    StringRef name = _ParserConsumeIdentifier(parser);
+    if (!name) {
+        ReportError("Expected name of enumeration element");
+        return NULL;
+    }
+
+    ASTExpressionRef initializer = NULL;
+    ASTBinaryOperator binary     = _ParserConsumeBinaryOperator(parser);
+    if (binary == ASTBinaryOperatorAssign) {
+        initializer = _ParserParseExpression(parser, 0, true);
+        if (!initializer) {
+            ReportError("Expected expression after '='");
+            return NULL;
+        }
+    } else if (binary != ASTBinaryOperatorUnknown) {
+        ReportError("Unexpected binary operator found!");
+        return NULL;
+    }
+
+    ASTTypeRef type = (ASTTypeRef)ASTContextGetBuiltinType(parser->context, ASTBuiltinTypeKindInt);
+
+    location.end                       = parser->token.location.start;
+    ASTValueDeclarationRef declaration = ASTContextCreateValueDeclaration(parser->context, location, ASTValueKindEnumerationElement, name,
+                                                                          type, initializer);
+    SymbolTableRef symbolTable         = ASTContextGetSymbolTable(parser->context);
+    ScopeRef scope                     = SymbolTableGetCurrentScope(symbolTable);
+    SymbolRef symbol                   = ScopeInsertSymbol(scope, name, location);
+    if (!symbol) {
+        ReportError("Invalid redeclaration of identifier");
+    }
+
+    return declaration;
+}
+
+/// grammar: parameter-declaration := identifier ":" type-identifier
+static inline ASTValueDeclarationRef _ParserParseParameterDeclaration(ParserRef parser) {
+    SourceRange location = parser->token.location;
+
+    StringRef name = _ParserConsumeIdentifier(parser);
+    if (!name) {
+        ReportError("Expected parameter name followed by ':'");
+        return NULL;
+    }
+
+    if (!_ParserConsumeToken(parser, TokenKindColon)) {
+        ReportError("Expected ':' after name of parameter");
+        return NULL;
+    }
+
+    ASTTypeRef type = _ParserParseType(parser);
+    if (!type) {
+        ReportError("Expected type of parameter");
+        return NULL;
+    }
+
+    location.end                       = parser->token.location.start;
+    ASTValueDeclarationRef declaration = ASTContextCreateValueDeclaration(parser->context, location, ASTValueKindParameter, name, type,
+                                                                          NULL);
+    SymbolTableRef symbolTable         = ASTContextGetSymbolTable(parser->context);
+    ScopeRef scope                     = SymbolTableGetCurrentScope(symbolTable);
+    SymbolRef symbol                   = ScopeInsertSymbol(scope, name, location);
+    if (!symbol) {
+        ReportError("Invalid redeclaration of identifier");
+    }
+
+    return declaration;
 }
 
 /// grammar: type         := builtin-type | opaque-type | pointer-type | array-type
@@ -1289,8 +1314,6 @@ static inline ASTExpressionRef _ParserParseConditionList(ParserRef parser) {
 
 /// grammar: top-level-node := load-declaration | enum-declaration | func-declaration | struct-declaration | variable-declaration
 static inline ASTNodeRef _ParserParseTopLevelNode(ParserRef parser) {
-    LexerNextToken(parser->lexer, &parser->token);
-
     if (parser->token.kind == TokenKindEndOfFile) {
         return NULL;
     }
@@ -1312,11 +1335,12 @@ static inline ASTNodeRef _ParserParseTopLevelNode(ParserRef parser) {
     }
 
     if (_ParserIsToken(parser, TokenKindKeywordVar)) {
-        ASTValueDeclarationRef value = _ParserParseValueDeclaration(parser);
-        if (!value || (value->kind != ASTValueKindVariable)) {
+        ASTValueDeclarationRef value = _ParserParseVariableDeclaration(parser);
+        if (!value) {
             return NULL;
         }
 
+        assert(value->kind == ASTValueKindVariable);
         return (ASTNodeRef)value;
     }
 

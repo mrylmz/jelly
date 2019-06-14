@@ -4,5 +4,4 @@ struct MyStruct {
     var c: Int64[]
     var d: Float32[4]
     var e: Float64[4 * 4]
-    var a_copy: typeof(a)
 }
