@@ -1,3 +1,4 @@
+#include "JellyCore/Array.h"
 #include "JellyCore/Diagnostic.h"
 #include "JellyCore/Lexer.h"
 
@@ -15,6 +16,7 @@ struct _Lexer {
     const Char *bufferStart;
     const Char *bufferEnd;
     struct _LexerState state;
+    ArrayRef stateStack;
 };
 
 static inline Bool _CharIsAlphaNumeric(Char character);
@@ -28,6 +30,7 @@ static inline Bool _CharIsHexadecimalDigit(Char character);
 static inline void _LexerLexNextToken(LexerRef lexer);
 
 LexerRef LexerCreate(AllocatorRef allocator, StringRef buffer) {
+    assert(buffer);
     LexerRef lexer = (LexerRef)AllocatorAllocate(allocator, sizeof(struct _Lexer));
     assert(lexer);
     lexer->allocator    = allocator;
@@ -38,15 +41,19 @@ LexerRef LexerCreate(AllocatorRef allocator, StringRef buffer) {
     lexer->state.cursor = lexer->bufferStart;
     lexer->state.line   = 1;
     lexer->state.column = 0;
+    lexer->stateStack   = ArrayCreateEmpty(allocator, sizeof(struct _LexerState), 8);
     return lexer;
 }
 
 void LexerDestroy(LexerRef lexer) {
+    ArrayDestroy(lexer->stateStack);
     AllocatorDeallocate(lexer->allocator, lexer);
 }
 
 LexerStateRef LexerGetState(LexerRef lexer) {
-    return &lexer->state;
+    LexerStateRef state = ArrayAppendUninitializedElement(lexer->stateStack);
+    memcpy(state, &lexer->state, sizeof(struct _LexerState));
+    return state;
 }
 
 void LexerSetState(LexerRef lexer, LexerStateRef state) {
@@ -180,7 +187,8 @@ static inline TokenKind _LexerLexNumericLiteral(LexerRef lexer) {
                 value += *cursor - '0';
             }
 
-            lexer->state.token.intValue = value;
+            lexer->state.token.valueKind = TokenValueKindInt;
+            lexer->state.token.intValue  = value;
             return TokenKindLiteralInt;
         }
 
@@ -222,7 +230,8 @@ static inline TokenKind _LexerLexNumericLiteral(LexerRef lexer) {
                 ReportError("Integer literal overflows");
             }
 
-            lexer->state.token.intValue = value;
+            lexer->state.token.valueKind = TokenValueKindInt;
+            lexer->state.token.intValue  = value;
             return TokenKindLiteralInt;
         }
 
@@ -333,7 +342,8 @@ static inline TokenKind _LexerLexNumericLiteral(LexerRef lexer) {
             ReportError("Integer literal overflows");
         }
 
-        lexer->state.token.intValue = value;
+        lexer->state.token.valueKind = TokenValueKindInt;
+        lexer->state.token.intValue  = value;
         return TokenKindLiteralInt;
     }
 
@@ -711,7 +721,6 @@ static inline TokenKind _LexerLexStringLiteral(LexerRef lexer) {
 
             if (valid) {
                 range.end                      = lexer->state.cursor;
-                lexer->state.token.stringValue = StringCreateRange(lexer->allocator, range.start, range.end);
                 return TokenKindLiteralString;
             }
 
@@ -843,7 +852,6 @@ static inline TokenKind _LexerLexIdentifierOrKeyword(LexerRef lexer) {
         kind = TokenKindKeywordFloat;
     } else {
         kind                           = TokenKindIdentifier;
-        lexer->state.token.stringValue = StringCreateRange(lexer->allocator, range.start, range.end);
     }
 
     return kind;
@@ -851,6 +859,8 @@ static inline TokenKind _LexerLexIdentifierOrKeyword(LexerRef lexer) {
 
 static inline void _LexerLexNextToken(LexerRef lexer) {
     SourceRange leadingTriviaLocation = SourceRangeMake(lexer->state.cursor, lexer->state.cursor);
+
+    lexer->state.token.valueKind = TokenValueKindNone;
 
     if (lexer->state.cursor >= lexer->bufferEnd) {
         lexer->state.token.kind           = TokenKindEndOfFile;

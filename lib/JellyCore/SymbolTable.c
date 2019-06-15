@@ -27,9 +27,10 @@ Index _ScopeGetVirtualEnd(ScopeRef scope, const Char *virtualEndOfScope);
 SymbolTableRef SymbolTableCreate(AllocatorRef allocator) {
     SymbolTableRef symbolTable = AllocatorAllocate(allocator, sizeof(struct _SymbolTable));
     assert(symbolTable);
-    symbolTable->allocator     = allocator;
-    symbolTable->scopes        = ArrayCreateEmpty(allocator, sizeof(struct _Scope), 8);
-    symbolTable->currentScope  = _SymbolTableCreateScope(symbolTable, ScopeKindGlobal, NULL);
+    symbolTable->allocator = allocator;
+    symbolTable->scopes    = ArrayCreateEmpty(allocator, sizeof(struct _Scope), 8);
+    assert(symbolTable->scopes);
+    symbolTable->currentScope = _SymbolTableCreateScope(symbolTable, ScopeKindGlobal, NULL);
     return symbolTable;
 }
 

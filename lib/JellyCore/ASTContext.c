@@ -17,9 +17,7 @@ ASTBuiltinTypeRef _ASTContextCreateBuiltinType(ASTContextRef context, SourceRang
 void _ASTContextInitBuiltinTypes(ASTContextRef context);
 
 ASTContextRef ASTContextCreate(AllocatorRef allocator) {
-    //    AllocatorRef bumpAllocator                   = BumpAllocatorCreate(allocator);
-    // TODO: Replace system default allocator with BumpAllocator after fixing the bugs, this will just leak a lot of memory!
-    AllocatorRef bumpAllocator                   = AllocatorGetSystemDefault();
+    AllocatorRef bumpAllocator                   = BumpAllocatorCreate(allocator);
     ASTContextRef context                        = AllocatorAllocate(bumpAllocator, sizeof(struct _ASTContext));
     context->allocator                           = bumpAllocator;
     context->nodes[ASTTagSourceUnit]             = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTSourceUnit), 8);
@@ -53,8 +51,7 @@ ASTContextRef ASTContextCreate(AllocatorRef allocator) {
 }
 
 void ASTContextDestroy(ASTContextRef context) {
-    // TODO: This is currently commented out because the BumpAllocator is not used, readd this after fixing the bugs...
-    //    AllocatorDestroy(context->allocator);
+    AllocatorDestroy(context->allocator);
 }
 
 SymbolTableRef ASTContextGetSymbolTable(ASTContextRef context) {

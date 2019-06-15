@@ -1,8 +1,5 @@
 #include "JellyCore/Allocator.h"
 
-// TODO: BumpAllocator will always fail allocation if user-code requests capacities higher than kBumpAllocatorPageCapacity!
-// TODO: @Bug something seams to be hardly broken here...
-
 const Index kBumpAllocatorPageCapacity = 65535;
 
 struct _BumpAllocatorPage {
@@ -46,6 +43,8 @@ void *_AllocatorBump(AllocatorMode mode, Index capacity, void *memory, void *con
 
     switch (mode) {
     case AllocatorModeAllocate: {
+        // TODO: BumpAllocator will always fail allocation if user-code requests capacities higher than kBumpAllocatorPageCapacity!
+        assert(capacity <= kBumpAllocatorPageCapacity);
         if (bumpContext->currentPage->index + capacity > kBumpAllocatorPageCapacity) {
             Index pageCapacity              = sizeof(struct _BumpAllocatorPage) + sizeof(UInt8) * kBumpAllocatorPageCapacity;
             struct _BumpAllocatorPage *page = AllocatorAllocate(bumpContext->allocator, pageCapacity);
@@ -61,8 +60,11 @@ void *_AllocatorBump(AllocatorMode mode, Index capacity, void *memory, void *con
         return memory;
     }
 
-    case AllocatorModeReallocate:
-        return memory;
+    case AllocatorModeReallocate: {
+        void *newMemory = _AllocatorBump(AllocatorModeAllocate, capacity, NULL, context);
+        memcpy(newMemory, memory, capacity);
+        return newMemory;
+    }
 
     case AllocatorModeDeallocate:
         return NULL;

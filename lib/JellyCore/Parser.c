@@ -1,6 +1,7 @@
 #include "JellyCore/ASTContext.h"
 #include "JellyCore/ASTFunctions.h"
 #include "JellyCore/ASTNodes.h"
+#include "JellyCore/BumpAllocator.h"
 #include "JellyCore/Diagnostic.h"
 #include "JellyCore/Lexer.h"
 #include "JellyCore/Parser.h"
@@ -12,6 +13,7 @@
 
 struct _Parser {
     AllocatorRef allocator;
+    AllocatorRef tempAllocator;
     ASTContextRef context;
     LexerRef lexer;
     Token token;
@@ -55,12 +57,19 @@ static inline ASTNodeRef _ParserParseTopLevelNode(ParserRef parser);
 ParserRef ParserCreate(AllocatorRef allocator, ASTContextRef context) {
     ParserRef parser  = AllocatorAllocate(allocator, sizeof(struct _Parser));
     parser->allocator = allocator;
+    // TODO: Replace tempAllocator with a pool allocator which resets after finishing a top level parse action.
+    parser->tempAllocator = BumpAllocatorCreate(allocator);
     parser->context   = context;
     parser->lexer     = NULL;
     return parser;
 }
 
 void ParserDestroy(ParserRef parser) {
+    if (parser->lexer) {
+        LexerDestroy(parser->lexer);
+    }
+
+    AllocatorDestroy(parser->tempAllocator);
     AllocatorDeallocate(parser->allocator, parser);
 }
 
@@ -71,10 +80,10 @@ ASTSourceUnitRef ParserParseSourceUnit(ParserRef parser, StringRef filePath, Str
     LexerNextToken(parser->lexer, &parser->token);
 
     SourceRange location  = parser->token.location;
-    ArrayRef declarations = ArrayCreateEmpty(parser->allocator, sizeof(ASTNodeRef), 8);
+    ArrayRef declarations = ArrayCreateEmpty(parser->tempAllocator, sizeof(ASTNodeRef), 8);
     while (true) {
         SourceRange leadingTrivia = parser->token.leadingTrivia;
-        ASTNodeRef declaration = _ParserParseTopLevelNode(parser);
+        ASTNodeRef declaration    = _ParserParseTopLevelNode(parser);
         if (!declaration) {
             break;
         }
@@ -132,7 +141,7 @@ static inline Bool _ParserConsumeToken(ParserRef parser, TokenKind kind) {
 /// grammar: identifier-tail := identifier-head | "0" ... "9"
 static inline StringRef _ParserConsumeIdentifier(ParserRef parser) {
     if (parser->token.kind == TokenKindIdentifier) {
-        StringRef result = StringCreateCopy(parser->allocator, parser->token.stringValue);
+        StringRef result = StringCreateRange(parser->tempAllocator, parser->token.location.start, parser->token.location.end);
         LexerNextToken(parser->lexer, &parser->token);
         return result;
     }
@@ -284,10 +293,10 @@ static inline ASTBlockRef _ParserParseBlock(ParserRef parser) {
 
     // @TODO: Push block scope externally !
     // @TODO: Add temporary pool allocator to parser, for now this will leak memory!
-    ArrayRef statements = ArrayCreateEmpty(parser->allocator, sizeof(ASTNodeRef), 8);
+    ArrayRef statements = ArrayCreateEmpty(parser->tempAllocator, sizeof(ASTNodeRef), 8);
     while (!_ParserIsToken(parser, TokenKindRightCurlyBracket)) {
         SourceRange leadingTrivia = parser->token.leadingTrivia;
-        ASTNodeRef statement = _ParserParseStatement(parser);
+        ASTNodeRef statement      = _ParserParseStatement(parser);
         if (!statement) {
             return NULL;
         }
@@ -303,7 +312,7 @@ static inline ASTBlockRef _ParserParseBlock(ParserRef parser) {
         return NULL;
     }
 
-    location.end = parser->token.location.start;
+    location.end      = parser->token.location.start;
     return ASTContextCreateBlock(parser->context, location, statements);
 }
 
@@ -343,7 +352,7 @@ static inline ASTIfStatementRef _ParserParseIfStatement(ParserRef parser) {
             }
 
             // @TODO: Add temporary pool allocator to parser, for now this will leak memory!
-            ArrayRef statements = ArrayCreateEmpty(parser->allocator, sizeof(ASTNodeRef), 1);
+            ArrayRef statements = ArrayCreateEmpty(parser->tempAllocator, sizeof(ASTNodeRef), 1);
             ArrayAppendElement(statements, ifStatement);
 
             location.end = parser->token.location.start;
@@ -451,11 +460,11 @@ static inline ASTCaseStatementRef _ParserParseCaseStatement(ParserRef parser) {
     SymbolTableRef symbolTable = ASTContextGetSymbolTable(parser->context);
     SymbolTablePushScope(symbolTable, ScopeKindCase);
 
-    ArrayRef statements = ArrayCreateEmpty(parser->allocator, sizeof(ASTNodeRef), 8);
+    ArrayRef statements = ArrayCreateEmpty(parser->tempAllocator, sizeof(ASTNodeRef), 8);
     while (!_ParserIsToken(parser, TokenKindKeywordCase) && !_ParserIsToken(parser, TokenKindKeywordElse) &&
            !_ParserIsToken(parser, TokenKindRightCurlyBracket)) {
         SourceRange leadingTrivia = parser->token.leadingTrivia;
-        ASTNodeRef statement = _ParserParseStatement(parser);
+        ASTNodeRef statement      = _ParserParseStatement(parser);
         if (!statement) {
             return NULL;
         }
@@ -502,14 +511,14 @@ static inline ASTSwitchStatementRef _ParserParseSwitchStatement(ParserRef parser
     SymbolTableRef symbolTable = ASTContextGetSymbolTable(parser->context);
     SymbolTablePushScope(symbolTable, ScopeKindSwitch);
 
-    ArrayRef statements = ArrayCreateEmpty(parser->allocator, sizeof(ASTNodeRef), 8);
+    ArrayRef statements = ArrayCreateEmpty(parser->tempAllocator, sizeof(ASTNodeRef), 8);
 
     if (_ParserIsToken(parser, TokenKindRightCurlyBracket)) {
         ReportError("'switch' statement body must have at least one 'case' or 'else' block");
     }
 
     while (!_ParserIsToken(parser, TokenKindRightCurlyBracket)) {
-        SourceRange leadingTrivia = parser->token.leadingTrivia;
+        SourceRange leadingTrivia     = parser->token.leadingTrivia;
         ASTCaseStatementRef statement = _ParserParseCaseStatement(parser);
         if (!statement) {
             if (ArrayGetElementCount(statements) > 0) {
@@ -784,7 +793,7 @@ static inline ASTCallExpressionRef _ParserParseCallExpression(ParserRef parser, 
     //        return NULL;
     //    }
 
-    ArrayRef arguments = ArrayCreateEmpty(parser->allocator, sizeof(ASTNodeRef), 8);
+    ArrayRef arguments = ArrayCreateEmpty(parser->tempAllocator, sizeof(ASTNodeRef), 8);
     while (!_ParserIsToken(parser, TokenKindRightParenthesis)) {
         ASTExpressionRef argument = _ParserParseExpression(parser, 0, false);
         if (!argument) {
@@ -844,9 +853,10 @@ static inline ASTConstantExpressionRef _ParserParseConstantExpression(ParserRef 
     }
 
     if (_ParserIsToken(parser, TokenKindLiteralString)) {
-        StringRef value = StringCreateCopy(parser->allocator, parser->token.stringValue);
+        assert(parser->token.location.end - parser->token.location.start >= 2);
+        StringRef value = StringCreateRange(parser->tempAllocator, parser->token.location.start + 1, parser->token.location.end - 1);
         _ParserConsumeToken(parser, TokenKindLiteralString);
-        location.end = parser->token.location.start;
+        location.end                        = parser->token.location.start;
         return ASTContextCreateConstantStringExpression(parser->context, location, value);
     }
 
@@ -874,10 +884,10 @@ static inline ASTEnumerationDeclarationRef _ParserParseEnumerationDeclaration(Pa
     SymbolTableRef symbolTable = ASTContextGetSymbolTable(parser->context);
     ScopeRef scope             = SymbolTablePushScope(symbolTable, ScopeKindEnumeration);
 
-    ArrayRef elements = ArrayCreateEmpty(parser->allocator, sizeof(ASTNodeRef), 8);
+    ArrayRef elements = ArrayCreateEmpty(parser->tempAllocator, sizeof(ASTNodeRef), 8);
     if (!_ParserIsToken(parser, TokenKindRightCurlyBracket)) {
         while (true) {
-            SourceRange leadingTrivia = parser->token.leadingTrivia;
+            SourceRange leadingTrivia      = parser->token.leadingTrivia;
             ASTValueDeclarationRef element = _ParserParseEnumerationElementDeclaration(parser);
             if (!element) {
                 return NULL;
@@ -908,7 +918,7 @@ static inline ASTEnumerationDeclarationRef _ParserParseEnumerationDeclaration(Pa
 
     SymbolTablePopScope(symbolTable);
 
-    location.end = parser->token.location.start;
+    location.end                             = parser->token.location.start;
     return ASTContextCreateEnumerationDeclaration(parser->context, location, name, elements);
 }
 
@@ -933,7 +943,7 @@ static inline ASTFunctionDeclarationRef _ParserParseFunctionDeclaration(ParserRe
 
     SymbolTableRef symbolTable = ASTContextGetSymbolTable(parser->context);
     ScopeRef scope             = SymbolTablePushScope(symbolTable, ScopeKindFunction);
-    ArrayRef parameters        = ArrayCreateEmpty(parser->allocator, sizeof(ASTNodeRef), 8);
+    ArrayRef parameters        = ArrayCreateEmpty(parser->tempAllocator, sizeof(ASTNodeRef), 8);
 
     if (!_ParserIsToken(parser, TokenKindRightParenthesis)) {
         while (true) {
@@ -1014,11 +1024,11 @@ static inline ASTStructureDeclarationRef _ParserParseStructureDeclaration(Parser
 
     SymbolTableRef symbolTable = ASTContextGetSymbolTable(parser->context);
     ScopeRef scope             = SymbolTablePushScope(symbolTable, ScopeKindStructure);
-    ArrayRef values            = ArrayCreateEmpty(parser->allocator, sizeof(ASTNodeRef), 8);
+    ArrayRef values            = ArrayCreateEmpty(parser->tempAllocator, sizeof(ASTNodeRef), 8);
 
     if (!_ParserIsToken(parser, TokenKindRightCurlyBracket)) {
         while (true) {
-            SourceRange leadingTrivia = parser->token.leadingTrivia;
+            SourceRange leadingTrivia    = parser->token.leadingTrivia;
             ASTValueDeclarationRef value = _ParserParseVariableDeclaration(parser);
             if (!value) {
                 return NULL;

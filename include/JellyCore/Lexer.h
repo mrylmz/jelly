@@ -99,6 +99,14 @@ enum _TokenKind {
 };
 typedef enum _TokenKind TokenKind;
 
+enum _TokenValueKind {
+    TokenValueKindNone,
+    TokenValueKindBool,
+    TokenValueKindInt,
+    TokenValueKindFloat,
+};
+typedef enum _TokenValueKind TokenValueKind;
+
 struct _Token {
     TokenKind kind;
     SourceRange location;
@@ -108,11 +116,11 @@ struct _Token {
     SourceRange leadingTrivia;
     SourceRange trailingTrivia;
 
+    TokenValueKind valueKind;
     union {
         Bool boolValue;
         UInt64 intValue;
         Float64 floatValue;
-        StringRef stringValue;
     };
 };
 typedef struct _Token Token;
