@@ -1,22 +1,31 @@
 ModuleDeclaration
-  @name = ''
-  EnumerationDeclaration
-    @name = 'Direction'
-    EnumerationElementDeclaration
-      @name = 'north'
-      IntLiteral
-        @value = '1'
-    EnumerationElementDeclaration
-      @name = 'east'
-      IntLiteral
-        @value = '2'
-    EnumerationElementDeclaration
-      @name = 'south'
-    EnumerationElementDeclaration
-      @name = 'west'
-      BinaryExpression
-        @operator = '*'
+  SourceUnit
+    @filePath = 'enum_declaration_with_assignment.jelly'
+    EnumerationDeclaration
+      @name = 'Direction'
+      EnumerationElementDeclaration
+        @name = 'north'
+        BuiltinType
+          @name = 'Int'
+        IntLiteral
+          @value = '1'
+      EnumerationElementDeclaration
+        @name = 'east'
+        BuiltinType
+          @name = 'Int'
         IntLiteral
           @value = '2'
-        IntLiteral
-          @value = '2'
+      EnumerationElementDeclaration
+        @name = 'south'
+        BuiltinType
+          @name = 'Int'
+      EnumerationElementDeclaration
+        @name = 'west'
+        BuiltinType
+          @name = 'Int'
+        BinaryExpression
+          @operator = '*'
+          IntLiteral
+            @value = '2'
+          IntLiteral
+            @value = '2'

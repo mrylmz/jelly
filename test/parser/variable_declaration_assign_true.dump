@@ -1,8 +1,9 @@
 ModuleDeclaration
-  @name = ''
-  VariableDeclaration
-    @name = 'myVar'
-    OpaqueTypeRef
-      @name = 'Bool'
-    BoolLiteral
-      @value = 'true'
+  SourceUnit
+    @filePath = 'variable_declaration_assign_true.jelly'
+    VariableDeclaration
+      @name = 'myVar'
+      BuiltinType
+        @name = 'Bool'
+      BoolLiteral
+        @value = 'true'

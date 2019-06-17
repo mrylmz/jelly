@@ -1,8 +1,9 @@
 ModuleDeclaration
-  @name = ''
-  FunctionDeclaration
-    @name = 'main'
-    OpaqueTypeRef
-      @name = 'Void'
-    BlockStatement
-      ReturnStatement
+  SourceUnit
+    @filePath = 'func_declaration_with_return_statement.jelly'
+    FunctionDeclaration
+      @name = 'main'
+      BuiltinType
+        @name = 'Void'
+      Block
+        ReturnStatement

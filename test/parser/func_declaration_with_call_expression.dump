@@ -1,10 +1,11 @@
 ModuleDeclaration
-  @name = ''
-  FunctionDeclaration
-    @name = 'main'
-    OpaqueTypeRef
-      @name = 'Void'
-    BlockStatement
-      CallExpression
-        IdentifierExpression
-          @identifier = 'myFunc'
+  SourceUnit
+    @filePath = 'func_declaration_with_call_expression.jelly'
+    FunctionDeclaration
+      @name = 'main'
+      BuiltinType
+        @name = 'Void'
+      Block
+        CallExpression
+          IdentifierExpression
+            @identifier = 'myFunc'

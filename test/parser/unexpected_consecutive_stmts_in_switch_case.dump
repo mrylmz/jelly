@@ -1,2 +1,32 @@
 ModuleDeclaration
-  @name = ''
+  SourceUnit
+    @filePath = 'unexpected_consecutive_stmts_in_switch_case.jelly'
+    FunctionDeclaration
+      @name = 'main'
+      ParameterDeclaration
+        @name = 'val'
+        BuiltinType
+          @name = 'Int'
+      BuiltinType
+        @name = 'Int'
+      Block
+        SwitchStatement
+          IdentifierExpression
+            @identifier = 'val'
+          ConditionalCaseStatement
+            IntLiteral
+              @value = '0'
+            Block
+              ReturnStatement
+                IntLiteral
+                  @value = '1'
+              ReturnStatement
+                IntLiteral
+                  @value = '2'
+          ConditionalCaseStatement
+            IntLiteral
+              @value = '1'
+            Block
+              ReturnStatement
+                IntLiteral
+                  @value = '0'

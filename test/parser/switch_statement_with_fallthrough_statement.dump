@@ -1,30 +1,31 @@
 ModuleDeclaration
-  @name = ''
-  FunctionDeclaration
-    @name = 'main'
-    OpaqueTypeRef
-      @name = 'Void'
-    BlockStatement
-      SwitchStatement
-        IdentifierExpression
-          @identifier = 'direction'
-        ConditionalCaseStatement
+  SourceUnit
+    @filePath = 'switch_statement_with_fallthrough_statement.jelly'
+    FunctionDeclaration
+      @name = 'main'
+      BuiltinType
+        @name = 'Void'
+      Block
+        SwitchStatement
           IdentifierExpression
-            @identifier = 'north'
-          BlockStatement
-            FallthroughStatement
-        ConditionalCaseStatement
-          IdentifierExpression
-            @identifier = 'east'
-          BlockStatement
-            FallthroughStatement
-        ConditionalCaseStatement
-          IdentifierExpression
-            @identifier = 'south'
-          BlockStatement
-            FallthroughStatement
-        ConditionalCaseStatement
-          IdentifierExpression
-            @identifier = 'west'
-          BlockStatement
-            BreakStatement
+            @identifier = 'direction'
+          ConditionalCaseStatement
+            IdentifierExpression
+              @identifier = 'north'
+            Block
+              FallthroughStatement
+          ConditionalCaseStatement
+            IdentifierExpression
+              @identifier = 'east'
+            Block
+              FallthroughStatement
+          ConditionalCaseStatement
+            IdentifierExpression
+              @identifier = 'south'
+            Block
+              FallthroughStatement
+          ConditionalCaseStatement
+            IdentifierExpression
+              @identifier = 'west'
+            Block
+              BreakStatement

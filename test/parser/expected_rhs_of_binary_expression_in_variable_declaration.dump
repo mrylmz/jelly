@@ -1,2 +1,3 @@
 ModuleDeclaration
-  @name = ''
+  SourceUnit
+    @filePath = 'expected_rhs_of_binary_expression_in_variable_declaration.jelly'

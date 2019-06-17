@@ -1,43 +1,45 @@
 ModuleDeclaration
-  @name = ''
-  FunctionDeclaration
-    @name = 'fibonacci'
-    ParameterDeclaration
-      @name = 'n'
-      OpaqueTypeRef
+  SourceUnit
+    @filePath = 'func_declaration_fibonacci_sequence.jelly'
+    FunctionDeclaration
+      @name = 'fibonacci'
+      ParameterDeclaration
+        @name = 'n'
+        BuiltinType
+          @name = 'Int'
+      BuiltinType
         @name = 'Int'
-    OpaqueTypeRef
-      @name = 'Int'
-    BlockStatement
-      IfStatement
-        BinaryExpression
-          @operator = '<'
-          IdentifierExpression
-            @identifier = 'n'
-          IntLiteral
-            @value = '2'
-        BlockStatement
-          ReturnStatement
+      Block
+        IfStatement
+          BinaryExpression
+            @operator = '<'
             IdentifierExpression
               @identifier = 'n'
-      ReturnStatement
-        BinaryExpression
-          @operator = '+'
-          CallExpression
-            IdentifierExpression
-              @identifier = 'fibonacci'
-            BinaryExpression
-              @operator = '-'
+            IntLiteral
+              @value = '2'
+          Block
+            ReturnStatement
               IdentifierExpression
                 @identifier = 'n'
-              IntLiteral
-                @value = '1'
-          CallExpression
-            IdentifierExpression
-              @identifier = 'fibonacci'
-            BinaryExpression
-              @operator = '-'
+          Block
+        ReturnStatement
+          BinaryExpression
+            @operator = '+'
+            CallExpression
               IdentifierExpression
-                @identifier = 'n'
-              IntLiteral
-                @value = '2'
+                @identifier = 'fibonacci'
+              BinaryExpression
+                @operator = '-'
+                IdentifierExpression
+                  @identifier = 'n'
+                IntLiteral
+                  @value = '1'
+            CallExpression
+              IdentifierExpression
+                @identifier = 'fibonacci'
+              BinaryExpression
+                @operator = '-'
+                IdentifierExpression
+                  @identifier = 'n'
+                IntLiteral
+                  @value = '2'

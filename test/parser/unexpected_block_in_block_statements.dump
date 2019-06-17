@@ -1,2 +1,3 @@
 ModuleDeclaration
-  @name = ''
+  SourceUnit
+    @filePath = 'unexpected_block_in_block_statements.jelly'

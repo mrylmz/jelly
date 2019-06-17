@@ -1,2 +1,3 @@
 ModuleDeclaration
-  @name = ''
+  SourceUnit
+    @filePath = 'expected_keyword_case_in_enum_element_declaration.jelly'

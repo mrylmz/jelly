@@ -1,28 +1,30 @@
 ModuleDeclaration
-  @name = ''
-  FunctionDeclaration
-    @name = 'main'
-    OpaqueTypeRef
-      @name = 'Void'
-    BlockStatement
-      IfStatement
-        BinaryExpression
-          @operator = '&&'
+  SourceUnit
+    @filePath = 'if_statement_with_else_if_chain.jelly'
+    FunctionDeclaration
+      @name = 'main'
+      BuiltinType
+        @name = 'Void'
+      Block
+        IfStatement
           BinaryExpression
             @operator = '&&'
-            IdentifierExpression
-              @identifier = 'condition0'
-            IdentifierExpression
-              @identifier = 'condition1'
-          IdentifierExpression
-            @identifier = 'condition2'
-        BlockStatement
-        BlockStatement
-          IfStatement
             BinaryExpression
               @operator = '&&'
               IdentifierExpression
                 @identifier = 'condition0'
               IdentifierExpression
                 @identifier = 'condition1'
-            BlockStatement
+            IdentifierExpression
+              @identifier = 'condition2'
+          Block
+          Block
+            IfStatement
+              BinaryExpression
+                @operator = '&&'
+                IdentifierExpression
+                  @identifier = 'condition0'
+                IdentifierExpression
+                  @identifier = 'condition1'
+              Block
+              Block

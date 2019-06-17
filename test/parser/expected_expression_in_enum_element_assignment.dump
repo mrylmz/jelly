@@ -1,2 +1,3 @@
 ModuleDeclaration
-  @name = ''
+  SourceUnit
+    @filePath = 'expected_expression_in_enum_element_assignment.jelly'

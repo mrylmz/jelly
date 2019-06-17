@@ -92,12 +92,12 @@ ASTSourceUnitRef ParserParseSourceUnit(ParserRef parser, StringRef filePath, Str
             ReportError("Consecutive statements on a line are not allowed");
         }
 
-        ArrayAppendElement(declarations, declaration);
+        ArrayAppendElement(declarations, &declaration);
     }
 
     location.end                = parser->token.location.start;
     ASTSourceUnitRef sourceUnit = ASTContextCreateSourceUnit(parser->context, location, filePath, declarations);
-    ArrayAppendElement(module->sourceUnits, sourceUnit);
+    ArrayAppendElement(module->sourceUnits, &sourceUnit);
     return sourceUnit;
 }
 
@@ -305,7 +305,7 @@ static inline ASTBlockRef _ParserParseBlock(ParserRef parser) {
             ReportError("Consecutive statements on a line are not allowed");
         }
 
-        ArrayAppendElement(statements, statement);
+        ArrayAppendElement(statements, &statement);
     }
 
     if (!_ParserConsumeToken(parser, TokenKindRightCurlyBracket)) {
@@ -353,7 +353,7 @@ static inline ASTIfStatementRef _ParserParseIfStatement(ParserRef parser) {
 
             // @TODO: Add temporary pool allocator to parser, for now this will leak memory!
             ArrayRef statements = ArrayCreateEmpty(parser->tempAllocator, sizeof(ASTNodeRef), 1);
-            ArrayAppendElement(statements, ifStatement);
+            ArrayAppendElement(statements, &ifStatement);
 
             location.end = parser->token.location.start;
             elseBlock    = ASTContextCreateBlock(parser->context, location, statements);
@@ -473,7 +473,7 @@ static inline ASTCaseStatementRef _ParserParseCaseStatement(ParserRef parser) {
             ReportError("Consecutive statements on a line are not allowed");
         }
 
-        ArrayAppendElement(statements, statement);
+        ArrayAppendElement(statements, &statement);
     }
 
     if (ArrayGetElementSize(statements) < 1) {
@@ -532,7 +532,7 @@ static inline ASTSwitchStatementRef _ParserParseSwitchStatement(ParserRef parser
             ReportError("Consecutive statements on a line are not allowed");
         }
 
-        ArrayAppendElement(statements, statement);
+        ArrayAppendElement(statements, &statement);
     }
 
     if (!_ParserConsumeToken(parser, TokenKindRightCurlyBracket)) {
@@ -800,7 +800,7 @@ static inline ASTCallExpressionRef _ParserParseCallExpression(ParserRef parser, 
             return NULL;
         }
 
-        ArrayAppendElement(arguments, argument);
+        ArrayAppendElement(arguments, &argument);
 
         if (_ParserIsToken(parser, TokenKindRightParenthesis)) {
             break;
@@ -904,7 +904,7 @@ static inline ASTEnumerationDeclarationRef _ParserParseEnumerationDeclaration(Pa
                 return NULL;
             }
 
-            ArrayAppendElement(elements, element);
+            ArrayAppendElement(elements, &element);
 
             if (_ParserIsToken(parser, TokenKindRightCurlyBracket)) {
                 break;
@@ -954,7 +954,7 @@ static inline ASTFunctionDeclarationRef _ParserParseFunctionDeclaration(ParserRe
 
             assert(parameter->kind == ASTValueKindParameter);
 
-            ArrayAppendElement(parameters, parameter);
+            ArrayAppendElement(parameters, &parameter);
 
             if (_ParserIsToken(parser, TokenKindRightParenthesis)) {
                 break;
@@ -1040,7 +1040,7 @@ static inline ASTStructureDeclarationRef _ParserParseStructureDeclaration(Parser
                 ReportError("Consecutive statements on a line are not allowed");
             }
 
-            ArrayAppendElement(values, value);
+            ArrayAppendElement(values, &value);
 
             if (_ParserIsToken(parser, TokenKindRightCurlyBracket)) {
                 break;

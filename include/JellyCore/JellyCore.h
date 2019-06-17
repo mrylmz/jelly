@@ -2,6 +2,7 @@
 #define __JELLY_JELLYCORE__
 
 #include <JellyCore/ASTContext.h>
+#include <JellyCore/ASTDumper.h>
 #include <JellyCore/ASTNodes.h>
 #include <JellyCore/Allocator.h>
 #include <JellyCore/Array.h>

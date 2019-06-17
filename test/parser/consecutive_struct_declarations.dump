@@ -1,0 +1,7 @@
+ModuleDeclaration
+  SourceUnit
+    @filePath = 'consecutive_struct_declarations.jelly'
+    StructureDeclaration
+      @name = 'S1'
+    StructureDeclaration
+      @name = 'S2'

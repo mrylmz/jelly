@@ -1,10 +1,11 @@
 ModuleDeclaration
-  @name = ''
-  VariableDeclaration
-    @name = 'x'
-    ArrayTypeRef
-      PointerTypeRef
-        @depth = '2'
-        OpaqueTypeRef
-          @name = 'Void'
-    NilLiteral
+  SourceUnit
+    @filePath = 'variable_declaration_pointer_pointer_array.jelly'
+    VariableDeclaration
+      @name = 'x'
+      ArrayType
+        PointerType
+          PointerType
+            BuiltinType
+              @name = 'Void'
+      NilLiteral

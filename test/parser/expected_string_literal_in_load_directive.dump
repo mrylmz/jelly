@@ -1,2 +1,3 @@
 ModuleDeclaration
-  @name = ''
+  SourceUnit
+    @filePath = 'expected_string_literal_in_load_directive.jelly'

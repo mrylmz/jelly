@@ -1,12 +1,21 @@
 ModuleDeclaration
-  @name = ''
-  EnumerationDeclaration
-    @name = 'Direction'
-    EnumerationElementDeclaration
-      @name = 'north'
-    EnumerationElementDeclaration
-      @name = 'east'
-    EnumerationElementDeclaration
-      @name = 'south'
-    EnumerationElementDeclaration
-      @name = 'west'
+  SourceUnit
+    @filePath = 'enum_declaration.jelly'
+    EnumerationDeclaration
+      @name = 'Direction'
+      EnumerationElementDeclaration
+        @name = 'north'
+        BuiltinType
+          @name = 'Int'
+      EnumerationElementDeclaration
+        @name = 'east'
+        BuiltinType
+          @name = 'Int'
+      EnumerationElementDeclaration
+        @name = 'south'
+        BuiltinType
+          @name = 'Int'
+      EnumerationElementDeclaration
+        @name = 'west'
+        BuiltinType
+          @name = 'Int'

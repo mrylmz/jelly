@@ -1,2 +1,3 @@
 ModuleDeclaration
-  @name = ''
+  SourceUnit
+    @filePath = 'expected_closing_bracket_in_type_of_variable_declaration.jelly'

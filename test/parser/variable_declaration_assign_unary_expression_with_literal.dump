@@ -1,10 +1,11 @@
 ModuleDeclaration
-  @name = ''
-  VariableDeclaration
-    @name = 'x'
-    OpaqueTypeRef
-      @name = 'Int'
-    UnaryExpression
-      @operator = '-'
-      IntLiteral
-        @value = '10'
+  SourceUnit
+    @filePath = 'variable_declaration_assign_unary_expression_with_literal.jelly'
+    VariableDeclaration
+      @name = 'x'
+      BuiltinType
+        @name = 'Int'
+      UnaryExpression
+        @operator = '-'
+        IntLiteral
+          @value = '10'

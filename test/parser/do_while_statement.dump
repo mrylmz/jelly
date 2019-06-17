@@ -1,11 +1,12 @@
 ModuleDeclaration
-  @name = ''
-  FunctionDeclaration
-    @name = 'main'
-    OpaqueTypeRef
-      @name = 'Void'
-    BlockStatement
-      DoStatement
-        BoolLiteral
-          @value = 'true'
-        BlockStatement
+  SourceUnit
+    @filePath = 'do_while_statement.jelly'
+    FunctionDeclaration
+      @name = 'main'
+      BuiltinType
+        @name = 'Void'
+      Block
+        DoStatement
+          BoolLiteral
+            @value = 'true'
+          Block

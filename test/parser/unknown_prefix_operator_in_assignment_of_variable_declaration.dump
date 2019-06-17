@@ -1,2 +1,3 @@
 ModuleDeclaration
-  @name = ''
+  SourceUnit
+    @filePath = 'unknown_prefix_operator_in_assignment_of_variable_declaration.jelly'

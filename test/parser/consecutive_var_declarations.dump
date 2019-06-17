@@ -1,0 +1,15 @@
+ModuleDeclaration
+  SourceUnit
+    @filePath = 'consecutive_var_declarations.jelly'
+    VariableDeclaration
+      @name = 'x'
+      BuiltinType
+        @name = 'Int'
+      IntLiteral
+        @value = '1'
+    VariableDeclaration
+      @name = 'y'
+      BuiltinType
+        @name = 'Int'
+      IntLiteral
+        @value = '2'

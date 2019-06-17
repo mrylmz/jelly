@@ -24,8 +24,20 @@
 
 #include <gtest/gtest.h>
 #include <JellyCore/JellyCore.h>
+#include <string>
+#include <dirent.h>
+#include <fstream>
+#include <regex>
 
 #include "FileTestDiagnostic.h"
+
+static inline void WriteFileContent(std::string filePath, std::string content) {
+    std::fstream file;
+    file.open(filePath, std::fstream::out);
+    assert(file.is_open());
+    file.write(content.c_str(), content.length());
+    file.close();
+}
 
 class ParserTest : public testing::TestWithParam<FileTest> {
 };
@@ -43,16 +55,27 @@ TEST_P(ParserTest, run) {
     } else {
         DiagnosticEngineSetDefaultHandler(&FileTestDiagnosticHandler, &test.context);
 
+        Char dumpBuffer[65535];
+        FILE *dumpStream = fmemopen(dumpBuffer, sizeof(dumpBuffer) / sizeof(Char), "w");
+        assert(dumpStream);
+
         AllocatorRef allocator = AllocatorGetSystemDefault();
         ASTContextRef context = ASTContextCreate(allocator);
+        ASTDumperRef dumper = ASTDumperCreate(allocator, dumpStream);
         ParserRef parser = ParserCreate(allocator, context);
         StringRef filePath = StringCreate(allocator, test.context.filePath.c_str());
+        StringRef relativeFilePath = StringCreate(allocator, test.relativeFilePath.c_str());
         StringRef source = StringCreateFromFile(allocator, StringGetCharacters(filePath));
-        ParserParseSourceUnit(parser, filePath, source);
+        ParserParseSourceUnit(parser, relativeFilePath, source);
+        ASTDumperDump(dumper, (ASTNodeRef)ASTContextGetModule(context));
         StringDestroy(source);
+        StringDestroy(relativeFilePath);
         StringDestroy(filePath);
         ParserDestroy(parser);
+        ASTDumperDestroy(dumper);
         ASTContextDestroy(context);
+
+        fclose(dumpStream);
 
         if (test.context.index < test.context.records.size()) {
             for (auto index = test.context.index; index < test.context.records.size(); index++) {
@@ -62,20 +85,14 @@ TEST_P(ParserTest, run) {
             FAIL();
         }
 
-//        if (parameter.hasDumpRecord) {
-//            printf("[ RUN      ] %s\n", parameter.metadata.sourceFileName.c_str());
-//
-//            EXPECT_STREQ(parameter.dumpRecordFileContent.c_str(), dumpRecordContentStream.str().c_str());
-//        } else {
-//            printf("[ REC      ] %s\n", parameter.metadata.sourceFileName.c_str());
-//
-//            if (!writeFileContent(parameter.dumpRecordFilePath, dumpRecordContentStream.str())) {
-//                printf("[  FAILED  ] %s\n", parameter.metadata.sourceFileName.c_str());
-//                FAIL();
-//            } else {
-//                printf("[       OK ] %s\n", parameter.metadata.sourceFileName.c_str());
-//            }
-//        }
+        if (test.hasDumpRecord) {
+            printf("[ RUN      ] %s\n", test.filePath.c_str());
+            EXPECT_STREQ(test.dumpRecordContent.c_str(), dumpBuffer);
+        } else {
+            printf("[ REC      ] %s\n", test.filePath.c_str());
+            WriteFileContent(test.dumpFilePath, dumpBuffer);
+            printf("[       OK ] %s\n", test.filePath.c_str());
+        }
     }
 }
 

@@ -1,9 +1,10 @@
 ModuleDeclaration
-  @name = ''
-  VariableDeclaration
-    @name = 'myArray'
-    ArrayTypeRef
-      OpaqueTypeRef
-        @name = 'Bool'
-      IntLiteral
-        @value = '1234'
+  SourceUnit
+    @filePath = 'static_array_variable_declaration.jelly'
+    VariableDeclaration
+      @name = 'myArray'
+      ArrayType
+        BuiltinType
+          @name = 'Bool'
+        IntLiteral
+          @value = '1234'

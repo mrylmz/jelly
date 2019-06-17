@@ -1,10 +1,11 @@
 ModuleDeclaration
-  @name = ''
-  FunctionDeclaration
-    @name = 'main'
-    OpaqueTypeRef
-      @name = 'Int'
-    BlockStatement
-      ReturnStatement
-        IntLiteral
-          @value = '1'
+  SourceUnit
+    @filePath = 'func_declaration_with_return_statement_and_expression.jelly'
+    FunctionDeclaration
+      @name = 'main'
+      BuiltinType
+        @name = 'Int'
+      Block
+        ReturnStatement
+          IntLiteral
+            @value = '1'

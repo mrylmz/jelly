@@ -1,2 +1,9 @@
 ModuleDeclaration
-  @name = ''
+  SourceUnit
+    @filePath = 'overflow_in_integer_literal.jelly'
+    VariableDeclaration
+      @name = 'x'
+      BuiltinType
+        @name = 'Int'
+      IntLiteral
+        @value = '2453087116895309130'

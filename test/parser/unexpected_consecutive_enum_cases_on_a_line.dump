@@ -1,2 +1,13 @@
 ModuleDeclaration
-  @name = ''
+  SourceUnit
+    @filePath = 'unexpected_consecutive_enum_cases_on_a_line.jelly'
+    EnumerationDeclaration
+      @name = 'Test'
+      EnumerationElementDeclaration
+        @name = 'x'
+        BuiltinType
+          @name = 'Int'
+      EnumerationElementDeclaration
+        @name = 'y'
+        BuiltinType
+          @name = 'Int'

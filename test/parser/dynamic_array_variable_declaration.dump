@@ -1,7 +1,8 @@
 ModuleDeclaration
-  @name = ''
-  VariableDeclaration
-    @name = 'myArray'
-    ArrayTypeRef
-      OpaqueTypeRef
-        @name = 'Int'
+  SourceUnit
+    @filePath = 'dynamic_array_variable_declaration.jelly'
+    VariableDeclaration
+      @name = 'myArray'
+      ArrayType
+        BuiltinType
+          @name = 'Int'

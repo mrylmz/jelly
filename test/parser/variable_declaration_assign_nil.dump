@@ -1,9 +1,9 @@
 ModuleDeclaration
-  @name = ''
-  VariableDeclaration
-    @name = 'myPointer'
-    PointerTypeRef
-      @depth = '1'
-      OpaqueTypeRef
-        @name = 'Void'
-    NilLiteral
+  SourceUnit
+    @filePath = 'variable_declaration_assign_nil.jelly'
+    VariableDeclaration
+      @name = 'myPointer'
+      PointerType
+        BuiltinType
+          @name = 'Void'
+      NilLiteral

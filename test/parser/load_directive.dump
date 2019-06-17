@@ -1,4 +1,5 @@
 ModuleDeclaration
-  @name = ''
-  LoadDeclaration
-    @sourceFilePath = 'path/to/source/file.jelly'
+  SourceUnit
+    @filePath = 'load_directive.jelly'
+    LoadDirective
+      @sourceFilePath = 'path/to/source/file.jelly'

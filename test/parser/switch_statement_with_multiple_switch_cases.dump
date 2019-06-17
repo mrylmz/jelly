@@ -1,25 +1,26 @@
 ModuleDeclaration
-  @name = ''
-  FunctionDeclaration
-    @name = 'main'
-    OpaqueTypeRef
-      @name = 'Void'
-    BlockStatement
-      SwitchStatement
-        IdentifierExpression
-          @identifier = 'expr'
-        ConditionalCaseStatement
-          IntLiteral
-            @value = '0'
-          BlockStatement
-            ReturnStatement
-        ConditionalCaseStatement
-          IntLiteral
-            @value = '1'
-          BlockStatement
-            ReturnStatement
-        ConditionalCaseStatement
-          IntLiteral
-            @value = '2'
-          BlockStatement
-            ReturnStatement
+  SourceUnit
+    @filePath = 'switch_statement_with_multiple_switch_cases.jelly'
+    FunctionDeclaration
+      @name = 'main'
+      BuiltinType
+        @name = 'Void'
+      Block
+        SwitchStatement
+          IdentifierExpression
+            @identifier = 'expr'
+          ConditionalCaseStatement
+            IntLiteral
+              @value = '0'
+            Block
+              ReturnStatement
+          ConditionalCaseStatement
+            IntLiteral
+              @value = '1'
+            Block
+              ReturnStatement
+          ConditionalCaseStatement
+            IntLiteral
+              @value = '2'
+            Block
+              ReturnStatement

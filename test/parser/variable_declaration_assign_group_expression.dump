@@ -1,8 +1,9 @@
 ModuleDeclaration
-  @name = ''
-  VariableDeclaration
-    @name = 'myVar'
-    OpaqueTypeRef
-      @name = 'Int'
-    IntLiteral
-      @value = '1'
+  SourceUnit
+    @filePath = 'variable_declaration_assign_group_expression.jelly'
+    VariableDeclaration
+      @name = 'myVar'
+      BuiltinType
+        @name = 'Int'
+      IntLiteral
+        @value = '1'

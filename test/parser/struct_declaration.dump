@@ -1,4 +1,5 @@
 ModuleDeclaration
-  @name = ''
-  StructureDeclaration
-    @name = 'Empty'
+  SourceUnit
+    @filePath = 'struct_declaration.jelly'
+    StructureDeclaration
+      @name = 'Empty'

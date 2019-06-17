@@ -1,6 +1,7 @@
 ModuleDeclaration
-  @name = ''
-  VariableDeclaration
-    @name = 'myInt'
-    OpaqueTypeRef
-      @name = 'Int'
+  SourceUnit
+    @filePath = 'variable_declaration.jelly'
+    VariableDeclaration
+      @name = 'myInt'
+      BuiltinType
+        @name = 'Int'

@@ -1,8 +1,9 @@
 ModuleDeclaration
-  @name = ''
-  VariableDeclaration
-    @name = 'x'
-    PointerTypeRef
-      @depth = '2'
-      OpaqueTypeRef
-        @name = 'Void'
+  SourceUnit
+    @filePath = 'variable_declaration_with_pointer_pointer_void_type.jelly'
+    VariableDeclaration
+      @name = 'x'
+      PointerType
+        PointerType
+          BuiltinType
+            @name = 'Void'

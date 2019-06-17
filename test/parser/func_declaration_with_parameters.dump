@@ -1,29 +1,29 @@
 ModuleDeclaration
-  @name = ''
-  FunctionDeclaration
-    @name = 'main'
-    ParameterDeclaration
-      @name = 'x'
-      OpaqueTypeRef
-        @name = 'Int'
-    ParameterDeclaration
-      @name = 'y'
-      ArrayTypeRef
-        OpaqueTypeRef
+  SourceUnit
+    @filePath = 'func_declaration_with_parameters.jelly'
+    FunctionDeclaration
+      @name = 'main'
+      ParameterDeclaration
+        @name = 'x'
+        BuiltinType
           @name = 'Int'
-    ParameterDeclaration
-      @name = 'z'
-      PointerTypeRef
-        @depth = '1'
-        OpaqueTypeRef
-          @name = 'Int'
-    ParameterDeclaration
-      @name = 'w'
-      ArrayTypeRef
-        OpaqueTypeRef
-          @name = 'Int'
-        IntLiteral
-          @value = '10'
-    OpaqueTypeRef
-      @name = 'Void'
-    BlockStatement
+      ParameterDeclaration
+        @name = 'y'
+        ArrayType
+          BuiltinType
+            @name = 'Int'
+      ParameterDeclaration
+        @name = 'z'
+        PointerType
+          BuiltinType
+            @name = 'Int'
+      ParameterDeclaration
+        @name = 'w'
+        ArrayType
+          BuiltinType
+            @name = 'Int'
+          IntLiteral
+            @value = '10'
+      BuiltinType
+        @name = 'Void'
+      Block

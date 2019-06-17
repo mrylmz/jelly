@@ -1,11 +1,13 @@
 ModuleDeclaration
-  @name = ''
-  FunctionDeclaration
-    @name = 'main'
-    OpaqueTypeRef
-      @name = 'Void'
-    BlockStatement
-      IfStatement
-        IdentifierExpression
-          @identifier = 'condition'
-        BlockStatement
+  SourceUnit
+    @filePath = 'if_statement.jelly'
+    FunctionDeclaration
+      @name = 'main'
+      BuiltinType
+        @name = 'Void'
+      Block
+        IfStatement
+          IdentifierExpression
+            @identifier = 'condition'
+          Block
+          Block

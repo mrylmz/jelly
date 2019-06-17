@@ -25,8 +25,16 @@ struct FileTestDiagnosticContext {
 struct FileTest {
     FileTestDiagnosticContext context;
     Bool hasDumpRecord;
+    std::string filePath;
+    std::string relativeFilePath;
+    std::string dumpFilePath;
+    std::string dumpRecordContent;
 
-    FileTest(FileTestDiagnosticContext context, Bool hasDumpRecord) : context(context), hasDumpRecord(hasDumpRecord) {}
+    FileTest(FileTestDiagnosticContext context, Bool hasDumpRecord, std::string filePath, std::string relativeFilePath,
+             std::string dumpFilePath, std::string dumpRecordContent)
+        : context(context), hasDumpRecord(hasDumpRecord), filePath(filePath), relativeFilePath(relativeFilePath),
+          dumpFilePath(dumpFilePath), dumpRecordContent(dumpRecordContent) {
+    }
 
     static std::vector<FileTest> ReadFromDirectory(std::string testDirectoryPath);
 };

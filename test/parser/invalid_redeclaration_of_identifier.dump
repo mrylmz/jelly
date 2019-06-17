@@ -1,19 +1,20 @@
 ModuleDeclaration
-  @name = ''
-  FunctionDeclaration
-    @name = 'main'
-    ParameterDeclaration
-      @name = 'x'
-      OpaqueTypeRef
-        @name = 'Int'
-    ParameterDeclaration
-      @name = 'y'
-      OpaqueTypeRef
-        @name = 'Int'
-    OpaqueTypeRef
-      @name = 'Void'
-    BlockStatement
-      VariableDeclaration
+  SourceUnit
+    @filePath = 'invalid_redeclaration_of_identifier.jelly'
+    FunctionDeclaration
+      @name = 'main'
+      ParameterDeclaration
         @name = 'x'
-        OpaqueTypeRef
+        BuiltinType
           @name = 'Int'
+      ParameterDeclaration
+        @name = 'y'
+        BuiltinType
+          @name = 'Int'
+      BuiltinType
+        @name = 'Void'
+      Block
+        VariableDeclaration
+          @name = 'x'
+          BuiltinType
+            @name = 'Int'

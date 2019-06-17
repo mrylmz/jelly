@@ -1,13 +1,14 @@
 ModuleDeclaration
-  @name = ''
-  FunctionDeclaration
-    @name = 'main'
-    OpaqueTypeRef
-      @name = 'Void'
-    BlockStatement
-      MemberAccessExpression
-        @memberName = 'myOtherMember'
+  SourceUnit
+    @filePath = 'func_declaration_with_member_access_expression.jelly'
+    FunctionDeclaration
+      @name = 'main'
+      BuiltinType
+        @name = 'Void'
+      Block
         MemberAccessExpression
-          @memberName = 'myMember'
-          IdentifierExpression
-            @identifier = 'myStruct'
+          @memberName = 'myOtherMember'
+          MemberAccessExpression
+            @memberName = 'myMember'
+            IdentifierExpression
+              @identifier = 'myStruct'

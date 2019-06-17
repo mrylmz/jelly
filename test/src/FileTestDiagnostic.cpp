@@ -65,8 +65,21 @@ std::vector<FileTest> FileTest::ReadFromDirectory(std::string testDirectoryPath)
 
         if (name.rfind(".jelly") != std::string::npos) {
             std::string filePath = std::string(directoryPath).append(name);
+            std::string dumpRecordContent;
+            std::string dumpFilePath = filePath.substr(0, filePath.find_last_of('.')) + ".dump";
+            std::fstream dumpFile;
+            dumpFile.open(dumpFilePath, std::fstream::in);
+            bool hasDumpRecord = dumpFile.good();
+            if (hasDumpRecord) {
+                dumpRecordContent = std::string(std::istreambuf_iterator<Char>(dumpFile),
+                                                std::istreambuf_iterator<Char>());
+            }
 
-            FileTest test(FileTestDiagnosticContext(filePath), false);
+            if (dumpFile.is_open()) {
+                dumpFile.close();
+            }
+
+            FileTest test(FileTestDiagnosticContext(filePath), hasDumpRecord, filePath, name, dumpFilePath, dumpRecordContent);
             suit.push_back(test);
         }
     }
