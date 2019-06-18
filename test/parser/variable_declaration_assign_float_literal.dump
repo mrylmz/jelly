@@ -1,8 +1,9 @@
 ModuleDeclaration
-  @name = ''
-  VariableDeclaration
-    @name = 'myFloat'
-    OpaqueTypeRef
-      @name = 'Float'
-    FloatLiteral
-      @value = '3.140000'
+  SourceUnit
+    @filePath = 'variable_declaration_assign_float_literal.jelly'
+    VariableDeclaration
+      @name = 'myFloat'
+      BuiltinType
+        @name = 'Float'
+      FloatLiteral
+        @value = '3.140000'

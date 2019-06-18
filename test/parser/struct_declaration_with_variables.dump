@@ -1,0 +1,40 @@
+ModuleDeclaration
+  SourceUnit
+    @filePath = 'struct_declaration_with_variables.jelly'
+    StructureDeclaration
+      @name = 'MyStruct'
+      VariableDeclaration
+        @name = 'a'
+        PointerType
+          BuiltinType
+            @name = 'Void'
+        NilLiteral
+      VariableDeclaration
+        @name = 'b'
+        BuiltinType
+          @name = 'Bool'
+        BoolLiteral
+          @value = 'true'
+      VariableDeclaration
+        @name = 'c'
+        ArrayType
+          BuiltinType
+            @name = 'Int64'
+      VariableDeclaration
+        @name = 'd'
+        ArrayType
+          BuiltinType
+            @name = 'Float32'
+          IntLiteral
+            @value = '4'
+      VariableDeclaration
+        @name = 'e'
+        ArrayType
+          BuiltinType
+            @name = 'Float64'
+          BinaryExpression
+            @operator = '*'
+            IntLiteral
+              @value = '4'
+            IntLiteral
+              @value = '4'

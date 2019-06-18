@@ -255,174 +255,10 @@ static inline TokenKind _LexerLexNumericLiteral(LexerRef lexer) {
                     return TokenKindError;
                 }
 
-                // TODO: Assign intValue of token and check for overflows!
-                return TokenKindLiteralInt;
-            }
-
-            if (*lexer->state.cursor == '.') {
-                lexer->state.cursor += 1;
-                lexer->state.column += 1;
-
-                if (!_CharIsHexadecimalDigit(*lexer->state.cursor)) {
-                    _LexerSkipAnyLiteralTail(lexer);
-                    return TokenKindError;
-                }
-
-                while (lexer->state.cursor < lexer->bufferEnd && _CharIsHexadecimalDigit(*lexer->state.cursor)) {
-                    lexer->state.cursor += 1;
-                    lexer->state.column += 1;
-                }
-
-                // TODO: Assign floatValue of token and check for errors!
-            }
-
-            Bool sign = true;
-            if (*lexer->state.cursor == 'p' || *lexer->state.cursor == 'P') {
-                lexer->state.cursor += 1;
-                lexer->state.column += 1;
-
-                if (*lexer->state.cursor == '+') {
-                    lexer->state.cursor += 1;
-                    lexer->state.column += 1;
-                } else if (*lexer->state.cursor == '-') {
-                    lexer->state.cursor += 1;
-                    lexer->state.column += 1;
-                    sign = false;
-                }
-
-                if (!_CharIsHexadecimalDigit(*lexer->state.cursor)) {
-                    _LexerSkipAnyLiteralTail(lexer);
-                    return TokenKindError;
-                }
-
-                while (lexer->state.cursor < lexer->bufferEnd && _CharIsHexadecimalDigit(*lexer->state.cursor)) {
-                    lexer->state.cursor += 1;
-                    lexer->state.column += 1;
-                }
-
-                // TODO: Assign floatValue of token and check for errors!
-            }
-
-            if (_CharIsContinuationOfIdentifier(*lexer->state.cursor)) {
-                _LexerSkipAnyLiteralTail(lexer);
-                return TokenKindError;
-            }
-
-            // TODO: Assign floatValue of token and check for errors!
-            return TokenKindLiteralFloat;
-        }
-    }
-
-    while (lexer->state.cursor < lexer->bufferEnd && _CharIsDecimalDigit(*lexer->state.cursor)) {
-        lexer->state.cursor += 1;
-        lexer->state.column += 1;
-    }
-
-    if (*lexer->state.cursor != '.' && *lexer->state.cursor != 'e' && *lexer->state.cursor != 'E') {
-        if (_CharIsContinuationOfIdentifier(*lexer->state.cursor)) {
-            _LexerSkipAnyLiteralTail(lexer);
-            return TokenKindError;
-        }
-
-        location.end  = lexer->state.cursor;
-        UInt64 value  = 0;
-        Bool overflow = false;
-        for (const Char *cursor = location.start; cursor < location.end; cursor++) {
-            UInt64 oldValue = value;
-
-            value *= 10;
-            value += *cursor - '0';
-
-            if (value < oldValue) {
-                overflow = true;
-            }
-        }
-
-        if (overflow) {
-            ReportError("Integer literal overflows");
-        }
-
-        lexer->state.token.valueKind = TokenValueKindInt;
-        lexer->state.token.intValue  = value;
-        return TokenKindLiteralInt;
-    }
-
-    if (*lexer->state.cursor == '.') {
-        lexer->state.cursor += 1;
-        lexer->state.column += 1;
-
-        if (!_CharIsDecimalDigit(*lexer->state.cursor)) {
-            _LexerSkipAnyLiteralTail(lexer);
-            return TokenKindError;
-        }
-
-        while (lexer->state.cursor < lexer->bufferEnd && _CharIsDecimalDigit(*lexer->state.cursor)) {
-            lexer->state.cursor += 1;
-            lexer->state.column += 1;
-        }
-
-        // TODO: Assign floatValue of token and check for errors!
-    }
-
-    Bool sign = true;
-    if (*lexer->state.cursor == 'e' || *lexer->state.cursor == 'E') {
-        lexer->state.cursor += 1;
-        lexer->state.column += 1;
-
-        if (*lexer->state.cursor == '+') {
-            lexer->state.cursor += 1;
-            lexer->state.column += 1;
-        } else if (*lexer->state.cursor == '-') {
-            lexer->state.cursor += 1;
-            lexer->state.column += 1;
-            sign = false;
-        }
-
-        if (!_CharIsDecimalDigit(*lexer->state.cursor)) {
-            _LexerSkipAnyLiteralTail(lexer);
-            return TokenKindError;
-        }
-
-        while (lexer->state.cursor < lexer->bufferEnd && _CharIsDecimalDigit(*lexer->state.cursor)) {
-            lexer->state.cursor += 1;
-            lexer->state.column += 1;
-        }
-
-        // TODO: Assign floatValue of token and check for errors!
-    }
-
-    if (_CharIsContinuationOfIdentifier(*lexer->state.cursor)) {
-        _LexerSkipAnyLiteralTail(lexer);
-        return TokenKindError;
-    }
-
-    // TODO: Assign floatValue of token and check for errors!
-    return TokenKindLiteralFloat;
-
-    /*
-        if (*lexer->state.cursor == 'x' || *lexer->state.cursor == 'X') {
-            lexer->state.cursor += 1;
-            lexer->state.column += 1;
-
-            if (!_CharIsHexadecimalDigit(*lexer->state.cursor)) {
-                return TokenKindError;
-            }
-
-            while (lexer->state.cursor < lexer->bufferEnd && _CharIsHexadecimalDigit(*lexer->state.cursor)) {
-                lexer->state.cursor += 1;
-                lexer->state.column += 1;
-            }
-
-            Bool isInteger = !(*lexer->state.cursor == '.') || (*lexer->state.cursor == 'p') || (*lexer->state.cursor == 'P');
-            if (isInteger) {
-                if (_CharIsContinuationOfIdentifier(*lexer->state.cursor)) {
-                    return TokenKindError;
-                }
-
                 location.end              = lexer->state.cursor;
                 SourceRange valueLocation = {location.start + 2, location.end};
-
-                UInt64 value = 0;
+                UInt64 value              = 0;
+                Bool overflow             = false;
                 for (const Char *cursor = valueLocation.start; cursor < valueLocation.end; cursor++) {
                     UInt64 oldValue = value;
 
@@ -439,26 +275,36 @@ static inline TokenKind _LexerLexNumericLiteral(LexerRef lexer) {
                     }
 
                     if (value < oldValue) {
-                        return TokenKindError;
+                        overflow = true;
                     }
                 }
 
-                lexer->state.token.intValue = value;
+                if (overflow) {
+                    ReportError("Integer literal overflows");
+                }
+
+                lexer->state.token.valueKind = TokenValueKindInt;
+                lexer->state.token.intValue  = value;
                 return TokenKindLiteralInt;
             }
 
+            location.end                 = lexer->state.cursor;
             SourceRange headLocation     = {location.start + 2, lexer->state.cursor};
             SourceRange tailLocation     = SourceRangeNull();
             SourceRange exponentLocation = SourceRangeNull();
 
             if (*lexer->state.cursor == '.') {
+                lexer->state.cursor += 1;
+                lexer->state.column += 1;
+
                 tailLocation.start = lexer->state.cursor;
 
-                if (!_CharIsDecimalDigit(*lexer->state.cursor)) {
+                if (!_CharIsHexadecimalDigit(*lexer->state.cursor)) {
+                    _LexerSkipAnyLiteralTail(lexer);
                     return TokenKindError;
                 }
 
-                while (_CharIsDecimalDigit(*lexer->state.cursor)) {
+                while (lexer->state.cursor < lexer->bufferEnd && _CharIsHexadecimalDigit(*lexer->state.cursor)) {
                     lexer->state.cursor += 1;
                     lexer->state.column += 1;
                 }
@@ -467,31 +313,40 @@ static inline TokenKind _LexerLexNumericLiteral(LexerRef lexer) {
             }
 
             Bool isExponentPositive = true;
-            if (_ParserConsumeChar(parser, 'p') || _ParserConsumeChar(parser, 'P')) {
-                if (_ParserConsumeChar(parser, '-')) {
+            if (*lexer->state.cursor == 'p' || *lexer->state.cursor == 'P') {
+                lexer->state.cursor += 1;
+                lexer->state.column += 1;
+
+                if (*lexer->state.cursor == '+') {
+                    lexer->state.cursor += 1;
+                    lexer->state.column += 1;
+                } else if (*lexer->state.cursor == '-') {
+                    lexer->state.cursor += 1;
+                    lexer->state.column += 1;
                     isExponentPositive = false;
-                } else {
-                    _ParserConsumeChar(parser, '+');
                 }
 
-                exponentLocation.start = parser->cursor;
+                exponentLocation.start = lexer->state.cursor;
 
-                if (!_CharIsHexadecimalDigit(*parser->cursor)) {
-                    return NULL;
+                if (!_CharIsHexadecimalDigit(*lexer->state.cursor)) {
+                    _LexerSkipAnyLiteralTail(lexer);
+                    return TokenKindError;
                 }
 
-                while (_CharIsHexadecimalDigit(*parser->cursor)) {
-                    parser->cursor += 1;
+                while (lexer->state.cursor < lexer->bufferEnd && _CharIsHexadecimalDigit(*lexer->state.cursor)) {
+                    lexer->state.cursor += 1;
+                    lexer->state.column += 1;
                 }
 
-                exponentLocation.end = parser->cursor;
+                exponentLocation.end = lexer->state.cursor;
             }
 
-            if (_CharIsContinuationOfIdentifier(*parser->cursor)) {
-                return NULL;
+            if (_CharIsContinuationOfIdentifier(*lexer->state.cursor)) {
+                _LexerSkipAnyLiteralTail(lexer);
+                return TokenKindError;
             }
 
-            location.end = parser->cursor;
+            location.end = lexer->state.cursor;
 
             Float64 value = 0;
             for (const Char *cursor = headLocation.start; cursor < headLocation.end; cursor++) {
@@ -559,19 +414,26 @@ static inline TokenKind _LexerLexNumericLiteral(LexerRef lexer) {
                 }
             }
 
-            return ASTContextCreateConstantFloatExpression(parser->context, location, value);
+            lexer->state.token.valueKind  = TokenValueKindFloat;
+            lexer->state.token.floatValue = value;
+            return TokenKindLiteralFloat;
         }
     }
 
-    Bool isInteger = !(_ParserIsChar(parser, '.') || _ParserIsChar(parser, 'e') || _ParserIsChar(parser, 'E'));
-    if (isInteger) {
-        if (_CharIsContinuationOfIdentifier(*parser->cursor)) {
-            return NULL;
+    while (lexer->state.cursor < lexer->bufferEnd && _CharIsDecimalDigit(*lexer->state.cursor)) {
+        lexer->state.cursor += 1;
+        lexer->state.column += 1;
+    }
+
+    if (*lexer->state.cursor != '.' && *lexer->state.cursor != 'e' && *lexer->state.cursor != 'E') {
+        if (_CharIsContinuationOfIdentifier(*lexer->state.cursor)) {
+            _LexerSkipAnyLiteralTail(lexer);
+            return TokenKindError;
         }
 
-        location.end = parser->cursor;
-
-        UInt64 value = 0;
+        location.end  = lexer->state.cursor;
+        UInt64 value  = 0;
+        Bool overflow = false;
         for (const Char *cursor = location.start; cursor < location.end; cursor++) {
             UInt64 oldValue = value;
 
@@ -579,58 +441,77 @@ static inline TokenKind _LexerLexNumericLiteral(LexerRef lexer) {
             value += *cursor - '0';
 
             if (value < oldValue) {
-                ReportError("Integer overflow");
-                return NULL;
+                overflow = true;
             }
         }
 
-        return ASTContextCreateConstantIntExpression(parser->context, location, value);
+        if (overflow) {
+            ReportError("Integer literal overflows");
+        }
+
+        lexer->state.token.valueKind = TokenValueKindInt;
+        lexer->state.token.intValue  = value;
+        return TokenKindLiteralInt;
     }
 
-    SourceRange headLocation     = {location.start, parser->cursor};
+    SourceRange headLocation     = {location.start, lexer->state.cursor};
     SourceRange tailLocation     = SourceRangeNull();
     SourceRange exponentLocation = SourceRangeNull();
 
-    if (_ParserConsumeChar(parser, '.')) {
-        tailLocation.start = parser->cursor;
+    if (*lexer->state.cursor == '.') {
+        lexer->state.cursor += 1;
+        lexer->state.column += 1;
 
-        if (!_CharIsDecimalDigit(*parser->cursor)) {
-            return NULL;
+        tailLocation.start = lexer->state.cursor;
+
+        if (!_CharIsDecimalDigit(*lexer->state.cursor)) {
+            _LexerSkipAnyLiteralTail(lexer);
+            return TokenKindError;
         }
 
-        while (_CharIsDecimalDigit(*parser->cursor)) {
-            parser->cursor += 1;
+        while (lexer->state.cursor < lexer->bufferEnd && _CharIsDecimalDigit(*lexer->state.cursor)) {
+            lexer->state.cursor += 1;
+            lexer->state.column += 1;
         }
 
-        tailLocation.end = parser->cursor;
+        tailLocation.end = lexer->state.cursor;
     }
 
     Bool isExponentPositive = true;
-    if (_ParserConsumeChar(parser, 'e') || _ParserConsumeChar(parser, 'E')) {
-        if (_ParserConsumeChar(parser, '-')) {
+    if (*lexer->state.cursor == 'e' || *lexer->state.cursor == 'E') {
+        lexer->state.cursor += 1;
+        lexer->state.column += 1;
+
+        if (*lexer->state.cursor == '+') {
+            lexer->state.cursor += 1;
+            lexer->state.column += 1;
+        } else if (*lexer->state.cursor == '-') {
+            lexer->state.cursor += 1;
+            lexer->state.column += 1;
             isExponentPositive = false;
-        } else {
-            _ParserConsumeChar(parser, '+');
         }
 
-        exponentLocation.start = parser->cursor;
+        exponentLocation.start = lexer->state.cursor;
 
-        if (!_CharIsDecimalDigit(*parser->cursor)) {
-            return NULL;
+        if (!_CharIsDecimalDigit(*lexer->state.cursor)) {
+            _LexerSkipAnyLiteralTail(lexer);
+            return TokenKindError;
         }
 
-        while (_CharIsDecimalDigit(*parser->cursor)) {
-            parser->cursor += 1;
+        while (lexer->state.cursor < lexer->bufferEnd && _CharIsDecimalDigit(*lexer->state.cursor)) {
+            lexer->state.cursor += 1;
+            lexer->state.column += 1;
         }
 
-        exponentLocation.end = parser->cursor;
+        exponentLocation.end = lexer->state.cursor;
     }
 
-    if (_CharIsContinuationOfIdentifier(*parser->cursor)) {
-        return NULL;
+    if (_CharIsContinuationOfIdentifier(*lexer->state.cursor)) {
+        _LexerSkipAnyLiteralTail(lexer);
+        return TokenKindError;
     }
 
-    location.end = parser->cursor;
+    location.end = lexer->state.cursor;
 
     Float64 value = 0;
     for (const Char *cursor = headLocation.start; cursor < headLocation.end; cursor++) {
@@ -671,8 +552,9 @@ static inline TokenKind _LexerLexNumericLiteral(LexerRef lexer) {
         }
     }
 
-    return ASTContextCreateConstantFloatExpression(parser->context, location, value);
-    */
+    lexer->state.token.valueKind  = TokenValueKindFloat;
+    lexer->state.token.floatValue = value;
+    return TokenKindLiteralFloat;
 }
 
 static inline TokenKind _LexerLexDirective(LexerRef lexer) {
@@ -720,7 +602,7 @@ static inline TokenKind _LexerLexStringLiteral(LexerRef lexer) {
             lexer->state.column += 1;
 
             if (valid) {
-                range.end                      = lexer->state.cursor;
+                range.end = lexer->state.cursor;
                 return TokenKindLiteralString;
             }
 
@@ -851,7 +733,7 @@ static inline TokenKind _LexerLexIdentifierOrKeyword(LexerRef lexer) {
     } else if (SourceRangeIsEqual(range, "Float")) {
         kind = TokenKindKeywordFloat;
     } else {
-        kind                           = TokenKindIdentifier;
+        kind = TokenKindIdentifier;
     }
 
     return kind;

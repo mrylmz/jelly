@@ -86,12 +86,12 @@ TEST_P(ParserTest, run) {
         }
 
         if (test.hasDumpRecord) {
-            printf("[ RUN      ] %s\n", test.filePath.c_str());
+            printf("[ RUN      ] %s\n", test.relativeFilePath.c_str());
             EXPECT_STREQ(test.dumpRecordContent.c_str(), dumpBuffer);
         } else {
-            printf("[ REC      ] %s\n", test.filePath.c_str());
+            printf("[ REC      ] %s\n", test.relativeFilePath.c_str());
             WriteFileContent(test.dumpFilePath, dumpBuffer);
-            printf("[       OK ] %s\n", test.filePath.c_str());
+            printf("[       OK ] %s\n", test.relativeFilePath.c_str());
         }
     }
 }
