@@ -79,7 +79,7 @@ SymbolRef ScopeInsertSymbol(ScopeRef scope, StringRef name, SourceRange location
     }
 
     // @SortedSymbolInsertion
-    // @TODO For now we assume that all symbols are inserted in ascending location order
+    // TODO: For now we assume that all symbols are inserted in ascending location order
     //       but it could be possible that this will not always be the case so we should
     //       do a binary insert in asscending location order or sort the array after insertion
     SymbolRef symbol = ArrayAppendUninitializedElement(scope->symbols);

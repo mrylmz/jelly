@@ -9,7 +9,6 @@
 
 // TODO: Add missing scopes and add all declarations to scopes!
 // TODO: Write tests for correct scope creation and population!
-// TODO: Fix memory leaks!!!
 
 struct _Parser {
     AllocatorRef allocator;
@@ -59,8 +58,8 @@ ParserRef ParserCreate(AllocatorRef allocator, ASTContextRef context) {
     parser->allocator = allocator;
     // TODO: Replace tempAllocator with a pool allocator which resets after finishing a top level parse action.
     parser->tempAllocator = BumpAllocatorCreate(allocator);
-    parser->context   = context;
-    parser->lexer     = NULL;
+    parser->context       = context;
+    parser->lexer         = NULL;
     return parser;
 }
 
@@ -291,8 +290,6 @@ static inline ASTBlockRef _ParserParseBlock(ParserRef parser) {
         return NULL;
     }
 
-    // @TODO: Push block scope externally !
-    // @TODO: Add temporary pool allocator to parser, for now this will leak memory!
     ArrayRef statements = ArrayCreateEmpty(parser->tempAllocator, sizeof(ASTNodeRef), 8);
     while (!_ParserIsToken(parser, TokenKindRightCurlyBracket)) {
         SourceRange leadingTrivia = parser->token.leadingTrivia;
@@ -312,7 +309,7 @@ static inline ASTBlockRef _ParserParseBlock(ParserRef parser) {
         return NULL;
     }
 
-    location.end      = parser->token.location.start;
+    location.end = parser->token.location.start;
     return ASTContextCreateBlock(parser->context, location, statements);
 }
 
@@ -351,7 +348,6 @@ static inline ASTIfStatementRef _ParserParseIfStatement(ParserRef parser) {
                 return NULL;
             }
 
-            // @TODO: Add temporary pool allocator to parser, for now this will leak memory!
             ArrayRef statements = ArrayCreateEmpty(parser->tempAllocator, sizeof(ASTNodeRef), 1);
             ArrayAppendElement(statements, &ifStatement);
 
@@ -856,7 +852,7 @@ static inline ASTConstantExpressionRef _ParserParseConstantExpression(ParserRef 
         assert(parser->token.location.end - parser->token.location.start >= 2);
         StringRef value = StringCreateRange(parser->tempAllocator, parser->token.location.start + 1, parser->token.location.end - 1);
         _ParserConsumeToken(parser, TokenKindLiteralString);
-        location.end                        = parser->token.location.start;
+        location.end = parser->token.location.start;
         return ASTContextCreateConstantStringExpression(parser->context, location, value);
     }
 
@@ -918,7 +914,7 @@ static inline ASTEnumerationDeclarationRef _ParserParseEnumerationDeclaration(Pa
 
     SymbolTablePopScope(symbolTable);
 
-    location.end                             = parser->token.location.start;
+    location.end = parser->token.location.start;
     return ASTContextCreateEnumerationDeclaration(parser->context, location, name, elements);
 }
 
@@ -1207,7 +1203,6 @@ static inline ASTTypeRef _ParserParseType(ParserRef parser) {
     SourceRange location = parser->token.location;
     ASTTypeRef result    = NULL;
 
-    // TODO: Add support for source location of builtin type!
     if (_ParserConsumeToken(parser, TokenKindKeywordVoid)) {
         location.end = parser->token.location.start;
         result       = (ASTTypeRef)ASTContextGetBuiltinType(parser->context, ASTBuiltinTypeKindVoid);

@@ -3,7 +3,7 @@
 #include "JellyCore/BumpAllocator.h"
 #include "JellyCore/SymbolTable.h"
 
-// @Todo Add unified identifier storage
+// TODO: Add unified identifier storage
 
 struct _ASTContext {
     AllocatorRef allocator;

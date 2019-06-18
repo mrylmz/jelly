@@ -33,7 +33,7 @@ typedef size_t Index;
 #define JELLY_EXTERN_C_END
 #endif
 
-// @TODO Use cross compiler supported builtin unreachable to disable warnings!
+// TODO: Use cross compiler supported builtin unreachable to disable warnings!
 #ifndef JELLY_UNREACHABLE
 #define JELLY_UNREACHABLE(__MESSAGE__) assert(0 && __MESSAGE__)
 #endif
