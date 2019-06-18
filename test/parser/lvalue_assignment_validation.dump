@@ -1,98 +1,93 @@
 ModuleDeclaration
-  @name = ''
-  FunctionDeclaration
-    @name = 'zero'
-    OpaqueTypeRef
-      @name = 'Int'
-    BlockStatement
-      ReturnStatement
-        IntLiteral
-          @value = '0'
-  FunctionDeclaration
-    @name = 'lvalue_assignment_validation'
-    OpaqueTypeRef
-      @name = 'Void'
-    BlockStatement
-      VariableDeclaration
-        @name = 'x'
-        OpaqueTypeRef
-          @name = 'Int'
-        IntLiteral
-          @value = '0'
-      ConstantDeclaration
-        @name = 'y'
-        OpaqueTypeRef
-          @name = 'Int'
-        IntLiteral
-          @value = '0'
-      BinaryExpression
-        @operator = '='
-        NilLiteral
-        NilLiteral
-      BinaryExpression
-        @operator = '='
-        BoolLiteral
-          @value = 'true'
-        BoolLiteral
-          @value = 'false'
-      BinaryExpression
-        @operator = '='
-        BoolLiteral
-          @value = 'false'
-        BoolLiteral
-          @value = 'true'
-      BinaryExpression
-        @operator = '='
-        UnaryExpression
-          @operator = '!'
+  SourceUnit
+    @filePath = 'lvalue_assignment_validation.jelly'
+    FunctionDeclaration
+      @name = 'zero'
+      BuiltinType
+        @name = 'Int'
+      Block
+        ReturnStatement
+          IntLiteral
+            @value = '0'
+    FunctionDeclaration
+      @name = 'lvalue_assignment_validation'
+      BuiltinType
+        @name = 'Void'
+      Block
+        VariableDeclaration
+          @name = 'x'
+          BuiltinType
+            @name = 'Int'
+          IntLiteral
+            @value = '0'
+        BinaryExpression
+          @operator = '='
+          NilLiteral
+          NilLiteral
+        BinaryExpression
+          @operator = '='
           BoolLiteral
             @value = 'true'
-        BoolLiteral
-          @value = 'true'
-      BinaryExpression
-        @operator = '='
-        IntLiteral
-          @value = '123'
-        IntLiteral
-          @value = '456'
-      BinaryExpression
-        @operator = '='
-        FloatLiteral
-          @value = '1.000000'
-        FloatLiteral
-          @value = '2.000000'
-      BinaryExpression
-        @operator = '='
-        StringLiteral
-          @value = 'Hello'
-        StringLiteral
-          @value = 'World'
-      BinaryExpression
-        @operator = '='
+          BoolLiteral
+            @value = 'false'
         BinaryExpression
-          @operator = '*'
+          @operator = '='
+          BoolLiteral
+            @value = 'false'
+          BoolLiteral
+            @value = 'true'
+        BinaryExpression
+          @operator = '='
+          UnaryExpression
+            @operator = '!'
+            BoolLiteral
+              @value = 'true'
+          BoolLiteral
+            @value = 'true'
+        BinaryExpression
+          @operator = '='
           IntLiteral
-            @value = '1'
+            @value = '123'
           IntLiteral
-            @value = '1'
-        IntLiteral
-          @value = '2'
-      BinaryExpression
-        @operator = '='
-        CallExpression
+            @value = '456'
+        BinaryExpression
+          @operator = '='
+          FloatLiteral
+            @value = '1.000000'
+          FloatLiteral
+            @value = '2.000000'
+        BinaryExpression
+          @operator = '='
+          StringLiteral
+            @value = 'Hello'
+          StringLiteral
+            @value = 'World'
+        BinaryExpression
+          @operator = '='
+          BinaryExpression
+            @operator = '*'
+            IntLiteral
+              @value = '1'
+            IntLiteral
+              @value = '1'
+          IntLiteral
+            @value = '2'
+        BinaryExpression
+          @operator = '='
+          CallExpression
+            IdentifierExpression
+              @identifier = 'zero'
+          IntLiteral
+            @value = '3'
+        BinaryExpression
+          @operator = '='
           IdentifierExpression
-            @identifier = 'zero'
-        IntLiteral
-          @value = '3'
-      BinaryExpression
-        @operator = '='
-        IdentifierExpression
-          @identifier = 'x'
-        IntLiteral
-          @value = '10'
-      BinaryExpression
-        @operator = '='
-        IdentifierExpression
-          @identifier = 'y'
-        IntLiteral
-          @value = '10'
+            @identifier = 'x'
+          IntLiteral
+            @value = '10'
+        BinaryExpression
+          @operator = '='
+          IdentifierExpression
+            @identifier = 'y'
+          IntLiteral
+            @value = '10'
