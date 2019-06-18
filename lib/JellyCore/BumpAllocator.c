@@ -1,9 +1,10 @@
 #include "JellyCore/Allocator.h"
 
-const Index kBumpAllocatorPageCapacity = 65535;
+const Index kBumpAllocatorDefaultPageCapacity = 65535;
 
 struct _BumpAllocatorPage {
     struct _BumpAllocatorPage *next;
+    Index capacity;
     Index index;
     UInt8 *memory;
 };
@@ -25,15 +26,8 @@ void *_AllocatorBump(AllocatorMode mode, Index capacity, void *memory, void *con
 AllocatorRef BumpAllocatorCreate(AllocatorRef allocator) {
     struct _BumpAllocatorContext *context = AllocatorAllocate(allocator, sizeof(struct _BumpAllocatorContext));
     context->allocator                    = allocator;
-
-    Index pageCapacity              = sizeof(struct _BumpAllocatorPage) + sizeof(UInt8) * kBumpAllocatorPageCapacity;
-    struct _BumpAllocatorPage *page = AllocatorAllocate(allocator, pageCapacity);
-    page->next                      = NULL;
-    page->index                     = 0;
-    page->memory                    = (UInt8 *)page + sizeof(struct _BumpAllocatorPage);
-    context->firstPage              = page;
-    context->currentPage            = page;
-
+    context->firstPage                    = NULL;
+    context->currentPage                  = NULL;
     return AllocatorCreate(allocator, &_AllocatorBump, context);
 }
 
@@ -43,12 +37,30 @@ void *_AllocatorBump(AllocatorMode mode, Index capacity, void *memory, void *con
 
     switch (mode) {
     case AllocatorModeAllocate: {
-        // TODO: BumpAllocator will always fail allocation if user-code requests capacities higher than kBumpAllocatorPageCapacity!
-        assert(capacity <= kBumpAllocatorPageCapacity);
-        if (bumpContext->currentPage->index + capacity > kBumpAllocatorPageCapacity) {
-            Index pageCapacity              = sizeof(struct _BumpAllocatorPage) + sizeof(UInt8) * kBumpAllocatorPageCapacity;
+        if (bumpContext->firstPage == NULL) {
+            Index memoryCapacity = kBumpAllocatorDefaultPageCapacity;
+            while (capacity > memoryCapacity) {
+                memoryCapacity *= 2;
+            }
+
+            Index pageCapacity              = sizeof(struct _BumpAllocatorPage) + sizeof(UInt8) * memoryCapacity;
             struct _BumpAllocatorPage *page = AllocatorAllocate(bumpContext->allocator, pageCapacity);
             page->next                      = NULL;
+            page->capacity                  = memoryCapacity;
+            page->index                     = 0;
+            page->memory                    = (UInt8 *)page + sizeof(struct _BumpAllocatorPage);
+            bumpContext->firstPage          = page;
+            bumpContext->currentPage        = page;
+        } else if (bumpContext->currentPage->index + capacity > bumpContext->currentPage->capacity) {
+            Index memoryCapacity = kBumpAllocatorDefaultPageCapacity;
+            while (capacity > memoryCapacity) {
+                memoryCapacity *= 2;
+            }
+
+            Index pageCapacity              = sizeof(struct _BumpAllocatorPage) + sizeof(UInt8) * memoryCapacity;
+            struct _BumpAllocatorPage *page = AllocatorAllocate(bumpContext->allocator, pageCapacity);
+            page->next                      = NULL;
+            page->capacity                  = memoryCapacity;
             page->index                     = 0;
             page->memory                    = (UInt8 *)page + sizeof(struct _BumpAllocatorPage);
             bumpContext->currentPage->next  = page;
@@ -61,7 +73,9 @@ void *_AllocatorBump(AllocatorMode mode, Index capacity, void *memory, void *con
     }
 
     case AllocatorModeReallocate: {
+        assert(bumpContext->currentPage);
         void *newMemory = _AllocatorBump(AllocatorModeAllocate, capacity, NULL, context);
+        assert(newMemory);
         memcpy(newMemory, memory, capacity);
         return newMemory;
     }
