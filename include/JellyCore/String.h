@@ -14,6 +14,13 @@ StringRef StringCreateRange(AllocatorRef allocator, const Char *start, const Cha
 
 StringRef StringCreateCopy(AllocatorRef allocator, StringRef string);
 
+/// Searches the `string` for `character` and returns a copy of the `string` beginning at the last occurence of `character`.
+StringRef StringCreateCopyFromLastOccurenceOf(AllocatorRef allocator, StringRef string, Char character);
+
+/// Searches the `string` for `character` and returns a copy of the `string` up to the last occurence of `character`
+/// or if the `character` is not found then an empty string is returned.
+StringRef StringCreateCopyUntilLastOccurenceOf(AllocatorRef allocator, StringRef string, Char character);
+
 StringRef StringCreateEmpty(AllocatorRef allocator);
 
 StringRef StringCreateFromFile(AllocatorRef allocator, const Char *filePath);

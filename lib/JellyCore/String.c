@@ -41,6 +41,28 @@ StringRef StringCreateCopy(AllocatorRef allocator, StringRef string) {
     return copy;
 }
 
+StringRef StringCreateCopyFromLastOccurenceOf(AllocatorRef allocator, StringRef string, Char character) {
+    for (Index index = 0; index < StringGetLength(string); index++) {
+        const Char *current = &string->memory[string->length - index - 1];
+        if (*current == character) {
+            return StringCreateRange(allocator, current + 1, &string->memory[string->length]);
+        }
+    }
+
+    return StringCreateCopy(allocator, string);
+}
+
+StringRef StringCreateCopyUntilLastOccurenceOf(AllocatorRef allocator, StringRef string, Char character) {
+    for (Index index = 0; index < StringGetLength(string); index++) {
+        const Char *current = &string->memory[string->length - index - 1];
+        if (*current == character) {
+            return StringCreateRange(allocator, string->memory, current);
+        }
+    }
+
+    return StringCreateEmpty(allocator);
+}
+
 StringRef StringCreateEmpty(AllocatorRef allocator) {
     StringRef string = AllocatorAllocate(allocator, sizeof(struct _String));
     assert(string);
