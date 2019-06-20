@@ -10,6 +10,7 @@ JELLY_EXTERN_C_BEGIN
 
 enum _ASTTag {
     ASTTagSourceUnit,
+    ASTTagLinkedList,
     ASTTagLoadDirective,
     ASTTagBlock,
     ASTTagIfStatement,
@@ -53,6 +54,7 @@ typedef struct _ASTNode *ASTDeclarationRef;
 typedef struct _ASTNode *ASTTypeRef;
 
 typedef struct _ASTSourceUnit *ASTSourceUnitRef;
+typedef struct _ASTLinkedList *ASTLinkedListRef;
 typedef struct _ASTLoadDirective *ASTLoadDirectiveRef;
 typedef struct _ASTBlock *ASTBlockRef;
 typedef struct _ASTIfStatement *ASTIfStatementRef;
@@ -82,11 +84,18 @@ struct _ASTNode {
     SourceRange location;
 };
 
+struct _ASTLinkedList {
+    struct _ASTNode base;
+
+    ASTNodeRef node;
+    ASTLinkedListRef next;
+};
+
 struct _ASTSourceUnit {
     struct _ASTNode base;
 
     StringRef filePath;
-    ArrayRef declarations;
+    ASTLinkedListRef declarations;
 };
 
 struct _ASTLoadDirective {
@@ -98,7 +107,7 @@ struct _ASTLoadDirective {
 struct _ASTBlock {
     struct _ASTNode base;
 
-    ArrayRef statements;
+    ASTLinkedListRef statements;
 };
 
 struct _ASTIfStatement {
@@ -141,7 +150,7 @@ struct _ASTSwitchStatement {
     struct _ASTNode base;
 
     ASTExpressionRef argument;
-    ArrayRef cases;
+    ASTLinkedListRef cases;
 };
 
 enum _ASTControlKind {
@@ -242,7 +251,7 @@ struct _ASTCallExpression {
     struct _ASTNode base;
 
     ASTExpressionRef callee;
-    ArrayRef arguments;
+    ASTLinkedListRef arguments;
 };
 
 enum _ASTConstantKind {
@@ -269,22 +278,22 @@ struct _ASTConstantExpression {
 struct _ASTModuleDeclaration {
     struct _ASTNode base;
 
-    ArrayRef sourceUnits;
-    ArrayRef importedModules;
+    ASTLinkedListRef sourceUnits;
+    ASTLinkedListRef importedModules;
 };
 
 struct _ASTEnumerationDeclaration {
     struct _ASTNode base;
 
     StringRef name;
-    ArrayRef elements;
+    ASTLinkedListRef elements;
 };
 
 struct _ASTFunctionDeclaration {
     struct _ASTNode base;
 
     StringRef name;
-    ArrayRef parameters;
+    ASTLinkedListRef parameters;
     ASTTypeRef returnType;
     ASTBlockRef body;
 };
@@ -293,7 +302,7 @@ struct _ASTStructureDeclaration {
     struct _ASTNode base;
 
     StringRef name;
-    ArrayRef values;
+    ASTLinkedListRef values;
 };
 
 struct _ASTOpaqueDeclaration {

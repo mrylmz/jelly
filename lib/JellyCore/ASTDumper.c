@@ -17,7 +17,7 @@ static inline void _ASTDumperPrintBuiltinTypeKind(ASTDumperRef dumper, ASTBuilti
 static inline void _ASTDumperPrintPrefixOperator(ASTDumperRef dumper, ASTUnaryOperator op);
 static inline void _ASTDumperPrintInfixOperator(ASTDumperRef dumper, ASTBinaryOperator op);
 static inline void _ASTDumperDumpChild(ASTDumperRef dumper, ASTNodeRef child);
-static inline void _ASTDumperDumpChildren(ASTDumperRef dumper, ArrayRef array);
+static inline void _ASTDumperDumpChildren(ASTDumperRef dumper, ASTLinkedListRef list);
 
 ASTDumperRef ASTDumperCreate(AllocatorRef allocator, FILE *target) {
     ASTDumperRef dumper = (ASTDumperRef)AllocatorAllocate(allocator, sizeof(struct _ASTDumper));
@@ -568,9 +568,10 @@ static inline void _ASTDumperDumpChild(ASTDumperRef dumper, ASTNodeRef child) {
     dumper->indentation -= 1;
 }
 
-static inline void _ASTDumperDumpChildren(ASTDumperRef dumper, ArrayRef array) {
-    for (Index index = 0; index < ArrayGetElementCount(array); index++) {
-        ASTNodeRef child = *((ASTNodeRef *)ArrayGetElementAtIndex(array, index));
-        _ASTDumperDumpChild(dumper, child);
+static inline void _ASTDumperDumpChildren(ASTDumperRef dumper, ASTLinkedListRef list) {
+    ASTLinkedListRef next = list;
+    while (next) {
+        _ASTDumperDumpChild(dumper, next->node);
+        next = next->next;
     }
 }

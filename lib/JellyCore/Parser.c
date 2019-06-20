@@ -96,7 +96,7 @@ ASTSourceUnitRef ParserParseSourceUnit(ParserRef parser, StringRef filePath, Str
 
     location.end                = parser->token.location.start;
     ASTSourceUnitRef sourceUnit = ASTContextCreateSourceUnit(parser->context, location, filePath, declarations);
-    ArrayAppendElement(module->sourceUnits, &sourceUnit);
+    ASTModuleAddSourceUnit(parser->context, module, sourceUnit);
     return sourceUnit;
 }
 

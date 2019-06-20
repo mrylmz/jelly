@@ -18,6 +18,8 @@ SymbolTableRef ASTContextGetSymbolTable(ASTContextRef context);
 
 ASTModuleDeclarationRef ASTContextGetModule(ASTContextRef context);
 
+void ASTModuleAddSourceUnit(ASTContextRef context, ASTModuleDeclarationRef module, ASTSourceUnitRef sourceUnit);
+
 ASTSourceUnitRef ASTContextCreateSourceUnit(ASTContextRef context, SourceRange location, StringRef filePath, ArrayRef declarations);
 
 ASTLoadDirectiveRef ASTContextCreateLoadDirective(ASTContextRef context, SourceRange location, ASTConstantExpressionRef filePath);

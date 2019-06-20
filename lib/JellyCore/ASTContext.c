@@ -23,6 +23,7 @@ ASTContextRef ASTContextCreate(AllocatorRef allocator) {
     context->allocator         = bumpAllocator;
     // TODO: @Bug Reallocation of dynamic arrays causes invalidation of all pointers do not store the source of truth in arrays!
     //            We can just allocate nodes dynamically without holding a reference to them because the BumpAllocator will be freed once...
+    context->nodes[ASTTagLinkedList]             = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTLinkedList), 1024);
     context->nodes[ASTTagSourceUnit]             = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTSourceUnit), 1024);
     context->nodes[ASTTagLoadDirective]          = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTLoadDirective), 1024);
     context->nodes[ASTTagBlock]                  = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTBlock), 1024);
@@ -65,13 +66,44 @@ ASTModuleDeclarationRef ASTContextGetModule(ASTContextRef context) {
     return context->module;
 }
 
+void ASTModuleAddSourceUnit(ASTContextRef context, ASTModuleDeclarationRef module, ASTSourceUnitRef sourceUnit) {
+    if (!module->sourceUnits) {
+        module->sourceUnits       = (ASTLinkedListRef)_ASTContextCreateNode(context, ASTTagLinkedList, SourceRangeNull());
+        module->sourceUnits->node = (ASTNodeRef)sourceUnit;
+        module->sourceUnits->next = NULL;
+        return;
+    }
+
+    ASTLinkedListRef list = module->sourceUnits;
+    while (list->next) {
+        list = list->next;
+    }
+
+    list->next       = (ASTLinkedListRef)_ASTContextCreateNode(context, ASTTagLinkedList, SourceRangeNull());
+    list->next->node = (ASTNodeRef)sourceUnit;
+    list->next->next = NULL;
+}
+
 ASTSourceUnitRef ASTContextCreateSourceUnit(ASTContextRef context, SourceRange location, StringRef filePath, ArrayRef declarations) {
     assert(filePath);
 
     ASTSourceUnitRef node = (ASTSourceUnitRef)_ASTContextCreateNode(context, ASTTagSourceUnit, location);
     node->filePath        = StringCreateCopy(context->allocator, filePath);
-    node->declarations    = declarations ? ArrayCreateCopy(context->allocator, declarations)
-                                      : ArrayCreateEmpty(context->allocator, sizeof(ASTNodeRef), 8);
+    node->declarations    = NULL;
+    if (declarations && ArrayGetElementCount(declarations) > 0) {
+        node->declarations       = (ASTLinkedListRef)_ASTContextCreateNode(context, ASTTagLinkedList, SourceRangeNull());
+        node->declarations->node = *((ASTNodeRef *)ArrayGetElementAtIndex(declarations, 0));
+        node->declarations->next = NULL;
+
+        ASTLinkedListRef current = node->declarations;
+        for (Index index = 1; index < ArrayGetElementCount(declarations); index++) {
+            current->next       = (ASTLinkedListRef)_ASTContextCreateNode(context, ASTTagLinkedList, SourceRangeNull());
+            current->next->node = *((ASTNodeRef *)ArrayGetElementAtIndex(declarations, index));
+            current->next->next = NULL;
+            current             = current->next;
+        }
+    }
+
     return node;
 }
 
@@ -85,8 +117,20 @@ ASTLoadDirectiveRef ASTContextCreateLoadDirective(ASTContextRef context, SourceR
 
 ASTBlockRef ASTContextCreateBlock(ASTContextRef context, SourceRange location, ArrayRef statements) {
     ASTBlockRef node = (ASTBlockRef)_ASTContextCreateNode(context, ASTTagBlock, location);
-    node->statements = statements ? ArrayCreateCopy(context->allocator, statements)
-                                  : ArrayCreateEmpty(context->allocator, sizeof(ASTNodeRef), 8);
+    node->statements = NULL;
+    if (statements && ArrayGetElementCount(statements) > 0) {
+        node->statements       = (ASTLinkedListRef)_ASTContextCreateNode(context, ASTTagLinkedList, SourceRangeNull());
+        node->statements->node = *((ASTNodeRef *)ArrayGetElementAtIndex(statements, 0));
+        node->statements->next = NULL;
+
+        ASTLinkedListRef current = node->statements;
+        for (Index index = 1; index < ArrayGetElementCount(statements); index++) {
+            current->next       = (ASTLinkedListRef)_ASTContextCreateNode(context, ASTTagLinkedList, SourceRangeNull());
+            current->next->node = *((ASTNodeRef *)ArrayGetElementAtIndex(statements, index));
+            current->next->next = NULL;
+            current             = current->next;
+        }
+    }
     return node;
 }
 
@@ -129,7 +173,20 @@ ASTSwitchStatementRef ASTContextCreateSwitchStatement(ASTContextRef context, Sou
 
     ASTSwitchStatementRef node = (ASTSwitchStatementRef)_ASTContextCreateNode(context, ASTTagSwitchStatement, location);
     node->argument             = argument;
-    node->cases = cases ? ArrayCreateCopy(context->allocator, cases) : ArrayCreateEmpty(context->allocator, sizeof(ASTNodeRef), 8);
+    node->cases                = NULL;
+    if (cases && ArrayGetElementCount(cases) > 0) {
+        node->cases       = (ASTLinkedListRef)_ASTContextCreateNode(context, ASTTagLinkedList, SourceRangeNull());
+        node->cases->node = *((ASTNodeRef *)ArrayGetElementAtIndex(cases, 0));
+        node->cases->next = NULL;
+
+        ASTLinkedListRef current = node->cases;
+        for (Index index = 1; index < ArrayGetElementCount(cases); index++) {
+            current->next       = (ASTLinkedListRef)_ASTContextCreateNode(context, ASTTagLinkedList, SourceRangeNull());
+            current->next->node = *((ASTNodeRef *)ArrayGetElementAtIndex(cases, index));
+            current->next->next = NULL;
+            current             = current->next;
+        }
+    }
     return node;
 }
 
@@ -187,8 +244,20 @@ ASTCallExpressionRef ASTContextCreateCallExpression(ASTContextRef context, Sourc
 
     ASTCallExpressionRef node = (ASTCallExpressionRef)_ASTContextCreateNode(context, ASTTagCallExpression, location);
     node->callee              = callee;
-    node->arguments           = arguments ? ArrayCreateCopy(context->allocator, arguments)
-                                : ArrayCreateEmpty(context->allocator, sizeof(ASTNodeRef), 8);
+    node->arguments           = NULL;
+    if (arguments && ArrayGetElementCount(arguments) > 0) {
+        node->arguments       = (ASTLinkedListRef)_ASTContextCreateNode(context, ASTTagLinkedList, SourceRangeNull());
+        node->arguments->node = *((ASTNodeRef *)ArrayGetElementAtIndex(arguments, 0));
+        node->arguments->next = NULL;
+
+        ASTLinkedListRef current = node->arguments;
+        for (Index index = 1; index < ArrayGetElementCount(arguments); index++) {
+            current->next       = (ASTLinkedListRef)_ASTContextCreateNode(context, ASTTagLinkedList, SourceRangeNull());
+            current->next->node = *((ASTNodeRef *)ArrayGetElementAtIndex(arguments, index));
+            current->next->next = NULL;
+            current             = current->next;
+        }
+    }
     return node;
 }
 
@@ -231,10 +300,36 @@ ASTConstantExpressionRef ASTContextCreateConstantStringExpression(ASTContextRef 
 ASTModuleDeclarationRef ASTContextCreateModuleDeclaration(ASTContextRef context, SourceRange location, ArrayRef sourceUnits,
                                                           ArrayRef importedModules) {
     ASTModuleDeclarationRef node = (ASTModuleDeclarationRef)_ASTContextCreateNode(context, ASTTagModuleDeclaration, location);
-    node->sourceUnits            = sourceUnits ? ArrayCreateCopy(context->allocator, sourceUnits)
-                                    : ArrayCreateEmpty(context->allocator, sizeof(ASTNodeRef), 8);
-    node->importedModules = importedModules ? ArrayCreateCopy(context->allocator, importedModules)
-                                            : ArrayCreateEmpty(context->allocator, sizeof(ASTNodeRef), 8);
+    node->sourceUnits            = NULL;
+    if (sourceUnits && ArrayGetElementCount(sourceUnits) > 0) {
+        node->sourceUnits       = (ASTLinkedListRef)_ASTContextCreateNode(context, ASTTagLinkedList, SourceRangeNull());
+        node->sourceUnits->node = *((ASTNodeRef *)ArrayGetElementAtIndex(sourceUnits, 0));
+        node->sourceUnits->next = NULL;
+
+        ASTLinkedListRef current = node->sourceUnits;
+        for (Index index = 1; index < ArrayGetElementCount(sourceUnits); index++) {
+            current->next       = (ASTLinkedListRef)_ASTContextCreateNode(context, ASTTagLinkedList, SourceRangeNull());
+            current->next->node = *((ASTNodeRef *)ArrayGetElementAtIndex(sourceUnits, index));
+            current->next->next = NULL;
+            current             = current->next;
+        }
+    }
+
+    node->importedModules = NULL;
+    if (importedModules && ArrayGetElementCount(importedModules) > 0) {
+        node->importedModules       = (ASTLinkedListRef)_ASTContextCreateNode(context, ASTTagLinkedList, SourceRangeNull());
+        node->importedModules->node = *((ASTNodeRef *)ArrayGetElementAtIndex(importedModules, 0));
+        node->importedModules->next = NULL;
+
+        ASTLinkedListRef current = node->importedModules;
+        for (Index index = 1; index < ArrayGetElementCount(importedModules); index++) {
+            current->next       = (ASTLinkedListRef)_ASTContextCreateNode(context, ASTTagLinkedList, SourceRangeNull());
+            current->next->node = *((ASTNodeRef *)ArrayGetElementAtIndex(importedModules, index));
+            current->next->next = NULL;
+            current             = current->next;
+        }
+    }
+
     return node;
 }
 
@@ -245,7 +340,21 @@ ASTEnumerationDeclarationRef ASTContextCreateEnumerationDeclaration(ASTContextRe
     ASTEnumerationDeclarationRef node = (ASTEnumerationDeclarationRef)_ASTContextCreateNode(context, ASTTagEnumerationDeclaration,
                                                                                             location);
     node->name                        = StringCreateCopy(context->allocator, name);
-    node->elements = elements ? ArrayCreateCopy(context->allocator, elements) : ArrayCreateEmpty(context->allocator, sizeof(ASTNodeRef), 8);
+    node->elements                    = NULL;
+    if (elements && ArrayGetElementCount(elements) > 0) {
+        node->elements       = (ASTLinkedListRef)_ASTContextCreateNode(context, ASTTagLinkedList, SourceRangeNull());
+        node->elements->node = *((ASTNodeRef *)ArrayGetElementAtIndex(elements, 0));
+        node->elements->next = NULL;
+
+        ASTLinkedListRef current = node->elements;
+        for (Index index = 1; index < ArrayGetElementCount(elements); index++) {
+            current->next       = (ASTLinkedListRef)_ASTContextCreateNode(context, ASTTagLinkedList, SourceRangeNull());
+            current->next->node = *((ASTNodeRef *)ArrayGetElementAtIndex(elements, index));
+            current->next->next = NULL;
+            current             = current->next;
+        }
+    }
+
     return node;
 }
 
@@ -255,8 +364,21 @@ ASTFunctionDeclarationRef ASTContextCreateFunctionDeclaration(ASTContextRef cont
 
     ASTFunctionDeclarationRef node = (ASTFunctionDeclarationRef)_ASTContextCreateNode(context, ASTTagFunctionDeclaration, location);
     node->name                     = StringCreateCopy(context->allocator, name);
-    node->parameters               = parameters ? ArrayCreateCopy(context->allocator, parameters)
-                                  : ArrayCreateEmpty(context->allocator, sizeof(ASTNodeRef), 8);
+    node->parameters               = NULL;
+    if (parameters && ArrayGetElementCount(parameters) > 0) {
+        node->parameters       = (ASTLinkedListRef)_ASTContextCreateNode(context, ASTTagLinkedList, SourceRangeNull());
+        node->parameters->node = *((ASTNodeRef *)ArrayGetElementAtIndex(parameters, 0));
+        node->parameters->next = NULL;
+
+        ASTLinkedListRef current = node->parameters;
+        for (Index index = 1; index < ArrayGetElementCount(parameters); index++) {
+            current->next       = (ASTLinkedListRef)_ASTContextCreateNode(context, ASTTagLinkedList, SourceRangeNull());
+            current->next->node = *((ASTNodeRef *)ArrayGetElementAtIndex(parameters, index));
+            current->next->next = NULL;
+            current             = current->next;
+        }
+    }
+
     node->returnType = returnType;
     node->body       = body;
     return node;
@@ -268,7 +390,21 @@ ASTStructureDeclarationRef ASTContextCreateStructureDeclaration(ASTContextRef co
 
     ASTStructureDeclarationRef node = (ASTStructureDeclarationRef)_ASTContextCreateNode(context, ASTTagStructureDeclaration, location);
     node->name                      = StringCreateCopy(context->allocator, name);
-    node->values = values ? ArrayCreateCopy(context->allocator, values) : ArrayCreateEmpty(context->allocator, sizeof(ASTNodeRef), 8);
+    node->values                    = NULL;
+    if (values && ArrayGetElementCount(values) > 0) {
+        node->values       = (ASTLinkedListRef)_ASTContextCreateNode(context, ASTTagLinkedList, SourceRangeNull());
+        node->values->node = *((ASTNodeRef *)ArrayGetElementAtIndex(values, 0));
+        node->values->next = NULL;
+
+        ASTLinkedListRef current = node->values;
+        for (Index index = 1; index < ArrayGetElementCount(values); index++) {
+            current->next       = (ASTLinkedListRef)_ASTContextCreateNode(context, ASTTagLinkedList, SourceRangeNull());
+            current->next->node = *((ASTNodeRef *)ArrayGetElementAtIndex(values, index));
+            current->next->next = NULL;
+            current             = current->next;
+        }
+    }
+
     return node;
 }
 
