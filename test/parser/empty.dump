@@ -1,0 +1,3 @@
+ModuleDeclaration
+  SourceUnit
+    @filePath = 'empty.jelly'

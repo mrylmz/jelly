@@ -1,0 +1,2 @@
+#load "empty.jelly"
+#load "empty.jelly" // expect-error: Cannot load same source file twice

@@ -1,0 +1,9 @@
+ModuleDeclaration
+  SourceUnit
+    @filePath = 'unexpected_load_same_file_twice.jelly'
+    LoadDirective
+      @sourceFilePath = 'empty.jelly'
+    LoadDirective
+      @sourceFilePath = 'empty.jelly'
+  SourceUnit
+    @filePath = 'empty.jelly'

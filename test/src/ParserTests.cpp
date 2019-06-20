@@ -60,20 +60,21 @@ TEST_P(ParserTest, run) {
         assert(dumpStream);
 
         AllocatorRef allocator = AllocatorGetSystemDefault();
-        ASTContextRef context = ASTContextCreate(allocator);
+        StringRef absoluteFilePath = StringCreate(allocator, test.context.filePath.c_str());
+        StringRef workingDirectory = StringCreateCopyUntilLastOccurenceOf(allocator, absoluteFilePath, '/');
+        StringRef filePath = StringCreateCopyFromLastOccurenceOf(allocator, absoluteFilePath, '/');
         ASTDumperRef dumper = ASTDumperCreate(allocator, dumpStream);
-        ParserRef parser = ParserCreate(allocator, context);
-        StringRef filePath = StringCreate(allocator, test.context.filePath.c_str());
-        StringRef relativeFilePath = StringCreate(allocator, test.relativeFilePath.c_str());
-        StringRef source = StringCreateFromFile(allocator, StringGetCharacters(filePath));
-        ParserParseSourceUnit(parser, relativeFilePath, source);
+        WorkspaceRef workspace = WorkspaceCreate(allocator, workingDirectory);
+        ASTContextRef context = WorkspaceGetContext(workspace);
+        WorkspaceAddSourceFile(workspace, filePath);
+        WorkspaceStartAsync(workspace);
+        WorkspaceWaitForFinish(workspace);
         ASTDumperDump(dumper, (ASTNodeRef)ASTContextGetModule(context));
-        StringDestroy(source);
-        StringDestroy(relativeFilePath);
-        StringDestroy(filePath);
-        ParserDestroy(parser);
+        WorkspaceDestroy(workspace);
         ASTDumperDestroy(dumper);
-        ASTContextDestroy(context);
+        StringDestroy(workingDirectory);
+        StringDestroy(filePath);
+        StringDestroy(absoluteFilePath);
 
         fclose(dumpStream);
 
