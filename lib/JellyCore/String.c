@@ -113,7 +113,7 @@ void StringAppendString(StringRef string, StringRef other) {
     }
 }
 
-bool StringIsEqual(StringRef lhs, StringRef rhs) {
+Bool StringIsEqual(StringRef lhs, StringRef rhs) {
     if (lhs->length != rhs->length) {
         return false;
     }

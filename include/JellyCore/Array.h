@@ -8,7 +8,7 @@ JELLY_EXTERN_C_BEGIN
 
 typedef struct _Array *ArrayRef;
 
-typedef bool (*ArrayPredicate)(const void *elementLeft, const void *elementRight);
+typedef Bool (*ArrayPredicate)(const void *elementLeft, const void *elementRight);
 
 ArrayRef ArrayCreate(AllocatorRef allocator, Index elementSize, const void *elements, Index elementCount);
 
