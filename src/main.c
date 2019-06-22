@@ -1,5 +1,18 @@
 #include <JellyCore/JellyCore.h>
 
-int main(int argc, char** argv) {
-    return 0;
+int main(int argc, char **argv) {
+    ArrayRef arguments = ArrayCreateEmpty(AllocatorGetSystemDefault(), sizeof(StringRef), argc);
+    for (Index index = 0; index < argc; index++) {
+        StringRef argument = StringCreate(AllocatorGetSystemDefault(), argv[index]);
+        ArrayAppendElement(arguments, &argument);
+    }
+
+    Int status = CompilerRun(arguments);
+
+    for (Index index = 0; index < ArrayGetElementCount(arguments); index++) {
+        StringDestroy(*((StringRef *)ArrayGetElementAtIndex(arguments, index)));
+    }
+
+    ArrayDestroy(arguments);
+    return status;
 }

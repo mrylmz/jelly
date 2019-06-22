@@ -5,6 +5,7 @@
 
 #include <pthread.h>
 
+// TODO: Add configuration for ast dump command...
 // TODO: Fix memory leaks ...
 
 struct _Workspace {

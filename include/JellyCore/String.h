@@ -29,7 +29,7 @@ void StringDestroy(StringRef string);
 
 Index StringGetLength(StringRef string);
 
-const Char *StringGetCharacters(StringRef string);
+Char *StringGetCharacters(StringRef string);
 
 void StringAppend(StringRef string, const Char *rawString);
 

@@ -7,6 +7,7 @@
 #include <JellyCore/Allocator.h>
 #include <JellyCore/Array.h>
 #include <JellyCore/BumpAllocator.h>
+#include <JellyCore/Compiler.h>
 #include <JellyCore/Diagnostic.h>
 #include <JellyCore/Lexer.h>
 #include <JellyCore/NameResolver.h>

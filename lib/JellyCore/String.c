@@ -106,7 +106,7 @@ Index StringGetLength(StringRef string) {
     return string->length;
 }
 
-const Char *StringGetCharacters(StringRef string) {
+Char *StringGetCharacters(StringRef string) {
     return string->memory;
 }
 

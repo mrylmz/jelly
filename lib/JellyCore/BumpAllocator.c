@@ -1,4 +1,4 @@
-#include "JellyCore/Allocator.h"
+#include "JellyCore/BumpAllocator.h"
 
 const Index kBumpAllocatorDefaultPageCapacity = 65535;
 

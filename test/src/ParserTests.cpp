@@ -7,6 +7,15 @@
 
 #include "FileTestDiagnostic.h"
 
+static inline std::string ReadFileContent(std::string filePath) {
+    std::fstream file;
+    file.open(filePath, std::fstream::in);
+    assert(file.is_open());
+    std::string fileContent = std::string(std::istreambuf_iterator<Char>(file), std::istreambuf_iterator<Char>());
+    file.close();
+    return fileContent;
+}
+
 static inline void WriteFileContent(std::string filePath, std::string content) {
     std::fstream file;
     file.open(filePath, std::fstream::out);
@@ -31,29 +40,34 @@ TEST_P(ParserTest, run) {
     } else {
         DiagnosticEngineSetDefaultHandler(&FileTestDiagnosticHandler, &test.context);
 
-        Char dumpBuffer[65535];
-        FILE *dumpStream = fmemopen(dumpBuffer, sizeof(dumpBuffer) / sizeof(Char), "w");
-        assert(dumpStream);
+        const Char *dumpFileName = "temp.dump";
+        remove(dumpFileName);
 
-        AllocatorRef allocator = AllocatorGetSystemDefault();
-        StringRef absoluteFilePath = StringCreate(allocator, test.context.filePath.c_str());
-        StringRef workingDirectory = StringCreateCopyUntilLastOccurenceOf(allocator, absoluteFilePath, '/');
-        StringRef filePath = StringCreateCopyFromLastOccurenceOf(allocator, absoluteFilePath, '/');
-        ASTDumperRef dumper = ASTDumperCreate(allocator, dumpStream);
-        WorkspaceRef workspace = WorkspaceCreate(allocator, workingDirectory);
-        ASTContextRef context = WorkspaceGetContext(workspace);
-        WorkspaceAddSourceFile(workspace, filePath);
-        WorkspaceStartAsync(workspace);
-        WorkspaceWaitForFinish(workspace);
-        ASTDumperDump(dumper, (ASTNodeRef)ASTContextGetModule(context));
-        WorkspaceDestroy(workspace);
-        ASTDumperDestroy(dumper);
-        StringDestroy(workingDirectory);
-        StringDestroy(filePath);
-        StringDestroy(absoluteFilePath);
+        StringRef absoluteFilePath = StringCreate(AllocatorGetSystemDefault(), test.context.filePath.c_str());
+        StringRef workingDirectory = StringCreateCopyUntilLastOccurenceOf(AllocatorGetSystemDefault(), absoluteFilePath, '/');
 
-        fclose(dumpStream);
+        StringRef executable = StringCreate(AllocatorGetSystemDefault(), "jelly");
+        StringRef filePath = StringCreateCopyFromLastOccurenceOf(AllocatorGetSystemDefault(), absoluteFilePath, '/');
+        StringRef argumentDumpAST = StringCreate(AllocatorGetSystemDefault(), "-dump-ast=");
+        StringAppend(argumentDumpAST, dumpFileName);
+        StringRef workingDirectoryArgument = StringCreate(AllocatorGetSystemDefault(), "-working-directory=");
+        StringAppendString(workingDirectoryArgument, workingDirectory);
 
+        ArrayRef arguments = ArrayCreateEmpty(AllocatorGetSystemDefault(), sizeof(StringRef), 4);
+        ArrayAppendElement(arguments, &executable);
+        ArrayAppendElement(arguments, &filePath);
+        ArrayAppendElement(arguments, &argumentDumpAST);
+        ArrayAppendElement(arguments, &workingDirectoryArgument);
+
+        CompilerRun(arguments);
+
+        for (Index index = 0; index < ArrayGetElementCount(arguments); index++) {
+            StringDestroy(*((StringRef*)ArrayGetElementAtIndex(arguments, index)));
+        }
+
+        ArrayDestroy(arguments);
+
+        std::string dumpContent = ReadFileContent(dumpFileName);
         if (test.context.index < test.context.records.size()) {
             for (auto index = test.context.index; index < test.context.records.size(); index++) {
                 printf("[ EXPECTED ] %s\n", test.context.records[index].message.c_str());
@@ -64,10 +78,10 @@ TEST_P(ParserTest, run) {
 
         if (test.hasDumpRecord) {
             printf("[ RUN      ] %s\n", test.relativeFilePath.c_str());
-            EXPECT_STREQ(test.dumpRecordContent.c_str(), dumpBuffer);
+            EXPECT_STREQ(test.dumpRecordContent.c_str(), dumpContent.c_str());
         } else {
             printf("[ REC      ] %s\n", test.relativeFilePath.c_str());
-            WriteFileContent(test.dumpFilePath, dumpBuffer);
+            WriteFileContent(test.dumpFilePath, dumpContent.c_str());
             printf("[       OK ] %s\n", test.relativeFilePath.c_str());
         }
     }

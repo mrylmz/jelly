@@ -1,6 +1,7 @@
 #ifndef __JELLY_BUMPALLOCATOR__
 #define __JELLY_BUMPALLOCATOR__
 
+#include <JellyCore/Allocator.h>
 #include <JellyCore/Base.h>
 
 JELLY_EXTERN_C_BEGIN
