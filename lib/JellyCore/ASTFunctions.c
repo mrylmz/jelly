@@ -56,11 +56,11 @@ ASTOperatorPrecedence ASTGetBinaryOperatorPrecedence(ASTBinaryOperator binary) {
 
 ASTOperatorPrecedence ASTGetPostfixOperatorPrecedence(ASTPostfixOperator op) {
     switch (op) {
-        case ASTPostfixOperatorUnknown:
-            return 250;
+    case ASTPostfixOperatorUnknown:
+        return 250;
 
-        default:
-            return 1000;
+    default:
+        return 1000;
     }
 }
 

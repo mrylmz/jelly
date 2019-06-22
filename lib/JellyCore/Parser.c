@@ -914,7 +914,7 @@ static inline ASTEnumerationDeclarationRef _ParserParseEnumerationDeclaration(Pa
 
     SymbolTablePopScope(symbolTable);
 
-    location.end = parser->token.location.start;
+    location.end                             = parser->token.location.start;
     ASTEnumerationDeclarationRef declaration = ASTContextCreateEnumerationDeclaration(parser->context, location, name, elements);
 
     SymbolRef symbol = ScopeInsertSymbol(SymbolTableGetCurrentScope(symbolTable), name, location);
