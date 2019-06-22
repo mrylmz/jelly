@@ -1,5 +1,5 @@
 func main() -> Void {
-    while condition {
-        var condition: Bool = false // expect-error: Unresolved identifier
+    while condition { // expect-error: Unresolved identifier
+        var condition: Bool = false
     }
 }

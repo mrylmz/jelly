@@ -29,7 +29,7 @@ Int CompilerRun(ArrayRef arguments) {
         {0, 0, 0, 0},
     };
 
-    optind = 1;
+    optind      = 1;
     Bool parsed = false;
     while (!parsed) {
         int index = 0;
@@ -84,7 +84,19 @@ Int CompilerRun(ArrayRef arguments) {
         }
     }
 
-    WorkspaceRef workspace = WorkspaceCreate(AllocatorGetSystemDefault(), workingDirectory);
+    WorkspaceOptions workspaceOptions = WorkspaceOptionsNone;
+    if (optionDumpAST) {
+        workspaceOptions |= WorkspaceOptionsDumpAST;
+    }
+
+    WorkspaceRef workspace = WorkspaceCreate(AllocatorGetSystemDefault(), workingDirectory, workspaceOptions);
+
+    FILE *dumpASTOutput = NULL;
+    if (dumpFilePath) {
+        dumpASTOutput = fopen(StringGetCharacters(dumpFilePath), "w");
+        assert(dumpASTOutput);
+        WorkspaceSetDumpASTOutput(workspace, dumpASTOutput);
+    }
 
     if (optind < argc) {
         StringRef filePath = StringCreate(AllocatorGetSystemDefault(), argv[optind]);
@@ -95,24 +107,11 @@ Int CompilerRun(ArrayRef arguments) {
 
     WorkspaceStartAsync(workspace);
     WorkspaceWaitForFinish(workspace);
-
-    if (optionDumpAST) {
-        FILE *output = stdout;
-        if (dumpFilePath) {
-            output = fopen(StringGetCharacters(dumpFilePath), "w");
-        }
-
-        ASTContextRef context = WorkspaceGetContext(workspace);
-        ASTDumperRef dumper   = ASTDumperCreate(AllocatorGetSystemDefault(), output);
-        ASTDumperDump(dumper, (ASTNodeRef)ASTContextGetModule(context));
-        ASTDumperDestroy(dumper);
-
-        if (dumpFilePath) {
-            fclose(output);
-        }
-    }
-
     WorkspaceDestroy(workspace);
+
+    if (dumpASTOutput) {
+        fclose(dumpASTOutput);
+    }
 
     if (dumpFilePath) {
         StringDestroy(dumpFilePath);

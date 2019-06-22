@@ -1,0 +1,4 @@
+func main() -> Void {
+    var y: Int = 0
+    var x: Int = (y = 2) // expect-error: ?
+}

@@ -1,11 +1,12 @@
+#include "JellyCore/ASTDumper.h"
 #include "JellyCore/Diagnostic.h"
+#include "JellyCore/NameResolver.h"
 #include "JellyCore/Parser.h"
 #include "JellyCore/Queue.h"
 #include "JellyCore/Workspace.h"
 
 #include <pthread.h>
 
-// TODO: Add configuration for ast dump command...
 // TODO: Fix memory leaks ...
 
 struct _Workspace {
@@ -15,6 +16,10 @@ struct _Workspace {
     ASTContextRef context;
     ParserRef parser;
     QueueRef parseQueue;
+    NameResolverRef nameResolver;
+
+    WorkspaceOptions options;
+    FILE *dumpASTOutput;
 
     Bool running;
     Bool waiting;
@@ -29,7 +34,7 @@ void _WorkspacePerformLoads(WorkspaceRef workspace, ASTSourceUnitRef sourceUnit)
 void _WorkspaceParse(void *argument, void *context);
 void *_WorkspaceProcess(void *context);
 
-WorkspaceRef WorkspaceCreate(AllocatorRef allocator, StringRef workingDirectory) {
+WorkspaceRef WorkspaceCreate(AllocatorRef allocator, StringRef workingDirectory, WorkspaceOptions options) {
     WorkspaceRef workspace      = AllocatorAllocate(allocator, sizeof(struct _Workspace));
     workspace->allocator        = allocator;
     workspace->workingDirectory = StringCreateCopy(allocator, workingDirectory);
@@ -37,6 +42,9 @@ WorkspaceRef WorkspaceCreate(AllocatorRef allocator, StringRef workingDirectory)
     workspace->context          = ASTContextCreate(allocator);
     workspace->parser           = ParserCreate(allocator, workspace->context);
     workspace->parseQueue       = QueueCreate(allocator);
+    workspace->nameResolver     = NameResolverCreate(allocator);
+    workspace->options          = options;
+    workspace->dumpASTOutput    = stdout;
     workspace->running          = false;
     workspace->waiting          = false;
     return workspace;
@@ -47,6 +55,7 @@ void WorkspaceDestroy(WorkspaceRef workspace) {
         WorkspaceWaitForFinish(workspace);
     }
 
+    NameResolverDestroy(workspace->nameResolver);
     ArrayDestroy(workspace->sourceFilePaths);
     QueueDestroy(workspace->parseQueue);
     ParserDestroy(workspace->parser);
@@ -75,6 +84,10 @@ void WorkspaceAddSourceFile(WorkspaceRef workspace, StringRef filePath) {
     pthread_mutex_lock(&workspace->mutex);
     QueueEnqueue(workspace->parseQueue, copy);
     pthread_mutex_unlock(&workspace->mutex);
+}
+
+void WorkspaceSetDumpASTOutput(WorkspaceRef workspace, FILE *output) {
+    workspace->dumpASTOutput = output;
 }
 
 Bool WorkspaceStartAsync(WorkspaceRef workspace) {
@@ -137,6 +150,7 @@ void _WorkspacePerformLoads(WorkspaceRef workspace, ASTSourceUnitRef sourceUnit)
 void *_WorkspaceProcess(void *context) {
     WorkspaceRef workspace = (WorkspaceRef)context;
 
+    // Parse phase
     while (true) {
         pthread_mutex_lock(&workspace->mutex);
         StringRef filePath = QueueDequeue(workspace->parseQueue);
@@ -161,6 +175,19 @@ void *_WorkspaceProcess(void *context) {
             break;
         }
     }
+
+    if ((workspace->options & WorkspaceOptionsDumpAST) > 0) {
+        ASTDumperRef dumper = ASTDumperCreate(AllocatorGetSystemDefault(), workspace->dumpASTOutput);
+        ASTDumperDump(dumper, (ASTNodeRef)ASTContextGetModule(workspace->context));
+        ASTDumperDestroy(dumper);
+        // TODO: Verify if early return is correct behaviour here...
+        //       currently we are exiting at this point because we have parsed the full AST here,
+        //       but it could be that code can be generated soon
+        return NULL;
+    }
+
+    // Name resolution
+    NameResolverResolve(workspace->nameResolver, workspace->context, (ASTNodeRef)ASTContextGetModule(workspace->context));
 
     return NULL;
 }

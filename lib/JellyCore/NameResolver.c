@@ -26,7 +26,9 @@ void NameResolverResolve(NameResolverRef resolver, ASTContextRef context, ASTNod
     switch (node->tag) {
     case ASTTagSourceUnit: {
         ASTSourceUnitRef sourceUnit = (ASTSourceUnitRef)node;
-        NameResolverResolve(resolver, context, (ASTNodeRef)sourceUnit->declarations);
+        if (sourceUnit->declarations) {
+            NameResolverResolve(resolver, context, (ASTNodeRef)sourceUnit->declarations);
+        }
         return;
     }
 
@@ -78,7 +80,9 @@ void NameResolverResolve(NameResolverRef resolver, ASTContextRef context, ASTNod
     case ASTTagSwitchStatement: {
         ASTSwitchStatementRef statement = (ASTSwitchStatementRef)node;
         NameResolverResolve(resolver, context, (ASTNodeRef)statement->argument);
-        NameResolverResolve(resolver, context, (ASTNodeRef)statement->cases);
+        if (statement->cases) {
+            NameResolverResolve(resolver, context, (ASTNodeRef)statement->cases);
+        }
         return;
     }
 
@@ -131,14 +135,18 @@ void NameResolverResolve(NameResolverRef resolver, ASTContextRef context, ASTNod
     case ASTTagCallExpression: {
         ASTCallExpressionRef call = (ASTCallExpressionRef)node;
         NameResolverResolve(resolver, context, (ASTNodeRef)call->callee);
-        NameResolverResolve(resolver, context, (ASTNodeRef)call->arguments);
+        if (call->arguments) {
+            NameResolverResolve(resolver, context, (ASTNodeRef)call->arguments);
+        }
         // TODO: Check if callee is function declaration
         return;
     }
 
     case ASTTagModuleDeclaration: {
         ASTModuleDeclarationRef module = (ASTModuleDeclarationRef)node;
-        NameResolverResolve(resolver, context, (ASTNodeRef)module->sourceUnits);
+        if (module->sourceUnits) {
+            NameResolverResolve(resolver, context, (ASTNodeRef)module->sourceUnits);
+        }
         return;
     }
 
@@ -161,7 +169,9 @@ void NameResolverResolve(NameResolverRef resolver, ASTContextRef context, ASTNod
 
     case ASTTagStructureDeclaration: {
         ASTStructureDeclarationRef structure = (ASTStructureDeclarationRef)node;
-        NameResolverResolve(resolver, context, (ASTNodeRef)structure->values);
+        if (structure->values) {
+            NameResolverResolve(resolver, context, (ASTNodeRef)structure->values);
+        }
         return;
     }
 

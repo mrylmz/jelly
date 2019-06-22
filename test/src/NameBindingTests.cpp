@@ -23,28 +23,26 @@ TEST_P(NameBindingTest, run) {
     } else {
         DiagnosticEngineSetDefaultHandler(&FileTestDiagnosticHandler, &test.context);
 
-        Char dumpBuffer[65535];
-        FILE *dumpStream = fmemopen(dumpBuffer, sizeof(dumpBuffer) / sizeof(Char), "w");
-        assert(dumpStream);
+        StringRef absoluteFilePath = StringCreate(AllocatorGetSystemDefault(), test.context.filePath.c_str());
+        StringRef workingDirectory = StringCreateCopyUntilLastOccurenceOf(AllocatorGetSystemDefault(), absoluteFilePath, '/');
 
-        AllocatorRef allocator = AllocatorGetSystemDefault();
-        StringRef absoluteFilePath = StringCreate(allocator, test.context.filePath.c_str());
-        StringRef workingDirectory = StringCreateCopyUntilLastOccurenceOf(allocator, absoluteFilePath, '/');
-        StringRef filePath = StringCreateCopyFromLastOccurenceOf(allocator, absoluteFilePath, '/');
-        WorkspaceRef workspace = WorkspaceCreate(allocator, workingDirectory);
-        ASTContextRef context = WorkspaceGetContext(workspace);
-        WorkspaceAddSourceFile(workspace, filePath);
-        WorkspaceStartAsync(workspace);
-        WorkspaceWaitForFinish(workspace);
-        NameResolverRef resolver = NameResolverCreate(allocator);
-        NameResolverResolve(resolver, context, (ASTNodeRef)ASTContextGetModule(context));
-        NameResolverDestroy(resolver);
-        WorkspaceDestroy(workspace);
-        StringDestroy(workingDirectory);
-        StringDestroy(filePath);
-        StringDestroy(absoluteFilePath);
+        StringRef executable = StringCreate(AllocatorGetSystemDefault(), "jelly");
+        StringRef filePath = StringCreateCopyFromLastOccurenceOf(AllocatorGetSystemDefault(), absoluteFilePath, '/');
+        StringRef workingDirectoryArgument = StringCreate(AllocatorGetSystemDefault(), "-working-directory=");
+        StringAppendString(workingDirectoryArgument, workingDirectory);
 
-        fclose(dumpStream);
+        ArrayRef arguments = ArrayCreateEmpty(AllocatorGetSystemDefault(), sizeof(StringRef), 4);
+        ArrayAppendElement(arguments, &executable);
+        ArrayAppendElement(arguments, &filePath);
+        ArrayAppendElement(arguments, &workingDirectoryArgument);
+
+        CompilerRun(arguments);
+
+        for (Index index = 0; index < ArrayGetElementCount(arguments); index++) {
+            StringDestroy(*((StringRef*)ArrayGetElementAtIndex(arguments, index)));
+        }
+
+        ArrayDestroy(arguments);
 
         if (test.context.index < test.context.records.size()) {
             for (auto index = test.context.index; index < test.context.records.size(); index++) {
