@@ -51,3 +51,27 @@ target_link_libraries(${PROJECT_NAME} JellyCore)
 
 add_subdirectory(googletest)
 add_subdirectory(test)
+
+# Code Coverage
+include(CodeCoverage)
+append_coverage_compiler_flags()
+
+set_target_properties(
+    JellyCore 
+    PROPERTIES 
+    GCC_INSTRUMENT_PROGRAM_FLOW_ARCS YES 
+    GCC_GENERATE_TEST_COVERAGE_FILES YES
+)
+
+set_target_properties(
+    JellyTest 
+    PROPERTIES 
+    GCC_INSTRUMENT_PROGRAM_FLOW_ARCS YES 
+    GCC_GENERATE_TEST_COVERAGE_FILES NO
+)
+
+setup_target_for_coverage_gcovr_html(
+    NAME JellyCoverage
+    EXECUTABLE JellyTest -j ${PROCESSOR_COUNT}
+    DEPENDENCIES
+)
