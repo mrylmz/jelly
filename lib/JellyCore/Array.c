@@ -56,6 +56,19 @@ Index ArrayGetCapacity(ArrayRef array) {
     return array->capacity;
 }
 
+Index ArrayGetSortedInsertionIndex(ArrayRef array, ArrayPredicate isOrderedAscending, void *element) {
+    if (ArrayGetElementCount(array) < 1) {
+        return 0;
+    }
+
+    Index index = ArrayGetElementCount(array);
+    while (0 < index && isOrderedAscending(element, ArrayGetElementAtIndex(array, index - 1))) {
+        index -= 1;
+    }
+
+    return index;
+}
+
 void *ArrayGetElementAtIndex(ArrayRef array, Index index) {
     assert(index < array->elementCount);
     return array->memory + array->elementSize * index;
@@ -87,6 +100,10 @@ void ArrayAppendArray(ArrayRef array, ArrayRef other) {
 }
 
 void ArrayInsertElementAtIndex(ArrayRef array, Index index, const void *element) {
+    if (index == array->elementCount) {
+        return ArrayAppendElement(array, element);
+    }
+
     assert(index < array->elementCount);
     _ArrayReserveCapacity(array, array->elementCount + 1);
 

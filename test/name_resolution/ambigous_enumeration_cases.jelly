@@ -1,0 +1,11 @@
+enum A {
+    case ambiguous
+}
+
+enum B {
+    case ambiguous
+}
+
+func main() -> Void {
+    var a: A = ambiguous // expect-critical: Ambigous enumeration cases are not supported yet!
+}

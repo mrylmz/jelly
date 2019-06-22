@@ -39,6 +39,17 @@ void FileTestDiagnosticContext::ParseTestDiagnosticRecords() {
         searchContent = matches.suffix();
     }
 
+    regex = std::regex("\\/\\/\\s*expect-critical:\\s*([^\n]+)", std::regex::icase);
+    searchContent = std::string(fileContent);
+    while (std::regex_search(searchContent, matches, regex)) {
+        assert(matches.size() == 2);
+        FileTestDiagnosticRecord record;
+        record.level = DiagnosticLevelCritical;
+        record.message = matches[1].str();
+        records.push_back(record);
+        searchContent = matches.suffix();
+    }
+
     regex = std::regex("\\/\\/\\s*report-error:\\s*([^\n]+)", std::regex::icase);
     searchContent = std::string(fileContent);
     while (std::regex_search(searchContent, matches, regex)) {

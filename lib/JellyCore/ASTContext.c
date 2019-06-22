@@ -48,8 +48,8 @@ ASTContextRef ASTContextCreate(AllocatorRef allocator) {
     context->nodes[ASTTagPointerType]            = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTPointerType), 1024);
     context->nodes[ASTTagArrayType]              = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTArrayType), 1024);
     context->nodes[ASTTagBuiltinType]            = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTBuiltinType), 1024);
-    context->module                              = ASTContextCreateModuleDeclaration(context, SourceRangeNull(), NULL, NULL);
     context->symbolTable                         = SymbolTableCreate(bumpAllocator);
+    context->module                              = ASTContextCreateModuleDeclaration(context, SourceRangeNull(), NULL, NULL);
     _ASTContextInitBuiltinTypes(context);
     return context;
 }
@@ -224,6 +224,7 @@ ASTIdentifierExpressionRef ASTContextCreateIdentifierExpression(ASTContextRef co
 
     ASTIdentifierExpressionRef node = (ASTIdentifierExpressionRef)_ASTContextCreateNode(context, ASTTagIdentifierExpression, location);
     node->name                      = StringCreateCopy(context->allocator, name);
+    node->declaration               = NULL;
     return node;
 }
 
@@ -433,8 +434,8 @@ ASTOpaqueTypeRef ASTContextCreateOpaqueType(ASTContextRef context, SourceRange l
     assert(name);
 
     ASTOpaqueTypeRef node = (ASTOpaqueTypeRef)_ASTContextCreateNode(context, ASTTagOpaqueType, location);
-    node->kind            = ASTTypeKindOpaque;
     node->name            = StringCreateCopy(context->allocator, name);
+    node->declaration     = NULL;
     return node;
 }
 
@@ -442,7 +443,6 @@ ASTPointerTypeRef ASTContextCreatePointerType(ASTContextRef context, SourceRange
     assert(pointeeType);
 
     ASTPointerTypeRef node = (ASTPointerTypeRef)_ASTContextCreateNode(context, ASTTagPointerType, location);
-    node->kind             = ASTTypeKindPointer;
     node->pointeeType      = pointeeType;
     return node;
 }
@@ -451,7 +451,6 @@ ASTArrayTypeRef ASTContextCreateArrayType(ASTContextRef context, SourceRange loc
     assert(elementType);
 
     ASTArrayTypeRef node = (ASTArrayTypeRef)_ASTContextCreateNode(context, ASTTagArrayType, location);
-    node->kind           = ASTTypeKindArray;
     node->elementType    = elementType;
     node->size           = size;
     return node;
@@ -465,13 +464,13 @@ ASTNodeRef _ASTContextCreateNode(ASTContextRef context, ASTTag tag, SourceRange 
     ASTNodeRef node = ArrayAppendUninitializedElement(context->nodes[tag]);
     node->tag       = tag;
     node->location  = location;
+    node->scope     = SymbolTableGetCurrentScope(context->symbolTable);
     return node;
 }
 
-ASTBuiltinTypeRef _ASTContextCreateBuiltinType(ASTContextRef context, SourceRange location, ASTBuiltinTypeKind builtinKind,
-                                               StringRef name) {
+ASTBuiltinTypeRef _ASTContextCreateBuiltinType(ASTContextRef context, SourceRange location, ASTBuiltinTypeKind kind, StringRef name) {
     ASTBuiltinTypeRef node = (ASTBuiltinTypeRef)_ASTContextCreateNode(context, ASTTagBuiltinType, location);
-    node->builtinKind      = builtinKind;
+    node->kind             = kind;
     node->name             = StringCreateCopy(context->allocator, name);
     return node;
 }
@@ -491,5 +490,6 @@ void _ASTContextInitBuiltinTypes(ASTContextRef context) {
 
         SymbolRef symbol = ScopeInsertSymbol(globalScope, name, SourceRangeNull());
         assert(symbol);
+        SymbolSetNode(symbol, (ASTNodeRef)context->builtinTypes[index]);
     }
 }

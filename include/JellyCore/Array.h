@@ -24,11 +24,14 @@ Index ArrayGetElementCount(ArrayRef array);
 
 Index ArrayGetCapacity(ArrayRef array);
 
+Index ArrayGetSortedInsertionIndex(ArrayRef array, ArrayPredicate isOrderedAscending, void *element);
+
 void *ArrayGetElementAtIndex(ArrayRef array, Index index);
 
 void ArrayCopyElementAtIndex(ArrayRef array, Index index, void *element);
 
 void ArrayAppendElement(ArrayRef array, const void *element);
+
 void *ArrayAppendUninitializedElement(ArrayRef array);
 
 void ArrayAppendArray(ArrayRef array, ArrayRef other);

@@ -9,6 +9,7 @@
 #include <JellyCore/BumpAllocator.h>
 #include <JellyCore/Diagnostic.h>
 #include <JellyCore/Lexer.h>
+#include <JellyCore/NameResolver.h>
 #include <JellyCore/Parser.h>
 #include <JellyCore/Queue.h>
 #include <JellyCore/SourceRange.h>

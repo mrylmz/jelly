@@ -7,18 +7,10 @@
 
 #include "FileTestDiagnostic.h"
 
-static inline void WriteFileContent(std::string filePath, std::string content) {
-    std::fstream file;
-    file.open(filePath, std::fstream::out);
-    assert(file.is_open());
-    file.write(content.c_str(), content.length());
-    file.close();
-}
-
-class ParserTest : public testing::TestWithParam<FileTest> {
+class NameBindingTest : public testing::TestWithParam<FileTest> {
 };
 
-TEST_P(ParserTest, run) {
+TEST_P(NameBindingTest, run) {
     auto test = GetParam();
     printf("[   TEST   ] %s\n", test.context.filePath.substr(test.context.filePath.rfind("/")).c_str());
 
@@ -39,15 +31,15 @@ TEST_P(ParserTest, run) {
         StringRef absoluteFilePath = StringCreate(allocator, test.context.filePath.c_str());
         StringRef workingDirectory = StringCreateCopyUntilLastOccurenceOf(allocator, absoluteFilePath, '/');
         StringRef filePath = StringCreateCopyFromLastOccurenceOf(allocator, absoluteFilePath, '/');
-        ASTDumperRef dumper = ASTDumperCreate(allocator, dumpStream);
         WorkspaceRef workspace = WorkspaceCreate(allocator, workingDirectory);
         ASTContextRef context = WorkspaceGetContext(workspace);
         WorkspaceAddSourceFile(workspace, filePath);
         WorkspaceStartAsync(workspace);
         WorkspaceWaitForFinish(workspace);
-        ASTDumperDump(dumper, (ASTNodeRef)ASTContextGetModule(context));
+        NameResolverRef resolver = NameResolverCreate(allocator);
+        NameResolverResolve(resolver, context, (ASTNodeRef)ASTContextGetModule(context));
+        NameResolverDestroy(resolver);
         WorkspaceDestroy(workspace);
-        ASTDumperDestroy(dumper);
         StringDestroy(workingDirectory);
         StringDestroy(filePath);
         StringDestroy(absoluteFilePath);
@@ -61,16 +53,7 @@ TEST_P(ParserTest, run) {
 
             FAIL();
         }
-
-        if (test.hasDumpRecord) {
-            printf("[ RUN      ] %s\n", test.relativeFilePath.c_str());
-            EXPECT_STREQ(test.dumpRecordContent.c_str(), dumpBuffer);
-        } else {
-            printf("[ REC      ] %s\n", test.relativeFilePath.c_str());
-            WriteFileContent(test.dumpFilePath, dumpBuffer);
-            printf("[       OK ] %s\n", test.relativeFilePath.c_str());
-        }
     }
 }
 
-INSTANTIATE_TEST_CASE_P(run, ParserTest, testing::ValuesIn(FileTest::ReadFromDirectory("parser")));
+INSTANTIATE_TEST_CASE_P(run, NameBindingTest, testing::ValuesIn(FileTest::ReadFromDirectory("name_resolution")));

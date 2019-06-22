@@ -1,0 +1,15 @@
+enum State {
+    case idle
+    case active
+}
+
+var state: State = idle
+
+func run() -> Bool {
+    if state == idle {
+        state = active
+        return true
+    }
+
+    return false
+}

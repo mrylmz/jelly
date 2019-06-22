@@ -257,7 +257,7 @@ void ASTDumperDump(ASTDumperRef dumper, ASTNodeRef node) {
         dumper->indentation += 1;
         _ASTDumperPrintIndentation(dumper);
         _ASTDumperPrintCString(dumper, "@name = '");
-        _ASTDumperPrintBuiltinTypeKind(dumper, type->builtinKind);
+        _ASTDumperPrintBuiltinTypeKind(dumper, type->kind);
         _ASTDumperPrintCString(dumper, "'\n");
         dumper->indentation -= 1;
         return;

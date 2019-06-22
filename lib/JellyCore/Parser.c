@@ -362,7 +362,7 @@ static inline ASTIfStatementRef _ParserParseIfStatement(ParserRef parser) {
 
         SymbolTablePopScope(symbolTable);
     } else {
-        elseBlock = ASTContextCreateBlock(parser->context, location, NULL);
+        elseBlock = ASTContextCreateBlock(parser->context, SourceRangeMake(parser->token.location.end, parser->token.location.end), NULL);
     }
 
     location.end = parser->token.location.start;
@@ -915,7 +915,17 @@ static inline ASTEnumerationDeclarationRef _ParserParseEnumerationDeclaration(Pa
     SymbolTablePopScope(symbolTable);
 
     location.end = parser->token.location.start;
-    return ASTContextCreateEnumerationDeclaration(parser->context, location, name, elements);
+    ASTEnumerationDeclarationRef declaration = ASTContextCreateEnumerationDeclaration(parser->context, location, name, elements);
+
+    SymbolRef symbol = ScopeInsertSymbol(SymbolTableGetCurrentScope(symbolTable), name, location);
+    if (!symbol) {
+        ReportError("Invalid redeclaration of identifier");
+        return NULL;
+    } else {
+        SymbolSetNode(symbol, (ASTNodeRef)declaration);
+    }
+
+    return declaration;
 }
 
 /// grammar: func-declaration := "func" identifier "(" [ parameter { "," parameter } ] ")" "->" type-identifier block
@@ -994,6 +1004,8 @@ static inline ASTFunctionDeclarationRef _ParserParseFunctionDeclaration(ParserRe
     if (!symbol) {
         ReportError("Invalid redeclaration of identifier");
         return NULL;
+    } else {
+        SymbolSetNode(symbol, (ASTNodeRef)declaration);
     }
 
     return declaration;
@@ -1057,6 +1069,8 @@ static inline ASTStructureDeclarationRef _ParserParseStructureDeclaration(Parser
     if (!symbol) {
         ReportError("Invalid redeclaration of identifier");
         return NULL;
+    } else {
+        SymbolSetNode(symbol, (ASTNodeRef)declaration);
     }
 
     return declaration;
@@ -1108,6 +1122,8 @@ static inline ASTValueDeclarationRef _ParserParseVariableDeclaration(ParserRef p
     SymbolRef symbol                   = ScopeInsertSymbol(scope, name, location);
     if (!symbol) {
         ReportError("Invalid redeclaration of identifier");
+    } else {
+        SymbolSetNode(symbol, (ASTNodeRef)declaration);
     }
 
     return declaration;
@@ -1152,6 +1168,8 @@ static inline ASTValueDeclarationRef _ParserParseEnumerationElementDeclaration(P
     SymbolRef symbol                   = ScopeInsertSymbol(scope, name, location);
     if (!symbol) {
         ReportError("Invalid redeclaration of identifier");
+    } else {
+        SymbolSetNode(symbol, (ASTNodeRef)declaration);
     }
 
     return declaration;
@@ -1183,9 +1201,11 @@ static inline ASTValueDeclarationRef _ParserParseParameterDeclaration(ParserRef 
                                                                           NULL);
     SymbolTableRef symbolTable         = ASTContextGetSymbolTable(parser->context);
     ScopeRef scope                     = SymbolTableGetCurrentScope(symbolTable);
-    SymbolRef symbol                   = ScopeInsertSymbol(scope, name, location);
+    SymbolRef symbol                   = ScopeInsertSymbol(scope, declaration->name, location);
     if (!symbol) {
         ReportError("Invalid redeclaration of identifier");
+    } else {
+        SymbolSetNode(symbol, (ASTNodeRef)declaration);
     }
 
     return declaration;

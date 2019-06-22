@@ -4,13 +4,15 @@
 struct _Symbol {
     StringRef name;
     SourceRange location;
+    ASTNodeRef node;
 };
 typedef struct _Symbol Symbol;
 
 struct _Scope {
     ScopeKind kind;
     ScopeRef parent;
-    SourceRange sourceRange;
+    SourceRange location;
+    ArrayRef children;
     ArrayRef symbols;
 };
 
@@ -24,11 +26,14 @@ ScopeRef _SymbolTableCreateScope(SymbolTableRef symbolTable, ScopeKind kind, Sco
 
 Index _ScopeGetVirtualEnd(ScopeRef scope, const Char *virtualEndOfScope);
 
+Bool _ArrayIsSymbolLocationOrderedAscending(const void *lhs, const void *rhs);
+
 SymbolTableRef SymbolTableCreate(AllocatorRef allocator) {
     SymbolTableRef symbolTable = AllocatorAllocate(allocator, sizeof(struct _SymbolTable));
     assert(symbolTable);
     symbolTable->allocator = allocator;
-    symbolTable->scopes    = ArrayCreateEmpty(allocator, sizeof(struct _Scope), 8);
+    // TODO: @Bug Reallocation of Array causes dangling pointers of Scope(s)...
+    symbolTable->scopes = ArrayCreateEmpty(allocator, sizeof(struct _Scope), 1024);
     assert(symbolTable->scopes);
     symbolTable->currentScope = _SymbolTableCreateScope(symbolTable, ScopeKindGlobal, NULL);
     return symbolTable;
@@ -73,31 +78,40 @@ ScopeRef ScopeGetParent(ScopeRef scope) {
     return scope->parent;
 }
 
+Index ScopeGetChildCount(ScopeRef scope) {
+    return ArrayGetElementCount(scope->children);
+}
+
+ScopeRef ScopeGetChildAtIndex(ScopeRef scope, Index index) {
+    return *((ScopeRef *)ArrayGetElementAtIndex(scope->children, index));
+}
+
 SymbolRef ScopeInsertSymbol(ScopeRef scope, StringRef name, SourceRange location) {
     if (ScopeLookupSymbol(scope, name, NULL) != NULL) {
         return NULL;
     }
 
-    // @SortedSymbolInsertion
-    // TODO: For now we assume that all symbols are inserted in ascending location order
-    //       but it could be possible that this will not always be the case so we should
-    //       do a binary insert in asscending location order or sort the array after insertion
-    SymbolRef symbol = ArrayAppendUninitializedElement(scope->symbols);
-    symbol->name     = name;
-    symbol->location = location;
+    Symbol symbol;
+    symbol.name     = name;
+    symbol.location = location;
+    symbol.node     = NULL;
 
-    if (scope->sourceRange.start == NULL) {
-        scope->sourceRange = location;
+    Index index = ArrayGetSortedInsertionIndex(scope->symbols, &_ArrayIsSymbolLocationOrderedAscending, &symbol);
+    ArrayInsertElementAtIndex(scope->symbols, index, &symbol);
+
+    if (scope->location.start == NULL) {
+        scope->location = location;
     } else {
-        scope->sourceRange.start = MIN(scope->sourceRange.start, location.start);
-        scope->sourceRange.end   = MAX(scope->sourceRange.end, location.end);
+        scope->location.start = MIN(scope->location.start, location.start);
+        scope->location.end   = MAX(scope->location.end, location.end);
     }
 
-    return symbol;
+    return (SymbolRef)ArrayGetElementAtIndex(scope->symbols, index);
 }
 
 SymbolRef ScopeLookupSymbol(ScopeRef scope, StringRef name, const Char *virtualEndOfScope) {
-    for (Index index = 0; index < _ScopeGetVirtualEnd(scope, virtualEndOfScope); index++) {
+    Index end = _ScopeGetVirtualEnd(scope, virtualEndOfScope);
+    for (Index index = 0; index < end; index++) {
         SymbolRef symbol = ArrayGetElementAtIndex(scope->symbols, index);
         if (StringIsEqual(symbol->name, name)) {
             return symbol;
@@ -111,12 +125,27 @@ StringRef SymbolGetName(SymbolRef symbol) {
     return symbol->name;
 }
 
+ASTNodeRef SymbolGetNode(SymbolRef symbol) {
+    return symbol->node;
+}
+
+void SymbolSetNode(SymbolRef symbol, ASTNodeRef node) {
+    symbol->node = node;
+}
+
 ScopeRef _SymbolTableCreateScope(SymbolTableRef symbolTable, ScopeKind kind, ScopeRef parent) {
-    ScopeRef scope     = ArrayAppendUninitializedElement(symbolTable->scopes);
-    scope->kind        = kind;
-    scope->parent      = parent;
-    scope->sourceRange = SourceRangeMake(NULL, NULL);
-    scope->symbols     = ArrayCreateEmpty(symbolTable->allocator, sizeof(struct _Symbol), 8);
+    ScopeRef scope  = ArrayAppendUninitializedElement(symbolTable->scopes);
+    scope->kind     = kind;
+    scope->parent   = parent;
+    scope->location = SourceRangeMake(NULL, NULL);
+    // TODO: @Bug Reallocation of Array causes dangling pointers of Scope(s)...
+    scope->children = ArrayCreateEmpty(symbolTable->allocator, sizeof(ScopeRef), 1024);
+    scope->symbols  = ArrayCreateEmpty(symbolTable->allocator, sizeof(struct _Symbol), 1024);
+
+    if (parent) {
+        ArrayAppendElement(parent->children, &scope);
+    }
+
     return scope;
 }
 
@@ -125,16 +154,26 @@ Index _ScopeGetVirtualEnd(ScopeRef scope, const Char *virtualEndOfScope) {
         return ArrayGetElementCount(scope->symbols);
     }
 
-    // TODO: See @SortedSymbolInsertion
-    Index symbolCount = ArrayGetElementCount(scope->symbols);
-    if (symbolCount > 0) {
-        for (Index index = symbolCount - 1; index > 0; index--) {
-            SymbolRef symbol = ArrayGetElementAtIndex(scope->symbols, index);
+    Index count = ArrayGetElementCount(scope->symbols);
+    if (count > 0) {
+        for (Index index = count; index > 0; index--) {
+            SymbolRef symbol = ArrayGetElementAtIndex(scope->symbols, index - 1);
             if (symbol->location.start < virtualEndOfScope) {
-                return index + 1;
+                return index;
             }
         }
     }
 
     return 0;
+}
+
+Bool _ArrayIsSymbolLocationOrderedAscending(const void *lhs, const void *rhs) {
+    SymbolRef a = (SymbolRef)lhs;
+    SymbolRef b = (SymbolRef)rhs;
+
+    if (a->location.start == b->location.start) {
+        return a->location.end < b->location.end;
+    }
+
+    return a->location.start < b->location.start;
 }

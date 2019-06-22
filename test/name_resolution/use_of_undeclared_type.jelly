@@ -1,0 +1,7 @@
+struct A {
+    var m: MyType // expect-error: Use of undeclared type
+}
+
+struct B {
+    var a: Unknown* // expect-error: Use of undeclared type
+}

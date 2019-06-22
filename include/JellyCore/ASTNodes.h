@@ -5,6 +5,7 @@
 #include <JellyCore/Base.h>
 #include <JellyCore/SourceRange.h>
 #include <JellyCore/String.h>
+#include <JellyCore/SymbolTable.h>
 
 JELLY_EXTERN_C_BEGIN
 
@@ -82,6 +83,7 @@ typedef struct _ASTBuiltinType *ASTBuiltinTypeRef;
 struct _ASTNode {
     ASTTag tag;
     SourceRange location;
+    ScopeRef scope;
 };
 
 struct _ASTLinkedList {
@@ -238,6 +240,7 @@ struct _ASTIdentifierExpression {
     struct _ASTNode base;
 
     StringRef name;
+    ASTDeclarationRef declaration;
 };
 
 struct _ASTMemberAccessExpression {
@@ -327,31 +330,22 @@ struct _ASTValueDeclaration {
     ASTExpressionRef initializer;
 };
 
-enum _ASTTypeKind {
-    ASTTypeKindOpaque,
-    ASTTypeKindPointer,
-    ASTTypeKindArray,
-};
-typedef enum _ASTTypeKind ASTTypeKind;
-
 struct _ASTOpaqueType {
     struct _ASTNode base;
 
-    ASTTypeKind kind;
     StringRef name;
+    ASTDeclarationRef declaration;
 };
 
 struct _ASTPointerType {
     struct _ASTNode base;
 
-    ASTTypeKind kind;
     ASTTypeRef pointeeType;
 };
 
 struct _ASTArrayType {
     struct _ASTNode base;
 
-    ASTTypeKind kind;
     ASTTypeRef elementType;
     ASTExpressionRef size;
 };
@@ -386,8 +380,7 @@ typedef enum _ASTBuiltinTypeKind ASTBuiltinTypeKind;
 struct _ASTBuiltinType {
     struct _ASTNode base;
 
-    ASTTypeKind kind;
-    ASTBuiltinTypeKind builtinKind;
+    ASTBuiltinTypeKind kind;
     StringRef name;
 };
 

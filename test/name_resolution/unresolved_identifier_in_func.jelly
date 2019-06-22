@@ -1,0 +1,6 @@
+func main(x: Int) -> Int {
+    var z: Int = x * a
+    return z * y // expect-error: Unresolved identifier
+}
+
+var a: Int = 0

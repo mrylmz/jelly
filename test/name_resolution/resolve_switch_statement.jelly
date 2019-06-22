@@ -1,0 +1,21 @@
+enum Value {
+    case one
+    case two
+    case three
+}
+
+func main(value: Value) -> Void {
+    switch value {
+    case one:
+        var x: Int = 0
+        break
+
+    case two:
+        var y: Int = x // expect-error: Unresolved identifier
+        fallthrough
+
+    else:
+        var z: Int = y // expect-error: Unresolved identifier
+        break
+    }
+}
