@@ -109,12 +109,12 @@ void ArrayInsertElementAtIndex(ArrayRef array, Index index, const void *element)
 
     Index tailLength = array->elementCount - index;
     if (tailLength > 0) {
-        void *source      = ArrayGetElementAtIndex(array, index);
-        void *destination = ArrayGetElementAtIndex(array, index + 1);
+        void *source      = array->memory + array->elementSize * index;
+        void *destination = array->memory + array->elementSize * (index + 1);
         memmove(destination, source, array->elementSize * tailLength);
     }
 
-    memcpy(ArrayGetElementAtIndex(array, index), element, array->elementSize);
+    memcpy(array->memory + array->elementSize * index, element, array->elementSize);
     array->elementCount += 1;
 }
 
