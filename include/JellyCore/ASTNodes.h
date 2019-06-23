@@ -35,6 +35,9 @@ enum _ASTTag {
     ASTTagPointerType,
     ASTTagArrayType,
     ASTTagBuiltinType,
+    ASTTagEnumerationType,
+    ASTTagFunctionType,
+    ASTTagStructureType,
 
     AST_TAG_COUNT
 };
@@ -79,6 +82,9 @@ typedef struct _ASTOpaqueType *ASTOpaqueTypeRef;
 typedef struct _ASTPointerType *ASTPointerTypeRef;
 typedef struct _ASTArrayType *ASTArrayTypeRef;
 typedef struct _ASTBuiltinType *ASTBuiltinTypeRef;
+typedef struct _ASTEnumerationType *ASTEnumerationTypeRef;
+typedef struct _ASTFunctionType *ASTFunctionTypeRef;
+typedef struct _ASTStructureType *ASTStructureTypeRef;
 
 struct _ASTNode {
     ASTTag tag;
@@ -184,6 +190,7 @@ struct _ASTUnaryExpression {
 
     ASTUnaryOperator op;
     ASTExpressionRef arguments[1];
+    SymbolRef symbol;
 };
 
 enum _ASTBinaryOperator {
@@ -227,6 +234,7 @@ struct _ASTBinaryExpression {
 
     ASTBinaryOperator op;
     ASTExpressionRef arguments[2];
+    SymbolRef symbol;
 };
 
 enum _ASTPostfixOperator {
@@ -240,7 +248,7 @@ struct _ASTIdentifierExpression {
     struct _ASTNode base;
 
     StringRef name;
-    ASTDeclarationRef declaration;
+    SymbolRef symbol;
 };
 
 struct _ASTMemberAccessExpression {
@@ -248,6 +256,7 @@ struct _ASTMemberAccessExpression {
 
     ASTExpressionRef argument;
     StringRef memberName;
+    SymbolRef symbol;
 };
 
 struct _ASTCallExpression {
@@ -255,6 +264,7 @@ struct _ASTCallExpression {
 
     ASTExpressionRef callee;
     ASTLinkedListRef arguments;
+    SymbolRef symbol;
 };
 
 enum _ASTConstantKind {
@@ -276,6 +286,7 @@ struct _ASTConstantExpression {
         Float64 floatValue;
         StringRef stringValue;
     };
+    SymbolRef symbol;
 };
 
 struct _ASTModuleDeclaration {
@@ -290,6 +301,7 @@ struct _ASTEnumerationDeclaration {
 
     StringRef name;
     ASTLinkedListRef elements;
+    SymbolRef symbol;
 };
 
 struct _ASTFunctionDeclaration {
@@ -299,6 +311,7 @@ struct _ASTFunctionDeclaration {
     ASTLinkedListRef parameters;
     ASTTypeRef returnType;
     ASTBlockRef body;
+    SymbolRef symbol;
 };
 
 struct _ASTStructureDeclaration {
@@ -306,12 +319,14 @@ struct _ASTStructureDeclaration {
 
     StringRef name;
     ASTLinkedListRef values;
+    SymbolRef symbol;
 };
 
 struct _ASTOpaqueDeclaration {
     struct _ASTNode base;
 
     StringRef name;
+    SymbolRef symbol;
 };
 
 enum _ASTValueKind {
@@ -328,6 +343,7 @@ struct _ASTValueDeclaration {
     StringRef name;
     ASTTypeRef type;
     ASTExpressionRef initializer;
+    SymbolRef symbol;
 };
 
 struct _ASTOpaqueType {
@@ -382,6 +398,24 @@ struct _ASTBuiltinType {
 
     ASTBuiltinTypeKind kind;
     StringRef name;
+};
+
+struct _ASTEnumerationType {
+    struct _ASTNode base;
+
+    ASTEnumerationDeclarationRef declaration;
+};
+
+struct _ASTFunctionType {
+    struct _ASTNode base;
+
+    ASTFunctionDeclarationRef declaration;
+};
+
+struct _ASTStructureType {
+    struct _ASTNode base;
+
+    ASTStructureDeclarationRef declaration;
 };
 
 JELLY_EXTERN_C_END

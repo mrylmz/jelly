@@ -9,6 +9,7 @@
 JELLY_EXTERN_C_BEGIN
 
 typedef struct _ASTNode *ASTNodeRef;
+typedef struct _ASTNode *ASTTypeRef;
 
 enum _ScopeKind {
     ScopeKindGlobal,
@@ -41,6 +42,7 @@ Index ScopeGetChildCount(ScopeRef scope);
 ScopeRef ScopeGetChildAtIndex(ScopeRef scope, Index index);
 
 SymbolRef ScopeInsertSymbol(ScopeRef scope, StringRef name, SourceRange location);
+SymbolRef ScopeInsertUniqueSymbol(ScopeRef scope, SourceRange location);
 SymbolRef ScopeLookupSymbol(ScopeRef scope, StringRef name, const Char *virtualEndOfScope);
 
 StringRef SymbolGetName(SymbolRef symbol);
@@ -48,6 +50,10 @@ StringRef SymbolGetName(SymbolRef symbol);
 ASTNodeRef SymbolGetNode(SymbolRef symbol);
 
 void SymbolSetNode(SymbolRef symbol, ASTNodeRef node);
+
+ASTTypeRef SymbolGetType(SymbolRef symbol);
+
+void SymbolSetType(SymbolRef symbol, ASTTypeRef type);
 
 JELLY_EXTERN_C_END
 

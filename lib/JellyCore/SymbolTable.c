@@ -1,10 +1,13 @@
 #include "JellyCore/Array.h"
 #include "JellyCore/SymbolTable.h"
 
+// TODO: Fix memory leaks...
+
 struct _Symbol {
     StringRef name;
     SourceRange location;
     ASTNodeRef node;
+    ASTTypeRef type;
 };
 typedef struct _Symbol Symbol;
 
@@ -14,6 +17,7 @@ struct _Scope {
     SourceRange location;
     ArrayRef children;
     ArrayRef symbols;
+    UInt64 uniqueSymbolID;
 };
 
 struct _SymbolTable {
@@ -95,6 +99,7 @@ SymbolRef ScopeInsertSymbol(ScopeRef scope, StringRef name, SourceRange location
     symbol.name     = name;
     symbol.location = location;
     symbol.node     = NULL;
+    symbol.type     = NULL;
 
     Index index = ArrayGetSortedInsertionIndex(scope->symbols, &_ArrayIsSymbolLocationOrderedAscending, &symbol);
     ArrayInsertElementAtIndex(scope->symbols, index, &symbol);
@@ -107,6 +112,16 @@ SymbolRef ScopeInsertSymbol(ScopeRef scope, StringRef name, SourceRange location
     }
 
     return (SymbolRef)ArrayGetElementAtIndex(scope->symbols, index);
+}
+
+SymbolRef ScopeInsertUniqueSymbol(ScopeRef scope, SourceRange location) {
+    StringRef name = StringCreate(AllocatorGetSystemDefault(), "$");
+    Char buffer[20];
+    snprintf(&buffer[0], 20, "%lld", scope->uniqueSymbolID);
+    StringAppend(name, buffer);
+    scope->uniqueSymbolID += 1;
+
+    return ScopeInsertSymbol(scope, name, location);
 }
 
 SymbolRef ScopeLookupSymbol(ScopeRef scope, StringRef name, const Char *virtualEndOfScope) {
@@ -133,14 +148,23 @@ void SymbolSetNode(SymbolRef symbol, ASTNodeRef node) {
     symbol->node = node;
 }
 
+ASTTypeRef SymbolGetType(SymbolRef symbol) {
+    return symbol->type;
+}
+
+void SymbolSetType(SymbolRef symbol, ASTTypeRef type) {
+    symbol->type = type;
+}
+
 ScopeRef _SymbolTableCreateScope(SymbolTableRef symbolTable, ScopeKind kind, ScopeRef parent) {
     ScopeRef scope  = ArrayAppendUninitializedElement(symbolTable->scopes);
     scope->kind     = kind;
     scope->parent   = parent;
     scope->location = SourceRangeMake(NULL, NULL);
     // TODO: @Bug Reallocation of Array causes dangling pointers of Scope(s)...
-    scope->children = ArrayCreateEmpty(symbolTable->allocator, sizeof(ScopeRef), 1024);
-    scope->symbols  = ArrayCreateEmpty(symbolTable->allocator, sizeof(struct _Symbol), 1024);
+    scope->children       = ArrayCreateEmpty(symbolTable->allocator, sizeof(ScopeRef), 1024);
+    scope->symbols        = ArrayCreateEmpty(symbolTable->allocator, sizeof(struct _Symbol), 1024);
+    scope->uniqueSymbolID = 1;
 
     if (parent) {
         ArrayAppendElement(parent->children, &scope);

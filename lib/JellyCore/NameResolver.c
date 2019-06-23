@@ -9,8 +9,8 @@ struct _NameResolver {
     AllocatorRef allocator;
 };
 
-ASTDeclarationRef _NameResolverResolveDeclaration(NameResolverRef resolver, ScopeRef scope, SourceRange location, StringRef name);
-ASTValueDeclarationRef _NameResolverResolveEnumerationElement(NameResolverRef resolver, ASTModuleDeclarationRef module, StringRef name);
+SymbolRef _NameResolverResolveDeclaration(NameResolverRef resolver, ScopeRef scope, SourceRange location, StringRef name);
+SymbolRef _NameResolverResolveEnumerationElement(NameResolverRef resolver, ASTModuleDeclarationRef module, StringRef name);
 
 NameResolverRef NameResolverCreate(AllocatorRef allocator) {
     NameResolverRef resolver = AllocatorAllocate(allocator, sizeof(struct _NameResolver));
@@ -109,16 +109,14 @@ void NameResolverResolve(NameResolverRef resolver, ASTContextRef context, ASTNod
 
     case ASTTagIdentifierExpression: {
         ASTIdentifierExpressionRef expression = (ASTIdentifierExpressionRef)node;
-        ASTDeclarationRef declaration         = _NameResolverResolveDeclaration(resolver, expression->base.scope, expression->base.location,
-                                                                        expression->name);
+        SymbolRef symbol = _NameResolverResolveDeclaration(resolver, expression->base.scope, expression->base.location, expression->name);
 
-        if (!declaration) {
-            declaration = (ASTDeclarationRef)_NameResolverResolveEnumerationElement(resolver, ASTContextGetModule(context),
-                                                                                    expression->name);
+        if (!symbol) {
+            symbol = _NameResolverResolveEnumerationElement(resolver, ASTContextGetModule(context), expression->name);
         }
 
-        if (declaration) {
-            expression->declaration = declaration;
+        if (symbol) {
+            expression->symbol = symbol;
         } else {
             ReportError("Unresolved identifier");
         }
@@ -243,7 +241,7 @@ void NameResolverResolve(NameResolverRef resolver, ASTContextRef context, ASTNod
     }
 }
 
-ASTDeclarationRef _NameResolverResolveDeclaration(NameResolverRef resolver, ScopeRef scope, SourceRange location, StringRef name) {
+SymbolRef _NameResolverResolveDeclaration(NameResolverRef resolver, ScopeRef scope, SourceRange location, StringRef name) {
     SymbolRef symbol = NULL;
     while (scope) {
         symbol = ScopeLookupSymbol(scope, name, location.start);
@@ -263,16 +261,12 @@ ASTDeclarationRef _NameResolverResolveDeclaration(NameResolverRef resolver, Scop
         scope = ScopeGetParent(scope);
     }
 
-    if (symbol) {
-        return SymbolGetNode(symbol);
-    }
-
-    return NULL;
+    return symbol;
 }
 
-ASTValueDeclarationRef _NameResolverResolveEnumerationElement(NameResolverRef resolver, ASTModuleDeclarationRef module, StringRef name) {
-    ScopeRef scope               = module->base.scope;
-    ASTValueDeclarationRef value = NULL;
+SymbolRef _NameResolverResolveEnumerationElement(NameResolverRef resolver, ASTModuleDeclarationRef module, StringRef name) {
+    ScopeRef scope   = module->base.scope;
+    SymbolRef result = NULL;
 
     for (Index index = 0; index < ScopeGetChildCount(scope); index++) {
         ScopeRef child = ScopeGetChildAtIndex(scope, index);
@@ -283,17 +277,16 @@ ASTValueDeclarationRef _NameResolverResolveEnumerationElement(NameResolverRef re
                 assert(node);
                 assert(node->tag == ASTTagValueDeclaration);
 
-                if (value) {
+                if (result) {
                     // TODO: Remove after implementing @CandidateDeclarations
                     ReportCritical("Ambigous enumeration cases are not supported yet!");
-                    return value;
+                    return result;
                 }
 
-                value = (ASTValueDeclarationRef)node;
-                assert(value->kind == ASTValueKindEnumerationElement);
+                result = symbol;
             }
         }
     }
 
-    return value;
+    return result;
 }
