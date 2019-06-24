@@ -95,14 +95,10 @@ SymbolRef ScopeInsertSymbol(ScopeRef scope, StringRef name, SourceRange location
         return NULL;
     }
 
-    Symbol symbol;
-    symbol.name     = name;
-    symbol.location = location;
-    symbol.node     = NULL;
-    symbol.type     = NULL;
-
-    Index index = ArrayGetSortedInsertionIndex(scope->symbols, &_ArrayIsSymbolLocationOrderedAscending, &symbol);
-    ArrayInsertElementAtIndex(scope->symbols, index, &symbol);
+    SymbolRef symbol = ArrayAppendUninitializedElement(scope->symbols);
+    memset(symbol, 0, sizeof(struct _Symbol));
+    symbol->name     = name;
+    symbol->location = location;
 
     if (scope->location.start == NULL) {
         scope->location = location;
@@ -111,7 +107,7 @@ SymbolRef ScopeInsertSymbol(ScopeRef scope, StringRef name, SourceRange location
         scope->location.end   = MAX(scope->location.end, location.end);
     }
 
-    return (SymbolRef)ArrayGetElementAtIndex(scope->symbols, index);
+    return symbol;
 }
 
 SymbolRef ScopeInsertUniqueSymbol(ScopeRef scope, SourceRange location) {
@@ -125,10 +121,9 @@ SymbolRef ScopeInsertUniqueSymbol(ScopeRef scope, SourceRange location) {
 }
 
 SymbolRef ScopeLookupSymbol(ScopeRef scope, StringRef name, const Char *virtualEndOfScope) {
-    Index end = _ScopeGetVirtualEnd(scope, virtualEndOfScope);
-    for (Index index = 0; index < end; index++) {
+    for (Index index = 0; index < ScopeGetSymbolCount(scope); index++) {
         SymbolRef symbol = ArrayGetElementAtIndex(scope->symbols, index);
-        if (StringIsEqual(symbol->name, name)) {
+        if (StringIsEqual(symbol->name, name) && (symbol->location.start < virtualEndOfScope || scope->kind == ScopeKindGlobal)) {
             return symbol;
         }
     }
@@ -171,24 +166,6 @@ ScopeRef _SymbolTableCreateScope(SymbolTableRef symbolTable, ScopeKind kind, Sco
     }
 
     return scope;
-}
-
-Index _ScopeGetVirtualEnd(ScopeRef scope, const Char *virtualEndOfScope) {
-    if (scope->kind == ScopeKindGlobal || virtualEndOfScope == NULL) {
-        return ArrayGetElementCount(scope->symbols);
-    }
-
-    Index count = ArrayGetElementCount(scope->symbols);
-    if (count > 0) {
-        for (Index index = count; index > 0; index--) {
-            SymbolRef symbol = ArrayGetElementAtIndex(scope->symbols, index - 1);
-            if (symbol->location.start < virtualEndOfScope) {
-                return index;
-            }
-        }
-    }
-
-    return 0;
 }
 
 Bool _ArrayIsSymbolLocationOrderedAscending(const void *lhs, const void *rhs) {
