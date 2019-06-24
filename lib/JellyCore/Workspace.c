@@ -1,8 +1,9 @@
 #include "JellyCore/ASTDumper.h"
 #include "JellyCore/Diagnostic.h"
-#include "JellyCore/NameResolver.h"
 #include "JellyCore/Parser.h"
 #include "JellyCore/Queue.h"
+#include "JellyCore/ScopeDumper.h"
+#include "JellyCore/Typer.h"
 #include "JellyCore/Workspace.h"
 
 #include <pthread.h>
@@ -16,10 +17,10 @@ struct _Workspace {
     ASTContextRef context;
     ParserRef parser;
     QueueRef parseQueue;
-    NameResolverRef nameResolver;
 
     WorkspaceOptions options;
     FILE *dumpASTOutput;
+    FILE *dumpScopeOutput;
 
     Bool running;
     Bool waiting;
@@ -42,9 +43,9 @@ WorkspaceRef WorkspaceCreate(AllocatorRef allocator, StringRef workingDirectory,
     workspace->context          = ASTContextCreate(allocator);
     workspace->parser           = ParserCreate(allocator, workspace->context);
     workspace->parseQueue       = QueueCreate(allocator);
-    workspace->nameResolver     = NameResolverCreate(allocator);
     workspace->options          = options;
     workspace->dumpASTOutput    = stdout;
+    workspace->dumpScopeOutput  = stdout;
     workspace->running          = false;
     workspace->waiting          = false;
     return workspace;
@@ -55,7 +56,6 @@ void WorkspaceDestroy(WorkspaceRef workspace) {
         WorkspaceWaitForFinish(workspace);
     }
 
-    NameResolverDestroy(workspace->nameResolver);
     ArrayDestroy(workspace->sourceFilePaths);
     QueueDestroy(workspace->parseQueue);
     ParserDestroy(workspace->parser);
@@ -87,7 +87,13 @@ void WorkspaceAddSourceFile(WorkspaceRef workspace, StringRef filePath) {
 }
 
 void WorkspaceSetDumpASTOutput(WorkspaceRef workspace, FILE *output) {
+    assert(output);
     workspace->dumpASTOutput = output;
+}
+
+void WorkspaceSetDumpScopeOutput(WorkspaceRef workspace, FILE *output) {
+    assert(output);
+    workspace->dumpScopeOutput = output;
 }
 
 Bool WorkspaceStartAsync(WorkspaceRef workspace) {
@@ -115,7 +121,8 @@ Bool _ArrayContainsString(const void *lhs, const void *rhs) {
 void _WorkspacePerformLoads(WorkspaceRef workspace, ASTSourceUnitRef sourceUnit) {
     ASTLinkedListRef next = sourceUnit->declarations;
     while (next) {
-        if (next->node->tag == ASTTagLoadDirective) {
+        ASTNodeRef node = (ASTNodeRef)next->node;
+        if (node->tag == ASTTagLoadDirective) {
             ASTLoadDirectiveRef load = (ASTLoadDirectiveRef)next->node;
             assert(load->filePath->kind == ASTConstantKindString);
             StringRef filePath         = load->filePath->stringValue;
@@ -187,7 +194,17 @@ void *_WorkspaceProcess(void *context) {
     }
 
     // Name resolution
-    NameResolverResolve(workspace->nameResolver, workspace->context, (ASTNodeRef)ASTContextGetModule(workspace->context));
+    //    NameResolverResolve(workspace->nameResolver, workspace->context, (ASTNodeRef)ASTContextGetModule(workspace->context));
+    TyperRef typer = TyperCreate(workspace->allocator);
+    TyperType(typer, workspace->context, (ASTNodeRef)ASTContextGetModule(workspace->context));
+    TyperDestroy(typer);
+
+    if ((workspace->options & WorkspaceOptionsDumpScope) > 0) {
+        ScopeDumperRef dumper      = ScopeDumperCreate(AllocatorGetSystemDefault(), workspace->dumpScopeOutput);
+        SymbolTableRef symbolTable = ASTContextGetSymbolTable(workspace->context);
+        ScopeDumperDump(dumper, SymbolTableGetGlobalScope(symbolTable));
+        ScopeDumperDestroy(dumper);
+    }
 
     return NULL;
 }

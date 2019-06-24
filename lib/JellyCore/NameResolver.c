@@ -104,20 +104,31 @@ void NameResolverResolve(NameResolverRef resolver, ASTContextRef context, ASTNod
         ASTBinaryExpressionRef binary = (ASTBinaryExpressionRef)node;
         NameResolverResolve(resolver, context, (ASTNodeRef)binary->arguments[0]);
         NameResolverResolve(resolver, context, (ASTNodeRef)binary->arguments[1]);
+
+        SymbolRef callee           = ScopeInsertUniqueSymbol(binary->base.base.scope, binary->base.base.location);
+        SymbolRef result           = ScopeInsertUniqueSymbol(binary->base.base.scope, binary->base.base.location);
+        ASTApplicationTypeRef type = (ASTApplicationTypeRef)ASTContextCreateApplicationType(context, binary->base.base.location, callee,
+                                                                                            NULL, result);
+        binary->base.symbol->kind  = SymbolKindType;
+        binary->base.symbol->type  = (ASTTypeRef)type;
         return;
     }
 
     case ASTTagIdentifierExpression: {
         ASTIdentifierExpressionRef expression = (ASTIdentifierExpressionRef)node;
-        SymbolRef symbol = _NameResolverResolveDeclaration(resolver, expression->base.scope, expression->base.location, expression->name);
+        SymbolRef symbol = _NameResolverResolveDeclaration(resolver, expression->base.base.scope, expression->base.base.location,
+                                                           expression->name);
 
         if (!symbol) {
             symbol = _NameResolverResolveEnumerationElement(resolver, ASTContextGetModule(context), expression->name);
         }
 
         if (symbol) {
-            expression->symbol = symbol;
+            // TODO: Expression symbol should not be overridden, instead we could link the symbols to each other...
+            expression->base.symbol = symbol;
         } else {
+            expression->base.symbol->kind = SymbolKindType;
+            expression->base.symbol->type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
             ReportError("Unresolved identifier");
         }
         return;
@@ -136,7 +147,12 @@ void NameResolverResolve(NameResolverRef resolver, ASTContextRef context, ASTNod
         if (call->arguments) {
             NameResolverResolve(resolver, context, (ASTNodeRef)call->arguments);
         }
+
         // TODO: Check if callee is function declaration
+        SymbolRef result        = ScopeInsertUniqueSymbol(call->base.base.scope, call->base.base.location);
+        call->base.symbol->kind = SymbolKindType;
+        call->base.symbol->type = (ASTTypeRef)ASTContextCreateApplicationType(context, call->base.base.location, call->callee->symbol,
+                                                                              call->arguments, result);
         return;
     }
 
@@ -177,7 +193,7 @@ void NameResolverResolve(NameResolverRef resolver, ASTContextRef context, ASTNod
         ASTValueDeclarationRef value = (ASTValueDeclarationRef)node;
         if (value->kind == ASTValueKindVariable || value->kind == ASTValueKindParameter || value->kind == ASTValueKindEnumerationElement) {
             if (value->initializer) {
-                NameResolverResolve(resolver, context, value->initializer);
+                NameResolverResolve(resolver, context, (ASTNodeRef)value->initializer);
             }
             NameResolverResolve(resolver, context, value->type);
         } else {
@@ -208,7 +224,7 @@ void NameResolverResolve(NameResolverRef resolver, ASTContextRef context, ASTNod
         while (scope) {
             symbol = ScopeLookupSymbol(scope, opaque->name, opaque->base.location.start);
             if (symbol) {
-                ASTNodeRef node = SymbolGetNode(symbol);
+                ASTNodeRef node = symbol->node;
                 assert(node);
 
                 if (node->tag == ASTTagStructureDeclaration || node->tag == ASTTagEnumerationDeclaration) {
@@ -222,7 +238,7 @@ void NameResolverResolve(NameResolverRef resolver, ASTContextRef context, ASTNod
         }
 
         if (symbol) {
-            opaque->declaration = (ASTDeclarationRef)SymbolGetNode(symbol);
+            opaque->declaration = (ASTDeclarationRef)symbol->node;
             assert(opaque->declaration);
         } else {
             ReportError("Use of undeclared type");
@@ -246,7 +262,7 @@ SymbolRef _NameResolverResolveDeclaration(NameResolverRef resolver, ScopeRef sco
     while (scope) {
         symbol = ScopeLookupSymbol(scope, name, location.start);
         if (symbol) {
-            ASTNodeRef node = SymbolGetNode(symbol);
+            ASTNodeRef node = symbol->node;
             assert(node);
             Bool isDeclaration = (node->tag == ASTTagValueDeclaration || node->tag == ASTTagModuleDeclaration ||
                                   node->tag == ASTTagOpaqueDeclaration || node->tag == ASTTagFunctionDeclaration ||
@@ -273,7 +289,7 @@ SymbolRef _NameResolverResolveEnumerationElement(NameResolverRef resolver, ASTMo
         if (ScopeGetKind(child) == ScopeKindEnumeration) {
             SymbolRef symbol = ScopeLookupSymbol(child, name, NULL);
             if (symbol) {
-                ASTNodeRef node = SymbolGetNode(symbol);
+                ASTNodeRef node = symbol->node;
                 assert(node);
                 assert(node->tag == ASTTagValueDeclaration);
 

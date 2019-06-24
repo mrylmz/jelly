@@ -663,17 +663,13 @@ static inline ASTUnaryExpressionRef _ParserParseUnaryExpression(ParserRef parser
         return NULL;
     }
 
-    if (location.end != arguments[0]->location.start) {
+    if (location.end != arguments[0]->base.location.start) {
         ReportError("Unary operator cannot be separated from its operand");
         return NULL;
     }
 
-    location.end                     = parser->token.location.start;
-    ASTUnaryExpressionRef expression = ASTContextCreateUnaryExpression(parser->context, location, unary, arguments);
-
-    SymbolTableRef symbolTable = ASTContextGetSymbolTable(parser->context);
-    expression->symbol         = ScopeInsertUniqueSymbol(SymbolTableGetCurrentScope(symbolTable), location);
-    return expression;
+    location.end = parser->token.location.start;
+    return ASTContextCreateUnaryExpression(parser->context, location, unary, arguments);
 }
 
 /// grammar: expression        := binary-expression | primary-expression
@@ -729,9 +725,7 @@ static inline ASTExpressionRef _ParserParseExpression(ParserRef parser, ASTOpera
 
             location.end                  = parser->token.location.start;
             ASTExpressionRef arguments[2] = {result, right};
-            result                     = (ASTExpressionRef)ASTContextCreateBinaryExpression(parser->context, location, binary, arguments);
-            SymbolTableRef symbolTable = ASTContextGetSymbolTable(parser->context);
-            ((ASTBinaryExpressionRef)result)->symbol = ScopeInsertUniqueSymbol(SymbolTableGetCurrentScope(symbolTable), location);
+            result = (ASTExpressionRef)ASTContextCreateBinaryExpression(parser->context, location, binary, arguments);
             assert(result);
         } else if (postfix == ASTPostfixOperatorSelector) {
             StringRef memberName = _ParserConsumeIdentifier(parser);
@@ -741,8 +735,6 @@ static inline ASTExpressionRef _ParserParseExpression(ParserRef parser, ASTOpera
 
             location.end = parser->token.location.start;
             result       = (ASTExpressionRef)ASTContextCreateMemberAccessExpression(parser->context, location, result, memberName);
-            SymbolTableRef symbolTable                     = ASTContextGetSymbolTable(parser->context);
-            ((ASTMemberAccessExpressionRef)result)->symbol = ScopeInsertUniqueSymbol(SymbolTableGetCurrentScope(symbolTable), location);
         } else if (postfix == ASTPostfixOperatorCall) {
             result = (ASTExpressionRef)_ParserParseCallExpression(parser, result);
             assert(result);
@@ -784,16 +776,13 @@ static inline ASTIdentifierExpressionRef _ParserParseIdentifierExpression(Parser
         return NULL;
     }
 
-    location.end                          = parser->token.location.start;
-    ASTIdentifierExpressionRef expression = ASTContextCreateIdentifierExpression(parser->context, location, name);
-    SymbolTableRef symbolTable            = ASTContextGetSymbolTable(parser->context);
-    expression->symbol                    = ScopeInsertUniqueSymbol(SymbolTableGetCurrentScope(symbolTable), location);
-    return expression;
+    location.end = parser->token.location.start;
+    return ASTContextCreateIdentifierExpression(parser->context, location, name);
 }
 
 /// grammar: call-expression := expression "(" [ expression { "," expression } ] ")"
 static inline ASTCallExpressionRef _ParserParseCallExpression(ParserRef parser, ASTExpressionRef callee) {
-    SourceRange location = {callee->location.start, parser->token.location.start};
+    SourceRange location = {callee->base.location.start, parser->token.location.start};
 
     // We expect that the postfix operator head is already consumed earlier
     //    if (!_ParserConsumePostfixOperatorHead(parser)) {
@@ -822,11 +811,8 @@ static inline ASTCallExpressionRef _ParserParseCallExpression(ParserRef parser, 
         return NULL;
     }
 
-    location.end                    = parser->token.location.start;
-    ASTCallExpressionRef expression = ASTContextCreateCallExpression(parser->context, location, callee, arguments);
-    SymbolTableRef symbolTable      = ASTContextGetSymbolTable(parser->context);
-    expression->symbol              = ScopeInsertUniqueSymbol(SymbolTableGetCurrentScope(symbolTable), location);
-    return expression;
+    location.end = parser->token.location.start;
+    return ASTContextCreateCallExpression(parser->context, location, callee, arguments);
 }
 
 /// grammar: constant-expression := nil-literal | bool-literal | numeric-literal | string-literal
@@ -836,56 +822,38 @@ static inline ASTConstantExpressionRef _ParserParseConstantExpression(ParserRef 
     SourceRange location = parser->token.location;
 
     if (_ParserConsumeToken(parser, TokenKindKeywordNil)) {
-        location.end                        = parser->token.location.start;
-        ASTConstantExpressionRef expression = ASTContextCreateConstantNilExpression(parser->context, location);
-        SymbolTableRef symbolTable          = ASTContextGetSymbolTable(parser->context);
-        expression->symbol                  = ScopeInsertUniqueSymbol(SymbolTableGetCurrentScope(symbolTable), location);
-        return expression;
+        location.end = parser->token.location.start;
+        return ASTContextCreateConstantNilExpression(parser->context, location);
     }
 
     if (_ParserConsumeToken(parser, TokenKindKeywordTrue)) {
-        location.end                        = parser->token.location.start;
-        ASTConstantExpressionRef expression = ASTContextCreateConstantBoolExpression(parser->context, location, true);
-        SymbolTableRef symbolTable          = ASTContextGetSymbolTable(parser->context);
-        expression->symbol                  = ScopeInsertUniqueSymbol(SymbolTableGetCurrentScope(symbolTable), location);
-        return expression;
+        location.end = parser->token.location.start;
+        return ASTContextCreateConstantBoolExpression(parser->context, location, true);
     }
 
     if (_ParserConsumeToken(parser, TokenKindKeywordFalse)) {
-        location.end                        = parser->token.location.start;
-        ASTConstantExpressionRef expression = ASTContextCreateConstantBoolExpression(parser->context, location, false);
-        SymbolTableRef symbolTable          = ASTContextGetSymbolTable(parser->context);
-        expression->symbol                  = ScopeInsertUniqueSymbol(SymbolTableGetCurrentScope(symbolTable), location);
-        return expression;
+        location.end = parser->token.location.start;
+        return ASTContextCreateConstantBoolExpression(parser->context, location, false);
     }
 
     UInt64 intValue = parser->token.intValue;
     if (_ParserConsumeToken(parser, TokenKindLiteralInt)) {
-        location.end                        = parser->token.location.start;
-        ASTConstantExpressionRef expression = ASTContextCreateConstantIntExpression(parser->context, location, intValue);
-        SymbolTableRef symbolTable          = ASTContextGetSymbolTable(parser->context);
-        expression->symbol                  = ScopeInsertUniqueSymbol(SymbolTableGetCurrentScope(symbolTable), location);
-        return expression;
+        location.end = parser->token.location.start;
+        return ASTContextCreateConstantIntExpression(parser->context, location, intValue);
     }
 
     Float64 floatValue = parser->token.floatValue;
     if (_ParserConsumeToken(parser, TokenKindLiteralFloat)) {
-        location.end                        = parser->token.location.start;
-        ASTConstantExpressionRef expression = ASTContextCreateConstantFloatExpression(parser->context, location, floatValue);
-        SymbolTableRef symbolTable          = ASTContextGetSymbolTable(parser->context);
-        expression->symbol                  = ScopeInsertUniqueSymbol(SymbolTableGetCurrentScope(symbolTable), location);
-        return expression;
+        location.end = parser->token.location.start;
+        return ASTContextCreateConstantFloatExpression(parser->context, location, floatValue);
     }
 
     if (_ParserIsToken(parser, TokenKindLiteralString)) {
         assert(parser->token.location.end - parser->token.location.start >= 2);
         StringRef value = StringCreateRange(parser->tempAllocator, parser->token.location.start + 1, parser->token.location.end - 1);
         _ParserConsumeToken(parser, TokenKindLiteralString);
-        location.end                        = parser->token.location.start;
-        ASTConstantExpressionRef expression = ASTContextCreateConstantStringExpression(parser->context, location, value);
-        SymbolTableRef symbolTable          = ASTContextGetSymbolTable(parser->context);
-        expression->symbol                  = ScopeInsertUniqueSymbol(SymbolTableGetCurrentScope(symbolTable), location);
-        return expression;
+        location.end = parser->token.location.start;
+        return ASTContextCreateConstantStringExpression(parser->context, location, value);
     }
 
     return NULL;
@@ -946,19 +914,8 @@ static inline ASTEnumerationDeclarationRef _ParserParseEnumerationDeclaration(Pa
 
     SymbolTablePopScope(symbolTable);
 
-    location.end                             = parser->token.location.start;
-    ASTEnumerationDeclarationRef declaration = ASTContextCreateEnumerationDeclaration(parser->context, location, name, elements);
-
-    declaration->symbol = ScopeInsertSymbol(SymbolTableGetCurrentScope(symbolTable), name, location);
-    if (!declaration->symbol) {
-        ReportError("Invalid redeclaration of identifier");
-        return NULL;
-    } else {
-        SymbolSetNode(declaration->symbol, (ASTNodeRef)declaration);
-        SymbolSetType(declaration->symbol, (ASTTypeRef)ASTContextCreateEnumerationType(parser->context, location, declaration));
-    }
-
-    return declaration;
+    location.end = parser->token.location.start;
+    return ASTContextCreateEnumerationDeclaration(parser->context, location, name, elements);
 }
 
 /// grammar: func-declaration := "func" identifier "(" [ parameter { "," parameter } ] ")" "->" type-identifier block
@@ -1029,20 +986,8 @@ static inline ASTFunctionDeclarationRef _ParserParseFunctionDeclaration(ParserRe
 
     SymbolTablePopScope(symbolTable);
 
-    location.end                          = parser->token.location.start;
-    ASTFunctionDeclarationRef declaration = ASTContextCreateFunctionDeclaration(parser->context, location, name, parameters, returnType,
-                                                                                body);
-
-    declaration->symbol = ScopeInsertSymbol(SymbolTableGetCurrentScope(symbolTable), name, location);
-    if (!declaration->symbol) {
-        ReportError("Invalid redeclaration of identifier");
-        return NULL;
-    } else {
-        SymbolSetNode(declaration->symbol, (ASTNodeRef)declaration);
-        SymbolSetType(declaration->symbol, (ASTTypeRef)ASTContextCreateFunctionType(parser->context, location, declaration));
-    }
-
-    return declaration;
+    location.end = parser->token.location.start;
+    return ASTContextCreateFunctionDeclaration(parser->context, location, name, parameters, returnType, body);
 }
 
 /// grammar: struct-declaration := "struct" identifier "{" { value-declaration } "}"
@@ -1096,19 +1041,8 @@ static inline ASTStructureDeclarationRef _ParserParseStructureDeclaration(Parser
 
     SymbolTablePopScope(symbolTable);
 
-    location.end                           = parser->token.location.start;
-    ASTStructureDeclarationRef declaration = ASTContextCreateStructureDeclaration(parser->context, location, name, values);
-
-    declaration->symbol = ScopeInsertSymbol(SymbolTableGetCurrentScope(symbolTable), name, location);
-    if (!declaration->symbol) {
-        ReportError("Invalid redeclaration of identifier");
-        return NULL;
-    } else {
-        SymbolSetNode(declaration->symbol, (ASTNodeRef)declaration);
-        SymbolSetType(declaration->symbol, (ASTTypeRef)ASTContextCreateStructureType(parser->context, location, declaration));
-    }
-
-    return declaration;
+    location.end = parser->token.location.start;
+    return ASTContextCreateStructureDeclaration(parser->context, location, name, values);
 }
 
 /// grammar: variable-declaration := "var" identifier ":" type-identifier [ "=" expression ]
@@ -1149,19 +1083,8 @@ static inline ASTValueDeclarationRef _ParserParseVariableDeclaration(ParserRef p
         return NULL;
     }
 
-    location.end                       = parser->token.location.start;
-    ASTValueDeclarationRef declaration = ASTContextCreateValueDeclaration(parser->context, location, ASTValueKindVariable, name, type,
-                                                                          initializer);
-    SymbolTableRef symbolTable         = ASTContextGetSymbolTable(parser->context);
-    declaration->symbol                = ScopeInsertSymbol(SymbolTableGetCurrentScope(symbolTable), name, location);
-    if (!declaration->symbol) {
-        ReportError("Invalid redeclaration of identifier");
-    } else {
-        SymbolSetNode(declaration->symbol, (ASTNodeRef)declaration);
-        SymbolSetType(declaration->symbol, type);
-    }
-
-    return declaration;
+    location.end = parser->token.location.start;
+    return ASTContextCreateValueDeclaration(parser->context, location, ASTValueKindVariable, name, type, initializer);
 }
 
 /// grammar: enumeration-element-declaration := "case" identifier [ "=" expression ]
@@ -1195,19 +1118,8 @@ static inline ASTValueDeclarationRef _ParserParseEnumerationElementDeclaration(P
 
     ASTTypeRef type = (ASTTypeRef)ASTContextGetBuiltinType(parser->context, ASTBuiltinTypeKindInt);
 
-    location.end                       = parser->token.location.start;
-    ASTValueDeclarationRef declaration = ASTContextCreateValueDeclaration(parser->context, location, ASTValueKindEnumerationElement, name,
-                                                                          type, initializer);
-    SymbolTableRef symbolTable         = ASTContextGetSymbolTable(parser->context);
-    declaration->symbol                = ScopeInsertSymbol(SymbolTableGetCurrentScope(symbolTable), name, location);
-    if (!declaration->symbol) {
-        ReportError("Invalid redeclaration of identifier");
-    } else {
-        SymbolSetNode(declaration->symbol, (ASTNodeRef)declaration);
-        SymbolSetType(declaration->symbol, type);
-    }
-
-    return declaration;
+    location.end = parser->token.location.start;
+    return ASTContextCreateValueDeclaration(parser->context, location, ASTValueKindEnumerationElement, name, type, initializer);
 }
 
 /// grammar: parameter-declaration := identifier ":" type-identifier
@@ -1231,19 +1143,8 @@ static inline ASTValueDeclarationRef _ParserParseParameterDeclaration(ParserRef 
         return NULL;
     }
 
-    location.end                       = parser->token.location.start;
-    ASTValueDeclarationRef declaration = ASTContextCreateValueDeclaration(parser->context, location, ASTValueKindParameter, name, type,
-                                                                          NULL);
-    SymbolTableRef symbolTable         = ASTContextGetSymbolTable(parser->context);
-    declaration->symbol                = ScopeInsertSymbol(SymbolTableGetCurrentScope(symbolTable), declaration->name, location);
-    if (!declaration->symbol) {
-        ReportError("Invalid redeclaration of identifier");
-    } else {
-        SymbolSetNode(declaration->symbol, (ASTNodeRef)declaration);
-        SymbolSetType(declaration->symbol, type);
-    }
-
-    return declaration;
+    location.end = parser->token.location.start;
+    return ASTContextCreateValueDeclaration(parser->context, location, ASTValueKindParameter, name, type, NULL);
 }
 
 /// grammar: type         := builtin-type | opaque-type | pointer-type | array-type
@@ -1364,11 +1265,9 @@ static inline ASTExpressionRef _ParserParseConditionList(ParserRef parser) {
             return NULL;
         }
 
-        SourceRange location         = {condition->location.start, expression->location.end};
+        SourceRange location         = {condition->base.location.start, expression->base.location.end};
         ASTExpressionRef arguments[] = {condition, expression};
         condition = (ASTExpressionRef)ASTContextCreateBinaryExpression(parser->context, location, ASTBinaryOperatorLogicalAnd, arguments);
-        SymbolTableRef symbolTable                  = ASTContextGetSymbolTable(parser->context);
-        ((ASTBinaryExpressionRef)condition)->symbol = ScopeInsertUniqueSymbol(SymbolTableGetCurrentScope(symbolTable), location);
     }
 
     return condition;

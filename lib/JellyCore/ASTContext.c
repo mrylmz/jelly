@@ -51,6 +51,7 @@ ASTContextRef ASTContextCreate(AllocatorRef allocator) {
     context->nodes[ASTTagEnumerationType]        = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTEnumerationType), 1024);
     context->nodes[ASTTagFunctionType]           = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTFunctionType), 1024);
     context->nodes[ASTTagStructureType]          = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTStructureType), 1024);
+    context->nodes[ASTTagApplicationType]        = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTApplicationType), 1024);
     context->symbolTable                         = SymbolTableCreate(bumpAllocator);
     context->module                              = ASTContextCreateModuleDeclaration(context, SourceRangeNull(), NULL, NULL);
     _ASTContextInitBuiltinTypes(context);
@@ -208,7 +209,7 @@ ASTUnaryExpressionRef ASTContextCreateUnaryExpression(ASTContextRef context, Sou
     ASTUnaryExpressionRef node = (ASTUnaryExpressionRef)_ASTContextCreateNode(context, ASTTagUnaryExpression, location);
     node->op                   = op;
     node->arguments[0]         = arguments[0];
-    node->symbol               = NULL;
+    node->base.symbol          = NULL;
     return node;
 }
 
@@ -220,7 +221,7 @@ ASTBinaryExpressionRef ASTContextCreateBinaryExpression(ASTContextRef context, S
     node->op                    = op;
     node->arguments[0]          = arguments[0];
     node->arguments[1]          = arguments[1];
-    node->symbol                = NULL;
+    node->base.symbol           = NULL;
     return node;
 }
 
@@ -229,7 +230,7 @@ ASTIdentifierExpressionRef ASTContextCreateIdentifierExpression(ASTContextRef co
 
     ASTIdentifierExpressionRef node = (ASTIdentifierExpressionRef)_ASTContextCreateNode(context, ASTTagIdentifierExpression, location);
     node->name                      = StringCreateCopy(context->allocator, name);
-    node->symbol                    = NULL;
+    node->base.symbol               = NULL;
     return node;
 }
 
@@ -241,7 +242,7 @@ ASTMemberAccessExpressionRef ASTContextCreateMemberAccessExpression(ASTContextRe
                                                                                             location);
     node->argument                    = argument;
     node->memberName                  = StringCreateCopy(context->allocator, memberName);
-    node->symbol                      = NULL;
+    node->base.symbol                 = NULL;
     return node;
 }
 
@@ -252,7 +253,7 @@ ASTCallExpressionRef ASTContextCreateCallExpression(ASTContextRef context, Sourc
     ASTCallExpressionRef node = (ASTCallExpressionRef)_ASTContextCreateNode(context, ASTTagCallExpression, location);
     node->callee              = callee;
     node->arguments           = NULL;
-    node->symbol              = NULL;
+    node->base.symbol         = NULL;
     if (arguments && ArrayGetElementCount(arguments) > 0) {
         node->arguments       = (ASTLinkedListRef)_ASTContextCreateNode(context, ASTTagLinkedList, SourceRangeNull());
         node->arguments->node = *((ASTNodeRef *)ArrayGetElementAtIndex(arguments, 0));
@@ -272,7 +273,7 @@ ASTCallExpressionRef ASTContextCreateCallExpression(ASTContextRef context, Sourc
 ASTConstantExpressionRef ASTContextCreateConstantNilExpression(ASTContextRef context, SourceRange location) {
     ASTConstantExpressionRef node = (ASTConstantExpressionRef)_ASTContextCreateNode(context, ASTTagConstantExpression, location);
     node->kind                    = ASTConstantKindNil;
-    node->symbol                  = NULL;
+    node->base.symbol             = NULL;
     return node;
 }
 
@@ -280,7 +281,7 @@ ASTConstantExpressionRef ASTContextCreateConstantBoolExpression(ASTContextRef co
     ASTConstantExpressionRef node = (ASTConstantExpressionRef)_ASTContextCreateNode(context, ASTTagConstantExpression, location);
     node->kind                    = ASTConstantKindBool;
     node->boolValue               = value;
-    node->symbol                  = NULL;
+    node->base.symbol             = NULL;
     return node;
 }
 
@@ -288,7 +289,7 @@ ASTConstantExpressionRef ASTContextCreateConstantIntExpression(ASTContextRef con
     ASTConstantExpressionRef node = (ASTConstantExpressionRef)_ASTContextCreateNode(context, ASTTagConstantExpression, location);
     node->kind                    = ASTConstantKindInt;
     node->intValue                = value;
-    node->symbol                  = NULL;
+    node->base.symbol             = NULL;
     return node;
 }
 
@@ -296,7 +297,7 @@ ASTConstantExpressionRef ASTContextCreateConstantFloatExpression(ASTContextRef c
     ASTConstantExpressionRef node = (ASTConstantExpressionRef)_ASTContextCreateNode(context, ASTTagConstantExpression, location);
     node->kind                    = ASTConstantKindFloat;
     node->floatValue              = value;
-    node->symbol                  = NULL;
+    node->base.symbol             = NULL;
     return node;
 }
 
@@ -306,7 +307,7 @@ ASTConstantExpressionRef ASTContextCreateConstantStringExpression(ASTContextRef 
     ASTConstantExpressionRef node = (ASTConstantExpressionRef)_ASTContextCreateNode(context, ASTTagConstantExpression, location);
     node->kind                    = ASTConstantKindString;
     node->stringValue             = StringCreateCopy(context->allocator, value);
-    node->symbol                  = NULL;
+    node->base.symbol             = NULL;
     return node;
 }
 
@@ -481,15 +482,53 @@ ASTEnumerationTypeRef ASTContextCreateEnumerationType(ASTContextRef context, Sou
     return node;
 }
 
-ASTFunctionTypeRef ASTContextCreateFunctionType(ASTContextRef context, SourceRange location, ASTFunctionDeclarationRef declaration) {
+ASTFunctionTypeRef ASTContextCreateFunctionType(ASTContextRef context, SourceRange location, ASTFunctionDeclarationRef declaration,
+                                                ArrayRef parameters, SymbolRef result) {
     ASTFunctionTypeRef node = (ASTFunctionTypeRef)_ASTContextCreateNode(context, ASTTagFunctionType, location);
     node->declaration       = declaration;
+    node->result            = result;
+    node->parameters        = NULL;
+    if (parameters && ArrayGetElementCount(parameters) > 0) {
+        node->parameters       = (ASTLinkedListRef)_ASTContextCreateNode(context, ASTTagLinkedList, SourceRangeNull());
+        node->parameters->node = *((SymbolRef *)ArrayGetElementAtIndex(parameters, 0));
+        node->parameters->next = NULL;
+
+        ASTLinkedListRef current = node->parameters;
+        for (Index index = 1; index < ArrayGetElementCount(parameters); index++) {
+            current->next       = (ASTLinkedListRef)_ASTContextCreateNode(context, ASTTagLinkedList, SourceRangeNull());
+            current->next->node = *((SymbolRef *)ArrayGetElementAtIndex(parameters, index));
+            current->next->next = NULL;
+            current             = current->next;
+        }
+    }
     return node;
 }
 
 ASTStructureTypeRef ASTContextCreateStructureType(ASTContextRef context, SourceRange location, ASTStructureDeclarationRef declaration) {
     ASTStructureTypeRef node = (ASTStructureTypeRef)_ASTContextCreateNode(context, ASTTagStructureType, location);
     node->declaration        = declaration;
+    return node;
+}
+
+ASTApplicationTypeRef ASTContextCreateApplicationType(ASTContextRef context, SourceRange location, SymbolRef callee, ArrayRef arguments,
+                                                      SymbolRef result) {
+    ASTApplicationTypeRef node = (ASTApplicationTypeRef)_ASTContextCreateNode(context, ASTTagApplicationType, location);
+    node->callee               = callee;
+    node->result               = result;
+    node->arguments            = NULL;
+    if (arguments && ArrayGetElementCount(arguments) > 0) {
+        node->arguments       = (ASTLinkedListRef)_ASTContextCreateNode(context, ASTTagLinkedList, SourceRangeNull());
+        node->arguments->node = *((SymbolRef *)ArrayGetElementAtIndex(arguments, 0));
+        node->arguments->next = NULL;
+
+        ASTLinkedListRef current = node->arguments;
+        for (Index index = 1; index < ArrayGetElementCount(arguments); index++) {
+            current->next       = (ASTLinkedListRef)_ASTContextCreateNode(context, ASTTagLinkedList, SourceRangeNull());
+            current->next->node = *((SymbolRef *)ArrayGetElementAtIndex(arguments, index));
+            current->next->next = NULL;
+            current             = current->next;
+        }
+    }
     return node;
 }
 
@@ -501,7 +540,7 @@ ASTNodeRef _ASTContextCreateNode(ASTContextRef context, ASTTag tag, SourceRange 
     ASTNodeRef node = ArrayAppendUninitializedElement(context->nodes[tag]);
     node->tag       = tag;
     node->location  = location;
-    node->scope     = SymbolTableGetCurrentScope(context->symbolTable);
+    node->scope     = SymbolTableGetCurrentScope(context->symbolTable); // TODO: This will not work in Typer!!!
     return node;
 }
 
@@ -512,6 +551,7 @@ ASTBuiltinTypeRef _ASTContextCreateBuiltinType(ASTContextRef context, SourceRang
     return node;
 }
 
+// TODO: Move builtin types to a builtin module and implicitly import the module to the main module
 void _ASTContextInitBuiltinTypes(ASTContextRef context) {
     SymbolTableRef symbolTable = ASTContextGetSymbolTable(context);
     ScopeRef globalScope       = SymbolTableGetGlobalScope(symbolTable);
@@ -521,12 +561,17 @@ void _ASTContextInitBuiltinTypes(ASTContextRef context) {
         "UInt32",  "UInt64", "UInt128", "UInt", "Float16", "Float32", "Float64", "Float80", "Float128", "Float",
     };
 
-    for (Index index = 0; index < AST_BUILTIN_TYPE_KIND_COUNT; index++) {
-        StringRef name               = StringCreate(context->allocator, builtinTypeNames[index]);
+    StringRef name           = StringCreate(context->allocator, builtinTypeNames[ASTBuiltinTypeKindError]);
+    context->builtinTypes[ASTBuiltinTypeKindError] = _ASTContextCreateBuiltinType(context, SourceRangeNull(), ASTBuiltinTypeKindError, name);
+
+    // NOTE: Iteration begins after ASTBuiltinTypeKindError which is 0 to skip addition of <error> type to the scope.
+    for (Index index = ASTBuiltinTypeKindError + 1; index < AST_BUILTIN_TYPE_KIND_COUNT; index++) {
+        name                         = StringCreate(context->allocator, builtinTypeNames[index]);
         context->builtinTypes[index] = _ASTContextCreateBuiltinType(context, SourceRangeNull(), (ASTBuiltinTypeKind)index, name);
 
         SymbolRef symbol = ScopeInsertSymbol(globalScope, name, SourceRangeNull());
         assert(symbol);
-        SymbolSetNode(symbol, (ASTNodeRef)context->builtinTypes[index]);
+        symbol->kind = SymbolKindType;
+        symbol->type = (ASTTypeRef)context->builtinTypes[index];
     }
 }

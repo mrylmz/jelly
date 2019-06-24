@@ -19,12 +19,15 @@ Int CompilerRun(ArrayRef arguments) {
     }
 
     Int32 optionDumpAST          = 0;
+    Int32 optionDumpScope        = 0;
     Int32 optionWorkingDirectory = 0;
-    StringRef dumpFilePath       = NULL;
+    StringRef dumpASTFilePath    = NULL;
+    StringRef dumpScopeFilePath  = NULL;
     StringRef workingDirectory   = NULL;
 
     struct option options[] = {
         {"dump-ast", optional_argument, &optionDumpAST, 1},
+        {"dump-scope", optional_argument, &optionDumpScope, 1},
         {"working-directory", required_argument, &optionWorkingDirectory, 1},
         {0, 0, 0, 0},
     };
@@ -37,10 +40,14 @@ Int CompilerRun(ArrayRef arguments) {
         switch (getopt_long_only(argc, argv, "", options, &index)) {
         case 0:
             if (index == 0 && optarg) {
-                dumpFilePath = StringCreate(AllocatorGetSystemDefault(), optarg);
+                dumpASTFilePath = StringCreate(AllocatorGetSystemDefault(), optarg);
             }
 
-            if (index == 1) {
+            if (index == 1 && optarg) {
+                dumpScopeFilePath = StringCreate(AllocatorGetSystemDefault(), optarg);
+            }
+
+            if (index == 2) {
                 workingDirectory = StringCreate(AllocatorGetSystemDefault(), optarg);
             }
             break;
@@ -53,8 +60,12 @@ Int CompilerRun(ArrayRef arguments) {
             break;
 
         default:
-            if (dumpFilePath) {
-                StringDestroy(dumpFilePath);
+            if (dumpASTFilePath) {
+                StringDestroy(dumpASTFilePath);
+            }
+
+            if (dumpScopeFilePath) {
+                StringDestroy(dumpScopeFilePath);
             }
 
             if (workingDirectory) {
@@ -72,8 +83,12 @@ Int CompilerRun(ArrayRef arguments) {
         } else {
             ReportCritical("Couldn't read current working directory");
 
-            if (dumpFilePath) {
-                StringDestroy(dumpFilePath);
+            if (dumpASTFilePath) {
+                StringDestroy(dumpASTFilePath);
+            }
+
+            if (dumpScopeFilePath) {
+                StringDestroy(dumpScopeFilePath);
             }
 
             if (workingDirectory) {
@@ -89,13 +104,24 @@ Int CompilerRun(ArrayRef arguments) {
         workspaceOptions |= WorkspaceOptionsDumpAST;
     }
 
+    if (optionDumpScope) {
+        workspaceOptions |= WorkspaceOptionsDumpScope;
+    }
+
     WorkspaceRef workspace = WorkspaceCreate(AllocatorGetSystemDefault(), workingDirectory, workspaceOptions);
 
     FILE *dumpASTOutput = NULL;
-    if (dumpFilePath) {
-        dumpASTOutput = fopen(StringGetCharacters(dumpFilePath), "w");
+    if (dumpASTFilePath) {
+        dumpASTOutput = fopen(StringGetCharacters(dumpASTFilePath), "w");
         assert(dumpASTOutput);
         WorkspaceSetDumpASTOutput(workspace, dumpASTOutput);
+    }
+
+    FILE *dumpScopeOutput = NULL;
+    if (dumpScopeFilePath) {
+        dumpScopeOutput = fopen(StringGetCharacters(dumpScopeFilePath), "w");
+        assert(dumpScopeOutput);
+        WorkspaceSetDumpScopeOutput(workspace, dumpScopeOutput);
     }
 
     if (optind < argc) {
@@ -113,8 +139,16 @@ Int CompilerRun(ArrayRef arguments) {
         fclose(dumpASTOutput);
     }
 
-    if (dumpFilePath) {
-        StringDestroy(dumpFilePath);
+    if (dumpASTFilePath) {
+        StringDestroy(dumpASTFilePath);
+    }
+
+    if (dumpScopeOutput) {
+        fclose(dumpScopeOutput);
+    }
+
+    if (dumpScopeFilePath) {
+        StringDestroy(dumpScopeFilePath);
     }
 
     StringDestroy(workingDirectory);

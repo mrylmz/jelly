@@ -58,7 +58,7 @@ void ASTDumperDump(ASTDumperRef dumper, ASTNodeRef node) {
 
     case ASTTagIfStatement: {
         ASTIfStatementRef statement = (ASTIfStatementRef)node;
-        _ASTDumperDumpChild(dumper, statement->condition);
+        _ASTDumperDumpChild(dumper, (ASTNodeRef)statement->condition);
         _ASTDumperDumpChild(dumper, (ASTNodeRef)statement->thenBlock);
         _ASTDumperDumpChild(dumper, (ASTNodeRef)statement->elseBlock);
         return;
@@ -74,7 +74,7 @@ void ASTDumperDump(ASTDumperRef dumper, ASTNodeRef node) {
     case ASTTagCaseStatement: {
         ASTCaseStatementRef statement = (ASTCaseStatementRef)node;
         if (statement->kind == ASTCaseKindConditional) {
-            _ASTDumperDumpChild(dumper, statement->condition);
+            _ASTDumperDumpChild(dumper, (ASTNodeRef)statement->condition);
         }
 
         _ASTDumperDumpChild(dumper, (ASTNodeRef)statement->body);
@@ -83,7 +83,7 @@ void ASTDumperDump(ASTDumperRef dumper, ASTNodeRef node) {
 
     case ASTTagSwitchStatement: {
         ASTSwitchStatementRef statement = (ASTSwitchStatementRef)node;
-        _ASTDumperDumpChild(dumper, statement->argument);
+        _ASTDumperDumpChild(dumper, (ASTNodeRef)statement->argument);
         _ASTDumperDumpChildren(dumper, statement->cases);
         return;
     }
@@ -91,7 +91,7 @@ void ASTDumperDump(ASTDumperRef dumper, ASTNodeRef node) {
     case ASTTagControlStatement: {
         ASTControlStatementRef control = (ASTControlStatementRef)node;
         if (control->kind == ASTControlKindReturn && control->result) {
-            _ASTDumperDumpChild(dumper, control->result);
+            _ASTDumperDumpChild(dumper, (ASTNodeRef)control->result);
         }
         return;
     }
@@ -106,7 +106,7 @@ void ASTDumperDump(ASTDumperRef dumper, ASTNodeRef node) {
         _ASTDumperPrintCString(dumper, "'\n");
         dumper->indentation -= 1;
 
-        _ASTDumperDumpChild(dumper, unary->arguments[0]);
+        _ASTDumperDumpChild(dumper, (ASTNodeRef)unary->arguments[0]);
         return;
     }
 
@@ -120,8 +120,8 @@ void ASTDumperDump(ASTDumperRef dumper, ASTNodeRef node) {
         _ASTDumperPrintCString(dumper, "'\n");
         dumper->indentation -= 1;
 
-        _ASTDumperDumpChild(dumper, binary->arguments[0]);
-        _ASTDumperDumpChild(dumper, binary->arguments[1]);
+        _ASTDumperDumpChild(dumper, (ASTNodeRef)binary->arguments[0]);
+        _ASTDumperDumpChild(dumper, (ASTNodeRef)binary->arguments[1]);
         return;
     }
 
@@ -134,13 +134,13 @@ void ASTDumperDump(ASTDumperRef dumper, ASTNodeRef node) {
     case ASTTagMemberAccessExpression: {
         ASTMemberAccessExpressionRef expression = (ASTMemberAccessExpressionRef)node;
         _ASTDumperPrintProperty(dumper, "memberName", StringGetCharacters(expression->memberName));
-        _ASTDumperDumpChild(dumper, expression->argument);
+        _ASTDumperDumpChild(dumper, (ASTNodeRef)expression->argument);
         return;
     }
 
     case ASTTagCallExpression: {
         ASTCallExpressionRef call = (ASTCallExpressionRef)node;
-        _ASTDumperDumpChild(dumper, call->callee);
+        _ASTDumperDumpChild(dumper, (ASTNodeRef)call->callee);
         _ASTDumperDumpChildren(dumper, call->arguments);
         return;
     }
@@ -223,7 +223,7 @@ void ASTDumperDump(ASTDumperRef dumper, ASTNodeRef node) {
         _ASTDumperDumpChild(dumper, value->type);
 
         if (value->initializer) {
-            _ASTDumperDumpChild(dumper, value->initializer);
+            _ASTDumperDumpChild(dumper, (ASTNodeRef)value->initializer);
         }
 
         return;
@@ -246,7 +246,7 @@ void ASTDumperDump(ASTDumperRef dumper, ASTNodeRef node) {
         _ASTDumperDumpChild(dumper, type->elementType);
 
         if (type->size) {
-            _ASTDumperDumpChild(dumper, type->size);
+            _ASTDumperDumpChild(dumper, (ASTNodeRef)type->size);
         }
         return;
     }

@@ -3,14 +3,6 @@
 
 // TODO: Fix memory leaks...
 
-struct _Symbol {
-    StringRef name;
-    SourceRange location;
-    ASTNodeRef node;
-    ASTTypeRef type;
-};
-typedef struct _Symbol Symbol;
-
 struct _Scope {
     ScopeKind kind;
     ScopeRef parent;
@@ -57,6 +49,11 @@ ScopeRef SymbolTableGetGlobalScope(SymbolTableRef symbolTable) {
     return (ScopeRef)ArrayGetElementAtIndex(symbolTable->scopes, 0);
 }
 
+void SymbolTableSetCurrentScope(SymbolTableRef symbolTable, ScopeRef scope) {
+    assert(scope);
+    symbolTable->currentScope = scope;
+}
+
 ScopeRef SymbolTableGetCurrentScope(SymbolTableRef symbolTable) {
     return symbolTable->currentScope;
 }
@@ -88,6 +85,14 @@ Index ScopeGetChildCount(ScopeRef scope) {
 
 ScopeRef ScopeGetChildAtIndex(ScopeRef scope, Index index) {
     return *((ScopeRef *)ArrayGetElementAtIndex(scope->children, index));
+}
+
+Index ScopeGetSymbolCount(ScopeRef scope) {
+    return ArrayGetElementCount(scope->symbols);
+}
+
+SymbolRef ScopeGetSymbolAtIndex(ScopeRef scope, Index index) {
+    return (SymbolRef)ArrayGetElementAtIndex(scope->symbols, index);
 }
 
 SymbolRef ScopeInsertSymbol(ScopeRef scope, StringRef name, SourceRange location) {
@@ -129,26 +134,6 @@ SymbolRef ScopeLookupSymbol(ScopeRef scope, StringRef name, const Char *virtualE
     }
 
     return NULL;
-}
-
-StringRef SymbolGetName(SymbolRef symbol) {
-    return symbol->name;
-}
-
-ASTNodeRef SymbolGetNode(SymbolRef symbol) {
-    return symbol->node;
-}
-
-void SymbolSetNode(SymbolRef symbol, ASTNodeRef node) {
-    symbol->node = node;
-}
-
-ASTTypeRef SymbolGetType(SymbolRef symbol) {
-    return symbol->type;
-}
-
-void SymbolSetType(SymbolRef symbol, ASTTypeRef type) {
-    symbol->type = type;
 }
 
 ScopeRef _SymbolTableCreateScope(SymbolTableRef symbolTable, ScopeKind kind, ScopeRef parent) {

@@ -38,6 +38,7 @@ enum _ASTTag {
     ASTTagEnumerationType,
     ASTTagFunctionType,
     ASTTagStructureType,
+    ASTTagApplicationType,
 
     AST_TAG_COUNT
 };
@@ -53,7 +54,7 @@ enum _ASTOperatorAssociativity {
 typedef enum _ASTOperatorAssociativity ASTOperatorAssociativity;
 
 typedef struct _ASTNode *ASTNodeRef;
-typedef struct _ASTNode *ASTExpressionRef;
+typedef struct _ASTExpression *ASTExpressionRef;
 typedef struct _ASTNode *ASTDeclarationRef;
 typedef struct _ASTNode *ASTTypeRef;
 
@@ -85,6 +86,7 @@ typedef struct _ASTBuiltinType *ASTBuiltinTypeRef;
 typedef struct _ASTEnumerationType *ASTEnumerationTypeRef;
 typedef struct _ASTFunctionType *ASTFunctionTypeRef;
 typedef struct _ASTStructureType *ASTStructureTypeRef;
+typedef struct _ASTApplicationType *ASTApplicationTypeRef;
 
 struct _ASTNode {
     ASTTag tag;
@@ -92,10 +94,16 @@ struct _ASTNode {
     ScopeRef scope;
 };
 
+struct _ASTExpression {
+    struct _ASTNode base;
+
+    SymbolRef symbol;
+};
+
 struct _ASTLinkedList {
     struct _ASTNode base;
 
-    ASTNodeRef node;
+    void *node;
     ASTLinkedListRef next;
 };
 
@@ -186,11 +194,10 @@ enum _ASTUnaryOperator {
 typedef enum _ASTUnaryOperator ASTUnaryOperator;
 
 struct _ASTUnaryExpression {
-    struct _ASTNode base;
+    struct _ASTExpression base;
 
     ASTUnaryOperator op;
     ASTExpressionRef arguments[1];
-    SymbolRef symbol;
 };
 
 enum _ASTBinaryOperator {
@@ -230,11 +237,10 @@ enum _ASTBinaryOperator {
 typedef enum _ASTBinaryOperator ASTBinaryOperator;
 
 struct _ASTBinaryExpression {
-    struct _ASTNode base;
+    struct _ASTExpression base;
 
     ASTBinaryOperator op;
     ASTExpressionRef arguments[2];
-    SymbolRef symbol;
 };
 
 enum _ASTPostfixOperator {
@@ -245,26 +251,23 @@ enum _ASTPostfixOperator {
 typedef enum _ASTPostfixOperator ASTPostfixOperator;
 
 struct _ASTIdentifierExpression {
-    struct _ASTNode base;
+    struct _ASTExpression base;
 
     StringRef name;
-    SymbolRef symbol;
 };
 
 struct _ASTMemberAccessExpression {
-    struct _ASTNode base;
+    struct _ASTExpression base;
 
     ASTExpressionRef argument;
     StringRef memberName;
-    SymbolRef symbol;
 };
 
 struct _ASTCallExpression {
-    struct _ASTNode base;
+    struct _ASTExpression base;
 
     ASTExpressionRef callee;
     ASTLinkedListRef arguments;
-    SymbolRef symbol;
 };
 
 enum _ASTConstantKind {
@@ -277,7 +280,7 @@ enum _ASTConstantKind {
 typedef enum _ASTConstantKind ASTConstantKind;
 
 struct _ASTConstantExpression {
-    struct _ASTNode base;
+    struct _ASTExpression base;
 
     ASTConstantKind kind;
     union {
@@ -286,7 +289,6 @@ struct _ASTConstantExpression {
         Float64 floatValue;
         StringRef stringValue;
     };
-    SymbolRef symbol;
 };
 
 struct _ASTModuleDeclaration {
@@ -410,12 +412,23 @@ struct _ASTFunctionType {
     struct _ASTNode base;
 
     ASTFunctionDeclarationRef declaration;
+    SymbolRef result;
+    ASTLinkedListRef parameters;
 };
 
 struct _ASTStructureType {
     struct _ASTNode base;
 
     ASTStructureDeclarationRef declaration;
+};
+
+// TODO: Replace ASTApplicationType with a constraint and add new constraint kind to symbol
+struct _ASTApplicationType {
+    struct _ASTNode base;
+
+    SymbolRef callee;
+    SymbolRef result;
+    ASTLinkedListRef arguments;
 };
 
 JELLY_EXTERN_C_END

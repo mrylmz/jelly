@@ -7,10 +7,10 @@
 
 #include "FileTestDiagnostic.h"
 
-class NameBindingTest : public testing::TestWithParam<FileTest> {
+class TyperTests : public testing::TestWithParam<FileTest> {
 };
 
-TEST_P(NameBindingTest, run) {
+TEST_P(TyperTests, run) {
     auto test = GetParam();
     printf("[   TEST   ] %s\n", test.context.filePath.substr(test.context.filePath.rfind("/")).c_str());
 
@@ -28,12 +28,14 @@ TEST_P(NameBindingTest, run) {
 
         StringRef executable = StringCreate(AllocatorGetSystemDefault(), "jelly");
         StringRef filePath = StringCreateCopyFromLastOccurenceOf(AllocatorGetSystemDefault(), absoluteFilePath, '/');
+        StringRef dumpScopeArgument = StringCreate(AllocatorGetSystemDefault(), "-dump-scope"); // TODO: Add file path for option...
         StringRef workingDirectoryArgument = StringCreate(AllocatorGetSystemDefault(), "-working-directory=");
         StringAppendString(workingDirectoryArgument, workingDirectory);
 
         ArrayRef arguments = ArrayCreateEmpty(AllocatorGetSystemDefault(), sizeof(StringRef), 4);
         ArrayAppendElement(arguments, &executable);
         ArrayAppendElement(arguments, &filePath);
+        ArrayAppendElement(arguments, &dumpScopeArgument);
         ArrayAppendElement(arguments, &workingDirectoryArgument);
 
         CompilerRun(arguments);
@@ -54,4 +56,4 @@ TEST_P(NameBindingTest, run) {
     }
 }
 
-INSTANTIATE_TEST_CASE_P(run, NameBindingTest, testing::ValuesIn(FileTest::ReadFromDirectory("name_resolution")));
+INSTANTIATE_TEST_CASE_P(run, TyperTests, testing::ValuesIn(FileTest::ReadFromDirectory("typer")));

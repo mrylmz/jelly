@@ -1,0 +1,11 @@
+func main() -> Void {
+    var x: Int = timesTwo(4)
+}
+
+func add(x: Int, y: Int) -> Int {
+    return x + y
+}
+
+func timesTwo(n: Int) -> Int {
+    return add(n, n)
+}

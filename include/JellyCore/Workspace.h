@@ -8,8 +8,9 @@
 JELLY_EXTERN_C_BEGIN
 
 enum _WorkspaceOptions {
-    WorkspaceOptionsNone    = 0,
-    WorkspaceOptionsDumpAST = 1 << 0,
+    WorkspaceOptionsNone      = 0,
+    WorkspaceOptionsDumpAST   = 1 << 0,
+    WorkspaceOptionsDumpScope = 1 << 1,
 };
 typedef enum _WorkspaceOptions WorkspaceOptions;
 
@@ -24,6 +25,8 @@ ASTContextRef WorkspaceGetContext(WorkspaceRef workspace);
 void WorkspaceAddSourceFile(WorkspaceRef workspace, StringRef filePath);
 
 void WorkspaceSetDumpASTOutput(WorkspaceRef workspace, FILE *output);
+
+void WorkspaceSetDumpScopeOutput(WorkspaceRef workspace, FILE *output);
 
 Bool WorkspaceStartAsync(WorkspaceRef workspace);
 

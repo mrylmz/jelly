@@ -11,6 +11,26 @@ JELLY_EXTERN_C_BEGIN
 typedef struct _ASTNode *ASTNodeRef;
 typedef struct _ASTNode *ASTTypeRef;
 
+enum _SymbolKind {
+    SymbolKindNone,
+    SymbolKindType,
+    SymbolKindLink,
+};
+typedef enum _SymbolKind SymbolKind;
+
+struct _Symbol {
+    StringRef name;
+    SourceRange location;
+    ASTNodeRef node; // TODO: Remove node!!!
+
+    SymbolKind kind;
+    union {
+        ASTTypeRef type;
+        struct _Symbol *link;
+    };
+};
+typedef struct _Symbol *SymbolRef;
+
 enum _ScopeKind {
     ScopeKindGlobal,
     ScopeKindBranch,
@@ -24,13 +44,14 @@ enum _ScopeKind {
 typedef enum _ScopeKind ScopeKind;
 
 typedef struct _Scope *ScopeRef;
-typedef struct _Symbol *SymbolRef;
 typedef struct _SymbolTable *SymbolTableRef;
 
 SymbolTableRef SymbolTableCreate(AllocatorRef allocator);
 void SymbolTableDestroy(SymbolTableRef symbolTable);
 
 ScopeRef SymbolTableGetGlobalScope(SymbolTableRef symbolTable);
+
+void SymbolTableSetCurrentScope(SymbolTableRef symbolTable, ScopeRef scope);
 ScopeRef SymbolTableGetCurrentScope(SymbolTableRef symbolTable);
 
 ScopeRef SymbolTablePushScope(SymbolTableRef symbolTable, ScopeKind scopeKind);
@@ -40,20 +61,12 @@ ScopeKind ScopeGetKind(ScopeRef scope);
 ScopeRef ScopeGetParent(ScopeRef scope);
 Index ScopeGetChildCount(ScopeRef scope);
 ScopeRef ScopeGetChildAtIndex(ScopeRef scope, Index index);
+Index ScopeGetSymbolCount(ScopeRef scope);
+SymbolRef ScopeGetSymbolAtIndex(ScopeRef scope, Index index);
 
 SymbolRef ScopeInsertSymbol(ScopeRef scope, StringRef name, SourceRange location);
 SymbolRef ScopeInsertUniqueSymbol(ScopeRef scope, SourceRange location);
 SymbolRef ScopeLookupSymbol(ScopeRef scope, StringRef name, const Char *virtualEndOfScope);
-
-StringRef SymbolGetName(SymbolRef symbol);
-
-ASTNodeRef SymbolGetNode(SymbolRef symbol);
-
-void SymbolSetNode(SymbolRef symbol, ASTNodeRef node);
-
-ASTTypeRef SymbolGetType(SymbolRef symbol);
-
-void SymbolSetType(SymbolRef symbol, ASTTypeRef type);
 
 JELLY_EXTERN_C_END
 
