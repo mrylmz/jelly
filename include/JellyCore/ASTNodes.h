@@ -358,12 +358,14 @@ struct _ASTOpaqueType {
 struct _ASTPointerType {
     struct _ASTNode base;
 
+    SymbolRef pointee;
     ASTTypeRef pointeeType;
 };
 
 struct _ASTArrayType {
     struct _ASTNode base;
 
+    SymbolRef element;
     ASTTypeRef elementType;
     ASTExpressionRef size;
 };
@@ -419,7 +421,7 @@ struct _ASTFunctionType {
 struct _ASTStructureType {
     struct _ASTNode base;
 
-    ASTStructureDeclarationRef declaration;
+    ASTLinkedListRef values;
 };
 
 // TODO: Replace ASTApplicationType with a constraint and add new constraint kind to symbol

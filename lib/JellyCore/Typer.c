@@ -7,7 +7,6 @@ struct _Typer {
     AllocatorRef tempAllocator;
 };
 
-static inline SymbolRef _TyperGetSymbolOfNode(TyperRef typer, ASTNodeRef node);
 static inline void _TyperTypeNode(TyperRef typer, ASTContextRef context, ASTNodeRef parent, ASTNodeRef node);
 
 TyperRef TyperCreate(AllocatorRef allocator) {
@@ -24,57 +23,6 @@ void TyperDestroy(TyperRef typer) {
 
 void TyperType(TyperRef typer, ASTContextRef context, ASTNodeRef node) {
     _TyperTypeNode(typer, context, NULL, node);
-}
-
-static inline SymbolRef _TyperGetSymbolOfNode(TyperRef typer, ASTNodeRef node) {
-    switch (node->tag) {
-    case ASTTagSourceUnit:
-    case ASTTagLinkedList:
-    case ASTTagLoadDirective:
-    case ASTTagBlock:
-    case ASTTagIfStatement:
-    case ASTTagLoopStatement:
-    case ASTTagCaseStatement:
-    case ASTTagSwitchStatement:
-    case ASTTagControlStatement:
-    case ASTTagModuleDeclaration:
-    case ASTTagOpaqueType:
-    case ASTTagPointerType:
-    case ASTTagArrayType:
-    case ASTTagBuiltinType:
-    case ASTTagEnumerationType:
-    case ASTTagFunctionType:
-    case ASTTagStructureType:
-    case ASTTagApplicationType:
-        return NULL;
-
-    case ASTTagUnaryExpression:
-    case ASTTagBinaryExpression:
-    case ASTTagIdentifierExpression:
-    case ASTTagMemberAccessExpression:
-    case ASTTagCallExpression:
-    case ASTTagConstantExpression:
-        return ((ASTExpressionRef)node)->symbol;
-
-    case ASTTagEnumerationDeclaration:
-        return ((ASTEnumerationDeclarationRef)node)->symbol;
-
-    case ASTTagFunctionDeclaration:
-        return ((ASTFunctionDeclarationRef)node)->symbol;
-
-    case ASTTagStructureDeclaration:
-        return ((ASTStructureDeclarationRef)node)->symbol;
-
-    case ASTTagOpaqueDeclaration:
-        return ((ASTEnumerationDeclarationRef)node)->symbol;
-
-    case ASTTagValueDeclaration:
-        return ((ASTValueDeclarationRef)node)->symbol;
-
-    default:
-        JELLY_UNREACHABLE("Unknown tag given for ASTNode in Typer!");
-        return NULL;
-    }
 }
 
 static inline void _TyperTypeNode(TyperRef typer, ASTContextRef context, ASTNodeRef parent, ASTNodeRef node) {
@@ -315,18 +263,27 @@ static inline void _TyperTypeNode(TyperRef typer, ASTContextRef context, ASTNode
     case ASTTagStructureDeclaration: {
         ASTStructureDeclarationRef declaration = (ASTStructureDeclarationRef)node;
         declaration->symbol                    = ScopeInsertSymbol(node->scope, declaration->name, node->location);
+
+        if (declaration->values) {
+            _TyperTypeNode(typer, context, node, (ASTNodeRef)declaration->values);
+        }
+
+        ArrayRef values       = ArrayCreateEmpty(typer->tempAllocator, sizeof(SymbolRef), 8);
+        ASTLinkedListRef list = declaration->values;
+        while (list) {
+            ASTValueDeclarationRef value = (ASTValueDeclarationRef)list->node;
+            ArrayAppendElement(values, &value->symbol);
+            list = list->next;
+        }
+
         if (declaration->symbol) {
             declaration->symbol->kind = SymbolKindType;
-            declaration->symbol->type = (ASTTypeRef)ASTContextCreateStructureType(context, node->location, declaration);
+            declaration->symbol->type = (ASTTypeRef)ASTContextCreateStructureType(context, node->location, values);
         } else {
             declaration->symbol       = ScopeInsertUniqueSymbol(node->scope, node->location);
             declaration->symbol->kind = SymbolKindType;
             declaration->symbol->type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
             ReportError("Invalid redeclaration of identifier");
-        }
-
-        if (declaration->values) {
-            _TyperTypeNode(typer, context, node, (ASTNodeRef)declaration->values);
         }
         break;
     }
@@ -356,12 +313,18 @@ static inline void _TyperTypeNode(TyperRef typer, ASTContextRef context, ASTNode
 
     case ASTTagPointerType: {
         ASTPointerTypeRef type = (ASTPointerTypeRef)node;
+        type->pointee          = ScopeInsertUniqueSymbol(node->scope, node->location);
+        type->pointee->kind    = SymbolKindType;
+        type->pointee->type    = type->pointeeType;
         _TyperTypeNode(typer, context, node, (ASTNodeRef)type->pointeeType);
         break;
     }
 
     case ASTTagArrayType: {
         ASTArrayTypeRef type = (ASTArrayTypeRef)node;
+        type->element        = ScopeInsertUniqueSymbol(node->scope, node->location);
+        type->element->kind  = SymbolKindType;
+        type->element->type  = type->elementType;
         _TyperTypeNode(typer, context, node, (ASTNodeRef)type->elementType);
         if (type->size) {
             _TyperTypeNode(typer, context, node, (ASTNodeRef)type->size);

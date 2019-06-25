@@ -167,14 +167,13 @@ static inline void _ScopeDumperPrintType(ScopeDumperRef dumper, ASTTypeRef type)
 
     case ASTTagStructureType: {
         ASTStructureTypeRef structure = (ASTStructureTypeRef)type;
-        assert(structure->declaration);
         _ScopeDumperPrintCString(dumper, "struct {\n");
         dumper->indentation += 1;
-        ASTLinkedListRef values = structure->declaration->values;
+        ASTLinkedListRef values = structure->values;
         while (values) {
-            ASTValueDeclarationRef value = (ASTValueDeclarationRef)values->node;
+            SymbolRef value = (SymbolRef)values->node;
             _ScopeDumperPrintIndentation(dumper);
-            _ScopeDumperPrintType(dumper, value->type);
+            _ScopeDumperPrintCString(dumper, StringGetCharacters(value->name));
             _ScopeDumperPrintCString(dumper, "\n");
             values = values->next;
         }

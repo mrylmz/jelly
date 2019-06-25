@@ -74,7 +74,7 @@ ASTEnumerationTypeRef ASTContextCreateEnumerationType(ASTContextRef context, Sou
 ASTFunctionTypeRef ASTContextCreateFunctionType(ASTContextRef context, SourceRange location, ASTFunctionDeclarationRef declaration,
                                                 ArrayRef parameters, SymbolRef result);
 
-ASTStructureTypeRef ASTContextCreateStructureType(ASTContextRef context, SourceRange location, ASTStructureDeclarationRef declaration);
+ASTStructureTypeRef ASTContextCreateStructureType(ASTContextRef context, SourceRange location, ArrayRef values);
 
 ASTApplicationTypeRef ASTContextCreateApplicationType(ASTContextRef context, SourceRange location, SymbolRef callee, ArrayRef arguments,
                                                       SymbolRef result);

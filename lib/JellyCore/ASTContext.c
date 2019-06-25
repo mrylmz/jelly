@@ -462,6 +462,7 @@ ASTPointerTypeRef ASTContextCreatePointerType(ASTContextRef context, SourceRange
     assert(pointeeType);
 
     ASTPointerTypeRef node = (ASTPointerTypeRef)_ASTContextCreateNode(context, ASTTagPointerType, location);
+    node->pointee          = NULL;
     node->pointeeType      = pointeeType;
     return node;
 }
@@ -470,6 +471,7 @@ ASTArrayTypeRef ASTContextCreateArrayType(ASTContextRef context, SourceRange loc
     assert(elementType);
 
     ASTArrayTypeRef node = (ASTArrayTypeRef)_ASTContextCreateNode(context, ASTTagArrayType, location);
+    node->element        = NULL;
     node->elementType    = elementType;
     node->size           = size;
     return node;
@@ -504,9 +506,22 @@ ASTFunctionTypeRef ASTContextCreateFunctionType(ASTContextRef context, SourceRan
     return node;
 }
 
-ASTStructureTypeRef ASTContextCreateStructureType(ASTContextRef context, SourceRange location, ASTStructureDeclarationRef declaration) {
+ASTStructureTypeRef ASTContextCreateStructureType(ASTContextRef context, SourceRange location, ArrayRef values) {
     ASTStructureTypeRef node = (ASTStructureTypeRef)_ASTContextCreateNode(context, ASTTagStructureType, location);
-    node->declaration        = declaration;
+    node->values             = NULL;
+    if (values && ArrayGetElementCount(values) > 0) {
+        node->values       = (ASTLinkedListRef)_ASTContextCreateNode(context, ASTTagLinkedList, SourceRangeNull());
+        node->values->node = *((SymbolRef *)ArrayGetElementAtIndex(values, 0));
+        node->values->next = NULL;
+
+        ASTLinkedListRef current = node->values;
+        for (Index index = 1; index < ArrayGetElementCount(values); index++) {
+            current->next       = (ASTLinkedListRef)_ASTContextCreateNode(context, ASTTagLinkedList, SourceRangeNull());
+            current->next->node = *((SymbolRef *)ArrayGetElementAtIndex(values, index));
+            current->next->next = NULL;
+            current             = current->next;
+        }
+    }
     return node;
 }
 
@@ -561,8 +576,9 @@ void _ASTContextInitBuiltinTypes(ASTContextRef context) {
         "UInt32",  "UInt64", "UInt128", "UInt", "Float16", "Float32", "Float64", "Float80", "Float128", "Float",
     };
 
-    StringRef name           = StringCreate(context->allocator, builtinTypeNames[ASTBuiltinTypeKindError]);
-    context->builtinTypes[ASTBuiltinTypeKindError] = _ASTContextCreateBuiltinType(context, SourceRangeNull(), ASTBuiltinTypeKindError, name);
+    StringRef name                                 = StringCreate(context->allocator, builtinTypeNames[ASTBuiltinTypeKindError]);
+    context->builtinTypes[ASTBuiltinTypeKindError] = _ASTContextCreateBuiltinType(context, SourceRangeNull(), ASTBuiltinTypeKindError,
+                                                                                  name);
 
     // NOTE: Iteration begins after ASTBuiltinTypeKindError which is 0 to skip addition of <error> type to the scope.
     for (Index index = ASTBuiltinTypeKindError + 1; index < AST_BUILTIN_TYPE_KIND_COUNT; index++) {
