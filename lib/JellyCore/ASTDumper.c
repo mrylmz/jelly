@@ -18,6 +18,7 @@ static inline void _ASTDumperPrintPrefixOperator(ASTDumperRef dumper, ASTUnaryOp
 static inline void _ASTDumperPrintInfixOperator(ASTDumperRef dumper, ASTBinaryOperator op);
 static inline void _ASTDumperDumpChild(ASTDumperRef dumper, ASTNodeRef child);
 static inline void _ASTDumperDumpChildren(ASTDumperRef dumper, ASTLinkedListRef list);
+static inline void _ASTDumperDumpChildrenArray(ASTDumperRef dumper, ASTArrayRef array);
 
 ASTDumperRef ASTDumperCreate(AllocatorRef allocator, FILE *target) {
     ASTDumperRef dumper = (ASTDumperRef)AllocatorAllocate(allocator, sizeof(struct _ASTDumper));
@@ -40,7 +41,7 @@ void ASTDumperDump(ASTDumperRef dumper, ASTNodeRef node) {
     case ASTTagSourceUnit: {
         ASTSourceUnitRef unit = (ASTSourceUnitRef)node;
         _ASTDumperPrintProperty(dumper, "filePath", StringGetCharacters(unit->filePath));
-        _ASTDumperDumpChildren(dumper, unit->declarations);
+        _ASTDumperDumpChildrenArray(dumper, unit->declarations);
         return;
     }
 
@@ -52,7 +53,7 @@ void ASTDumperDump(ASTDumperRef dumper, ASTNodeRef node) {
 
     case ASTTagBlock: {
         ASTBlockRef block = (ASTBlockRef)node;
-        _ASTDumperDumpChildren(dumper, block->statements);
+        _ASTDumperDumpChildrenArray(dumper, block->statements);
         return;
     }
 
@@ -84,7 +85,7 @@ void ASTDumperDump(ASTDumperRef dumper, ASTNodeRef node) {
     case ASTTagSwitchStatement: {
         ASTSwitchStatementRef statement = (ASTSwitchStatementRef)node;
         _ASTDumperDumpChild(dumper, (ASTNodeRef)statement->argument);
-        _ASTDumperDumpChildren(dumper, statement->cases);
+        _ASTDumperDumpChildrenArray(dumper, statement->cases);
         return;
     }
 
@@ -141,7 +142,7 @@ void ASTDumperDump(ASTDumperRef dumper, ASTNodeRef node) {
     case ASTTagCallExpression: {
         ASTCallExpressionRef call = (ASTCallExpressionRef)node;
         _ASTDumperDumpChild(dumper, (ASTNodeRef)call->callee);
-        _ASTDumperDumpChildren(dumper, call->arguments);
+        _ASTDumperDumpChildrenArray(dumper, call->arguments);
         return;
     }
 
@@ -180,22 +181,22 @@ void ASTDumperDump(ASTDumperRef dumper, ASTNodeRef node) {
 
     case ASTTagModuleDeclaration: {
         ASTModuleDeclarationRef module = (ASTModuleDeclarationRef)node;
-        _ASTDumperDumpChildren(dumper, module->importedModules);
-        _ASTDumperDumpChildren(dumper, module->sourceUnits);
+        _ASTDumperDumpChildrenArray(dumper, module->importedModules);
+        _ASTDumperDumpChildrenArray(dumper, module->sourceUnits);
         return;
     }
 
     case ASTTagEnumerationDeclaration: {
         ASTEnumerationDeclarationRef enumeration = (ASTEnumerationDeclarationRef)node;
         _ASTDumperPrintProperty(dumper, "name", StringGetCharacters(enumeration->name));
-        _ASTDumperDumpChildren(dumper, enumeration->elements);
+        _ASTDumperDumpChildrenArray(dumper, enumeration->elements);
         return;
     }
 
     case ASTTagFunctionDeclaration: {
         ASTFunctionDeclarationRef func = (ASTFunctionDeclarationRef)node;
         _ASTDumperPrintProperty(dumper, "name", StringGetCharacters(func->name));
-        _ASTDumperDumpChildren(dumper, func->parameters);
+        _ASTDumperDumpChildrenArray(dumper, func->parameters);
         _ASTDumperDumpChild(dumper, func->returnType);
 
         if (func->body) {
@@ -207,7 +208,7 @@ void ASTDumperDump(ASTDumperRef dumper, ASTNodeRef node) {
     case ASTTagStructureDeclaration: {
         ASTStructureDeclarationRef structure = (ASTStructureDeclarationRef)node;
         _ASTDumperPrintProperty(dumper, "name", StringGetCharacters(structure->name));
-        _ASTDumperDumpChildren(dumper, structure->values);
+        _ASTDumperDumpChildrenArray(dumper, structure->values);
         return;
     }
 
@@ -434,8 +435,6 @@ static inline void _ASTDumperPrintBuiltinTypeKind(ASTDumperRef dumper, ASTBuilti
         return _ASTDumperPrintCString(dumper, "Int32");
     case ASTBuiltinTypeKindInt64:
         return _ASTDumperPrintCString(dumper, "Int64");
-    case ASTBuiltinTypeKindInt128:
-        return _ASTDumperPrintCString(dumper, "Int128");
     case ASTBuiltinTypeKindInt:
         return _ASTDumperPrintCString(dumper, "Int");
     case ASTBuiltinTypeKindUInt8:
@@ -446,20 +445,12 @@ static inline void _ASTDumperPrintBuiltinTypeKind(ASTDumperRef dumper, ASTBuilti
         return _ASTDumperPrintCString(dumper, "UInt32");
     case ASTBuiltinTypeKindUInt64:
         return _ASTDumperPrintCString(dumper, "UInt64");
-    case ASTBuiltinTypeKindUInt128:
-        return _ASTDumperPrintCString(dumper, "UInt128");
     case ASTBuiltinTypeKindUInt:
         return _ASTDumperPrintCString(dumper, "UInt");
-    case ASTBuiltinTypeKindFloat16:
-        return _ASTDumperPrintCString(dumper, "Float16");
     case ASTBuiltinTypeKindFloat32:
         return _ASTDumperPrintCString(dumper, "Float32");
     case ASTBuiltinTypeKindFloat64:
         return _ASTDumperPrintCString(dumper, "Float64");
-    case ASTBuiltinTypeKindFloat80:
-        return _ASTDumperPrintCString(dumper, "Float80");
-    case ASTBuiltinTypeKindFloat128:
-        return _ASTDumperPrintCString(dumper, "Float128");
     case ASTBuiltinTypeKindFloat:
         return _ASTDumperPrintCString(dumper, "Float");
 
@@ -573,5 +564,11 @@ static inline void _ASTDumperDumpChildren(ASTDumperRef dumper, ASTLinkedListRef 
     while (next) {
         _ASTDumperDumpChild(dumper, next->node);
         next = next->next;
+    }
+}
+
+static inline void _ASTDumperDumpChildrenArray(ASTDumperRef dumper, ASTArrayRef array) {
+    for (Index index = 0; index < ASTArrayGetElementCount(array); index++) {
+        _ASTDumperDumpChild(dumper, (ASTNodeRef)ASTArrayGetElementAtIndex(array, index));
     }
 }

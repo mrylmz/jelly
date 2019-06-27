@@ -32,9 +32,7 @@ static inline void _TyperTypeNode(TyperRef typer, ASTContextRef context, ASTNode
     switch (node->tag) {
     case ASTTagSourceUnit: {
         ASTSourceUnitRef sourceUnit = (ASTSourceUnitRef)node;
-        if (sourceUnit->declarations) {
-            _TyperTypeNode(typer, context, node, (ASTNodeRef)sourceUnit->declarations);
-        }
+        _TyperTypeNode(typer, context, node, (ASTNodeRef)sourceUnit->declarations);
         break;
     }
 
@@ -48,6 +46,14 @@ static inline void _TyperTypeNode(TyperRef typer, ASTContextRef context, ASTNode
         break;
     }
 
+    case ASTTagArray: {
+        ASTArrayRef array = (ASTArrayRef)node;
+        for (Index index = 0; index < ASTArrayGetElementCount(array); index++) {
+            _TyperTypeNode(typer, context, parent, (ASTNodeRef)ASTArrayGetElementAtIndex(array, index));
+        }
+        break;
+    }
+
     case ASTTagLoadDirective: {
         ASTLoadDirectiveRef load = (ASTLoadDirectiveRef)node;
         _TyperTypeNode(typer, context, node, (ASTNodeRef)load->filePath);
@@ -56,9 +62,7 @@ static inline void _TyperTypeNode(TyperRef typer, ASTContextRef context, ASTNode
 
     case ASTTagBlock: {
         ASTBlockRef block = (ASTBlockRef)node;
-        if (block->statements) {
-            _TyperTypeNode(typer, context, node, (ASTNodeRef)block->statements);
-        }
+        _TyperTypeNode(typer, context, node, (ASTNodeRef)block->statements);
         break;
     }
 
@@ -106,99 +110,46 @@ static inline void _TyperTypeNode(TyperRef typer, ASTContextRef context, ASTNode
 
     case ASTTagUnaryExpression: {
         ASTUnaryExpressionRef unary = (ASTUnaryExpressionRef)node;
-        unary->base.symbol          = ScopeInsertUniqueSymbol(node->scope, node->location);
-
+        //        unary->base.symbol          = ScopeInsertUniqueSymbol(node->scope, node);
         _TyperTypeNode(typer, context, node, (ASTNodeRef)unary->arguments[0]);
-
-        SymbolRef callee   = ScopeInsertUniqueSymbol(node->scope, node->location);
-        ArrayRef arguments = ArrayCreateEmpty(typer->tempAllocator, sizeof(SymbolRef), 1);
-        ArrayAppendElement(arguments, &unary->arguments[0]->symbol);
-        SymbolRef result         = ScopeInsertUniqueSymbol(node->scope, node->location);
-        unary->base.symbol->kind = SymbolKindType;
-        unary->base.symbol->type = (ASTTypeRef)ASTContextCreateApplicationType(context, node->location, callee, arguments, result);
         break;
     }
 
     case ASTTagBinaryExpression: {
         ASTBinaryExpressionRef binary = (ASTBinaryExpressionRef)node;
-        binary->base.symbol           = ScopeInsertUniqueSymbol(node->scope, node->location);
-
+        //        binary->base.symbol           = ScopeInsertUniqueSymbol(node->scope, node);
         _TyperTypeNode(typer, context, node, (ASTNodeRef)binary->arguments[0]);
         _TyperTypeNode(typer, context, node, (ASTNodeRef)binary->arguments[1]);
-
-        SymbolRef callee   = ScopeInsertUniqueSymbol(node->scope, node->location);
-        ArrayRef arguments = ArrayCreateEmpty(typer->tempAllocator, sizeof(SymbolRef), 2);
-        ArrayAppendElement(arguments, &binary->arguments[0]->symbol);
-        ArrayAppendElement(arguments, &binary->arguments[1]->symbol);
-        SymbolRef result          = ScopeInsertUniqueSymbol(node->scope, node->location);
-        binary->base.symbol->kind = SymbolKindType;
-        binary->base.symbol->type = (ASTTypeRef)ASTContextCreateApplicationType(context, node->location, callee, arguments, result);
         break;
     }
 
     case ASTTagIdentifierExpression: {
         ASTIdentifierExpressionRef identifier = (ASTIdentifierExpressionRef)node;
-        identifier->base.symbol               = ScopeInsertUniqueSymbol(node->scope, node->location);
-        identifier->base.symbol->kind         = SymbolKindType;
-        identifier->base.symbol->type         = (ASTTypeRef)ASTContextCreateOpaqueType(context, node->location, identifier->name);
+        //        identifier->base.symbol               = ScopeInsertUniqueSymbol(node->scope, node);
         break;
     }
 
     case ASTTagMemberAccessExpression: {
         ASTMemberAccessExpressionRef expression = (ASTMemberAccessExpressionRef)node;
-        expression->base.symbol                 = ScopeInsertUniqueSymbol(node->scope, node->location);
+        //        expression->base.symbol                 = ScopeInsertUniqueSymbol(node->scope, node);
         _TyperTypeNode(typer, context, node, (ASTNodeRef)expression->argument);
-        // TODO: Create constraint type for expression->memberName
         break;
     }
 
     case ASTTagCallExpression: {
         ASTCallExpressionRef call = (ASTCallExpressionRef)node;
-        call->base.symbol         = ScopeInsertUniqueSymbol(node->scope, node->location);
-
+        //        call->base.symbol         = ScopeInsertUniqueSymbol(node->scope, node);
         _TyperTypeNode(typer, context, node, (ASTNodeRef)call->callee);
 
         if (call->arguments) {
             _TyperTypeNode(typer, context, node, (ASTNodeRef)call->arguments);
         }
-
-        ArrayRef arguments    = ArrayCreateEmpty(typer->tempAllocator, sizeof(SymbolRef), 8);
-        ASTLinkedListRef list = call->arguments;
-        while (list) {
-            ASTExpressionRef expression = (ASTExpressionRef)list->node;
-            ArrayAppendElement(arguments, &expression->symbol);
-            list = list->next;
-        }
-
-        SymbolRef result        = ScopeInsertUniqueSymbol(node->scope, node->location);
-        call->base.symbol->kind = SymbolKindType;
-        call->base.symbol->type = (ASTTypeRef)ASTContextCreateApplicationType(context, node->location, call->callee->symbol, arguments,
-                                                                              result);
         break;
     }
 
     case ASTTagConstantExpression: {
         ASTConstantExpressionRef constant = (ASTConstantExpressionRef)node;
-        constant->base.symbol             = ScopeInsertUniqueSymbol(node->scope, node->location);
-
-        if (constant->kind == ASTConstantKindNil) {
-            // TODO: Type constant expression
-        } else if (constant->kind == ASTConstantKindBool) {
-            constant->base.symbol->kind = SymbolKindType;
-            constant->base.symbol->type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindBool);
-        } else if (constant->kind == ASTConstantKindInt) {
-            // TODO: Add support for candidate based typing of potential Int types...
-            constant->base.symbol->kind = SymbolKindType;
-            constant->base.symbol->type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindInt);
-        } else if (constant->kind == ASTConstantKindFloat) {
-            // TODO: Add support for candidate based typing of potential Float types...
-            constant->base.symbol->kind = SymbolKindType;
-            constant->base.symbol->type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindFloat);
-        } else if (constant->kind == ASTConstantKindString) {
-            // TODO: Type constant expression
-        } else {
-            JELLY_UNREACHABLE("Unknown kind given for ASTConstantExpression in Typer!");
-        }
+        //        constant->base.symbol             = ScopeInsertUniqueSymbol(node->scope, node);
         break;
     }
 
@@ -212,14 +163,8 @@ static inline void _TyperTypeNode(TyperRef typer, ASTContextRef context, ASTNode
 
     case ASTTagEnumerationDeclaration: {
         ASTEnumerationDeclarationRef declaration = (ASTEnumerationDeclarationRef)node;
-        declaration->symbol                      = ScopeInsertSymbol(node->scope, declaration->name, node->location);
-        if (declaration->symbol) {
-            declaration->symbol->kind = SymbolKindType;
-            declaration->symbol->type = (ASTTypeRef)ASTContextCreateEnumerationType(context, node->location, declaration);
-        } else {
-            declaration->symbol       = ScopeInsertUniqueSymbol(node->scope, node->location);
-            declaration->symbol->kind = SymbolKindType;
-            declaration->symbol->type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
+        SymbolRef symbol                         = ScopeInsertSymbol(node->scope, declaration->name, node);
+        if (!symbol) {
             ReportError("Invalid redeclaration of identifier");
         }
 
@@ -231,59 +176,28 @@ static inline void _TyperTypeNode(TyperRef typer, ASTContextRef context, ASTNode
 
     case ASTTagFunctionDeclaration: {
         ASTFunctionDeclarationRef declaration = (ASTFunctionDeclarationRef)node;
-        declaration->symbol                   = ScopeInsertSymbol(node->scope, declaration->name, node->location);
+        SymbolRef symbol                      = ScopeInsertSymbol(node->scope, declaration->name, node);
+        if (!symbol) {
+            ReportError("Invalid redeclaration of identifier");
+        }
+
         if (declaration->parameters) {
             _TyperTypeNode(typer, context, node, (ASTNodeRef)declaration->parameters);
         }
         _TyperTypeNode(typer, context, node, (ASTNodeRef)declaration->returnType);
         _TyperTypeNode(typer, context, node, (ASTNodeRef)declaration->body);
-
-        if (declaration->symbol) {
-            ArrayRef parameters   = ArrayCreateEmpty(typer->tempAllocator, sizeof(SymbolRef), 8);
-            ASTLinkedListRef list = declaration->parameters;
-            while (list) {
-                ArrayAppendElement(parameters, &((ASTValueDeclarationRef)list->node)->symbol);
-                list = list->next;
-            }
-
-            SymbolRef result          = ScopeInsertUniqueSymbol(node->scope, node->location);
-            result->kind              = SymbolKindType;
-            result->type              = declaration->returnType;
-            declaration->symbol->kind = SymbolKindType;
-            declaration->symbol->type = (ASTTypeRef)ASTContextCreateFunctionType(context, node->location, declaration, parameters, result);
-        } else {
-            declaration->symbol       = ScopeInsertUniqueSymbol(node->scope, node->location);
-            declaration->symbol->kind = SymbolKindType;
-            declaration->symbol->type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
-            ReportError("Invalid redeclaration of identifier");
-        }
         break;
     }
 
     case ASTTagStructureDeclaration: {
         ASTStructureDeclarationRef declaration = (ASTStructureDeclarationRef)node;
-        declaration->symbol                    = ScopeInsertSymbol(node->scope, declaration->name, node->location);
+        SymbolRef symbol                       = ScopeInsertSymbol(node->scope, declaration->name, node);
+        if (!symbol) {
+            ReportError("Invalid redeclaration of identifier");
+        }
 
         if (declaration->values) {
             _TyperTypeNode(typer, context, node, (ASTNodeRef)declaration->values);
-        }
-
-        ArrayRef values       = ArrayCreateEmpty(typer->tempAllocator, sizeof(SymbolRef), 8);
-        ASTLinkedListRef list = declaration->values;
-        while (list) {
-            ASTValueDeclarationRef value = (ASTValueDeclarationRef)list->node;
-            ArrayAppendElement(values, &value->symbol);
-            list = list->next;
-        }
-
-        if (declaration->symbol) {
-            declaration->symbol->kind = SymbolKindType;
-            declaration->symbol->type = (ASTTypeRef)ASTContextCreateStructureType(context, node->location, values);
-        } else {
-            declaration->symbol       = ScopeInsertUniqueSymbol(node->scope, node->location);
-            declaration->symbol->kind = SymbolKindType;
-            declaration->symbol->type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
-            ReportError("Invalid redeclaration of identifier");
         }
         break;
     }
@@ -293,14 +207,8 @@ static inline void _TyperTypeNode(TyperRef typer, ASTContextRef context, ASTNode
 
     case ASTTagValueDeclaration: {
         ASTValueDeclarationRef declaration = (ASTValueDeclarationRef)node;
-        declaration->symbol                = ScopeInsertSymbol(node->scope, declaration->name, node->location);
-        if (declaration->symbol) {
-            declaration->symbol->kind = SymbolKindType;
-            declaration->symbol->type = declaration->type;
-        } else {
-            declaration->symbol       = ScopeInsertUniqueSymbol(node->scope, node->location);
-            declaration->symbol->kind = SymbolKindType;
-            declaration->symbol->type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
+        SymbolRef symbol                   = ScopeInsertSymbol(node->scope, declaration->name, node);
+        if (!symbol) {
             ReportError("Invalid redeclaration of identifier");
         }
 
@@ -313,18 +221,12 @@ static inline void _TyperTypeNode(TyperRef typer, ASTContextRef context, ASTNode
 
     case ASTTagPointerType: {
         ASTPointerTypeRef type = (ASTPointerTypeRef)node;
-        type->pointee          = ScopeInsertUniqueSymbol(node->scope, node->location);
-        type->pointee->kind    = SymbolKindType;
-        type->pointee->type    = type->pointeeType;
         _TyperTypeNode(typer, context, node, (ASTNodeRef)type->pointeeType);
         break;
     }
 
     case ASTTagArrayType: {
         ASTArrayTypeRef type = (ASTArrayTypeRef)node;
-        type->element        = ScopeInsertUniqueSymbol(node->scope, node->location);
-        type->element->kind  = SymbolKindType;
-        type->element->type  = type->elementType;
         _TyperTypeNode(typer, context, node, (ASTNodeRef)type->elementType);
         if (type->size) {
             _TyperTypeNode(typer, context, node, (ASTNodeRef)type->size);

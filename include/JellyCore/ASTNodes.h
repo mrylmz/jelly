@@ -1,17 +1,21 @@
 #ifndef __JELLY_ASTNODES__
 #define __JELLY_ASTNODES__
 
+#include <JellyCore/ASTArray.h>
 #include <JellyCore/Array.h>
 #include <JellyCore/Base.h>
 #include <JellyCore/SourceRange.h>
 #include <JellyCore/String.h>
-#include <JellyCore/SymbolTable.h>
 
 JELLY_EXTERN_C_BEGIN
+
+// TODO: Replace all linked lists...
 
 enum _ASTTag {
     ASTTagSourceUnit,
     ASTTagLinkedList,
+    ASTTagArray,
+    ASTTagLookupList,
     ASTTagLoadDirective,
     ASTTagBlock,
     ASTTagIfStatement,
@@ -60,6 +64,7 @@ typedef struct _ASTNode *ASTTypeRef;
 
 typedef struct _ASTSourceUnit *ASTSourceUnitRef;
 typedef struct _ASTLinkedList *ASTLinkedListRef;
+typedef struct _ASTLookupList *ASTLookupListRef;
 typedef struct _ASTLoadDirective *ASTLoadDirectiveRef;
 typedef struct _ASTBlock *ASTBlockRef;
 typedef struct _ASTIfStatement *ASTIfStatementRef;
@@ -86,8 +91,8 @@ typedef struct _ASTBuiltinType *ASTBuiltinTypeRef;
 typedef struct _ASTEnumerationType *ASTEnumerationTypeRef;
 typedef struct _ASTFunctionType *ASTFunctionTypeRef;
 typedef struct _ASTStructureType *ASTStructureTypeRef;
-typedef struct _ASTApplicationType *ASTApplicationTypeRef;
 
+typedef struct _Scope *ScopeRef;
 struct _ASTNode {
     ASTTag tag;
     SourceRange location;
@@ -97,7 +102,7 @@ struct _ASTNode {
 struct _ASTExpression {
     struct _ASTNode base;
 
-    SymbolRef symbol;
+    ASTLookupListRef lookup;
 };
 
 struct _ASTLinkedList {
@@ -107,11 +112,26 @@ struct _ASTLinkedList {
     ASTLinkedListRef next;
 };
 
+struct _ASTArray {
+    struct _ASTNode base;
+
+    void *context;
+    Index elementCount;
+    ASTLinkedListRef list;
+};
+
+struct _ASTLookupList {
+    struct _ASTNode base;
+
+    ASTArrayRef candidates;
+    ASTLookupListRef next;
+};
+
 struct _ASTSourceUnit {
     struct _ASTNode base;
 
     StringRef filePath;
-    ASTLinkedListRef declarations;
+    ASTArrayRef declarations;
 };
 
 struct _ASTLoadDirective {
@@ -123,7 +143,7 @@ struct _ASTLoadDirective {
 struct _ASTBlock {
     struct _ASTNode base;
 
-    ASTLinkedListRef statements;
+    ASTArrayRef statements;
 };
 
 struct _ASTIfStatement {
@@ -166,7 +186,7 @@ struct _ASTSwitchStatement {
     struct _ASTNode base;
 
     ASTExpressionRef argument;
-    ASTLinkedListRef cases;
+    ASTArrayRef cases;
 };
 
 enum _ASTControlKind {
@@ -254,6 +274,7 @@ struct _ASTIdentifierExpression {
     struct _ASTExpression base;
 
     StringRef name;
+    ASTDeclarationRef resolvedDeclaration;
 };
 
 struct _ASTMemberAccessExpression {
@@ -267,7 +288,7 @@ struct _ASTCallExpression {
     struct _ASTExpression base;
 
     ASTExpressionRef callee;
-    ASTLinkedListRef arguments;
+    ASTArrayRef arguments;
 };
 
 enum _ASTConstantKind {
@@ -294,41 +315,38 @@ struct _ASTConstantExpression {
 struct _ASTModuleDeclaration {
     struct _ASTNode base;
 
-    ASTLinkedListRef sourceUnits;
-    ASTLinkedListRef importedModules;
+    ASTArrayRef sourceUnits;
+    ASTArrayRef importedModules;
 };
 
 struct _ASTEnumerationDeclaration {
     struct _ASTNode base;
 
     StringRef name;
-    ASTLinkedListRef elements;
-    SymbolRef symbol;
+    ASTArrayRef elements;
 };
 
 struct _ASTFunctionDeclaration {
     struct _ASTNode base;
 
     StringRef name;
-    ASTLinkedListRef parameters;
+    ASTArrayRef parameters;
     ASTTypeRef returnType;
     ASTBlockRef body;
-    SymbolRef symbol;
 };
 
 struct _ASTStructureDeclaration {
     struct _ASTNode base;
 
     StringRef name;
-    ASTLinkedListRef values;
-    SymbolRef symbol;
+    ASTArrayRef values;
 };
 
 struct _ASTOpaqueDeclaration {
     struct _ASTNode base;
 
     StringRef name;
-    SymbolRef symbol;
+    ASTTypeRef type;
 };
 
 enum _ASTValueKind {
@@ -345,7 +363,6 @@ struct _ASTValueDeclaration {
     StringRef name;
     ASTTypeRef type;
     ASTExpressionRef initializer;
-    SymbolRef symbol;
 };
 
 struct _ASTOpaqueType {
@@ -358,14 +375,12 @@ struct _ASTOpaqueType {
 struct _ASTPointerType {
     struct _ASTNode base;
 
-    SymbolRef pointee;
     ASTTypeRef pointeeType;
 };
 
 struct _ASTArrayType {
     struct _ASTNode base;
 
-    SymbolRef element;
     ASTTypeRef elementType;
     ASTExpressionRef size;
 };
@@ -378,19 +393,14 @@ enum _ASTBuiltinTypeKind {
     ASTBuiltinTypeKindInt16,
     ASTBuiltinTypeKindInt32,
     ASTBuiltinTypeKindInt64,
-    ASTBuiltinTypeKindInt128,
     ASTBuiltinTypeKindInt,
     ASTBuiltinTypeKindUInt8,
     ASTBuiltinTypeKindUInt16,
     ASTBuiltinTypeKindUInt32,
     ASTBuiltinTypeKindUInt64,
-    ASTBuiltinTypeKindUInt128,
     ASTBuiltinTypeKindUInt,
-    ASTBuiltinTypeKindFloat16,
     ASTBuiltinTypeKindFloat32,
     ASTBuiltinTypeKindFloat64,
-    ASTBuiltinTypeKindFloat80,
-    ASTBuiltinTypeKindFloat128,
     ASTBuiltinTypeKindFloat,
 
     AST_BUILTIN_TYPE_KIND_COUNT,
@@ -401,7 +411,6 @@ struct _ASTBuiltinType {
     struct _ASTNode base;
 
     ASTBuiltinTypeKind kind;
-    StringRef name;
 };
 
 struct _ASTEnumerationType {
@@ -414,23 +423,13 @@ struct _ASTFunctionType {
     struct _ASTNode base;
 
     ASTFunctionDeclarationRef declaration;
-    SymbolRef result;
-    ASTLinkedListRef parameters;
+    ASTArrayRef parameters;
 };
 
 struct _ASTStructureType {
     struct _ASTNode base;
 
-    ASTLinkedListRef values;
-};
-
-// TODO: Replace ASTApplicationType with a constraint and add new constraint kind to symbol
-struct _ASTApplicationType {
-    struct _ASTNode base;
-
-    SymbolRef callee;
-    SymbolRef result;
-    ASTLinkedListRef arguments;
+    ASTArrayRef values;
 };
 
 JELLY_EXTERN_C_END

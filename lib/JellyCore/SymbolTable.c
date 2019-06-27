@@ -1,3 +1,4 @@
+#include "JellyCore/ASTNodes.h"
 #include "JellyCore/Array.h"
 #include "JellyCore/SymbolTable.h"
 
@@ -95,40 +96,40 @@ SymbolRef ScopeGetSymbolAtIndex(ScopeRef scope, Index index) {
     return (SymbolRef)ArrayGetElementAtIndex(scope->symbols, index);
 }
 
-SymbolRef ScopeInsertSymbol(ScopeRef scope, StringRef name, SourceRange location) {
+SymbolRef ScopeInsertSymbol(ScopeRef scope, StringRef name, ASTNodeRef node) {
     if (ScopeLookupSymbol(scope, name, NULL) != NULL) {
         return NULL;
     }
 
     SymbolRef symbol = ArrayAppendUninitializedElement(scope->symbols);
     memset(symbol, 0, sizeof(struct _Symbol));
-    symbol->name     = name;
-    symbol->location = location;
+    symbol->name = name;
+    symbol->node = node;
 
     if (scope->location.start == NULL) {
-        scope->location = location;
+        scope->location = node->location;
     } else {
-        scope->location.start = MIN(scope->location.start, location.start);
-        scope->location.end   = MAX(scope->location.end, location.end);
+        scope->location.start = MIN(scope->location.start, node->location.start);
+        scope->location.end   = MAX(scope->location.end, node->location.end);
     }
 
     return symbol;
 }
 
-SymbolRef ScopeInsertUniqueSymbol(ScopeRef scope, SourceRange location) {
+SymbolRef ScopeInsertUniqueSymbol(ScopeRef scope, ASTNodeRef node) {
     StringRef name = StringCreate(AllocatorGetSystemDefault(), "$");
     Char buffer[20];
     snprintf(&buffer[0], 20, "%lld", scope->uniqueSymbolID);
     StringAppend(name, buffer);
     scope->uniqueSymbolID += 1;
 
-    return ScopeInsertSymbol(scope, name, location);
+    return ScopeInsertSymbol(scope, name, node);
 }
 
 SymbolRef ScopeLookupSymbol(ScopeRef scope, StringRef name, const Char *virtualEndOfScope) {
     for (Index index = 0; index < ScopeGetSymbolCount(scope); index++) {
         SymbolRef symbol = ArrayGetElementAtIndex(scope->symbols, index);
-        if (StringIsEqual(symbol->name, name) && (symbol->location.start < virtualEndOfScope || scope->kind == ScopeKindGlobal)) {
+        if (StringIsEqual(symbol->name, name) && (symbol->node->location.start < virtualEndOfScope || scope->kind == ScopeKindGlobal)) {
             return symbol;
         }
     }
@@ -157,9 +158,9 @@ Bool _ArrayIsSymbolLocationOrderedAscending(const void *lhs, const void *rhs) {
     SymbolRef a = (SymbolRef)lhs;
     SymbolRef b = (SymbolRef)rhs;
 
-    if (a->location.start == b->location.start) {
-        return a->location.end < b->location.end;
+    if (a->node->location.start == b->node->location.start) {
+        return a->node->location.end < b->node->location.end;
     }
 
-    return a->location.start < b->location.start;
+    return a->node->location.start < b->node->location.start;
 }

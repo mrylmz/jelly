@@ -7,7 +7,6 @@
 #include "JellyCore/Parser.h"
 #include "JellyCore/SourceRange.h"
 
-// TODO: Add missing scopes and add all declarations to scopes!
 // TODO: Write tests for correct scope creation and population!
 
 struct _Parser {
@@ -1177,9 +1176,6 @@ static inline ASTTypeRef _ParserParseType(ParserRef parser) {
     } else if (_ParserConsumeToken(parser, TokenKindKeywordInt64)) {
         location.end = parser->token.location.start;
         result       = (ASTTypeRef)ASTContextGetBuiltinType(parser->context, ASTBuiltinTypeKindInt64);
-    } else if (_ParserConsumeToken(parser, TokenKindKeywordInt128)) {
-        location.end = parser->token.location.start;
-        result       = (ASTTypeRef)ASTContextGetBuiltinType(parser->context, ASTBuiltinTypeKindInt128);
     } else if (_ParserConsumeToken(parser, TokenKindKeywordInt)) {
         location.end = parser->token.location.start;
         result       = (ASTTypeRef)ASTContextGetBuiltinType(parser->context, ASTBuiltinTypeKindInt);
@@ -1195,24 +1191,15 @@ static inline ASTTypeRef _ParserParseType(ParserRef parser) {
     } else if (_ParserConsumeToken(parser, TokenKindKeywordUInt64)) {
         location.end = parser->token.location.start;
         result       = (ASTTypeRef)ASTContextGetBuiltinType(parser->context, ASTBuiltinTypeKindUInt64);
-    } else if (_ParserConsumeToken(parser, TokenKindKeywordUInt128)) {
-        location.end = parser->token.location.start;
-        result       = (ASTTypeRef)ASTContextGetBuiltinType(parser->context, ASTBuiltinTypeKindUInt128);
     } else if (_ParserConsumeToken(parser, TokenKindKeywordUInt)) {
         location.end = parser->token.location.start;
         result       = (ASTTypeRef)ASTContextGetBuiltinType(parser->context, ASTBuiltinTypeKindUInt);
-    } else if (_ParserConsumeToken(parser, TokenKindKeywordFloat16)) {
-        location.end = parser->token.location.start;
-        result       = (ASTTypeRef)ASTContextGetBuiltinType(parser->context, ASTBuiltinTypeKindFloat16);
     } else if (_ParserConsumeToken(parser, TokenKindKeywordFloat32)) {
         location.end = parser->token.location.start;
         result       = (ASTTypeRef)ASTContextGetBuiltinType(parser->context, ASTBuiltinTypeKindFloat32);
     } else if (_ParserConsumeToken(parser, TokenKindKeywordFloat64)) {
         location.end = parser->token.location.start;
         result       = (ASTTypeRef)ASTContextGetBuiltinType(parser->context, ASTBuiltinTypeKindFloat64);
-    } else if (_ParserConsumeToken(parser, TokenKindKeywordFloat128)) {
-        location.end = parser->token.location.start;
-        result       = (ASTTypeRef)ASTContextGetBuiltinType(parser->context, ASTBuiltinTypeKindFloat128);
     } else if (_ParserConsumeToken(parser, TokenKindKeywordFloat)) {
         location.end = parser->token.location.start;
         result       = (ASTTypeRef)ASTContextGetBuiltinType(parser->context, ASTBuiltinTypeKindFloat);

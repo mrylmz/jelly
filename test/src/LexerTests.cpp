@@ -814,10 +814,6 @@ static inline void _PrintTokenKindDescription(TokenKind kind) {
             printf("%s", "Int64");
             break;
 
-        case TokenKindKeywordInt128:
-            printf("%s", "Int128");
-            break;
-
         case TokenKindKeywordInt:
             printf("%s", "Int");
             break;
@@ -838,16 +834,8 @@ static inline void _PrintTokenKindDescription(TokenKind kind) {
             printf("%s", "UInt64");
             break;
 
-        case TokenKindKeywordUInt128:
-            printf("%s", "UInt128");
-            break;
-
         case TokenKindKeywordUInt:
             printf("%s", "UInt");
-            break;
-
-        case TokenKindKeywordFloat16:
-            printf("%s", "Float16");
             break;
 
         case TokenKindKeywordFloat32:
@@ -856,10 +844,6 @@ static inline void _PrintTokenKindDescription(TokenKind kind) {
 
         case TokenKindKeywordFloat64:
             printf("%s", "Float64");
-            break;
-
-        case TokenKindKeywordFloat128:
-            printf("%s", "Float128");
             break;
 
         case TokenKindKeywordFloat:

@@ -104,14 +104,12 @@ static inline void _ScopeDumperPrintSymbol(ScopeDumperRef dumper, SymbolRef symb
     _ScopeDumperPrintCString(dumper, StringGetCharacters(symbol->name));
 
     _ScopeDumperPrintCString(dumper, " = ");
-    if (symbol->kind == SymbolKindLink) {
-        _ScopeDumperPrintCString(dumper, StringGetCharacters(symbol->link->name));
-    } else if (symbol->kind == SymbolKindType) {
-        assert(symbol->type);
-        _ScopeDumperPrintType(dumper, symbol->type);
-    } else {
-        _ScopeDumperPrintCString(dumper, "?");
-    }
+    //    if (symbol->kind == SymbolKindType) {
+    //        assert(symbol->type);
+    //        _ScopeDumperPrintType(dumper, symbol->type);
+    //    } else {
+    //        _ScopeDumperPrintCString(dumper, "?");
+    //    }
 }
 
 static inline void _ScopeDumperPrintType(ScopeDumperRef dumper, ASTTypeRef type) {
@@ -140,7 +138,7 @@ static inline void _ScopeDumperPrintType(ScopeDumperRef dumper, ASTTypeRef type)
     case ASTTagBuiltinType: {
         ASTBuiltinTypeRef builtin = (ASTBuiltinTypeRef)type;
         _ScopeDumperPrintCString(dumper, "type ");
-        _ScopeDumperPrintCString(dumper, StringGetCharacters(builtin->name));
+        //        _ScopeDumperPrintCString(dumper, StringGetCharacters(builtin->name));
         return;
     }
 
@@ -150,18 +148,16 @@ static inline void _ScopeDumperPrintType(ScopeDumperRef dumper, ASTTypeRef type)
     case ASTTagFunctionType: {
         ASTFunctionTypeRef func = (ASTFunctionTypeRef)type;
         _ScopeDumperPrintCString(dumper, "func (");
-        ASTLinkedListRef parameters = func->parameters;
-        while (parameters) {
-            SymbolRef symbol = (SymbolRef)parameters->node;
+        for (Index index = 0; index < ASTArrayGetElementCount(func->parameters); index++) {
+            SymbolRef symbol = ASTArrayGetElementAtIndex(func->parameters, index);
             _ScopeDumperPrintCString(dumper, StringGetCharacters(symbol->name));
-            parameters = parameters->next;
-            if (parameters) {
+            if (index + 1 < ASTArrayGetElementCount(func->parameters)) {
                 _ScopeDumperPrintCString(dumper, ", ");
             }
         }
 
         _ScopeDumperPrintCString(dumper, ") -> ");
-        _ScopeDumperPrintCString(dumper, StringGetCharacters(func->result->name));
+        //        _ScopeDumperPrintCString(dumper, StringGetCharacters(func->result->name));
         return;
     }
 
@@ -169,37 +165,16 @@ static inline void _ScopeDumperPrintType(ScopeDumperRef dumper, ASTTypeRef type)
         ASTStructureTypeRef structure = (ASTStructureTypeRef)type;
         _ScopeDumperPrintCString(dumper, "struct {\n");
         dumper->indentation += 1;
-        ASTLinkedListRef values = structure->values;
-        while (values) {
-            SymbolRef value = (SymbolRef)values->node;
+        for (Index index = 0; index < ASTArrayGetElementCount(structure->values); index++) {
+            SymbolRef value = (SymbolRef)ASTArrayGetElementAtIndex(structure->values, index);
             _ScopeDumperPrintIndentation(dumper);
             _ScopeDumperPrintCString(dumper, StringGetCharacters(value->name));
             _ScopeDumperPrintCString(dumper, "\n");
-            values = values->next;
         }
 
         dumper->indentation -= 1;
         _ScopeDumperPrintIndentation(dumper);
         _ScopeDumperPrintCString(dumper, "}");
-        return;
-    }
-
-    case ASTTagApplicationType: {
-        ASTApplicationTypeRef application = (ASTApplicationTypeRef)type;
-        _ScopeDumperPrintCString(dumper, "apply ");
-        _ScopeDumperPrintCString(dumper, StringGetCharacters(application->callee->name));
-        _ScopeDumperPrintCString(dumper, " (");
-        ASTLinkedListRef arguments = application->arguments;
-        while (arguments) {
-            SymbolRef symbol = (SymbolRef)arguments->node;
-            _ScopeDumperPrintCString(dumper, StringGetCharacters(symbol->name));
-            arguments = arguments->next;
-            if (arguments) {
-                _ScopeDumperPrintCString(dumper, ", ");
-            }
-        }
-        _ScopeDumperPrintCString(dumper, ") -> ");
-        _ScopeDumperPrintCString(dumper, StringGetCharacters(application->result->name));
         return;
     }
 

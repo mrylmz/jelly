@@ -22,6 +22,12 @@ void ASTModuleAddSourceUnit(ASTContextRef context, ASTModuleDeclarationRef modul
 
 ASTSourceUnitRef ASTContextCreateSourceUnit(ASTContextRef context, SourceRange location, StringRef filePath, ArrayRef declarations);
 
+ASTLinkedListRef ASTContextCreateLinkedList(ASTContextRef context, SourceRange location);
+
+ASTArrayRef ASTContextCreateArray(ASTContextRef context, SourceRange location);
+
+ASTLookupListRef ASTContextCreateResolutionList(ASTContextRef context, SourceRange location);
+
 ASTLoadDirectiveRef ASTContextCreateLoadDirective(ASTContextRef context, SourceRange location, ASTConstantExpressionRef filePath);
 
 ASTBlockRef ASTContextCreateBlock(ASTContextRef context, SourceRange location, ArrayRef statements);
@@ -52,13 +58,18 @@ ASTConstantExpressionRef ASTContextCreateConstantFloatExpression(ASTContextRef c
 ASTConstantExpressionRef ASTContextCreateConstantStringExpression(ASTContextRef context, SourceRange location, StringRef value);
 ASTModuleDeclarationRef ASTContextCreateModuleDeclaration(ASTContextRef context, SourceRange location, ArrayRef sourceUnits,
                                                           ArrayRef importedModules);
+
 ASTEnumerationDeclarationRef ASTContextCreateEnumerationDeclaration(ASTContextRef context, SourceRange location, StringRef name,
                                                                     ArrayRef elements);
+
 ASTFunctionDeclarationRef ASTContextCreateFunctionDeclaration(ASTContextRef context, SourceRange location, StringRef name,
                                                               ArrayRef parameters, ASTTypeRef returnType, ASTBlockRef body);
+
 ASTStructureDeclarationRef ASTContextCreateStructureDeclaration(ASTContextRef context, SourceRange location, StringRef name,
                                                                 ArrayRef values);
-ASTOpaqueDeclarationRef ASTContextCreateOpaqueDeclaration(ASTContextRef context, SourceRange location, StringRef name);
+
+ASTOpaqueDeclarationRef ASTContextCreateOpaqueDeclaration(ASTContextRef context, SourceRange location, StringRef name, ASTTypeRef type);
+
 ASTValueDeclarationRef ASTContextCreateValueDeclaration(ASTContextRef context, SourceRange location, ASTValueKind kind, StringRef name,
                                                         ASTTypeRef type, ASTExpressionRef initializer);
 
@@ -75,9 +86,6 @@ ASTFunctionTypeRef ASTContextCreateFunctionType(ASTContextRef context, SourceRan
                                                 ArrayRef parameters, SymbolRef result);
 
 ASTStructureTypeRef ASTContextCreateStructureType(ASTContextRef context, SourceRange location, ArrayRef values);
-
-ASTApplicationTypeRef ASTContextCreateApplicationType(ASTContextRef context, SourceRange location, SymbolRef callee, ArrayRef arguments,
-                                                      SymbolRef result);
 
 ASTBuiltinTypeRef ASTContextGetBuiltinType(ASTContextRef context, ASTBuiltinTypeKind kind);
 

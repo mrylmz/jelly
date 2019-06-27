@@ -120,11 +120,10 @@ Bool _ArrayContainsString(const void *lhs, const void *rhs) {
 }
 
 void _WorkspacePerformLoads(WorkspaceRef workspace, ASTSourceUnitRef sourceUnit) {
-    ASTLinkedListRef next = sourceUnit->declarations;
-    while (next) {
-        ASTNodeRef node = (ASTNodeRef)next->node;
+    for (Index index = 0; index < ASTArrayGetElementCount(sourceUnit->declarations); index++) {
+        ASTNodeRef node = (ASTNodeRef)ASTArrayGetElementAtIndex(sourceUnit->declarations, index);
         if (node->tag == ASTTagLoadDirective) {
-            ASTLoadDirectiveRef load = (ASTLoadDirectiveRef)next->node;
+            ASTLoadDirectiveRef load = (ASTLoadDirectiveRef)node;
             assert(load->filePath->kind == ASTConstantKindString);
             StringRef filePath         = load->filePath->stringValue;
             StringRef relativeFilePath = StringCreateCopyUntilLastOccurenceOf(workspace->allocator, sourceUnit->filePath, '/');
@@ -150,8 +149,6 @@ void _WorkspacePerformLoads(WorkspaceRef workspace, ASTSourceUnitRef sourceUnit)
                 pthread_mutex_unlock(&workspace->mutex);
             }
         }
-
-        next = next->next;
     }
 }
 
@@ -202,7 +199,7 @@ void *_WorkspaceProcess(void *context) {
 
     TypeResolverRef typeResolver = TypeResolverCreate(workspace->allocator);
     SymbolTableRef symbolTable   = ASTContextGetSymbolTable(workspace->context);
-    TypeResolverResolve(typeResolver, workspace->context, SymbolTableGetGlobalScope(symbolTable));
+    TypeResolverResolve(typeResolver, workspace->context, (ASTNodeRef)ASTContextGetModule(workspace->context));
     TypeResolverDestroy(typeResolver);
 
     if ((workspace->options & WorkspaceOptionsDumpScope) > 0) {

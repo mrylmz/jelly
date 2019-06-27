@@ -706,8 +706,6 @@ static inline TokenKind _LexerLexIdentifierOrKeyword(LexerRef lexer) {
         kind = TokenKindKeywordInt32;
     } else if (SourceRangeIsEqual(range, "Int64")) {
         kind = TokenKindKeywordInt64;
-    } else if (SourceRangeIsEqual(range, "Int128")) {
-        kind = TokenKindKeywordInt128;
     } else if (SourceRangeIsEqual(range, "Int")) {
         kind = TokenKindKeywordInt;
     } else if (SourceRangeIsEqual(range, "UInt8")) {
@@ -718,18 +716,12 @@ static inline TokenKind _LexerLexIdentifierOrKeyword(LexerRef lexer) {
         kind = TokenKindKeywordUInt32;
     } else if (SourceRangeIsEqual(range, "UInt64")) {
         kind = TokenKindKeywordUInt64;
-    } else if (SourceRangeIsEqual(range, "UInt128")) {
-        kind = TokenKindKeywordUInt128;
     } else if (SourceRangeIsEqual(range, "UInt")) {
         kind = TokenKindKeywordUInt;
-    } else if (SourceRangeIsEqual(range, "Float16")) {
-        kind = TokenKindKeywordFloat16;
     } else if (SourceRangeIsEqual(range, "Float32")) {
         kind = TokenKindKeywordFloat32;
     } else if (SourceRangeIsEqual(range, "Float64")) {
         kind = TokenKindKeywordFloat64;
-    } else if (SourceRangeIsEqual(range, "Float128")) {
-        kind = TokenKindKeywordFloat128;
     } else if (SourceRangeIsEqual(range, "Float")) {
         kind = TokenKindKeywordFloat;
     } else {

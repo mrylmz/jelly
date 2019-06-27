@@ -14,7 +14,7 @@ TypeResolverRef TypeResolverCreate(AllocatorRef allocator);
 
 void TypeResolverDestroy(TypeResolverRef resolver);
 
-void TypeResolverResolve(TypeResolverRef resolver, ASTContextRef context, ScopeRef scope);
+void TypeResolverResolve(TypeResolverRef resolver, ASTContextRef context, ASTNodeRef node);
 
 JELLY_EXTERN_C_END
 
