@@ -135,3 +135,94 @@ ASTOperatorAssociativity ASTGetBinaryOperatorAssociativity(ASTBinaryOperator bin
         return ASTOperatorAssociativityNone;
     }
 }
+
+StringRef ASTGetPrefixOperatorName(AllocatorRef allocator, ASTUnaryOperator op) {
+    switch (op) {
+    case ASTUnaryOperatorLogicalNot:
+        return StringCreate(allocator, "!");
+
+    case ASTUnaryOperatorBitwiseNot:
+        return StringCreate(allocator, "~");
+
+    case ASTUnaryOperatorUnaryPlus:
+        return StringCreate(allocator, "+");
+
+    case ASTUnaryOperatorUnaryMinus:
+        return StringCreate(allocator, "-");
+
+    default:
+        JELLY_UNREACHABLE("Unknown value given for prefix operator!");
+        break;
+    }
+}
+
+StringRef ASTGetInfixOperatorName(AllocatorRef allocator, ASTBinaryOperator op) {
+    switch (op) {
+    case ASTBinaryOperatorBitwiseLeftShift:
+        return StringCreate(allocator, "<<");
+    case ASTBinaryOperatorBitwiseRightShift:
+        return StringCreate(allocator, ">>");
+    case ASTBinaryOperatorMultiply:
+        return StringCreate(allocator, "*");
+    case ASTBinaryOperatorDivide:
+        return StringCreate(allocator, "/");
+    case ASTBinaryOperatorReminder:
+        return StringCreate(allocator, "%");
+    case ASTBinaryOperatorBitwiseAnd:
+        return StringCreate(allocator, "&");
+    case ASTBinaryOperatorAdd:
+        return StringCreate(allocator, "+");
+    case ASTBinaryOperatorSubtract:
+        return StringCreate(allocator, "-");
+    case ASTBinaryOperatorBitwiseOr:
+        return StringCreate(allocator, "|");
+    case ASTBinaryOperatorBitwiseXor:
+        return StringCreate(allocator, "^");
+    case ASTBinaryOperatorTypeCheck:
+        return StringCreate(allocator, "is");
+    case ASTBinaryOperatorTypeCast:
+        return StringCreate(allocator, "as");
+    case ASTBinaryOperatorLessThan:
+        return StringCreate(allocator, "<");
+    case ASTBinaryOperatorLessThanEqual:
+        return StringCreate(allocator, "<=");
+    case ASTBinaryOperatorGreaterThan:
+        return StringCreate(allocator, ">");
+    case ASTBinaryOperatorGreaterThanEqual:
+        return StringCreate(allocator, ">=");
+    case ASTBinaryOperatorEqual:
+        return StringCreate(allocator, "==");
+    case ASTBinaryOperatorNotEqual:
+        return StringCreate(allocator, "!=");
+    case ASTBinaryOperatorLogicalAnd:
+        return StringCreate(allocator, "&&");
+    case ASTBinaryOperatorLogicalOr:
+        return StringCreate(allocator, "||");
+    case ASTBinaryOperatorAssign:
+        return StringCreate(allocator, "=");
+    case ASTBinaryOperatorMultiplyAssign:
+        return StringCreate(allocator, "*=");
+    case ASTBinaryOperatorDivideAssign:
+        return StringCreate(allocator, "/=");
+    case ASTBinaryOperatorReminderAssign:
+        return StringCreate(allocator, "%=");
+    case ASTBinaryOperatorAddAssign:
+        return StringCreate(allocator, "+=");
+    case ASTBinaryOperatorSubtractAssign:
+        return StringCreate(allocator, "-=");
+    case ASTBinaryOperatorBitwiseLeftShiftAssign:
+        return StringCreate(allocator, "<<=");
+    case ASTBinaryOperatorBitwiseRightShiftAssign:
+        return StringCreate(allocator, ">>=");
+    case ASTBinaryOperatorBitwiseAndAssign:
+        return StringCreate(allocator, "&=");
+    case ASTBinaryOperatorBitwiseOrAssign:
+        return StringCreate(allocator, "|=");
+    case ASTBinaryOperatorBitwiseXorAssign:
+        return StringCreate(allocator, "^=");
+
+    default:
+        JELLY_UNREACHABLE("Unknown value given for infix operator!");
+        break;
+    }
+}

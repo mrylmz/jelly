@@ -1,0 +1,16 @@
+struct A {
+    var b: B
+}
+
+struct B {
+    var c: C
+}
+
+struct C {
+    var a: A*
+}
+
+func main() -> Void {
+    var a: A
+    a.b.c.a.b.c.a
+}

@@ -26,8 +26,6 @@ ASTLinkedListRef ASTContextCreateLinkedList(ASTContextRef context, SourceRange l
 
 ASTArrayRef ASTContextCreateArray(ASTContextRef context, SourceRange location);
 
-ASTLookupListRef ASTContextCreateResolutionList(ASTContextRef context, SourceRange location);
-
 ASTLoadDirectiveRef ASTContextCreateLoadDirective(ASTContextRef context, SourceRange location, ASTConstantExpressionRef filePath);
 
 ASTBlockRef ASTContextCreateBlock(ASTContextRef context, SourceRange location, ArrayRef statements);
@@ -62,8 +60,12 @@ ASTModuleDeclarationRef ASTContextCreateModuleDeclaration(ASTContextRef context,
 ASTEnumerationDeclarationRef ASTContextCreateEnumerationDeclaration(ASTContextRef context, SourceRange location, StringRef name,
                                                                     ArrayRef elements);
 
-ASTFunctionDeclarationRef ASTContextCreateFunctionDeclaration(ASTContextRef context, SourceRange location, StringRef name,
+ASTFunctionDeclarationRef ASTContextCreateFunctionDeclaration(ASTContextRef context, SourceRange location, ASTFixity fixity, StringRef name,
                                                               ArrayRef parameters, ASTTypeRef returnType, ASTBlockRef body);
+
+ASTFunctionDeclarationRef ASTContextCreateForeignFunctionDeclaration(ASTContextRef context, SourceRange location, ASTFixity fixity,
+                                                                     StringRef name, ArrayRef parameters, ASTTypeRef returnType,
+                                                                     StringRef foreignName);
 
 ASTStructureDeclarationRef ASTContextCreateStructureDeclaration(ASTContextRef context, SourceRange location, StringRef name,
                                                                 ArrayRef values);
@@ -82,10 +84,9 @@ ASTArrayTypeRef ASTContextCreateArrayType(ASTContextRef context, SourceRange loc
 ASTEnumerationTypeRef ASTContextCreateEnumerationType(ASTContextRef context, SourceRange location,
                                                       ASTEnumerationDeclarationRef declaration);
 
-ASTFunctionTypeRef ASTContextCreateFunctionType(ASTContextRef context, SourceRange location, ASTFunctionDeclarationRef declaration,
-                                                ArrayRef parameters, SymbolRef result);
+ASTFunctionTypeRef ASTContextCreateFunctionType(ASTContextRef context, SourceRange location, ASTFunctionDeclarationRef declaration);
 
-ASTStructureTypeRef ASTContextCreateStructureType(ASTContextRef context, SourceRange location, ArrayRef values);
+ASTStructureTypeRef ASTContextCreateStructureType(ASTContextRef context, SourceRange location, ASTStructureDeclarationRef declaration);
 
 ASTBuiltinTypeRef ASTContextGetBuiltinType(ASTContextRef context, ASTBuiltinTypeKind kind);
 

@@ -1,3 +1,4 @@
+#include "JellyCore/ASTFunctions.h"
 #include "JellyCore/Diagnostic.h"
 #include "JellyCore/TypeResolver.h"
 
@@ -14,8 +15,7 @@ static inline void _TypeResolverResolveNode(TypeResolverRef resolver, ASTContext
 static inline ASTDeclarationRef _TypeResolverResolveDeclaration(TypeResolverRef resolver, ASTContextRef context, ScopeRef scope,
                                                                 SourceRange location, StringRef name);
 
-static inline Bool _TypeResolverResolveType(TypeResolverRef resolver, ASTContextRef context, ScopeRef scope, SymbolRef symbol,
-                                            StringRef name);
+static inline void _TypeResolverResolveType(TypeResolverRef resolver, ASTContextRef context, ScopeRef scope, ASTTypeRef *type);
 
 TypeResolverRef TypeResolverCreate(AllocatorRef allocator) {
     TypeResolverRef resolver = AllocatorAllocate(allocator, sizeof(struct _TypeResolver));
@@ -60,9 +60,6 @@ static inline void _TypeResolverResolveNode(TypeResolverRef resolver, ASTContext
         }
         break;
     }
-
-    case ASTTagLookupList:
-        break;
 
     case ASTTagLoadDirective: {
         ASTLoadDirectiveRef load = (ASTLoadDirectiveRef)node;
@@ -113,107 +110,196 @@ static inline void _TypeResolverResolveNode(TypeResolverRef resolver, ASTContext
         ASTControlStatementRef control = (ASTControlStatementRef)node;
         if (control->kind == ASTControlKindReturn && control->result) {
             _TypeResolverResolveNode(resolver, context, node, (ASTNodeRef)control->result);
-            // TODO: Add constraint that control->result has to be equal to enclosing func->result!
         }
         break;
     }
 
     case ASTTagUnaryExpression: {
+        // TODO: Add builtin unary operations and add support for function overloading
         ASTUnaryExpressionRef unary = (ASTUnaryExpressionRef)node;
         _TypeResolverResolveNode(resolver, context, node, (ASTNodeRef)unary->arguments[0]);
+
+        StringRef name       = ASTGetPrefixOperatorName(resolver->allocator, unary->op);
+        ScopeRef globalScope = SymbolTableGetGlobalScope(ASTContextGetSymbolTable(context));
+        SymbolRef symbol     = ScopeLookupSymbol(globalScope, name, NULL);
+        if (symbol && symbol->declaration->tag == ASTTagFunctionDeclaration) {
+            ASTFunctionDeclarationRef declaration = (ASTFunctionDeclarationRef)symbol->declaration;
+            if (declaration->fixity == ASTFixityPrefix) {
+                unary->base.type = declaration->type;
+            }
+        }
+
+        if (!unary->base.type) {
+            ReportError("Use of undeclared prefix operator");
+            unary->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
+        }
+
+        StringDestroy(name);
         break;
     }
 
     case ASTTagBinaryExpression: {
+        // TODO: Add builtin binary operations and add support for function overloading
         ASTBinaryExpressionRef binary = (ASTBinaryExpressionRef)node;
         _TypeResolverResolveNode(resolver, context, node, (ASTNodeRef)binary->arguments[0]);
         _TypeResolverResolveNode(resolver, context, node, (ASTNodeRef)binary->arguments[1]);
+
+        StringRef name       = ASTGetInfixOperatorName(resolver->allocator, binary->op);
+        ScopeRef globalScope = SymbolTableGetGlobalScope(ASTContextGetSymbolTable(context));
+        SymbolRef symbol     = ScopeLookupSymbol(globalScope, name, NULL);
+        if (symbol && symbol->declaration->tag == ASTTagFunctionDeclaration) {
+            ASTFunctionDeclarationRef declaration = (ASTFunctionDeclarationRef)symbol->declaration;
+            if (declaration->fixity == ASTFixityInfix) {
+                binary->base.type = declaration->type;
+            }
+        }
+
+        if (!binary->base.type) {
+            ReportError("Use of undeclared infix operator");
+            binary->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
+        }
+
+        StringDestroy(name);
         break;
     }
 
     case ASTTagIdentifierExpression: {
-        ASTIdentifierExpressionRef identifier = (ASTIdentifierExpressionRef)node;
-        ASTLookupListRef lookup               = identifier->base.lookup;
-        while (lookup) {
-            if (ASTArrayGetElementCount(lookup->candidates) == 1) {
-                identifier->resolvedDeclaration = (ASTDeclarationRef)ASTArrayGetElementAtIndex(lookup->candidates, 0);
-            } else if (ASTArrayGetElementCount(lookup->candidates) > 1) {
-                ReportError("Ambigous use of identifier");
+        ASTIdentifierExpressionRef expression = (ASTIdentifierExpressionRef)node;
+        ScopeRef scope                        = node->scope;
+        while (scope) {
+            SymbolRef symbol = ScopeLookupSymbol(scope, expression->name, node->location.start);
+            if (symbol) {
+                switch (symbol->declaration->tag) {
+                case ASTTagEnumerationDeclaration: {
+                    ASTEnumerationDeclarationRef declaration = (ASTEnumerationDeclarationRef)symbol->declaration;
+                    expression->base.type                    = declaration->type;
+                    break;
+                }
+                case ASTTagFunctionDeclaration: {
+                    ASTFunctionDeclarationRef declaration = (ASTFunctionDeclarationRef)symbol->declaration;
+                    expression->base.type                 = declaration->type;
+                    break;
+                }
+                case ASTTagStructureDeclaration: {
+                    ASTStructureDeclarationRef declaration = (ASTStructureDeclarationRef)symbol->declaration;
+                    expression->base.type                  = declaration->type;
+                    break;
+                }
+                case ASTTagValueDeclaration: {
+                    ASTValueDeclarationRef declaration = (ASTValueDeclarationRef)symbol->declaration;
+                    expression->base.type              = declaration->type;
+                    break;
+                }
+
+                default:
+                    JELLY_UNREACHABLE("Unknown tag given for ASTDeclaration in TypeResolver!");
+                    break;
+                }
+
+                expression->resolvedDeclaration = symbol->declaration;
             }
 
-            lookup = lookup->next;
+            scope = ScopeGetParent(scope);
         }
 
-        if (!identifier->resolvedDeclaration) {
-            ReportError("Unresolved identifier");
+        if (expression->base.type == NULL) {
+            expression->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
+            ReportError("Use of undeclared identifier");
         }
+
         break;
     }
 
     case ASTTagMemberAccessExpression: {
         ASTMemberAccessExpressionRef expression = (ASTMemberAccessExpressionRef)node;
-        // TODO: If there is no good fit as candidate then resolve to the next best for better error reports in type checker
-        ASTLookupListRef lookup = expression->argument->lookup;
-        while (lookup) {
-            for (Index index = 0; index < ASTArrayGetElementCount(lookup->candidates); index++) {
-                ASTDeclarationRef candidate = ASTArrayGetElementAtIndex(lookup->candidates, index);
-                Bool remove                 = false;
-                if (candidate->tag == ASTTagStructureDeclaration) {
-                    ASTStructureDeclarationRef structure = (ASTStructureDeclarationRef)candidate;
-                    for (Index index = 0; index < ASTArrayGetElementCount(structure->values); index++) {
-                        ASTNodeRef child = ASTArrayGetElementAtIndex(structure->values, index);
-                        assert(child->tag == ASTTagValueDeclaration);
+        _TypeResolverResolveNode(resolver, context, node, (ASTNodeRef)expression->argument);
 
-                        ASTValueDeclarationRef value = (ASTValueDeclarationRef)child;
-                        assert(value->base.tag == ASTValueKindVariable);
-
-                        if (StringIsEqual(value->name, expression->memberName)) {
-                            break;
-                        }
-                    }
-
-                } else {
-                    remove = true;
+        assert(expression->argument->type);
+        if (expression->argument->type->tag == ASTTagStructureType) {
+            ASTStructureTypeRef structType = (ASTStructureTypeRef)expression->argument->type;
+            ScopeRef scope                 = structType->declaration->innerScope;
+            SymbolRef symbol               = ScopeLookupSymbol(scope, expression->memberName, NULL);
+            if (symbol) {
+                switch (symbol->declaration->tag) {
+                case ASTTagEnumerationDeclaration: {
+                    ASTEnumerationDeclarationRef declaration = (ASTEnumerationDeclarationRef)symbol->declaration;
+                    expression->base.type                    = declaration->type;
+                    break;
+                }
+                case ASTTagFunctionDeclaration: {
+                    ASTFunctionDeclarationRef declaration = (ASTFunctionDeclarationRef)symbol->declaration;
+                    expression->base.type                 = declaration->type;
+                    break;
+                }
+                case ASTTagStructureDeclaration: {
+                    ASTStructureDeclarationRef declaration = (ASTStructureDeclarationRef)symbol->declaration;
+                    expression->base.type                  = declaration->type;
+                    break;
+                }
+                case ASTTagValueDeclaration: {
+                    ASTValueDeclarationRef declaration = (ASTValueDeclarationRef)symbol->declaration;
+                    expression->base.type              = declaration->type;
+                    break;
                 }
 
-                if (remove) {
-                    ASTArrayRemoveElementAtIndex(lookup->candidates, index);
-                    index -= 1;
+                default:
+                    JELLY_UNREACHABLE("Unknown tag given for ASTDeclaration in TypeResolver!");
+                    break;
                 }
+
+                expression->resolvedDeclaration = symbol->declaration;
+            } else {
+                expression->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
+                ReportError("Use of undeclared member");
             }
+        } else {
+            expression->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
 
-            lookup = lookup->next;
+            if (expression->argument->type->tag != ASTTagBuiltinType &&
+                ((ASTBuiltinTypeRef)expression->argument->type)->kind != ASTBuiltinTypeKindError) {
+                ReportError("Cannot access named member of non structure type");
+            }
         }
 
-        _TypeResolverResolveNode(resolver, context, node, (ASTNodeRef)expression->argument);
         break;
     }
 
     case ASTTagCallExpression: {
-        ASTCallExpressionRef call = (ASTCallExpressionRef)node;
-        // TODO: @CandidateFilter
-        //
-        //  (1): call.callee == func
-        //  (2): call.callee.parameters.count == call.arguments.count
-        //  (3): call.callee.parameters[i].declaration == call.arguments[i].declaration
+        ASTCallExpressionRef expression = (ASTCallExpressionRef)node;
+        _TypeResolverResolveNode(resolver, context, node, (ASTNodeRef)expression->callee);
+        _TypeResolverResolveNode(resolver, context, node, (ASTNodeRef)expression->arguments);
 
-        _TypeResolverResolveNode(resolver, context, node, (ASTNodeRef)call->callee);
-
-        if (call->arguments) {
-            _TypeResolverResolveNode(resolver, context, node, (ASTNodeRef)call->arguments);
+        assert(expression->callee->type);
+        if (expression->callee->type->tag == ASTTagFunctionType) {
+            ASTFunctionTypeRef funcType           = (ASTFunctionTypeRef)expression->callee->type;
+            ASTFunctionDeclarationRef declaration = funcType->declaration;
+            if (ASTArrayGetElementCount(declaration->parameters) == ASTArrayGetElementCount(expression->arguments)) {
+                // TODO: Add type comparison as soon as overloading is supported
+            } else {
+                expression->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
+                ReportError("Argument count mismatch");
+            }
+        } else {
+            expression->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
+            ReportError("Cannot call non function type");
         }
 
         break;
     }
 
-    case ASTTagConstantExpression: {
+    case ASTTagConstantExpression: { // TODO: @Next
         ASTConstantExpressionRef constant = (ASTConstantExpressionRef)node;
-
         if (constant->kind == ASTConstantKindNil) {
+            constant->base.type = (ASTTypeRef)ASTContextCreatePointerType(
+                context, SourceRangeNull(), (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindVoid));
         } else if (constant->kind == ASTConstantKindBool) {
+            constant->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindBool);
         } else if (constant->kind == ASTConstantKindInt) {
+            constant->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindInt);
         } else if (constant->kind == ASTConstantKindFloat) {
+            constant->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindFloat);
         } else if (constant->kind == ASTConstantKindString) {
+            JELLY_UNREACHABLE("Implementation missing!");
         } else {
             JELLY_UNREACHABLE("Unknown kind given for ASTConstantExpression in Typer!");
         }
@@ -222,17 +308,13 @@ static inline void _TypeResolverResolveNode(TypeResolverRef resolver, ASTContext
 
     case ASTTagModuleDeclaration: {
         ASTModuleDeclarationRef module = (ASTModuleDeclarationRef)node;
-        if (module->sourceUnits) {
-            _TypeResolverResolveNode(resolver, context, node, (ASTNodeRef)module->sourceUnits);
-        }
+        _TypeResolverResolveNode(resolver, context, node, (ASTNodeRef)module->sourceUnits);
         break;
     }
 
     case ASTTagEnumerationDeclaration: {
         ASTEnumerationDeclarationRef declaration = (ASTEnumerationDeclarationRef)node;
-        if (declaration->elements) {
-            _TypeResolverResolveNode(resolver, context, node, (ASTNodeRef)declaration->elements);
-        }
+        _TypeResolverResolveNode(resolver, context, node, (ASTNodeRef)declaration->elements);
         break;
     }
 
@@ -241,16 +323,14 @@ static inline void _TypeResolverResolveNode(TypeResolverRef resolver, ASTContext
         if (declaration->parameters) {
             _TypeResolverResolveNode(resolver, context, node, (ASTNodeRef)declaration->parameters);
         }
-        _TypeResolverResolveNode(resolver, context, node, (ASTNodeRef)declaration->returnType);
+        _TypeResolverResolveType(resolver, context, node->scope, &declaration->returnType);
         _TypeResolverResolveNode(resolver, context, node, (ASTNodeRef)declaration->body);
         break;
     }
 
     case ASTTagStructureDeclaration: {
         ASTStructureDeclarationRef declaration = (ASTStructureDeclarationRef)node;
-        if (declaration->values) {
-            _TypeResolverResolveNode(resolver, context, node, (ASTNodeRef)declaration->values);
-        }
+        _TypeResolverResolveNode(resolver, context, node, (ASTNodeRef)declaration->values);
         break;
     }
 
@@ -259,40 +339,12 @@ static inline void _TypeResolverResolveNode(TypeResolverRef resolver, ASTContext
 
     case ASTTagValueDeclaration: {
         ASTValueDeclarationRef declaration = (ASTValueDeclarationRef)node;
-        _TypeResolverResolveNode(resolver, context, node, (ASTNodeRef)declaration->type);
+        _TypeResolverResolveType(resolver, context, node->scope, &declaration->type);
         if (declaration->initializer) {
             _TypeResolverResolveNode(resolver, context, node, (ASTNodeRef)declaration->initializer);
         }
         break;
     }
-
-    case ASTTagPointerType: {
-        ASTPointerTypeRef type = (ASTPointerTypeRef)node;
-        _TypeResolverResolveNode(resolver, context, node, (ASTNodeRef)type->pointeeType);
-        break;
-    }
-
-    case ASTTagArrayType: {
-        ASTArrayTypeRef type = (ASTArrayTypeRef)node;
-        _TypeResolverResolveNode(resolver, context, node, (ASTNodeRef)type->elementType);
-        if (type->size) {
-            _TypeResolverResolveNode(resolver, context, node, (ASTNodeRef)type->size);
-        }
-        break;
-    }
-
-    case ASTTagOpaqueType: {
-        ASTOpaqueTypeRef type = (ASTOpaqueTypeRef)node;
-        // What kind of declaration are we looking here for?
-        break;
-    }
-
-    case ASTTagBuiltinType:
-    case ASTTagEnumerationType:
-    case ASTTagFunctionType:
-    case ASTTagStructureType:
-    case ASTTagApplicationType:
-        break;
 
     default:
         JELLY_UNREACHABLE("Unknown tag given for ASTNode in Typer!");
@@ -307,18 +359,18 @@ static inline ASTDeclarationRef _TypeResolverResolveDeclaration(TypeResolverRef 
     while (scope) {
         SymbolRef symbol = ScopeLookupSymbol(scope, name, location.start);
         if (symbol) {
-            switch (symbol->node->tag) {
+            switch (symbol->declaration->tag) {
             case ASTTagFunctionDeclaration:
             case ASTTagStructureDeclaration:
             case ASTTagOpaqueDeclaration:
             case ASTTagValueDeclaration:
-                return symbol->node;
+                return symbol->declaration;
 
             default:
                 break;
             }
 
-            return symbol->node;
+            return symbol->declaration;
         }
 
         scope = ScopeGetParent(scope);
@@ -327,29 +379,71 @@ static inline ASTDeclarationRef _TypeResolverResolveDeclaration(TypeResolverRef 
     return NULL;
 }
 
-static inline void _TypeResolverResolveSymbol(TypeResolverRef resolver, ASTContextRef context, ScopeRef scope, SymbolRef symbol) {
-}
+static inline void _TypeResolverResolveType(TypeResolverRef resolver, ASTContextRef context, ScopeRef scope, ASTTypeRef *type) {
+    switch ((*type)->tag) {
+    case ASTTagPointerType: {
+        ASTPointerTypeRef pointerType = (ASTPointerTypeRef)(*type);
+        _TypeResolverResolveType(resolver, context, scope, &pointerType->pointeeType);
+        break;
+    }
 
-static inline Bool _TypeResolverResolveType(TypeResolverRef resolver, ASTContextRef context, ScopeRef scope, SymbolRef symbol,
-                                            StringRef name) {
-    //    while (scope) {
-    //        SymbolRef child = ScopeLookupSymbol(scope, name, symbol->location.start);
-    //        while (child && child->kind == SymbolKindLink) {
-    //            child = child->link;
-    //        }
-    //
-    //        if (child && child->kind == SymbolKindType) {
-    //            symbol->kind = SymbolKindType;
-    //            symbol->type = child->type;
-    //            return true;
-    //        }
-    //
-    //        scope = ScopeGetParent(scope);
-    //    }
-    //
-    //    symbol->kind = SymbolKindType;
-    //    symbol->type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
-    //    return false;
+    case ASTTagArrayType: {
+        ASTArrayTypeRef arrayType = (ASTArrayTypeRef)(*type);
+        _TypeResolverResolveType(resolver, context, scope, &arrayType->elementType);
+
+        if (arrayType->size) {
+            _TypeResolverResolveNode(resolver, context, (ASTNodeRef)arrayType, (ASTNodeRef)arrayType->size);
+        }
+        break;
+    }
+
+    case ASTTagOpaqueType: {
+        ASTOpaqueTypeRef opaqueType = (ASTOpaqueTypeRef)(*type);
+        ScopeRef globalScope        = SymbolTableGetGlobalScope(ASTContextGetSymbolTable(context));
+        SymbolRef symbol            = ScopeLookupSymbol(globalScope, opaqueType->name, NULL);
+        if (symbol) {
+            switch (symbol->declaration->tag) {
+            case ASTTagEnumerationDeclaration: {
+                ASTEnumerationDeclarationRef declaration = (ASTEnumerationDeclarationRef)symbol->declaration;
+                *type                                    = declaration->type;
+                break;
+            }
+            case ASTTagFunctionDeclaration: {
+                ASTFunctionDeclarationRef declaration = (ASTFunctionDeclarationRef)symbol->declaration;
+                *type                                 = declaration->type;
+                break;
+            }
+            case ASTTagStructureDeclaration: {
+                ASTStructureDeclarationRef declaration = (ASTStructureDeclarationRef)symbol->declaration;
+                *type                                  = declaration->type;
+                break;
+            }
+            case ASTTagValueDeclaration: {
+                ASTValueDeclarationRef declaration = (ASTValueDeclarationRef)symbol->declaration;
+                *type                              = declaration->type;
+                break;
+            }
+
+            default:
+                JELLY_UNREACHABLE("Unknown tag given for ASTDeclaration in TypeResolver!");
+                break;
+            }
+        } else {
+            *type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
+            ReportError("Use of unresolved type");
+        }
+        break;
+    }
+
+    case ASTTagBuiltinType:
+    case ASTTagEnumerationType:
+    case ASTTagStructureType:
+        break;
+
+    default:
+        JELLY_UNREACHABLE("Unknown tag given for ASTType in Typer!");
+        break;
+    }
 }
 
 SymbolRef _TypeResolverResolveEnumerationElement(TypeResolverRef resolver, ASTModuleDeclarationRef module, StringRef name) {
@@ -361,9 +455,9 @@ SymbolRef _TypeResolverResolveEnumerationElement(TypeResolverRef resolver, ASTMo
         if (ScopeGetKind(child) == ScopeKindEnumeration) {
             SymbolRef symbol = ScopeLookupSymbol(child, name, NULL);
             if (symbol) {
-                ASTNodeRef node = symbol->node;
-                assert(node);
-                assert(node->tag == ASTTagValueDeclaration);
+                ASTDeclarationRef declaration = symbol->declaration;
+                assert(declaration);
+                assert(declaration->tag == ASTTagValueDeclaration);
 
                 if (result) {
                     // TODO: Remove after implementing @CandidateDeclarations

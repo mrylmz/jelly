@@ -56,4 +56,4 @@ TEST_P(TyperTests, run) {
     }
 }
 
-INSTANTIATE_TEST_CASE_P(run, TyperTests, testing::ValuesIn(FileTest::ReadFromDirectory("typer")));
+INSTANTIATE_TEST_CASE_P(run, TyperTests, testing::ValuesIn(FileTest::ReadFromDirectory("typeresolution")));

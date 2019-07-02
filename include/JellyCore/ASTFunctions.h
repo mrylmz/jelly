@@ -14,6 +14,10 @@ ASTOperatorPrecedence ASTGetOperatorPrecedenceBefore(ASTOperatorPrecedence prece
 
 ASTOperatorAssociativity ASTGetBinaryOperatorAssociativity(ASTBinaryOperator binary);
 
+StringRef ASTGetPrefixOperatorName(AllocatorRef allocator, ASTUnaryOperator op);
+
+StringRef ASTGetInfixOperatorName(AllocatorRef allocator, ASTBinaryOperator op);
+
 JELLY_EXTERN_C_END
 
 #endif

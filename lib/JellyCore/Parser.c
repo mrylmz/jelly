@@ -986,7 +986,7 @@ static inline ASTFunctionDeclarationRef _ParserParseFunctionDeclaration(ParserRe
     SymbolTablePopScope(symbolTable);
 
     location.end = parser->token.location.start;
-    return ASTContextCreateFunctionDeclaration(parser->context, location, name, parameters, returnType, body);
+    return ASTContextCreateFunctionDeclaration(parser->context, location, ASTFixityNone, name, parameters, returnType, body);
 }
 
 /// grammar: struct-declaration := "struct" identifier "{" { value-declaration } "}"
@@ -1040,8 +1040,10 @@ static inline ASTStructureDeclarationRef _ParserParseStructureDeclaration(Parser
 
     SymbolTablePopScope(symbolTable);
 
-    location.end = parser->token.location.start;
-    return ASTContextCreateStructureDeclaration(parser->context, location, name, values);
+    location.end                           = parser->token.location.start;
+    ASTStructureDeclarationRef declaration = ASTContextCreateStructureDeclaration(parser->context, location, name, values);
+    declaration->innerScope                = scope;
+    return declaration;
 }
 
 /// grammar: variable-declaration := "var" identifier ":" type-identifier [ "=" expression ]

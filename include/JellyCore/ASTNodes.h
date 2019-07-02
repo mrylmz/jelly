@@ -15,7 +15,6 @@ enum _ASTTag {
     ASTTagSourceUnit,
     ASTTagLinkedList,
     ASTTagArray,
-    ASTTagLookupList,
     ASTTagLoadDirective,
     ASTTagBlock,
     ASTTagIfStatement,
@@ -42,7 +41,6 @@ enum _ASTTag {
     ASTTagEnumerationType,
     ASTTagFunctionType,
     ASTTagStructureType,
-    ASTTagApplicationType,
 
     AST_TAG_COUNT
 };
@@ -64,7 +62,6 @@ typedef struct _ASTNode *ASTTypeRef;
 
 typedef struct _ASTSourceUnit *ASTSourceUnitRef;
 typedef struct _ASTLinkedList *ASTLinkedListRef;
-typedef struct _ASTLookupList *ASTLookupListRef;
 typedef struct _ASTLoadDirective *ASTLoadDirectiveRef;
 typedef struct _ASTBlock *ASTBlockRef;
 typedef struct _ASTIfStatement *ASTIfStatementRef;
@@ -93,6 +90,8 @@ typedef struct _ASTFunctionType *ASTFunctionTypeRef;
 typedef struct _ASTStructureType *ASTStructureTypeRef;
 
 typedef struct _Scope *ScopeRef;
+typedef struct _SymbolTable *SymbolTableRef;
+
 struct _ASTNode {
     ASTTag tag;
     SourceRange location;
@@ -102,7 +101,7 @@ struct _ASTNode {
 struct _ASTExpression {
     struct _ASTNode base;
 
-    ASTLookupListRef lookup;
+    ASTTypeRef type;
 };
 
 struct _ASTLinkedList {
@@ -118,13 +117,6 @@ struct _ASTArray {
     void *context;
     Index elementCount;
     ASTLinkedListRef list;
-};
-
-struct _ASTLookupList {
-    struct _ASTNode base;
-
-    ASTArrayRef candidates;
-    ASTLookupListRef next;
 };
 
 struct _ASTSourceUnit {
@@ -282,6 +274,8 @@ struct _ASTMemberAccessExpression {
 
     ASTExpressionRef argument;
     StringRef memberName;
+    Index pointerDepth;
+    ASTDeclarationRef resolvedDeclaration;
 };
 
 struct _ASTCallExpression {
@@ -324,15 +318,29 @@ struct _ASTEnumerationDeclaration {
 
     StringRef name;
     ASTArrayRef elements;
+    ASTTypeRef type;
 };
+
+enum _ASTFixity {
+    ASTFixityNone,
+    ASTFixityPrefix,
+    ASTFixityInfix,
+    ASTFixityPostfix,
+};
+typedef enum _ASTFixity ASTFixity;
 
 struct _ASTFunctionDeclaration {
     struct _ASTNode base;
 
+    ASTFixity fixity;
     StringRef name;
     ASTArrayRef parameters;
     ASTTypeRef returnType;
     ASTBlockRef body;
+    ASTTypeRef type;
+
+    Bool foreign;
+    StringRef foreignName;
 };
 
 struct _ASTStructureDeclaration {
@@ -340,6 +348,8 @@ struct _ASTStructureDeclaration {
 
     StringRef name;
     ASTArrayRef values;
+    ScopeRef innerScope;
+    ASTTypeRef type;
 };
 
 struct _ASTOpaqueDeclaration {
@@ -369,7 +379,6 @@ struct _ASTOpaqueType {
     struct _ASTNode base;
 
     StringRef name;
-    ASTDeclarationRef declaration;
 };
 
 struct _ASTPointerType {
@@ -423,13 +432,12 @@ struct _ASTFunctionType {
     struct _ASTNode base;
 
     ASTFunctionDeclarationRef declaration;
-    ASTArrayRef parameters;
 };
 
 struct _ASTStructureType {
     struct _ASTNode base;
 
-    ASTArrayRef values;
+    ASTStructureDeclarationRef declaration;
 };
 
 JELLY_EXTERN_C_END

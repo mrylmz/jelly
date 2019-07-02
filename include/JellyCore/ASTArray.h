@@ -10,14 +10,6 @@ typedef struct _ASTArray *ASTArrayRef;
 
 typedef Bool (*ASTArrayPredicate)(const void *elementLeft, const void *elementRight);
 
-// ASTArrayRef ASTArrayCreate(ASTContextRef context, Index elementSize, const void *elements, Index elementCount);
-//
-// ASTArrayRef ASTArrayCreateCopy(ASTContextRef context, ASTArrayRef array);
-//
-// ASTArrayRef ASTArrayCreateEmpty(ASTContextRef context, Index elementSize, Index capacity);
-
-// void ASTArrayDestroy(ASTArrayRef array);
-
 Index ASTArrayGetElementCount(ASTArrayRef array);
 
 void *ASTArrayGetElementAtIndex(ASTArrayRef array, Index index);

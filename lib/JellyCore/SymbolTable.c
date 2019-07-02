@@ -96,21 +96,21 @@ SymbolRef ScopeGetSymbolAtIndex(ScopeRef scope, Index index) {
     return (SymbolRef)ArrayGetElementAtIndex(scope->symbols, index);
 }
 
-SymbolRef ScopeInsertSymbol(ScopeRef scope, StringRef name, ASTNodeRef node) {
+SymbolRef ScopeInsertSymbol(ScopeRef scope, StringRef name, ASTDeclarationRef declaration) {
     if (ScopeLookupSymbol(scope, name, NULL) != NULL) {
         return NULL;
     }
 
     SymbolRef symbol = ArrayAppendUninitializedElement(scope->symbols);
     memset(symbol, 0, sizeof(struct _Symbol));
-    symbol->name = name;
-    symbol->node = node;
+    symbol->name        = name;
+    symbol->declaration = declaration;
 
     if (scope->location.start == NULL) {
-        scope->location = node->location;
+        scope->location = declaration->location;
     } else {
-        scope->location.start = MIN(scope->location.start, node->location.start);
-        scope->location.end   = MAX(scope->location.end, node->location.end);
+        scope->location.start = MIN(scope->location.start, declaration->location.start);
+        scope->location.end   = MAX(scope->location.end, declaration->location.end);
     }
 
     return symbol;
@@ -129,7 +129,8 @@ SymbolRef ScopeInsertUniqueSymbol(ScopeRef scope, ASTNodeRef node) {
 SymbolRef ScopeLookupSymbol(ScopeRef scope, StringRef name, const Char *virtualEndOfScope) {
     for (Index index = 0; index < ScopeGetSymbolCount(scope); index++) {
         SymbolRef symbol = ArrayGetElementAtIndex(scope->symbols, index);
-        if (StringIsEqual(symbol->name, name) && (symbol->node->location.start < virtualEndOfScope || scope->kind == ScopeKindGlobal)) {
+        if (StringIsEqual(symbol->name, name) &&
+            (symbol->declaration->location.start < virtualEndOfScope || scope->kind == ScopeKindGlobal || virtualEndOfScope == NULL)) {
             return symbol;
         }
     }
@@ -158,9 +159,9 @@ Bool _ArrayIsSymbolLocationOrderedAscending(const void *lhs, const void *rhs) {
     SymbolRef a = (SymbolRef)lhs;
     SymbolRef b = (SymbolRef)rhs;
 
-    if (a->node->location.start == b->node->location.start) {
-        return a->node->location.end < b->node->location.end;
+    if (a->declaration->location.start == b->declaration->location.start) {
+        return a->declaration->location.end < b->declaration->location.end;
     }
 
-    return a->node->location.start < b->node->location.start;
+    return a->declaration->location.start < b->declaration->location.start;
 }

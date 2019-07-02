@@ -54,102 +54,10 @@ static inline void _TyperTypeNode(TyperRef typer, ASTContextRef context, ASTNode
         break;
     }
 
-    case ASTTagLoadDirective: {
-        ASTLoadDirectiveRef load = (ASTLoadDirectiveRef)node;
-        _TyperTypeNode(typer, context, node, (ASTNodeRef)load->filePath);
-        break;
-    }
-
     case ASTTagBlock: {
         ASTBlockRef block = (ASTBlockRef)node;
-        _TyperTypeNode(typer, context, node, (ASTNodeRef)block->statements);
-        break;
-    }
-
-    case ASTTagIfStatement: {
-        ASTIfStatementRef statement = (ASTIfStatementRef)node;
-        _TyperTypeNode(typer, context, node, (ASTNodeRef)statement->condition);
-        _TyperTypeNode(typer, context, node, (ASTNodeRef)statement->thenBlock);
-        _TyperTypeNode(typer, context, node, (ASTNodeRef)statement->elseBlock);
-        break;
-    }
-
-    case ASTTagLoopStatement: {
-        ASTLoopStatementRef loop = (ASTLoopStatementRef)node;
-        _TyperTypeNode(typer, context, node, (ASTNodeRef)loop->condition);
-        _TyperTypeNode(typer, context, node, (ASTNodeRef)loop->loopBlock);
-        break;
-    }
-
-    case ASTTagCaseStatement: {
-        ASTCaseStatementRef statement = (ASTCaseStatementRef)node;
-        if (statement->kind == ASTCaseKindConditional) {
-            _TyperTypeNode(typer, context, node, (ASTNodeRef)statement->condition);
-        }
-        _TyperTypeNode(typer, context, node, (ASTNodeRef)statement->body);
-        break;
-    }
-
-    case ASTTagSwitchStatement: {
-        ASTSwitchStatementRef statement = (ASTSwitchStatementRef)node;
-        _TyperTypeNode(typer, context, node, (ASTNodeRef)statement->argument);
-        if (statement->cases) {
-            _TyperTypeNode(typer, context, node, (ASTNodeRef)statement->cases);
-        }
-        break;
-    }
-
-    case ASTTagControlStatement: {
-        ASTControlStatementRef control = (ASTControlStatementRef)node;
-        if (control->kind == ASTControlKindReturn && control->result) {
-            _TyperTypeNode(typer, context, node, (ASTNodeRef)control->result);
-            // TODO: Add constraint that control->result has to be equal to enclosing func->result!
-        }
-        break;
-    }
-
-    case ASTTagUnaryExpression: {
-        ASTUnaryExpressionRef unary = (ASTUnaryExpressionRef)node;
-        //        unary->base.symbol          = ScopeInsertUniqueSymbol(node->scope, node);
-        _TyperTypeNode(typer, context, node, (ASTNodeRef)unary->arguments[0]);
-        break;
-    }
-
-    case ASTTagBinaryExpression: {
-        ASTBinaryExpressionRef binary = (ASTBinaryExpressionRef)node;
-        //        binary->base.symbol           = ScopeInsertUniqueSymbol(node->scope, node);
-        _TyperTypeNode(typer, context, node, (ASTNodeRef)binary->arguments[0]);
-        _TyperTypeNode(typer, context, node, (ASTNodeRef)binary->arguments[1]);
-        break;
-    }
-
-    case ASTTagIdentifierExpression: {
-        ASTIdentifierExpressionRef identifier = (ASTIdentifierExpressionRef)node;
-        //        identifier->base.symbol               = ScopeInsertUniqueSymbol(node->scope, node);
-        break;
-    }
-
-    case ASTTagMemberAccessExpression: {
-        ASTMemberAccessExpressionRef expression = (ASTMemberAccessExpressionRef)node;
-        //        expression->base.symbol                 = ScopeInsertUniqueSymbol(node->scope, node);
-        _TyperTypeNode(typer, context, node, (ASTNodeRef)expression->argument);
-        break;
-    }
-
-    case ASTTagCallExpression: {
-        ASTCallExpressionRef call = (ASTCallExpressionRef)node;
-        //        call->base.symbol         = ScopeInsertUniqueSymbol(node->scope, node);
-        _TyperTypeNode(typer, context, node, (ASTNodeRef)call->callee);
-
-        if (call->arguments) {
-            _TyperTypeNode(typer, context, node, (ASTNodeRef)call->arguments);
-        }
-        break;
-    }
-
-    case ASTTagConstantExpression: {
-        ASTConstantExpressionRef constant = (ASTConstantExpressionRef)node;
-        //        constant->base.symbol             = ScopeInsertUniqueSymbol(node->scope, node);
+        // NOTE: We pass the parent of the block here because the block it self is a redundant information...
+        _TyperTypeNode(typer, context, parent, (ASTNodeRef)block->statements);
         break;
     }
 
@@ -202,8 +110,9 @@ static inline void _TyperTypeNode(TyperRef typer, ASTContextRef context, ASTNode
         break;
     }
 
-    case ASTTagOpaqueDeclaration:
+    case ASTTagOpaqueDeclaration: {
         break;
+    }
 
     case ASTTagValueDeclaration: {
         ASTValueDeclarationRef declaration = (ASTValueDeclarationRef)node;
@@ -219,27 +128,27 @@ static inline void _TyperTypeNode(TyperRef typer, ASTContextRef context, ASTNode
         break;
     }
 
-    case ASTTagPointerType: {
-        ASTPointerTypeRef type = (ASTPointerTypeRef)node;
-        _TyperTypeNode(typer, context, node, (ASTNodeRef)type->pointeeType);
+    case ASTTagLoadDirective:
+    case ASTTagIfStatement:
+    case ASTTagLoopStatement:
+    case ASTTagCaseStatement:
+    case ASTTagSwitchStatement:
+    case ASTTagControlStatement:
+    case ASTTagUnaryExpression:
+    case ASTTagBinaryExpression:
+    case ASTTagIdentifierExpression:
+    case ASTTagMemberAccessExpression:
+    case ASTTagCallExpression:
+    case ASTTagConstantExpression:
         break;
-    }
 
-    case ASTTagArrayType: {
-        ASTArrayTypeRef type = (ASTArrayTypeRef)node;
-        _TyperTypeNode(typer, context, node, (ASTNodeRef)type->elementType);
-        if (type->size) {
-            _TyperTypeNode(typer, context, node, (ASTNodeRef)type->size);
-        }
-        break;
-    }
-
+    case ASTTagPointerType:
+    case ASTTagArrayType:
     case ASTTagOpaqueType:
     case ASTTagBuiltinType:
     case ASTTagEnumerationType:
     case ASTTagFunctionType:
     case ASTTagStructureType:
-    case ASTTagApplicationType:
         break;
 
     default:

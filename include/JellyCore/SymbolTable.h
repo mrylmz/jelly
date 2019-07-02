@@ -10,7 +10,6 @@
 JELLY_EXTERN_C_BEGIN
 
 typedef struct _Scope *ScopeRef;
-typedef struct _SymbolTable *SymbolTableRef;
 
 enum _SymbolKind {
     SymbolKindNone,
@@ -21,7 +20,7 @@ typedef enum _SymbolKind SymbolKind;
 
 struct _Symbol {
     StringRef name;
-    ASTNodeRef node;
+    ASTDeclarationRef declaration;
 };
 typedef struct _Symbol *SymbolRef;
 
