@@ -1,5 +1,7 @@
 #include "JellyCore/ASTFunctions.h"
 
+static inline Bool _ASTOpaqueTypeIsEqual(ASTOpaqueTypeRef opaque, ASTTypeRef other);
+
 ASTOperatorPrecedence ASTGetBinaryOperatorPrecedence(ASTBinaryOperator binary) {
     switch (binary) {
     case ASTBinaryOperatorBitwiseLeftShift:
@@ -224,5 +226,101 @@ StringRef ASTGetInfixOperatorName(AllocatorRef allocator, ASTBinaryOperator op) 
     default:
         JELLY_UNREACHABLE("Unknown value given for infix operator!");
         break;
+    }
+}
+
+Bool ASTTypeIsEqual(ASTTypeRef lhs, ASTTypeRef rhs) {
+    if (lhs->tag == ASTTagPointerType && rhs->tag == ASTTagPointerType) {
+        ASTPointerTypeRef lhsPointer = (ASTPointerTypeRef)lhs;
+        ASTPointerTypeRef rhsPointer = (ASTPointerTypeRef)rhs;
+
+        return ASTTypeIsEqual(lhsPointer->pointeeType, rhsPointer->pointeeType);
+    }
+
+    if (lhs->tag == ASTTagArrayType && rhs->tag == ASTTagArrayType) {
+        ASTArrayTypeRef lhsArray = (ASTArrayTypeRef)lhs;
+        ASTArrayTypeRef rhsArray = (ASTArrayTypeRef)rhs;
+
+        return ASTTypeIsEqual(lhsArray->elementType, rhsArray->elementType);
+    }
+
+    if (lhs->tag == ASTTagBuiltinType && rhs->tag == ASTTagBuiltinType) {
+        ASTBuiltinTypeRef lhsBuiltin = (ASTBuiltinTypeRef)lhs;
+        ASTBuiltinTypeRef rhsBuiltin = (ASTBuiltinTypeRef)rhs;
+
+        return lhsBuiltin->kind == rhsBuiltin->kind;
+    }
+
+    if (lhs->tag == ASTTagOpaqueType) {
+        return _ASTOpaqueTypeIsEqual((ASTOpaqueTypeRef)lhs, rhs);
+    }
+
+    if (rhs->tag == ASTTagOpaqueType) {
+        return _ASTOpaqueTypeIsEqual((ASTOpaqueTypeRef)rhs, lhs);
+    }
+
+    if (lhs->tag == ASTTagEnumerationType && rhs->tag == ASTTagEnumerationType) {
+        ASTEnumerationTypeRef lhsEnumeration = (ASTEnumerationTypeRef)lhs;
+        ASTEnumerationTypeRef rhsEnumeration = (ASTEnumerationTypeRef)rhs;
+
+        assert(lhsEnumeration->declaration);
+        assert(rhsEnumeration->declaration);
+
+        return lhsEnumeration->declaration == rhsEnumeration->declaration;
+    }
+
+    if (lhs->tag == ASTTagFunctionType && rhs->tag == ASTTagFunctionType) {
+        ASTFunctionTypeRef lhsFunction = (ASTFunctionTypeRef)lhs;
+        ASTFunctionTypeRef rhsFunction = (ASTFunctionTypeRef)rhs;
+
+        assert(lhsFunction->declaration);
+        assert(rhsFunction->declaration);
+
+        return lhsFunction->declaration == rhsFunction->declaration;
+    }
+
+    if (lhs->tag == ASTTagStructureType && rhs->tag == ASTTagStructureType) {
+        ASTStructureTypeRef lhsStructure = (ASTStructureTypeRef)lhs;
+        ASTStructureTypeRef rhsStructure = (ASTStructureTypeRef)rhs;
+
+        assert(lhsStructure->declaration);
+        assert(rhsStructure->declaration);
+
+        return lhsStructure->declaration == rhsStructure->declaration;
+    }
+
+    return false;
+}
+
+static inline Bool _ASTOpaqueTypeIsEqual(ASTOpaqueTypeRef opaque, ASTTypeRef other) {
+    assert(opaque->declaration);
+
+    switch (other->tag) {
+    case ASTTagOpaqueType: {
+        ASTOpaqueTypeRef otherOpaque = (ASTOpaqueTypeRef)other;
+        assert(otherOpaque->declaration);
+        return opaque->declaration == otherOpaque->declaration;
+    }
+
+    case ASTTagEnumerationType: {
+        ASTEnumerationTypeRef enumeration = (ASTEnumerationTypeRef)other;
+        assert(enumeration->declaration);
+        return opaque->declaration == (ASTDeclarationRef)enumeration->declaration;
+    }
+
+    case ASTTagFunctionType: {
+        ASTFunctionTypeRef function = (ASTFunctionTypeRef)other;
+        assert(function->declaration);
+        return opaque->declaration == (ASTDeclarationRef)function->declaration;
+    }
+
+    case ASTTagStructureType: {
+        ASTStructureTypeRef structure = (ASTStructureTypeRef)other;
+        assert(structure->declaration);
+        return opaque->declaration == (ASTDeclarationRef)structure->declaration;
+    }
+
+    default:
+        return false;
     }
 }

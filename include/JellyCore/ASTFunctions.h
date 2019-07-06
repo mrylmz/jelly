@@ -18,6 +18,8 @@ StringRef ASTGetPrefixOperatorName(AllocatorRef allocator, ASTUnaryOperator op);
 
 StringRef ASTGetInfixOperatorName(AllocatorRef allocator, ASTBinaryOperator op);
 
+Bool ASTTypeIsEqual(ASTTypeRef lhs, ASTTypeRef rhs);
+
 JELLY_EXTERN_C_END
 
 #endif

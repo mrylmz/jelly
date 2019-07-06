@@ -309,6 +309,7 @@ ASTEnumerationDeclarationRef ASTContextCreateEnumerationDeclaration(ASTContextRe
                                                                                             scope);
     node->base.name                   = StringCreateCopy(context->allocator, name);
     node->elements                    = ASTContextCreateArray(context, location, scope);
+    node->innerScope                  = NULL;
     if (elements) {
         ASTArrayAppendArray(node->elements, elements);
     }
@@ -327,6 +328,7 @@ ASTFunctionDeclarationRef ASTContextCreateFunctionDeclaration(ASTContextRef cont
     node->parameters               = ASTContextCreateArray(context, location, scope);
     node->returnType               = returnType;
     node->body                     = body;
+    node->innerScope               = NULL;
     if (parameters) {
         ASTArrayAppendArray(node->parameters, parameters);
     }
@@ -390,6 +392,7 @@ ASTOpaqueTypeRef ASTContextCreateOpaqueType(ASTContextRef context, SourceRange l
 
     ASTOpaqueTypeRef node = (ASTOpaqueTypeRef)_ASTContextCreateNode(context, ASTTagOpaqueType, location, scope);
     node->name            = StringCreateCopy(context->allocator, name);
+    node->declaration     = NULL;
     return node;
 }
 
@@ -441,7 +444,7 @@ ASTScopeRef ASTContextCreateScope(ASTContextRef context, SourceRange location, A
     scope->context      = context;
 
     if (parent) {
-//        assert(parent->base.location.start <= location.start && location.end <= parent->base.location.end);
+        //        assert(parent->base.location.start <= location.start && location.end <= parent->base.location.end);
 
         Index index = ASTArrayGetSortedInsertionIndex(parent->children, &_ASTArrayIsScopeLocationOrderedAscending, scope);
         ASTArrayInsertElementAtIndex(parent->children, index, scope);

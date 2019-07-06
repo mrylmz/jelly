@@ -1,9 +1,9 @@
 #include "JellyCore/ASTDumper.h"
+#include "JellyCore/ASTScope.h"
 #include "JellyCore/Diagnostic.h"
+#include "JellyCore/NameResolution.h"
 #include "JellyCore/Parser.h"
 #include "JellyCore/Queue.h"
-#include "JellyCore/TypeResolver.h"
-#include "JellyCore/Typer.h"
 #include "JellyCore/Workspace.h"
 
 #include <pthread.h>
@@ -191,14 +191,7 @@ void *_WorkspaceProcess(void *context) {
     }
 
     // Name resolution
-    //    NameResolverResolve(workspace->nameResolver, workspace->context, (ASTNodeRef)ASTContextGetModule(workspace->context));
-    TyperRef typer = TyperCreate(workspace->allocator);
-    TyperType(typer, workspace->context, (ASTNodeRef)ASTContextGetModule(workspace->context));
-    TyperDestroy(typer);
-
-    TypeResolverRef typeResolver = TypeResolverCreate(workspace->allocator);
-    TypeResolverResolve(typeResolver, workspace->context, (ASTNodeRef)ASTContextGetModule(workspace->context));
-    TypeResolverDestroy(typeResolver);
+    PerformNameResolution(ASTContextGetModule(workspace->context));
 
     if ((workspace->options & WorkspaceOptionsDumpScope) > 0) {
         ASTScopeDump(ASTContextGetGlobalScope(workspace->context), workspace->dumpScopeOutput);

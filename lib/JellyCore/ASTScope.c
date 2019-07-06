@@ -1,4 +1,5 @@
 #include "JellyCore/ASTContext.h"
+#include "JellyCore/ASTFunctions.h"
 #include "JellyCore/ASTNodes.h"
 #include "JellyCore/ASTScope.h"
 #include "JellyCore/Diagnostic.h"
@@ -96,8 +97,85 @@ void ASTScopeInsertDeclaration(ASTScopeRef scope, ASTDeclarationRef declaration)
     }
 }
 
-ASTDeclarationRef ASTScopeLookupDeclaration(ASTScopeRef scope, StringRef name, const Char *virtualEndOfScope) {
-    // TODO: Implementation missing!
+ASTDeclarationRef ASTScopeLookupDeclarationByName(ASTScopeRef scope, StringRef name) {
+    for (Index index = 0; index < ASTArrayGetElementCount(scope->declarations); index++) {
+        ASTDeclarationRef declaration = (ASTDeclarationRef)ASTArrayGetElementAtIndex(scope->declarations, index);
+        if (StringIsEqual(declaration->name, name)) {
+            return declaration;
+        }
+    }
+
+    return NULL;
+}
+
+ASTDeclarationRef ASTScopeLookupDeclarationByNameOrMatchingFunctionSignature(ASTScopeRef scope, StringRef name, ASTArrayRef parameters,
+                                                                             ASTTypeRef resultType) {
+    for (Index index = 0; index < ASTArrayGetElementCount(scope->declarations); index++) {
+        ASTDeclarationRef declaration = (ASTDeclarationRef)ASTArrayGetElementAtIndex(scope->declarations, index);
+        if (!StringIsEqual(declaration->name, name)) {
+            continue;
+        }
+
+        if (declaration->base.tag != ASTTagFunctionDeclaration) {
+            return declaration;
+        }
+
+        // TODO: Perform checks
+        ASTFunctionDeclarationRef function = (ASTFunctionDeclarationRef)declaration;
+        if (ASTArrayGetElementCount(function->parameters) != ASTArrayGetElementCount(parameters)) {
+            continue;
+        }
+
+        if (!ASTTypeIsEqual(function->returnType, resultType)) {
+            continue;
+        }
+
+        Bool hasSameParameters = true;
+        for (Index parameterIndex = 0; parameterIndex < ASTArrayGetElementCount(function->parameters); parameterIndex++) {
+            ASTValueDeclarationRef lhsParameter = (ASTValueDeclarationRef)ASTArrayGetElementAtIndex(function->parameters, parameterIndex);
+            ASTValueDeclarationRef rhsParameter = (ASTValueDeclarationRef)ASTArrayGetElementAtIndex(parameters, parameterIndex);
+
+            if (!ASTTypeIsEqual(lhsParameter->base.type, rhsParameter->base.type)) {
+                hasSameParameters = false;
+                break;
+            }
+        }
+
+        if (hasSameParameters) {
+            return declaration;
+        }
+    }
+
+    return NULL;
+}
+
+ASTDeclarationRef ASTScopeLookupDeclarationInHierarchyByName(ASTScopeRef scope, StringRef name) {
+    ASTScopeRef currentScope = scope;
+    while (currentScope) {
+        ASTDeclarationRef declaration = ASTScopeLookupDeclarationByName(currentScope, name);
+        if (declaration) {
+            return declaration;
+        }
+
+        currentScope = ASTScopeGetNextParentForLookup(currentScope);
+    }
+
+    return NULL;
+}
+
+ASTDeclarationRef ASTScopeLookupDeclarationInHierarchyByNameOrMatchingFunctionSignature(ASTScopeRef scope, StringRef name,
+                                                                                        ASTArrayRef parameters, ASTTypeRef resultType) {
+    ASTScopeRef currentScope = scope;
+    while (currentScope) {
+        ASTDeclarationRef declaration = ASTScopeLookupDeclarationByNameOrMatchingFunctionSignature(currentScope, name, parameters,
+                                                                                                   resultType);
+        if (declaration) {
+            return declaration;
+        }
+
+        currentScope = ASTScopeGetNextParentForLookup(currentScope);
+    }
+
     return NULL;
 }
 
@@ -105,20 +183,20 @@ ASTScopeRef ASTScopeGetNextParentForLookup(ASTScopeRef scope) {
     ASTScopeRef parent = scope->parent;
     while (parent) {
         switch (parent->kind) {
-            case ASTScopeKindGlobal:
-            case ASTScopeKindBranch:
-            case ASTScopeKindLoop:
-            case ASTScopeKindCase:
-            case ASTScopeKindSwitch:
-                return parent;
+        case ASTScopeKindGlobal:
+        case ASTScopeKindBranch:
+        case ASTScopeKindLoop:
+        case ASTScopeKindCase:
+        case ASTScopeKindSwitch:
+            return parent;
 
-            case ASTScopeKindEnumeration:
-            case ASTScopeKindFunction:
-            case ASTScopeKindStructure:
-                if (parent->kind == ASTScopeKindGlobal) {
-                    return parent;
-                }
-                break;
+        case ASTScopeKindEnumeration:
+        case ASTScopeKindFunction:
+        case ASTScopeKindStructure:
+            if (parent->kind == ASTScopeKindGlobal) {
+                return parent;
+            }
+            break;
         }
 
         parent = parent->parent;
@@ -211,54 +289,54 @@ static inline void _PrintDeclaration(FILE *target, Index indentation, ASTDeclara
     _PrintCString(target, StringGetCharacters(declaration->name));
     _PrintCString(target, " = ");
 
-        switch (declaration->base.tag) {
-        case ASTTagModuleDeclaration: {
-            _PrintCString(target, "module");
-            break;
-        }
+    switch (declaration->base.tag) {
+    case ASTTagModuleDeclaration: {
+        _PrintCString(target, "module");
+        break;
+    }
 
-        case ASTTagEnumerationDeclaration: {
-            _PrintCString(target, "enum ");
-            break;
-        }
+    case ASTTagEnumerationDeclaration: {
+        _PrintCString(target, "enum ");
+        break;
+    }
 
-        case ASTTagFunctionDeclaration: {
-            _PrintCString(target, "func ");
-            break;
-        }
+    case ASTTagFunctionDeclaration: {
+        _PrintCString(target, "func ");
+        break;
+    }
 
-        case ASTTagStructureDeclaration: {
-            ASTStructureDeclarationRef structure = (ASTStructureDeclarationRef)declaration;
-            _PrintCString(target, "struct {\n");
-            indentation += 1;
-            for (Index index = 0; index < ASTArrayGetElementCount(structure->values); index++) {
-                ASTNodeRef child = (ASTNodeRef)ASTArrayGetElementAtIndex(structure->values, index);
-                assert(child->tag == ASTTagValueDeclaration);
+    case ASTTagStructureDeclaration: {
+        ASTStructureDeclarationRef structure = (ASTStructureDeclarationRef)declaration;
+        _PrintCString(target, "struct {\n");
+        indentation += 1;
+        for (Index index = 0; index < ASTArrayGetElementCount(structure->values); index++) {
+            ASTNodeRef child = (ASTNodeRef)ASTArrayGetElementAtIndex(structure->values, index);
+            assert(child->tag == ASTTagValueDeclaration);
 
-                ASTValueDeclarationRef value = (ASTValueDeclarationRef)child;
-                assert(value->kind == ASTValueKindVariable);
+            ASTValueDeclarationRef value = (ASTValueDeclarationRef)child;
+            assert(value->kind == ASTValueKindVariable);
 
-                _PrintIndentation(target, indentation);
-                _PrintCString(target, StringGetCharacters(value->base.name));
-                _PrintCString(target, " = ");
-                _PrintType(target, value->base.type);
-                _PrintCString(target, "\n");
-            }
-            indentation -= 1;
             _PrintIndentation(target, indentation);
-            _PrintCString(target, "}\n");
-            break;
+            _PrintCString(target, StringGetCharacters(value->base.name));
+            _PrintCString(target, " = ");
+            _PrintType(target, value->base.type);
+            _PrintCString(target, "\n");
         }
+        indentation -= 1;
+        _PrintIndentation(target, indentation);
+        _PrintCString(target, "}\n");
+        break;
+    }
 
-        case ASTTagValueDeclaration: {
-            _PrintCString(target, "value ");
-            break;
-        }
+    case ASTTagValueDeclaration: {
+        _PrintCString(target, "value ");
+        break;
+    }
 
-        default:
-            JELLY_UNREACHABLE("Unknown tag given for ASTDeclarationRef in ScopeDumper!");
-            break;
-        }
+    default:
+        JELLY_UNREACHABLE("Unknown tag given for ASTDeclarationRef in ScopeDumper!");
+        break;
+    }
 }
 
 static inline void _PrintType(FILE *target, ASTTypeRef type) {

@@ -10,11 +10,11 @@
 #include <JellyCore/Compiler.h>
 #include <JellyCore/Diagnostic.h>
 #include <JellyCore/Lexer.h>
+#include <JellyCore/NameResolution.h>
 #include <JellyCore/Parser.h>
 #include <JellyCore/Queue.h>
 #include <JellyCore/SourceRange.h>
 #include <JellyCore/String.h>
-#include <JellyCore/TypeResolver.h>
 #include <JellyCore/Workspace.h>
 
 #endif

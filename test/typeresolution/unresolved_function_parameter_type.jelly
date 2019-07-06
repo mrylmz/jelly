@@ -1,0 +1,1 @@
+func unresolved(unknown: Unknown) -> Void {} // expect-error: Use of unresolved type

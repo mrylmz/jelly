@@ -46,4 +46,12 @@ typedef size_t Index;
 #define MAX(__X__, __Y__) __X__ >= __Y__ ? __X__ : __Y__
 #endif
 
+#ifndef CONCAT
+#define CONCAT(__LHS__, __RHS__) __LHS__##__RHS__
+#endif
+
+#ifndef UNIQUE
+#define UNIQUE(__PREFIX__) CONCAT(__PREFIX__, __COUNTER__)
+#endif
+
 #endif

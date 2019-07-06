@@ -1,0 +1,19 @@
+struct A {
+    var dummy: Int
+}
+
+enum A { // expect-error: Invalid redeclaration of identifier
+    case dummy
+}
+
+var A: Int // expect-error: Invalid redeclaration of identifier
+
+func main() -> Void {}
+func main() -> Void {} // expect-error: Invalid redeclaration of identifier
+func main(arg0: Int) -> Void {}
+func main(arg0: Int, arg1: Int) -> Void {}
+func main() -> Int { return 0 }
+
+func myFunc() -> Void {}
+func myFunc(arg0: A) -> Int { return 0 }
+func myFunc() -> Int { return 0 }

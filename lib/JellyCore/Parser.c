@@ -366,7 +366,8 @@ static inline ASTIfStatementRef _ParserParseIfStatement(ParserRef parser) {
 
         _ParserPopScope(parser);
     } else {
-        elseBlock = ASTContextCreateBlock(parser->context, SourceRangeMake(parser->token.location.end, parser->token.location.end), parser->currentScope, NULL);
+        elseBlock = ASTContextCreateBlock(parser->context, SourceRangeMake(parser->token.location.end, parser->token.location.end),
+                                          parser->currentScope, NULL);
     }
 
     location.end = parser->token.location.start;
@@ -454,11 +455,11 @@ static inline ASTCaseStatementRef _ParserParseCaseStatement(ParserRef parser) {
         return NULL;
     }
 
-    SourceRange blockLocation  = parser->token.location;
+    SourceRange blockLocation = parser->token.location;
 
     // TODO: @ScopeLocation The location of scope will not be correct it has to encapsulate the associated node!
     ASTScopeRef caseScope = _ParserPushScope(parser, parser->token.location, ASTScopeKindCase);
-    ArrayRef statements = ArrayCreateEmpty(parser->tempAllocator, sizeof(ASTNodeRef), 8);
+    ArrayRef statements   = ArrayCreateEmpty(parser->tempAllocator, sizeof(ASTNodeRef), 8);
     while (!_ParserIsToken(parser, TokenKindKeywordCase) && !_ParserIsToken(parser, TokenKindKeywordElse) &&
            !_ParserIsToken(parser, TokenKindRightCurlyBracket)) {
         SourceRange leadingTrivia = parser->token.leadingTrivia;
@@ -508,7 +509,7 @@ static inline ASTSwitchStatementRef _ParserParseSwitchStatement(ParserRef parser
 
     // TODO: @ScopeLocation The location of scope will not be correct it has to encapsulate the associated node!
     ASTScopeRef switchScope = _ParserPushScope(parser, parser->token.location, ASTScopeKindSwitch);
-    ArrayRef statements = ArrayCreateEmpty(parser->tempAllocator, sizeof(ASTNodeRef), 8);
+    ArrayRef statements     = ArrayCreateEmpty(parser->tempAllocator, sizeof(ASTNodeRef), 8);
 
     if (_ParserIsToken(parser, TokenKindRightCurlyBracket)) {
         ReportError("'switch' statement body must have at least one 'case' or 'else' block");
@@ -735,7 +736,8 @@ static inline ASTExpressionRef _ParserParseExpression(ParserRef parser, ASTOpera
             }
 
             location.end = parser->token.location.start;
-            result       = (ASTExpressionRef)ASTContextCreateMemberAccessExpression(parser->context, location, parser->currentScope, result, memberName);
+            result       = (ASTExpressionRef)ASTContextCreateMemberAccessExpression(parser->context, location, parser->currentScope, result,
+                                                                              memberName);
         } else if (postfix == ASTPostfixOperatorCall) {
             result = (ASTExpressionRef)_ParserParseCallExpression(parser, result);
             assert(result);
@@ -880,7 +882,7 @@ static inline ASTEnumerationDeclarationRef _ParserParseEnumerationDeclaration(Pa
 
     // TODO: @ScopeLocation The location of scope will not be correct it has to encapsulate the associated node!
     ASTScopeRef enumScope = _ParserPushScope(parser, parser->token.location, ASTScopeKindEnumeration);
-    ArrayRef elements = ArrayCreateEmpty(parser->tempAllocator, sizeof(ASTNodeRef), 8);
+    ArrayRef elements     = ArrayCreateEmpty(parser->tempAllocator, sizeof(ASTNodeRef), 8);
     if (!_ParserIsToken(parser, TokenKindRightCurlyBracket)) {
         while (true) {
             SourceRange leadingTrivia      = parser->token.leadingTrivia;
@@ -914,8 +916,11 @@ static inline ASTEnumerationDeclarationRef _ParserParseEnumerationDeclaration(Pa
 
     _ParserPopScope(parser);
 
-    location.end = parser->token.location.start;
-    return ASTContextCreateEnumerationDeclaration(parser->context, location, parser->currentScope, name, elements);
+    location.end                             = parser->token.location.start;
+    ASTEnumerationDeclarationRef enumeration = ASTContextCreateEnumerationDeclaration(parser->context, location, parser->currentScope, name,
+                                                                                      elements);
+    enumeration->innerScope                  = enumScope;
+    return enumeration;
 }
 
 /// grammar: func-declaration := "func" identifier "(" [ parameter { "," parameter } ] ")" "->" type-identifier block
@@ -939,7 +944,7 @@ static inline ASTFunctionDeclarationRef _ParserParseFunctionDeclaration(ParserRe
 
     // TODO: @ScopeLocation The location of scope will not be correct it has to encapsulate the associated node!
     ASTScopeRef funcScope = _ParserPushScope(parser, parser->token.location, ASTScopeKindFunction);
-    ArrayRef parameters        = ArrayCreateEmpty(parser->tempAllocator, sizeof(ASTNodeRef), 8);
+    ArrayRef parameters   = ArrayCreateEmpty(parser->tempAllocator, sizeof(ASTNodeRef), 8);
 
     if (!_ParserIsToken(parser, TokenKindRightParenthesis)) {
         while (true) {
@@ -986,8 +991,11 @@ static inline ASTFunctionDeclarationRef _ParserParseFunctionDeclaration(ParserRe
 
     _ParserPopScope(parser);
 
-    location.end = parser->token.location.start;
-    return ASTContextCreateFunctionDeclaration(parser->context, location, parser->currentScope, ASTFixityNone, name, parameters, returnType, body);
+    location.end                       = parser->token.location.start;
+    ASTFunctionDeclarationRef function = ASTContextCreateFunctionDeclaration(parser->context, location, parser->currentScope, ASTFixityNone,
+                                                                             name, parameters, returnType, body);
+    function->innerScope               = funcScope;
+    return function;
 }
 
 /// grammar: struct-declaration := "struct" identifier "{" { value-declaration } "}"
@@ -1011,7 +1019,7 @@ static inline ASTStructureDeclarationRef _ParserParseStructureDeclaration(Parser
 
     // TODO: @ScopeLocation The location of scope will not be correct it has to encapsulate the associated node!
     ASTScopeRef structScope = _ParserPushScope(parser, parser->token.location, ASTScopeKindStructure);
-    ArrayRef values            = ArrayCreateEmpty(parser->tempAllocator, sizeof(ASTNodeRef), 8);
+    ArrayRef values         = ArrayCreateEmpty(parser->tempAllocator, sizeof(ASTNodeRef), 8);
 
     if (!_ParserIsToken(parser, TokenKindRightCurlyBracket)) {
         while (true) {
@@ -1042,7 +1050,8 @@ static inline ASTStructureDeclarationRef _ParserParseStructureDeclaration(Parser
     _ParserPopScope(parser);
 
     location.end                           = parser->token.location.start;
-    ASTStructureDeclarationRef declaration = ASTContextCreateStructureDeclaration(parser->context, location, parser->currentScope, name, values);
+    ASTStructureDeclarationRef declaration = ASTContextCreateStructureDeclaration(parser->context, location, parser->currentScope, name,
+                                                                                  values);
     declaration->innerScope                = structScope;
     return declaration;
 }
@@ -1121,7 +1130,8 @@ static inline ASTValueDeclarationRef _ParserParseEnumerationElementDeclaration(P
     ASTTypeRef type = (ASTTypeRef)ASTContextGetBuiltinType(parser->context, ASTBuiltinTypeKindInt);
 
     location.end = parser->token.location.start;
-    return ASTContextCreateValueDeclaration(parser->context, location, parser->currentScope, ASTValueKindEnumerationElement, name, type, initializer);
+    return ASTContextCreateValueDeclaration(parser->context, location, parser->currentScope, ASTValueKindEnumerationElement, name, type,
+                                            initializer);
 }
 
 /// grammar: parameter-declaration := identifier ":" type-identifier
@@ -1257,7 +1267,8 @@ static inline ASTExpressionRef _ParserParseConditionList(ParserRef parser) {
 
         SourceRange location         = {condition->base.location.start, expression->base.location.end};
         ASTExpressionRef arguments[] = {condition, expression};
-        condition = (ASTExpressionRef)ASTContextCreateBinaryExpression(parser->context, location, parser->currentScope, ASTBinaryOperatorLogicalAnd, arguments);
+        condition                    = (ASTExpressionRef)ASTContextCreateBinaryExpression(parser->context, location, parser->currentScope,
+                                                                       ASTBinaryOperatorLogicalAnd, arguments);
     }
 
     return condition;

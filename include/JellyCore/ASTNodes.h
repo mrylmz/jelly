@@ -326,6 +326,7 @@ struct _ASTEnumerationDeclaration {
     struct _ASTDeclaration base;
 
     ASTArrayRef elements;
+    ASTScopeRef innerScope;
 };
 
 enum _ASTFixity {
@@ -343,6 +344,7 @@ struct _ASTFunctionDeclaration {
     ASTArrayRef parameters;
     ASTTypeRef returnType;
     ASTBlockRef body;
+    ASTScopeRef innerScope;
 
     Bool foreign;
     StringRef foreignName;
@@ -373,6 +375,7 @@ struct _ASTOpaqueType {
     struct _ASTNode base;
 
     StringRef name;
+    ASTDeclarationRef declaration;
 };
 
 struct _ASTPointerType {
