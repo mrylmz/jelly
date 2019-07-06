@@ -3,9 +3,6 @@
 #include "JellyCore/Diagnostic.h"
 #include "JellyCore/NameResolution.h"
 
-// TODO: @CandidateDeclarations Add support for resolution of candidate declarations to allow contextual resolutions
-// TODO: Resolve control flow paths for loop, control, ... statements
-
 static inline void _AddSourceUnitRecordDeclarationsToScope(ASTContextRef context, ASTSourceUnitRef sourceUnit);
 static inline Bool _ResolveDeclarationsOfFunctionSignature(ASTContextRef context, ASTFunctionDeclarationRef function);
 static inline Bool _ResolveDeclarationsOfTypeAndSubstituteType(ASTContextRef context, ASTScopeRef scope, ASTTypeRef *type);
@@ -332,6 +329,7 @@ static inline void _PerformNameResolutionForExpression(ASTContextRef context, AS
     }
 
     if (expression->base.tag == ASTTagIdentifierExpression) {
+        // TODO: Add support for resolution of enumeration elements!
         ASTIdentifierExpressionRef identifier = (ASTIdentifierExpressionRef)expression;
         ASTDeclarationRef declaration         = ASTScopeLookupDeclarationInHierarchyByName(expression->base.scope, identifier->name);
         if (declaration) {
