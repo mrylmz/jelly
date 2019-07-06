@@ -3,6 +3,7 @@
 
 #include <JellyCore/ASTContext.h>
 #include <JellyCore/ASTNodes.h>
+#include <JellyCore/ASTScope.h>
 #include <JellyCore/Allocator.h>
 #include <JellyCore/Base.h>
 

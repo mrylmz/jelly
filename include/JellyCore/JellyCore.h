@@ -12,10 +12,8 @@
 #include <JellyCore/Lexer.h>
 #include <JellyCore/Parser.h>
 #include <JellyCore/Queue.h>
-#include <JellyCore/ScopeDumper.h>
 #include <JellyCore/SourceRange.h>
 #include <JellyCore/String.h>
-#include <JellyCore/SymbolTable.h>
 #include <JellyCore/TypeResolver.h>
 #include <JellyCore/Workspace.h>
 

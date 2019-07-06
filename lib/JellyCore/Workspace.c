@@ -2,7 +2,6 @@
 #include "JellyCore/Diagnostic.h"
 #include "JellyCore/Parser.h"
 #include "JellyCore/Queue.h"
-#include "JellyCore/ScopeDumper.h"
 #include "JellyCore/TypeResolver.h"
 #include "JellyCore/Typer.h"
 #include "JellyCore/Workspace.h"
@@ -198,15 +197,11 @@ void *_WorkspaceProcess(void *context) {
     TyperDestroy(typer);
 
     TypeResolverRef typeResolver = TypeResolverCreate(workspace->allocator);
-    SymbolTableRef symbolTable   = ASTContextGetSymbolTable(workspace->context);
     TypeResolverResolve(typeResolver, workspace->context, (ASTNodeRef)ASTContextGetModule(workspace->context));
     TypeResolverDestroy(typeResolver);
 
     if ((workspace->options & WorkspaceOptionsDumpScope) > 0) {
-        ScopeDumperRef dumper      = ScopeDumperCreate(AllocatorGetSystemDefault(), workspace->dumpScopeOutput);
-        SymbolTableRef symbolTable = ASTContextGetSymbolTable(workspace->context);
-        ScopeDumperDump(dumper, SymbolTableGetGlobalScope(symbolTable));
-        ScopeDumperDestroy(dumper);
+        ASTScopeDump(ASTContextGetGlobalScope(workspace->context), workspace->dumpScopeOutput);
     }
 
     return NULL;

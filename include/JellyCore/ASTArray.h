@@ -12,6 +12,8 @@ typedef Bool (*ASTArrayPredicate)(const void *elementLeft, const void *elementRi
 
 Index ASTArrayGetElementCount(ASTArrayRef array);
 
+Index ASTArrayGetSortedInsertionIndex(ASTArrayRef array, ASTArrayPredicate isOrderedAscending, void *element);
+
 void *ASTArrayGetElementAtIndex(ASTArrayRef array, Index index);
 
 void ASTArrayAppendElement(ASTArrayRef array, void *element);

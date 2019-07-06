@@ -32,7 +32,6 @@ enum _ASTTag {
     ASTTagEnumerationDeclaration,
     ASTTagFunctionDeclaration,
     ASTTagStructureDeclaration,
-    ASTTagOpaqueDeclaration,
     ASTTagValueDeclaration,
     ASTTagOpaqueType,
     ASTTagPointerType,
@@ -41,6 +40,7 @@ enum _ASTTag {
     ASTTagEnumerationType,
     ASTTagFunctionType,
     ASTTagStructureType,
+    ASTTagScope,
 
     AST_TAG_COUNT
 };
@@ -57,7 +57,7 @@ typedef enum _ASTOperatorAssociativity ASTOperatorAssociativity;
 
 typedef struct _ASTNode *ASTNodeRef;
 typedef struct _ASTExpression *ASTExpressionRef;
-typedef struct _ASTNode *ASTDeclarationRef;
+typedef struct _ASTDeclaration *ASTDeclarationRef;
 typedef struct _ASTNode *ASTTypeRef;
 
 typedef struct _ASTSourceUnit *ASTSourceUnitRef;
@@ -79,7 +79,6 @@ typedef struct _ASTModuleDeclaration *ASTModuleDeclarationRef;
 typedef struct _ASTEnumerationDeclaration *ASTEnumerationDeclarationRef;
 typedef struct _ASTFunctionDeclaration *ASTFunctionDeclarationRef;
 typedef struct _ASTStructureDeclaration *ASTStructureDeclarationRef;
-typedef struct _ASTOpaqueDeclaration *ASTOpaqueDeclarationRef;
 typedef struct _ASTValueDeclaration *ASTValueDeclarationRef;
 typedef struct _ASTOpaqueType *ASTOpaqueTypeRef;
 typedef struct _ASTPointerType *ASTPointerTypeRef;
@@ -88,14 +87,12 @@ typedef struct _ASTBuiltinType *ASTBuiltinTypeRef;
 typedef struct _ASTEnumerationType *ASTEnumerationTypeRef;
 typedef struct _ASTFunctionType *ASTFunctionTypeRef;
 typedef struct _ASTStructureType *ASTStructureTypeRef;
-
-typedef struct _Scope *ScopeRef;
-typedef struct _SymbolTable *SymbolTableRef;
+typedef struct _ASTScope *ASTScopeRef;
 
 struct _ASTNode {
     ASTTag tag;
     SourceRange location;
-    ScopeRef scope;
+    ASTScopeRef scope;
 };
 
 struct _ASTExpression {
@@ -306,19 +303,29 @@ struct _ASTConstantExpression {
     };
 };
 
-struct _ASTModuleDeclaration {
+struct _ASTDeclaration {
     struct _ASTNode base;
 
+    StringRef name;
+    ASTTypeRef type;
+};
+
+struct _ASTModuleDeclaration {
+    struct _ASTDeclaration base;
+
+    // TODO: @SourceUnitTree Replace sourceUnits with a single ASTSourceUnitRef and move additional source units into ASTSourceUnitRef where
+    // they get loaded...
     ASTArrayRef sourceUnits;
+
+    // TODO: Move scope to ASTSourceUnitRef after resolving @SourceUnitTree
+    ASTScopeRef scope;
     ASTArrayRef importedModules;
 };
 
 struct _ASTEnumerationDeclaration {
-    struct _ASTNode base;
+    struct _ASTDeclaration base;
 
-    StringRef name;
     ASTArrayRef elements;
-    ASTTypeRef type;
 };
 
 enum _ASTFixity {
@@ -330,33 +337,22 @@ enum _ASTFixity {
 typedef enum _ASTFixity ASTFixity;
 
 struct _ASTFunctionDeclaration {
-    struct _ASTNode base;
+    struct _ASTDeclaration base;
 
     ASTFixity fixity;
-    StringRef name;
     ASTArrayRef parameters;
     ASTTypeRef returnType;
     ASTBlockRef body;
-    ASTTypeRef type;
 
     Bool foreign;
     StringRef foreignName;
 };
 
 struct _ASTStructureDeclaration {
-    struct _ASTNode base;
+    struct _ASTDeclaration base;
 
-    StringRef name;
     ASTArrayRef values;
-    ScopeRef innerScope;
-    ASTTypeRef type;
-};
-
-struct _ASTOpaqueDeclaration {
-    struct _ASTNode base;
-
-    StringRef name;
-    ASTTypeRef type;
+    ASTScopeRef innerScope;
 };
 
 enum _ASTValueKind {
@@ -367,11 +363,9 @@ enum _ASTValueKind {
 typedef enum _ASTValueKind ASTValueKind;
 
 struct _ASTValueDeclaration {
-    struct _ASTNode base;
+    struct _ASTDeclaration base;
 
     ASTValueKind kind;
-    StringRef name;
-    ASTTypeRef type;
     ASTExpressionRef initializer;
 };
 
@@ -438,6 +432,28 @@ struct _ASTStructureType {
     struct _ASTNode base;
 
     ASTStructureDeclarationRef declaration;
+};
+
+enum _ASTScopeKind {
+    ASTScopeKindGlobal,
+    ASTScopeKindBranch,
+    ASTScopeKindLoop,
+    ASTScopeKindCase,
+    ASTScopeKindSwitch,
+    ASTScopeKindEnumeration,
+    ASTScopeKindFunction,
+    ASTScopeKindStructure,
+};
+typedef enum _ASTScopeKind ASTScopeKind;
+
+struct _ASTScope {
+    struct _ASTNode base;
+
+    ASTScopeKind kind;
+    ASTScopeRef parent;
+    ASTArrayRef children;
+    ASTArrayRef declarations;
+    void *context;
 };
 
 JELLY_EXTERN_C_END

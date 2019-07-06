@@ -26,9 +26,6 @@ void TyperType(TyperRef typer, ASTContextRef context, ASTNodeRef node) {
 }
 
 static inline void _TyperTypeNode(TyperRef typer, ASTContextRef context, ASTNodeRef parent, ASTNodeRef node) {
-    ScopeRef previousScope = SymbolTableGetCurrentScope(ASTContextGetSymbolTable(context));
-    SymbolTableSetCurrentScope(ASTContextGetSymbolTable(context), node->scope);
-
     switch (node->tag) {
     case ASTTagSourceUnit: {
         ASTSourceUnitRef sourceUnit = (ASTSourceUnitRef)node;
@@ -71,10 +68,10 @@ static inline void _TyperTypeNode(TyperRef typer, ASTContextRef context, ASTNode
 
     case ASTTagEnumerationDeclaration: {
         ASTEnumerationDeclarationRef declaration = (ASTEnumerationDeclarationRef)node;
-        SymbolRef symbol                         = ScopeInsertSymbol(node->scope, declaration->name, node);
-        if (!symbol) {
-            ReportError("Invalid redeclaration of identifier");
-        }
+        ASTScopeInsertDeclaration(node->scope, (ASTDeclarationRef)declaration);
+//        if (!symbol) {
+//            ReportError("Invalid redeclaration of identifier");
+//        }
 
         if (declaration->elements) {
             _TyperTypeNode(typer, context, node, (ASTNodeRef)declaration->elements);
@@ -84,10 +81,10 @@ static inline void _TyperTypeNode(TyperRef typer, ASTContextRef context, ASTNode
 
     case ASTTagFunctionDeclaration: {
         ASTFunctionDeclarationRef declaration = (ASTFunctionDeclarationRef)node;
-        SymbolRef symbol                      = ScopeInsertSymbol(node->scope, declaration->name, node);
-        if (!symbol) {
-            ReportError("Invalid redeclaration of identifier");
-        }
+        ASTScopeInsertDeclaration(node->scope, (ASTDeclarationRef)declaration);
+//        if (!symbol) {
+//            ReportError("Invalid redeclaration of identifier");
+//        }
 
         if (declaration->parameters) {
             _TyperTypeNode(typer, context, node, (ASTNodeRef)declaration->parameters);
@@ -99,10 +96,10 @@ static inline void _TyperTypeNode(TyperRef typer, ASTContextRef context, ASTNode
 
     case ASTTagStructureDeclaration: {
         ASTStructureDeclarationRef declaration = (ASTStructureDeclarationRef)node;
-        SymbolRef symbol                       = ScopeInsertSymbol(node->scope, declaration->name, node);
-        if (!symbol) {
-            ReportError("Invalid redeclaration of identifier");
-        }
+        ASTScopeInsertDeclaration(node->scope, (ASTDeclarationRef)declaration);
+//        if (!symbol) {
+//            ReportError("Invalid redeclaration of identifier");
+//        }
 
         if (declaration->values) {
             _TyperTypeNode(typer, context, node, (ASTNodeRef)declaration->values);
@@ -110,18 +107,14 @@ static inline void _TyperTypeNode(TyperRef typer, ASTContextRef context, ASTNode
         break;
     }
 
-    case ASTTagOpaqueDeclaration: {
-        break;
-    }
-
     case ASTTagValueDeclaration: {
         ASTValueDeclarationRef declaration = (ASTValueDeclarationRef)node;
-        SymbolRef symbol                   = ScopeInsertSymbol(node->scope, declaration->name, node);
-        if (!symbol) {
-            ReportError("Invalid redeclaration of identifier");
-        }
+        ASTScopeInsertDeclaration(node->scope, (ASTDeclarationRef)declaration);
+//        if (!symbol) {
+//            ReportError("Invalid redeclaration of identifier");
+//        }
 
-        _TyperTypeNode(typer, context, node, (ASTNodeRef)declaration->type);
+        _TyperTypeNode(typer, context, node, (ASTNodeRef)declaration->base.type);
         if (declaration->initializer) {
             _TyperTypeNode(typer, context, node, (ASTNodeRef)declaration->initializer);
         }
@@ -155,6 +148,4 @@ static inline void _TyperTypeNode(TyperRef typer, ASTContextRef context, ASTNode
         JELLY_UNREACHABLE("Unknown tag given for ASTNode in Typer!");
         break;
     }
-
-    SymbolTableSetCurrentScope(ASTContextGetSymbolTable(context), previousScope);
 }

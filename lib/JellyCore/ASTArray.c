@@ -1,6 +1,19 @@
 #include "JellyCore/ASTArray.h"
 #include "JellyCore/ASTContext.h"
 
+Index ASTArrayGetSortedInsertionIndex(ASTArrayRef array, ASTArrayPredicate isOrderedAscending, void *element) {
+    if (ASTArrayGetElementCount(array) < 1) {
+        return 0;
+    }
+
+    Index index = ASTArrayGetElementCount(array);
+    while (0 < index && isOrderedAscending(element, ASTArrayGetElementAtIndex(array, index - 1))) {
+        index -= 1;
+    }
+
+    return index;
+}
+
 Index ASTArrayGetElementCount(ASTArrayRef array) {
     return array->elementCount;
 }
@@ -19,7 +32,7 @@ void *ASTArrayGetElementAtIndex(ASTArrayRef array, Index index) {
 
 void ASTArrayAppendElement(ASTArrayRef array, void *element) {
     if (!array->list) {
-        array->list       = ASTContextCreateLinkedList(array->context, array->base.location);
+        array->list       = ASTContextCreateLinkedList(array->context, array->base.location, array->base.scope);
         array->list->node = element;
         array->elementCount += 1;
         return;
@@ -30,7 +43,7 @@ void ASTArrayAppendElement(ASTArrayRef array, void *element) {
         list = list->next;
     }
 
-    list->next       = ASTContextCreateLinkedList(array->context, array->base.location);
+    list->next       = ASTContextCreateLinkedList(array->context, array->base.location, array->base.scope);
     list->next->node = element;
     array->elementCount += 1;
 }
@@ -60,7 +73,7 @@ void ASTArrayInsertElementAtIndex(ASTArrayRef array, Index index, void *element)
     }
 
     ASTLinkedListRef next = list->next;
-    list->next            = ASTContextCreateLinkedList(array->context, array->base.location);
+    list->next            = ASTContextCreateLinkedList(array->context, array->base.location, array->base.scope);
     list->next->node      = element;
     list->next->next      = next;
     array->elementCount += 1;

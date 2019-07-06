@@ -17,7 +17,6 @@ static inline void _ASTDumperPrintBuiltinTypeKind(ASTDumperRef dumper, ASTBuilti
 static inline void _ASTDumperPrintPrefixOperator(ASTDumperRef dumper, ASTUnaryOperator op);
 static inline void _ASTDumperPrintInfixOperator(ASTDumperRef dumper, ASTBinaryOperator op);
 static inline void _ASTDumperDumpChild(ASTDumperRef dumper, ASTNodeRef child);
-static inline void _ASTDumperDumpChildren(ASTDumperRef dumper, ASTLinkedListRef list);
 static inline void _ASTDumperDumpChildrenArray(ASTDumperRef dumper, ASTArrayRef array);
 
 ASTDumperRef ASTDumperCreate(AllocatorRef allocator, FILE *target) {
@@ -188,14 +187,14 @@ void ASTDumperDump(ASTDumperRef dumper, ASTNodeRef node) {
 
     case ASTTagEnumerationDeclaration: {
         ASTEnumerationDeclarationRef enumeration = (ASTEnumerationDeclarationRef)node;
-        _ASTDumperPrintProperty(dumper, "name", StringGetCharacters(enumeration->name));
+        _ASTDumperPrintProperty(dumper, "name", StringGetCharacters(enumeration->base.name));
         _ASTDumperDumpChildrenArray(dumper, enumeration->elements);
         return;
     }
 
     case ASTTagFunctionDeclaration: {
         ASTFunctionDeclarationRef func = (ASTFunctionDeclarationRef)node;
-        _ASTDumperPrintProperty(dumper, "name", StringGetCharacters(func->name));
+        _ASTDumperPrintProperty(dumper, "name", StringGetCharacters(func->base.name));
         _ASTDumperDumpChildrenArray(dumper, func->parameters);
         _ASTDumperDumpChild(dumper, func->returnType);
 
@@ -207,21 +206,15 @@ void ASTDumperDump(ASTDumperRef dumper, ASTNodeRef node) {
 
     case ASTTagStructureDeclaration: {
         ASTStructureDeclarationRef structure = (ASTStructureDeclarationRef)node;
-        _ASTDumperPrintProperty(dumper, "name", StringGetCharacters(structure->name));
+        _ASTDumperPrintProperty(dumper, "name", StringGetCharacters(structure->base.name));
         _ASTDumperDumpChildrenArray(dumper, structure->values);
-        return;
-    }
-
-    case ASTTagOpaqueDeclaration: {
-        ASTOpaqueDeclarationRef opaque = (ASTOpaqueDeclarationRef)node;
-        _ASTDumperPrintProperty(dumper, "name", StringGetCharacters(opaque->name));
         return;
     }
 
     case ASTTagValueDeclaration: {
         ASTValueDeclarationRef value = (ASTValueDeclarationRef)node;
-        _ASTDumperPrintProperty(dumper, "name", StringGetCharacters(value->name));
-        _ASTDumperDumpChild(dumper, value->type);
+        _ASTDumperPrintProperty(dumper, "name", StringGetCharacters(value->base.name));
+        _ASTDumperDumpChild(dumper, value->base.type);
 
         if (value->initializer) {
             _ASTDumperDumpChild(dumper, (ASTNodeRef)value->initializer);
@@ -384,9 +377,6 @@ static inline void _ASTDumperPrintTag(ASTDumperRef dumper, ASTNodeRef node) {
 
     case ASTTagStructureDeclaration:
         return _ASTDumperPrintCString(dumper, "StructureDeclaration");
-
-    case ASTTagOpaqueDeclaration:
-        return _ASTDumperPrintCString(dumper, "OpaqueDeclaration");
 
     case ASTTagValueDeclaration: {
         ASTValueDeclarationRef value = (ASTValueDeclarationRef)node;
@@ -557,14 +547,6 @@ static inline void _ASTDumperDumpChild(ASTDumperRef dumper, ASTNodeRef child) {
     dumper->indentation += 1;
     ASTDumperDump(dumper, child);
     dumper->indentation -= 1;
-}
-
-static inline void _ASTDumperDumpChildren(ASTDumperRef dumper, ASTLinkedListRef list) {
-    ASTLinkedListRef next = list;
-    while (next) {
-        _ASTDumperDumpChild(dumper, next->node);
-        next = next->next;
-    }
 }
 
 static inline void _ASTDumperDumpChildrenArray(ASTDumperRef dumper, ASTArrayRef array) {

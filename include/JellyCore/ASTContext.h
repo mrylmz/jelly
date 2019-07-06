@@ -4,7 +4,6 @@
 #include <JellyCore/ASTNodes.h>
 #include <JellyCore/Allocator.h>
 #include <JellyCore/Base.h>
-#include <JellyCore/SymbolTable.h>
 
 JELLY_EXTERN_C_BEGIN
 
@@ -14,79 +13,89 @@ ASTContextRef ASTContextCreate(AllocatorRef allocator);
 
 void ASTContextDestroy(ASTContextRef context);
 
-SymbolTableRef ASTContextGetSymbolTable(ASTContextRef context);
+ASTScopeRef ASTContextGetGlobalScope(ASTContextRef context);
 
 ASTModuleDeclarationRef ASTContextGetModule(ASTContextRef context);
 
 void ASTModuleAddSourceUnit(ASTContextRef context, ASTModuleDeclarationRef module, ASTSourceUnitRef sourceUnit);
 
-ASTSourceUnitRef ASTContextCreateSourceUnit(ASTContextRef context, SourceRange location, StringRef filePath, ArrayRef declarations);
+ASTSourceUnitRef ASTContextCreateSourceUnit(ASTContextRef context, SourceRange location, ASTScopeRef scope, StringRef filePath,
+                                            ArrayRef declarations);
 
-ASTLinkedListRef ASTContextCreateLinkedList(ASTContextRef context, SourceRange location);
+ASTLinkedListRef ASTContextCreateLinkedList(ASTContextRef context, SourceRange location, ASTScopeRef scope);
 
-ASTArrayRef ASTContextCreateArray(ASTContextRef context, SourceRange location);
+ASTArrayRef ASTContextCreateArray(ASTContextRef context, SourceRange location, ASTScopeRef scope);
 
-ASTLoadDirectiveRef ASTContextCreateLoadDirective(ASTContextRef context, SourceRange location, ASTConstantExpressionRef filePath);
+ASTLoadDirectiveRef ASTContextCreateLoadDirective(ASTContextRef context, SourceRange location, ASTScopeRef scope,
+                                                  ASTConstantExpressionRef filePath);
 
-ASTBlockRef ASTContextCreateBlock(ASTContextRef context, SourceRange location, ArrayRef statements);
+ASTBlockRef ASTContextCreateBlock(ASTContextRef context, SourceRange location, ASTScopeRef scope, ArrayRef statements);
 
-ASTIfStatementRef ASTContextCreateIfStatement(ASTContextRef context, SourceRange location, ASTExpressionRef condition,
+ASTIfStatementRef ASTContextCreateIfStatement(ASTContextRef context, SourceRange location, ASTScopeRef scope, ASTExpressionRef condition,
                                               ASTBlockRef thenBlock, ASTBlockRef elseBlock);
-ASTLoopStatementRef ASTContextCreateLoopStatement(ASTContextRef context, SourceRange location, ASTLoopKind kind, ASTExpressionRef condition,
-                                                  ASTBlockRef loopBlock);
-ASTCaseStatementRef ASTContextCreateCaseStatement(ASTContextRef context, SourceRange location, ASTCaseKind kind, ASTExpressionRef condition,
-                                                  ASTBlockRef body);
-ASTSwitchStatementRef ASTContextCreateSwitchStatement(ASTContextRef context, SourceRange location, ASTExpressionRef argument,
-                                                      ArrayRef cases);
-ASTControlStatementRef ASTContextCreateControlStatement(ASTContextRef context, SourceRange location, ASTControlKind kind,
+ASTLoopStatementRef ASTContextCreateLoopStatement(ASTContextRef context, SourceRange location, ASTScopeRef scope, ASTLoopKind kind,
+                                                  ASTExpressionRef condition, ASTBlockRef loopBlock);
+ASTCaseStatementRef ASTContextCreateCaseStatement(ASTContextRef context, SourceRange location, ASTScopeRef scope, ASTCaseKind kind,
+                                                  ASTExpressionRef condition, ASTBlockRef body);
+ASTSwitchStatementRef ASTContextCreateSwitchStatement(ASTContextRef context, SourceRange location, ASTScopeRef scope,
+                                                      ASTExpressionRef argument, ArrayRef cases);
+ASTControlStatementRef ASTContextCreateControlStatement(ASTContextRef context, SourceRange location, ASTScopeRef scope, ASTControlKind kind,
                                                         ASTExpressionRef result);
-ASTUnaryExpressionRef ASTContextCreateUnaryExpression(ASTContextRef context, SourceRange location, ASTUnaryOperator op,
+ASTUnaryExpressionRef ASTContextCreateUnaryExpression(ASTContextRef context, SourceRange location, ASTScopeRef scope, ASTUnaryOperator op,
                                                       ASTExpressionRef arguments[1]);
-ASTBinaryExpressionRef ASTContextCreateBinaryExpression(ASTContextRef context, SourceRange location, ASTBinaryOperator op,
-                                                        ASTExpressionRef arguments[2]);
-ASTIdentifierExpressionRef ASTContextCreateIdentifierExpression(ASTContextRef context, SourceRange location, StringRef name);
-ASTMemberAccessExpressionRef ASTContextCreateMemberAccessExpression(ASTContextRef context, SourceRange location, ASTExpressionRef argument,
-                                                                    StringRef memberName);
-ASTCallExpressionRef ASTContextCreateCallExpression(ASTContextRef context, SourceRange location, ASTExpressionRef callee,
+ASTBinaryExpressionRef ASTContextCreateBinaryExpression(ASTContextRef context, SourceRange location, ASTScopeRef scope,
+                                                        ASTBinaryOperator op, ASTExpressionRef arguments[2]);
+ASTIdentifierExpressionRef ASTContextCreateIdentifierExpression(ASTContextRef context, SourceRange location, ASTScopeRef scope,
+                                                                StringRef name);
+ASTMemberAccessExpressionRef ASTContextCreateMemberAccessExpression(ASTContextRef context, SourceRange location, ASTScopeRef scope,
+                                                                    ASTExpressionRef argument, StringRef memberName);
+ASTCallExpressionRef ASTContextCreateCallExpression(ASTContextRef context, SourceRange location, ASTScopeRef scope, ASTExpressionRef callee,
                                                     ArrayRef arguments);
-ASTConstantExpressionRef ASTContextCreateConstantNilExpression(ASTContextRef context, SourceRange location);
-ASTConstantExpressionRef ASTContextCreateConstantBoolExpression(ASTContextRef context, SourceRange location, Bool value);
-ASTConstantExpressionRef ASTContextCreateConstantIntExpression(ASTContextRef context, SourceRange location, UInt64 value);
-ASTConstantExpressionRef ASTContextCreateConstantFloatExpression(ASTContextRef context, SourceRange location, Float64 value);
-ASTConstantExpressionRef ASTContextCreateConstantStringExpression(ASTContextRef context, SourceRange location, StringRef value);
-ASTModuleDeclarationRef ASTContextCreateModuleDeclaration(ASTContextRef context, SourceRange location, ArrayRef sourceUnits,
-                                                          ArrayRef importedModules);
+ASTConstantExpressionRef ASTContextCreateConstantNilExpression(ASTContextRef context, SourceRange location, ASTScopeRef scope);
+ASTConstantExpressionRef ASTContextCreateConstantBoolExpression(ASTContextRef context, SourceRange location, ASTScopeRef scope, Bool value);
+ASTConstantExpressionRef ASTContextCreateConstantIntExpression(ASTContextRef context, SourceRange location, ASTScopeRef scope,
+                                                               UInt64 value);
+ASTConstantExpressionRef ASTContextCreateConstantFloatExpression(ASTContextRef context, SourceRange location, ASTScopeRef scope,
+                                                                 Float64 value);
+ASTConstantExpressionRef ASTContextCreateConstantStringExpression(ASTContextRef context, SourceRange location, ASTScopeRef scope,
+                                                                  StringRef value);
+ASTModuleDeclarationRef ASTContextCreateModuleDeclaration(ASTContextRef context, SourceRange location, ASTScopeRef scope,
+                                                          ArrayRef sourceUnits, ArrayRef importedModules);
 
-ASTEnumerationDeclarationRef ASTContextCreateEnumerationDeclaration(ASTContextRef context, SourceRange location, StringRef name,
-                                                                    ArrayRef elements);
+ASTEnumerationDeclarationRef ASTContextCreateEnumerationDeclaration(ASTContextRef context, SourceRange location, ASTScopeRef scope,
+                                                                    StringRef name, ArrayRef elements);
 
-ASTFunctionDeclarationRef ASTContextCreateFunctionDeclaration(ASTContextRef context, SourceRange location, ASTFixity fixity, StringRef name,
-                                                              ArrayRef parameters, ASTTypeRef returnType, ASTBlockRef body);
+ASTFunctionDeclarationRef ASTContextCreateFunctionDeclaration(ASTContextRef context, SourceRange location, ASTScopeRef scope,
+                                                              ASTFixity fixity, StringRef name, ArrayRef parameters, ASTTypeRef returnType,
+                                                              ASTBlockRef body);
 
-ASTFunctionDeclarationRef ASTContextCreateForeignFunctionDeclaration(ASTContextRef context, SourceRange location, ASTFixity fixity,
-                                                                     StringRef name, ArrayRef parameters, ASTTypeRef returnType,
-                                                                     StringRef foreignName);
+ASTFunctionDeclarationRef ASTContextCreateForeignFunctionDeclaration(ASTContextRef context, SourceRange location, ASTScopeRef scope,
+                                                                     ASTFixity fixity, StringRef name, ArrayRef parameters,
+                                                                     ASTTypeRef returnType, StringRef foreignName);
 
-ASTStructureDeclarationRef ASTContextCreateStructureDeclaration(ASTContextRef context, SourceRange location, StringRef name,
-                                                                ArrayRef values);
+ASTStructureDeclarationRef ASTContextCreateStructureDeclaration(ASTContextRef context, SourceRange location, ASTScopeRef scope,
+                                                                StringRef name, ArrayRef values);
 
-ASTOpaqueDeclarationRef ASTContextCreateOpaqueDeclaration(ASTContextRef context, SourceRange location, StringRef name, ASTTypeRef type);
+ASTValueDeclarationRef ASTContextCreateValueDeclaration(ASTContextRef context, SourceRange location, ASTScopeRef scope, ASTValueKind kind,
+                                                        StringRef name, ASTTypeRef type, ASTExpressionRef initializer);
 
-ASTValueDeclarationRef ASTContextCreateValueDeclaration(ASTContextRef context, SourceRange location, ASTValueKind kind, StringRef name,
-                                                        ASTTypeRef type, ASTExpressionRef initializer);
+ASTOpaqueTypeRef ASTContextCreateOpaqueType(ASTContextRef context, SourceRange location, ASTScopeRef scope, StringRef name);
 
-ASTOpaqueTypeRef ASTContextCreateOpaqueType(ASTContextRef context, SourceRange location, StringRef name);
+ASTPointerTypeRef ASTContextCreatePointerType(ASTContextRef context, SourceRange location, ASTScopeRef scope, ASTTypeRef pointeeType);
 
-ASTPointerTypeRef ASTContextCreatePointerType(ASTContextRef context, SourceRange location, ASTTypeRef pointeeType);
+ASTArrayTypeRef ASTContextCreateArrayType(ASTContextRef context, SourceRange location, ASTScopeRef scope, ASTTypeRef elementType,
+                                          ASTExpressionRef size);
 
-ASTArrayTypeRef ASTContextCreateArrayType(ASTContextRef context, SourceRange location, ASTTypeRef elementType, ASTExpressionRef size);
-
-ASTEnumerationTypeRef ASTContextCreateEnumerationType(ASTContextRef context, SourceRange location,
+ASTEnumerationTypeRef ASTContextCreateEnumerationType(ASTContextRef context, SourceRange location, ASTScopeRef scope,
                                                       ASTEnumerationDeclarationRef declaration);
 
-ASTFunctionTypeRef ASTContextCreateFunctionType(ASTContextRef context, SourceRange location, ASTFunctionDeclarationRef declaration);
+ASTFunctionTypeRef ASTContextCreateFunctionType(ASTContextRef context, SourceRange location, ASTScopeRef scope,
+                                                ASTFunctionDeclarationRef declaration);
 
-ASTStructureTypeRef ASTContextCreateStructureType(ASTContextRef context, SourceRange location, ASTStructureDeclarationRef declaration);
+ASTStructureTypeRef ASTContextCreateStructureType(ASTContextRef context, SourceRange location, ASTScopeRef scope,
+                                                  ASTStructureDeclarationRef declaration);
+
+ASTScopeRef ASTContextCreateScope(ASTContextRef context, SourceRange location, ASTScopeRef parent, ASTScopeKind kind);
 
 ASTBuiltinTypeRef ASTContextGetBuiltinType(ASTContextRef context, ASTBuiltinTypeKind kind);
 
