@@ -190,8 +190,8 @@ void *_WorkspaceProcess(void *context) {
         return NULL;
     }
 
-    // Name resolution
-    PerformNameResolution(ASTContextGetModule(workspace->context));
+    // Name resolution phase
+    PerformNameResolution(workspace->context, ASTContextGetModule(workspace->context));
 
     if ((workspace->options & WorkspaceOptionsDumpScope) > 0) {
         ASTScopeDump(ASTContextGetGlobalScope(workspace->context), workspace->dumpScopeOutput);

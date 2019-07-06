@@ -12,5 +12,5 @@ struct C {
 
 func main() -> Void {
     var a: A
-    a.b.c.a.b.c.a
+    a.b.c.a.b.c.a.b
 }

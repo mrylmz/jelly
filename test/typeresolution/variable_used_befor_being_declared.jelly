@@ -1,0 +1,8 @@
+func myFunc(condition: Bool) -> Int {
+    if condition {
+        return x // expect-error: Use of unresolved identifier
+    }
+
+    var x: Int
+    return x
+}

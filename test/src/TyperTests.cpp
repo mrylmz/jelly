@@ -35,7 +35,7 @@ TEST_P(TyperTests, run) {
         ArrayRef arguments = ArrayCreateEmpty(AllocatorGetSystemDefault(), sizeof(StringRef), 4);
         ArrayAppendElement(arguments, &executable);
         ArrayAppendElement(arguments, &filePath);
-        ArrayAppendElement(arguments, &dumpScopeArgument);
+//        ArrayAppendElement(arguments, &dumpScopeArgument);
         ArrayAppendElement(arguments, &workingDirectoryArgument);
 
         CompilerRun(arguments);
