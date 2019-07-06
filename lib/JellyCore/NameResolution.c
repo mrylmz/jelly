@@ -441,9 +441,16 @@ static inline void _PerformNameResolutionForExpression(ASTContextRef context, AS
 
         assert(call->callee->type);
 
-        if (call->callee->type->tag != ASTTagFunctionType &&
-            (call->callee->type->tag != ASTTagBuiltinType || ((ASTBuiltinTypeRef)call->callee->type)->kind != ASTBuiltinTypeKindError)) {
+        if (call->callee->type->tag == ASTTagFunctionType) {
+            ASTFunctionTypeRef functionType = (ASTFunctionTypeRef)call->callee->type;
+            call->base.type                 = functionType->declaration->returnType;
+        } else if (call->callee->type->tag != ASTTagFunctionType &&
+                   (call->callee->type->tag != ASTTagBuiltinType ||
+                    ((ASTBuiltinTypeRef)call->callee->type)->kind != ASTBuiltinTypeKindError)) {
             ReportError("Cannot call non function type");
+            call->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
+        } else {
+            call->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
         }
 
         return;
