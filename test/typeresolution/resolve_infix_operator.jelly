@@ -1,4 +1,0 @@
-func main() -> Void {
-    var x: Int = 1 * 1
-    var y: Int = 2 * 2
-}

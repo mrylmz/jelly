@@ -99,6 +99,7 @@ struct _ASTExpression {
     struct _ASTNode base;
 
     ASTTypeRef type;
+    ASTTypeRef expectedType;
 };
 
 struct _ASTLinkedList {
@@ -263,6 +264,7 @@ struct _ASTIdentifierExpression {
     struct _ASTExpression base;
 
     StringRef name;
+    ASTArrayRef candidateDeclarations;
     ASTDeclarationRef resolvedDeclaration;
 };
 
@@ -453,6 +455,7 @@ struct _ASTScope {
     struct _ASTNode base;
 
     ASTScopeKind kind;
+    ASTNodeRef node;
     ASTScopeRef parent;
     ASTArrayRef children;
     ASTArrayRef declarations;

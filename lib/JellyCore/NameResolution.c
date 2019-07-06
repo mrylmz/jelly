@@ -60,6 +60,13 @@ void PerformNameResolution(ASTContextRef context, ASTModuleDeclarationRef module
                 _PerformNameResolutionForStructureBody(context, structure);
                 continue;
             }
+
+            if (child->tag == ASTTagValueDeclaration) {
+                ASTValueDeclarationRef value = (ASTValueDeclarationRef)child;
+                if (value->initializer) {
+                    _PerformNameResolutionForExpression(context, value->initializer);
+                }
+            }
         }
     }
 }
@@ -204,7 +211,8 @@ static inline void _PerformNameResolutionForNode(ASTContextRef context, ASTNodeR
     }
 
     case ASTTagIfStatement: {
-        ASTIfStatementRef statement = (ASTIfStatementRef)node;
+        ASTIfStatementRef statement        = (ASTIfStatementRef)node;
+        statement->condition->expectedType = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindBool);
         _PerformNameResolutionForExpression(context, statement->condition);
         _PerformNameResolutionForNode(context, (ASTNodeRef)statement->thenBlock);
         _PerformNameResolutionForNode(context, (ASTNodeRef)statement->elseBlock);
@@ -212,7 +220,8 @@ static inline void _PerformNameResolutionForNode(ASTContextRef context, ASTNodeR
     }
 
     case ASTTagLoopStatement: {
-        ASTLoopStatementRef statement = (ASTLoopStatementRef)node;
+        ASTLoopStatementRef statement      = (ASTLoopStatementRef)node;
+        statement->condition->expectedType = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindBool);
         _PerformNameResolutionForExpression(context, statement->condition);
         _PerformNameResolutionForNode(context, (ASTNodeRef)statement->loopBlock);
         break;
@@ -221,6 +230,17 @@ static inline void _PerformNameResolutionForNode(ASTContextRef context, ASTNodeR
     case ASTTagCaseStatement: {
         ASTCaseStatementRef statement = (ASTCaseStatementRef)node;
         if (statement->kind == ASTCaseKindConditional) {
+            ASTScopeRef scope = node->scope;
+            while (scope && scope->kind != ASTScopeKindSwitch) {
+                scope = scope->parent;
+            }
+
+            if (scope && scope->kind == ASTScopeKindSwitch) {
+                assert(scope->node && scope->node->tag == ASTTagSwitchStatement);
+                ASTSwitchStatementRef switchStatement = (ASTSwitchStatementRef)scope->node;
+                statement->condition->expectedType    = switchStatement->argument->type;
+            }
+
             _PerformNameResolutionForExpression(context, statement->condition);
         }
         _PerformNameResolutionForNode(context, (ASTNodeRef)statement->body);
@@ -240,6 +260,16 @@ static inline void _PerformNameResolutionForNode(ASTContextRef context, ASTNodeR
     case ASTTagControlStatement: {
         ASTControlStatementRef statement = (ASTControlStatementRef)node;
         if (statement->kind == ASTControlKindReturn && statement->result) {
+            ASTScopeRef scope = statement->base.scope;
+            while (scope && scope->kind != ASTScopeKindFunction) {
+                scope = scope->parent;
+            }
+
+            if (scope && scope->kind == ASTScopeKindFunction) {
+                ASTFunctionDeclarationRef enclosingFunction = (ASTFunctionDeclarationRef)scope->node;
+                statement->result->expectedType             = enclosingFunction->returnType;
+            }
+
             _PerformNameResolutionForExpression(context, statement->result);
         }
         break;
@@ -268,6 +298,10 @@ static inline void _PerformNameResolutionForNode(ASTContextRef context, ASTNodeR
             }
         }
 
+        if (value->initializer) {
+            value->initializer->expectedType = value->base.type;
+            _PerformNameResolutionForExpression(context, value->initializer);
+        }
         break;
     }
 
@@ -343,14 +377,77 @@ static inline void _PerformNameResolutionForExpression(ASTContextRef context, AS
 
     if (expression->base.tag == ASTTagCallExpression) {
         ASTCallExpressionRef call = (ASTCallExpressionRef)expression;
+        for (Index index = 0; index < ASTArrayGetElementCount(call->arguments); index++) {
+            ASTExpressionRef argument = (ASTExpressionRef)ASTArrayGetElementAtIndex(call->arguments, index);
+            _PerformNameResolutionForExpression(context, argument);
+        }
+
         if (call->callee->base.tag == ASTTagIdentifierExpression) {
             ASTIdentifierExpressionRef identifier = (ASTIdentifierExpressionRef)call->callee;
-            // TODO: @Next Incomplete...
+            ASTScopeRef globalScope               = ASTContextGetGlobalScope(context);
+            for (Index index = 0; index < ASTArrayGetElementCount(globalScope->declarations); index++) {
+                ASTDeclarationRef declaration = (ASTDeclarationRef)ASTArrayGetElementAtIndex(globalScope->declarations, index);
+                if (declaration->base.tag != ASTTagFunctionDeclaration) {
+                    continue;
+                }
+
+                if (!StringIsEqual(declaration->name, identifier->name)) {
+                    continue;
+                }
+
+                ASTFunctionDeclarationRef function = (ASTFunctionDeclarationRef)declaration;
+                if (ASTArrayGetElementCount(function->parameters) != ASTArrayGetElementCount(call->arguments)) {
+                    continue;
+                }
+
+                if (call->base.expectedType) {
+                    if (!ASTTypeIsEqual(call->base.expectedType, function->returnType)) {
+                        continue;
+                    }
+                }
+
+                Bool hasMatchingParameterTypes = true;
+                for (Index parameterIndex = 0; parameterIndex < ASTArrayGetElementCount(function->parameters); parameterIndex++) {
+                    ASTValueDeclarationRef parameter = (ASTValueDeclarationRef)ASTArrayGetElementAtIndex(function->parameters,
+                                                                                                         parameterIndex);
+                    ASTExpressionRef argument        = (ASTExpressionRef)ASTArrayGetElementAtIndex(call->arguments, parameterIndex);
+
+                    assert(parameter->base.type);
+                    assert(argument->type);
+
+                    if (!ASTTypeIsEqual(parameter->base.type, argument->type)) {
+                        hasMatchingParameterTypes = false;
+                        break;
+                    }
+                }
+
+                if (hasMatchingParameterTypes) {
+                    ASTArrayAppendElement(identifier->candidateDeclarations, declaration);
+                }
+            }
+
+            Index candidateCount = ASTArrayGetElementCount(identifier->candidateDeclarations);
+            if (candidateCount == 1) {
+                identifier->resolvedDeclaration = (ASTDeclarationRef)ASTArrayGetElementAtIndex(identifier->candidateDeclarations, 0);
+                identifier->base.type           = identifier->resolvedDeclaration->type;
+            } else if (candidateCount == 0) {
+                ReportError("Use of unresolved identifier");
+                identifier->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
+            } else {
+                ReportError("Ambigous use of identifier");
+                identifier->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
+            }
         } else {
             _PerformNameResolutionForExpression(context, call->callee);
         }
 
-        // TODO: @Next Incomplete...
+        assert(call->callee->type);
+
+        if (call->callee->type->tag != ASTTagFunctionType &&
+            (call->callee->type->tag != ASTTagBuiltinType || ((ASTBuiltinTypeRef)call->callee->type)->kind != ASTBuiltinTypeKindError)) {
+            ReportError("Cannot call non function type");
+        }
+
         return;
     }
 

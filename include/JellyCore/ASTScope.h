@@ -16,15 +16,7 @@ ASTDeclarationRef ASTScopeLookupDeclarationByName(ASTScopeRef scope, StringRef n
 ASTDeclarationRef ASTScopeLookupDeclarationByNameOrMatchingFunctionSignature(ASTScopeRef scope, StringRef name, ASTArrayRef parameters,
                                                                              ASTTypeRef resultType);
 
-ASTFunctionDeclarationRef ASTScopeLookupFunctionDeclarationByNameAndArguments(ASTScopeRef scope, StringRef name, ASTArrayRef arguments);
-
 ASTDeclarationRef ASTScopeLookupDeclarationInHierarchyByName(ASTScopeRef scope, StringRef name);
-
-ASTDeclarationRef ASTScopeLookupDeclarationInHierarchyByNameOrMatchingFunctionSignature(ASTScopeRef scope, StringRef name,
-                                                                                        ASTArrayRef parameters, ASTTypeRef resultType);
-
-ASTFunctionDeclarationRef ASTScopeLookupFunctionDeclarationInHierarchyByNameAndParameters(ASTScopeRef scope, StringRef name,
-                                                                                          ASTArrayRef parameters);
 
 void ASTScopeDump(ASTScopeRef scope, FILE *target);
 

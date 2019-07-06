@@ -53,7 +53,7 @@ static inline ASTTypeRef _ParserParseType(ParserRef parser);
 static inline ASTExpressionRef _ParserParseConditionList(ParserRef parser);
 static inline ASTNodeRef _ParserParseTopLevelNode(ParserRef parser);
 
-static inline ASTScopeRef _ParserPushScope(ParserRef parser, SourceRange location, ASTScopeKind kind);
+static inline ASTScopeRef _ParserPushScope(ParserRef parser, SourceRange location, ASTNodeRef node, ASTScopeKind kind);
 static inline void _ParserPopScope(ParserRef parser);
 
 ParserRef ParserCreate(AllocatorRef allocator, ASTContextRef context) {
@@ -331,18 +331,18 @@ static inline ASTIfStatementRef _ParserParseIfStatement(ParserRef parser) {
     }
 
     // TODO: @ScopeLocation The location of scope will not be correct it has to encapsulate the associated node!
-    ASTScopeRef thenScope = _ParserPushScope(parser, parser->token.location, ASTScopeKindBranch);
+    ASTScopeRef thenScope = _ParserPushScope(parser, parser->token.location, NULL, ASTScopeKindBranch);
     ASTBlockRef thenBlock = _ParserParseBlock(parser);
     if (!thenBlock) {
         return NULL;
     }
-
+    thenScope->node = (ASTNodeRef)thenBlock;
     _ParserPopScope(parser);
 
     ASTBlockRef elseBlock = NULL;
     if (_ParserConsumeToken(parser, TokenKindKeywordElse)) {
         // TODO: @ScopeLocation The location of scope will not be correct it has to encapsulate the associated node!
-        ASTScopeRef elseScope = _ParserPushScope(parser, parser->token.location, ASTScopeKindBranch);
+        ASTScopeRef elseScope = _ParserPushScope(parser, parser->token.location, NULL, ASTScopeKindBranch);
 
         location.end = parser->token.location.start;
         if (_ParserIsToken(parser, TokenKindKeywordIf)) {
@@ -364,10 +364,17 @@ static inline ASTIfStatementRef _ParserParseIfStatement(ParserRef parser) {
             }
         }
 
+        elseScope->node = (ASTNodeRef)elseBlock;
         _ParserPopScope(parser);
     } else {
+        // TODO: @ScopeLocation The location of scope will not be correct it has to encapsulate the associated node!
+        ASTScopeRef elseScope = _ParserPushScope(parser, parser->token.location, NULL, ASTScopeKindBranch);
+
         elseBlock = ASTContextCreateBlock(parser->context, SourceRangeMake(parser->token.location.end, parser->token.location.end),
                                           parser->currentScope, NULL);
+
+        elseScope->node = (ASTNodeRef)elseBlock;
+        _ParserPopScope(parser);
     }
 
     location.end = parser->token.location.start;
@@ -387,7 +394,7 @@ static inline ASTLoopStatementRef _ParserParseLoopStatement(ParserRef parser) {
         }
 
         // TODO: @ScopeLocation The location of scope will not be correct it has to encapsulate the associated node!
-        ASTScopeRef loopScope = _ParserPushScope(parser, parser->token.location, ASTScopeKindLoop);
+        ASTScopeRef loopScope = _ParserPushScope(parser, parser->token.location, NULL, ASTScopeKindLoop);
         ASTBlockRef loopBlock = _ParserParseBlock(parser);
         if (!loopBlock) {
 
@@ -396,13 +403,16 @@ static inline ASTLoopStatementRef _ParserParseLoopStatement(ParserRef parser) {
 
         _ParserPopScope(parser);
 
-        location.end = parser->token.location.start;
-        return ASTContextCreateLoopStatement(parser->context, location, parser->currentScope, ASTLoopKindWhile, condition, loopBlock);
+        location.end             = parser->token.location.start;
+        ASTLoopStatementRef loop = ASTContextCreateLoopStatement(parser->context, location, parser->currentScope, ASTLoopKindWhile,
+                                                                 condition, loopBlock);
+        loopScope->node          = (ASTNodeRef)loop;
+        return loop;
     }
 
     if (_ParserConsumeToken(parser, TokenKindKeywordDo)) {
         // TODO: @ScopeLocation The location of scope will not be correct it has to encapsulate the associated node!
-        ASTScopeRef loopScope = _ParserPushScope(parser, parser->token.location, ASTScopeKindLoop);
+        ASTScopeRef loopScope = _ParserPushScope(parser, parser->token.location, NULL, ASTScopeKindLoop);
         ASTBlockRef loopBlock = _ParserParseBlock(parser);
         if (!loopBlock) {
             return NULL;
@@ -420,8 +430,11 @@ static inline ASTLoopStatementRef _ParserParseLoopStatement(ParserRef parser) {
 
         _ParserPopScope(parser);
 
-        location.end = parser->token.location.start;
-        return ASTContextCreateLoopStatement(parser->context, location, parser->currentScope, ASTLoopKindDo, condition, loopBlock);
+        location.end             = parser->token.location.start;
+        ASTLoopStatementRef loop = ASTContextCreateLoopStatement(parser->context, location, parser->currentScope, ASTLoopKindDo, condition,
+                                                                 loopBlock);
+        loopScope->node          = (ASTNodeRef)loop;
+        return loop;
     }
 
     ReportError("Expected 'while' or 'do' at start of loop-statement!");
@@ -458,7 +471,7 @@ static inline ASTCaseStatementRef _ParserParseCaseStatement(ParserRef parser) {
     SourceRange blockLocation = parser->token.location;
 
     // TODO: @ScopeLocation The location of scope will not be correct it has to encapsulate the associated node!
-    ASTScopeRef caseScope = _ParserPushScope(parser, parser->token.location, ASTScopeKindCase);
+    ASTScopeRef caseScope = _ParserPushScope(parser, parser->token.location, NULL, ASTScopeKindCase);
     ArrayRef statements   = ArrayCreateEmpty(parser->tempAllocator, sizeof(ASTNodeRef), 8);
     while (!_ParserIsToken(parser, TokenKindKeywordCase) && !_ParserIsToken(parser, TokenKindKeywordElse) &&
            !_ParserIsToken(parser, TokenKindRightCurlyBracket)) {
@@ -484,8 +497,10 @@ static inline ASTCaseStatementRef _ParserParseCaseStatement(ParserRef parser) {
     blockLocation.end = parser->token.location.start;
     ASTBlockRef body  = ASTContextCreateBlock(parser->context, blockLocation, parser->currentScope, statements);
 
-    location.end = parser->token.location.start;
-    return ASTContextCreateCaseStatement(parser->context, location, parser->currentScope, kind, condition, body);
+    location.end                  = parser->token.location.start;
+    ASTCaseStatementRef statement = ASTContextCreateCaseStatement(parser->context, location, parser->currentScope, kind, condition, body);
+    caseScope->node               = (ASTNodeRef)statement;
+    return statement;
 }
 
 /// grammar: switch-statement := "switch" expression "{" [ case-statement { line-break case-statement } ] "}"
@@ -508,7 +523,7 @@ static inline ASTSwitchStatementRef _ParserParseSwitchStatement(ParserRef parser
     }
 
     // TODO: @ScopeLocation The location of scope will not be correct it has to encapsulate the associated node!
-    ASTScopeRef switchScope = _ParserPushScope(parser, parser->token.location, ASTScopeKindSwitch);
+    ASTScopeRef switchScope = _ParserPushScope(parser, parser->token.location, NULL, ASTScopeKindSwitch);
     ArrayRef statements     = ArrayCreateEmpty(parser->tempAllocator, sizeof(ASTNodeRef), 8);
 
     if (_ParserIsToken(parser, TokenKindRightCurlyBracket)) {
@@ -539,8 +554,11 @@ static inline ASTSwitchStatementRef _ParserParseSwitchStatement(ParserRef parser
 
     _ParserPopScope(parser);
 
-    location.end = parser->token.location.start;
-    return ASTContextCreateSwitchStatement(parser->context, location, parser->currentScope, argument, statements);
+    location.end                    = parser->token.location.start;
+    ASTSwitchStatementRef statement = ASTContextCreateSwitchStatement(parser->context, location, parser->currentScope, argument,
+                                                                      statements);
+    switchScope->node               = (ASTNodeRef)statement;
+    return statement;
 }
 
 /// grammar: control-statement      := break-statement | continue-statement | fallthrough-statement | return-statement
@@ -881,7 +899,7 @@ static inline ASTEnumerationDeclarationRef _ParserParseEnumerationDeclaration(Pa
     }
 
     // TODO: @ScopeLocation The location of scope will not be correct it has to encapsulate the associated node!
-    ASTScopeRef enumScope = _ParserPushScope(parser, parser->token.location, ASTScopeKindEnumeration);
+    ASTScopeRef enumScope = _ParserPushScope(parser, parser->token.location, NULL, ASTScopeKindEnumeration);
     ArrayRef elements     = ArrayCreateEmpty(parser->tempAllocator, sizeof(ASTNodeRef), 8);
     if (!_ParserIsToken(parser, TokenKindRightCurlyBracket)) {
         while (true) {
@@ -920,6 +938,7 @@ static inline ASTEnumerationDeclarationRef _ParserParseEnumerationDeclaration(Pa
     ASTEnumerationDeclarationRef enumeration = ASTContextCreateEnumerationDeclaration(parser->context, location, parser->currentScope, name,
                                                                                       elements);
     enumeration->innerScope                  = enumScope;
+    enumScope->node                          = (ASTNodeRef)enumeration;
     return enumeration;
 }
 
@@ -943,7 +962,7 @@ static inline ASTFunctionDeclarationRef _ParserParseFunctionDeclaration(ParserRe
     }
 
     // TODO: @ScopeLocation The location of scope will not be correct it has to encapsulate the associated node!
-    ASTScopeRef funcScope = _ParserPushScope(parser, parser->token.location, ASTScopeKindFunction);
+    ASTScopeRef funcScope = _ParserPushScope(parser, parser->token.location, NULL, ASTScopeKindFunction);
     ArrayRef parameters   = ArrayCreateEmpty(parser->tempAllocator, sizeof(ASTNodeRef), 8);
 
     if (!_ParserIsToken(parser, TokenKindRightParenthesis)) {
@@ -995,6 +1014,7 @@ static inline ASTFunctionDeclarationRef _ParserParseFunctionDeclaration(ParserRe
     ASTFunctionDeclarationRef function = ASTContextCreateFunctionDeclaration(parser->context, location, parser->currentScope, ASTFixityNone,
                                                                              name, parameters, returnType, body);
     function->innerScope               = funcScope;
+    funcScope->node                    = (ASTNodeRef)function;
     return function;
 }
 
@@ -1018,7 +1038,7 @@ static inline ASTStructureDeclarationRef _ParserParseStructureDeclaration(Parser
     }
 
     // TODO: @ScopeLocation The location of scope will not be correct it has to encapsulate the associated node!
-    ASTScopeRef structScope = _ParserPushScope(parser, parser->token.location, ASTScopeKindStructure);
+    ASTScopeRef structScope = _ParserPushScope(parser, parser->token.location, NULL, ASTScopeKindStructure);
     ArrayRef values         = ArrayCreateEmpty(parser->tempAllocator, sizeof(ASTNodeRef), 8);
 
     if (!_ParserIsToken(parser, TokenKindRightCurlyBracket)) {
@@ -1053,6 +1073,7 @@ static inline ASTStructureDeclarationRef _ParserParseStructureDeclaration(Parser
     ASTStructureDeclarationRef declaration = ASTContextCreateStructureDeclaration(parser->context, location, parser->currentScope, name,
                                                                                   values);
     declaration->innerScope                = structScope;
+    structScope->node                      = (ASTNodeRef)declaration;
     return declaration;
 }
 
@@ -1310,8 +1331,8 @@ static inline ASTNodeRef _ParserParseTopLevelNode(ParserRef parser) {
     return NULL;
 }
 
-static inline ASTScopeRef _ParserPushScope(ParserRef parser, SourceRange location, ASTScopeKind kind) {
-    ASTScopeRef scope    = ASTContextCreateScope(parser->context, location, parser->currentScope, kind);
+static inline ASTScopeRef _ParserPushScope(ParserRef parser, SourceRange location, ASTNodeRef node, ASTScopeKind kind) {
+    ASTScopeRef scope    = ASTContextCreateScope(parser->context, location, node, parser->currentScope, kind);
     parser->currentScope = scope;
     return scope;
 }

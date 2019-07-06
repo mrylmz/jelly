@@ -1,0 +1,5 @@
+var x: Int
+
+func main() -> Int {
+    return x() // expect-error: Use of unresolved identifier
+}

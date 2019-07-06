@@ -1,0 +1,40 @@
+func myFunc() -> Int {}
+func myFunc() -> Bool {}
+func myFunc() -> Void {}
+
+func main0() -> Void {
+    if myFunc() {
+        var x: Int = myFunc()
+    }
+
+    return myFunc()
+}
+
+func main1() -> Bool {
+    return myFunc()
+}
+
+func main2() -> Int {
+    return myFunc()
+}
+
+func main3() -> Void {
+    var x: Int
+    switch x {
+    case 0:
+        break
+
+    case myFunc():
+        break
+    }
+}
+
+func main4(arg: Bool) -> Int {
+    switch arg {
+    case true:
+        return 0
+
+    case myFunc():
+        return myFunc()
+    }
+}
