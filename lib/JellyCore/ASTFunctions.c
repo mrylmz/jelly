@@ -138,6 +138,26 @@ ASTOperatorAssociativity ASTGetBinaryOperatorAssociativity(ASTBinaryOperator bin
     }
 }
 
+Bool ASTBinaryOperatorIsAssignment(ASTBinaryOperator binary) {
+    switch (binary) {
+    case ASTBinaryOperatorAssign:
+    case ASTBinaryOperatorMultiplyAssign:
+    case ASTBinaryOperatorDivideAssign:
+    case ASTBinaryOperatorReminderAssign:
+    case ASTBinaryOperatorAddAssign:
+    case ASTBinaryOperatorSubtractAssign:
+    case ASTBinaryOperatorBitwiseLeftShiftAssign:
+    case ASTBinaryOperatorBitwiseRightShiftAssign:
+    case ASTBinaryOperatorBitwiseAndAssign:
+    case ASTBinaryOperatorBitwiseOrAssign:
+    case ASTBinaryOperatorBitwiseXorAssign:
+        return true;
+
+    default:
+        return false;
+    }
+}
+
 StringRef ASTGetPrefixOperatorName(AllocatorRef allocator, ASTUnaryOperator op) {
     switch (op) {
     case ASTUnaryOperatorLogicalNot:

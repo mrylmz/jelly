@@ -1,5 +1,5 @@
-func myFunc() -> Int {}
-func myFunc() -> Bool {}
+func myFunc() -> Int { return 0 }
+func myFunc() -> Bool { return false }
 func myFunc() -> Void {}
 
 func main0() -> Void {
@@ -26,6 +26,9 @@ func main3() -> Void {
 
     case myFunc():
         break
+
+    else:
+        break
     }
 }
 
@@ -36,5 +39,8 @@ func main4(arg: Bool) -> Int {
 
     case myFunc():
         return myFunc()
+
+    else:
+        return 1
     }
 }

@@ -743,10 +743,15 @@ static inline ASTExpressionRef _ParserParseExpression(ParserRef parser, ASTOpera
                 return NULL;
             }
 
-            location.end                  = parser->token.location.start;
-            ASTExpressionRef arguments[2] = {result, right};
-            result = (ASTExpressionRef)ASTContextCreateBinaryExpression(parser->context, location, parser->currentScope, binary, arguments);
-            assert(result);
+            location.end = parser->token.location.start;
+            if (ASTBinaryOperatorIsAssignment(binary)) {
+                result = (ASTExpressionRef)ASTContextCreateAssignmentExpression(parser->context, location, parser->currentScope, binary,
+                                                                                result, right);
+            } else {
+                ASTExpressionRef arguments[2] = {result, right};
+                result = (ASTExpressionRef)ASTContextCreateBinaryExpression(parser->context, location, parser->currentScope, binary,
+                                                                            arguments);
+            }
         } else if (postfix == ASTPostfixOperatorSelector) {
             StringRef memberName = _ParserConsumeIdentifier(parser);
             if (!memberName) {
@@ -1082,6 +1087,7 @@ static inline ASTValueDeclarationRef _ParserParseVariableDeclaration(ParserRef p
     SourceRange location = parser->token.location;
 
     if (!_ParserConsumeToken(parser, TokenKindKeywordVar)) {
+        ReportErrorFormat("Expected 'var' found '%.*s'", SourceRangeLength(parser->token.location), parser->token.location.start);
         return NULL;
     }
 
@@ -1148,6 +1154,7 @@ static inline ASTValueDeclarationRef _ParserParseEnumerationElementDeclaration(P
         return NULL;
     }
 
+    // TODO: Add strong typing for enumeration elements!
     ASTTypeRef type = (ASTTypeRef)ASTContextGetBuiltinType(parser->context, ASTBuiltinTypeKindInt);
 
     location.end = parser->token.location.start;

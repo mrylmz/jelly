@@ -1,1 +1,1 @@
-func foo(a: Void) -> Void {}  // expect-error: Declaration has incomplete type
+func foo(a: Void) -> Void {}  // expect-error: Cannot pass 'Void' type as parameter

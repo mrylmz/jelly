@@ -1,1 +1,0 @@
-let size: Int // expect-error: Expected assignment expression for 'size'

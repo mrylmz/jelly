@@ -1,7 +1,0 @@
-struct A {
-    var m: MyType // expect-error: Unresolved identifier
-}
-
-struct B {
-    var a: Unknown* // expect-error: Unresolved identifier
-}

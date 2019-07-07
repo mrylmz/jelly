@@ -138,6 +138,21 @@ void ASTDumperDump(ASTDumperRef dumper, ASTNodeRef node) {
         return;
     }
 
+    case ASTTagAssignmentExpression: {
+        ASTAssignmentExpressionRef assignment = (ASTAssignmentExpressionRef)node;
+
+        dumper->indentation += 1;
+        _ASTDumperPrintIndentation(dumper);
+        _ASTDumperPrintCString(dumper, "@operator = '");
+        _ASTDumperPrintInfixOperator(dumper, assignment->op);
+        _ASTDumperPrintCString(dumper, "'\n");
+        dumper->indentation -= 1;
+
+        _ASTDumperDumpChild(dumper, (ASTNodeRef)assignment->variable);
+        _ASTDumperDumpChild(dumper, (ASTNodeRef)assignment->expression);
+        return;
+    }
+
     case ASTTagCallExpression: {
         ASTCallExpressionRef call = (ASTCallExpressionRef)node;
         _ASTDumperDumpChild(dumper, (ASTNodeRef)call->callee);
@@ -346,6 +361,9 @@ static inline void _ASTDumperPrintTag(ASTDumperRef dumper, ASTNodeRef node) {
 
     case ASTTagMemberAccessExpression:
         return _ASTDumperPrintCString(dumper, "MemberAccessExpression");
+
+    case ASTTagAssignmentExpression:
+        return _ASTDumperPrintCString(dumper, "AssignmentExpression");
 
     case ASTTagCallExpression:
         return _ASTDumperPrintCString(dumper, "CallExpression");

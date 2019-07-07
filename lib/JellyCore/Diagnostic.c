@@ -3,6 +3,7 @@
 struct _DiagnosticEngine {
     DiagnosticHandler handler;
     void *context;
+    Char formatBuffer[65535];
 };
 
 void _DiagnosticHandlerStd(DiagnosticLevel level, const Char *message, void *context);
@@ -24,12 +25,30 @@ void ReportDebugString(StringRef message) {
     _ReportDiagnostic(DiagnosticLevelDebug, StringGetCharacters(message));
 }
 
+void ReportDebugFormat(const Char *format, ...) {
+    va_list argumentPointer;
+    va_start(argumentPointer, format);
+    vsprintf(&kSharedDiagnosticEngine.formatBuffer[0], format, argumentPointer);
+    va_end(argumentPointer);
+
+    ReportError(&kSharedDiagnosticEngine.formatBuffer[0]);
+}
+
 void ReportInfo(const Char *message) {
     _ReportDiagnostic(DiagnosticLevelInfo, message);
 }
 
 void ReportInfoString(StringRef message) {
     _ReportDiagnostic(DiagnosticLevelInfo, StringGetCharacters(message));
+}
+
+void ReportInfoFormat(const Char *format, ...) {
+    va_list argumentPointer;
+    va_start(argumentPointer, format);
+    vsprintf(&kSharedDiagnosticEngine.formatBuffer[0], format, argumentPointer);
+    va_end(argumentPointer);
+
+    _ReportDiagnostic(DiagnosticLevelInfo, &kSharedDiagnosticEngine.formatBuffer[0]);
 }
 
 void ReportWarning(const Char *message) {
@@ -40,6 +59,15 @@ void ReportWarningString(StringRef message) {
     _ReportDiagnostic(DiagnosticLevelWarning, StringGetCharacters(message));
 }
 
+void ReportWarningFormat(const Char *format, ...) {
+    va_list argumentPointer;
+    va_start(argumentPointer, format);
+    vsprintf(&kSharedDiagnosticEngine.formatBuffer[0], format, argumentPointer);
+    va_end(argumentPointer);
+
+    _ReportDiagnostic(DiagnosticLevelWarning, &kSharedDiagnosticEngine.formatBuffer[0]);
+}
+
 void ReportError(const Char *message) {
     _ReportDiagnostic(DiagnosticLevelError, message);
 }
@@ -48,12 +76,30 @@ void ReportErrorString(StringRef message) {
     _ReportDiagnostic(DiagnosticLevelError, StringGetCharacters(message));
 }
 
+void ReportErrorFormat(const Char *format, ...) {
+    va_list argumentPointer;
+    va_start(argumentPointer, format);
+    vsprintf(kSharedDiagnosticEngine.formatBuffer, format, argumentPointer);
+    va_end(argumentPointer);
+
+    _ReportDiagnostic(DiagnosticLevelError, &kSharedDiagnosticEngine.formatBuffer[0]);
+}
+
 void ReportCritical(const Char *message) {
     _ReportDiagnostic(DiagnosticLevelCritical, message);
 }
 
 void ReportCriticalString(StringRef message) {
     _ReportDiagnostic(DiagnosticLevelCritical, StringGetCharacters(message));
+}
+
+void ReportCriticalFormat(const Char *format, ...) {
+    va_list argumentPointer;
+    va_start(argumentPointer, format);
+    vsprintf(&kSharedDiagnosticEngine.formatBuffer[0], format, argumentPointer);
+    va_end(argumentPointer);
+
+    _ReportDiagnostic(DiagnosticLevelCritical, &kSharedDiagnosticEngine.formatBuffer[0]);
 }
 
 void _DiagnosticHandlerStd(DiagnosticLevel level, const Char *message, void *context) {

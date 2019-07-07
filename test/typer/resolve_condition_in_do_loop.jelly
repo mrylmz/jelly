@@ -1,5 +1,0 @@
-func main() -> Void {
-    do {
-        var condition: Bool = true
-    } while !condition
-}

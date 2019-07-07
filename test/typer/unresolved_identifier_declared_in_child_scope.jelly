@@ -1,8 +1,0 @@
-func main() -> Int {
-    var condition: Bool = true
-    if condition {
-        var x: Int = 0
-    }
-
-    return x // expect-error: Unresolved identifier
-}

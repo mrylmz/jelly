@@ -125,6 +125,7 @@ static inline Bool _ResolveDeclarationsOfTypeAndSubstituteType(ASTContextRef con
             currentScope = ASTScopeGetNextParentForLookup(currentScope);
         }
 
+        *type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
         ReportError("Use of unresolved type");
         return false;
     }
@@ -161,6 +162,10 @@ static inline void _PerformNameResolutionForEnumerationBody(ASTContextRef contex
             ASTArrayAppendElement(enumeration->innerScope->declarations, element);
         } else {
             ReportError("Invalid redeclaration of identifier");
+        }
+
+        if (element->initializer) {
+            _PerformNameResolutionForExpression(context, element->initializer);
         }
     }
 }
@@ -276,6 +281,7 @@ static inline void _PerformNameResolutionForNode(ASTContextRef context, ASTNodeR
     case ASTTagBinaryExpression:
     case ASTTagIdentifierExpression:
     case ASTTagMemberAccessExpression:
+    case ASTTagAssignmentExpression:
     case ASTTagCallExpression:
     case ASTTagConstantExpression: {
         ASTExpressionRef expression = (ASTExpressionRef)node;
@@ -309,8 +315,6 @@ static inline void _PerformNameResolutionForNode(ASTContextRef context, ASTNodeR
 }
 
 static inline void _PerformNameResolutionForExpression(ASTContextRef context, ASTExpressionRef expression) {
-    // TODO: Add support for overloaded functions!!!
-
     if (expression->base.tag == ASTTagUnaryExpression) {
         ASTUnaryExpressionRef unary = (ASTUnaryExpressionRef)expression;
         _PerformNameResolutionForExpression(context, unary->arguments[0]);
@@ -329,15 +333,29 @@ static inline void _PerformNameResolutionForExpression(ASTContextRef context, AS
     }
 
     if (expression->base.tag == ASTTagIdentifierExpression) {
-        // TODO: Add support for resolution of enumeration elements!
         ASTIdentifierExpressionRef identifier = (ASTIdentifierExpressionRef)expression;
         ASTDeclarationRef declaration         = ASTScopeLookupDeclarationInHierarchyByName(expression->base.scope, identifier->name);
         if (declaration) {
             identifier->base.type           = declaration->type;
             identifier->resolvedDeclaration = declaration;
         } else {
-            identifier->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
-            ReportError("Use of unresolved identifier");
+            if (identifier->base.expectedType && identifier->base.expectedType->tag == ASTTagEnumerationType) {
+                ASTEnumerationTypeRef enumerationType    = (ASTEnumerationTypeRef)identifier->base.expectedType;
+                ASTEnumerationDeclarationRef enumeration = enumerationType->declaration;
+
+                declaration = ASTScopeLookupDeclarationByName(enumeration->innerScope, identifier->name);
+                if (declaration) {
+                    identifier->base.type           = declaration->type;
+                    identifier->resolvedDeclaration = declaration;
+                    identifier->resolvedEnumeration = enumeration;
+                } else {
+                    identifier->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
+                    ReportError("Use of unresolved identifier");
+                }
+            } else {
+                identifier->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
+                ReportError("Use of unresolved identifier");
+            }
         }
         return;
     }
@@ -370,6 +388,14 @@ static inline void _PerformNameResolutionForExpression(ASTContextRef context, AS
                 ReportError("Cannot access named member of non structure type");
             }
         }
+        return;
+    }
+
+    if (expression->base.tag == ASTTagAssignmentExpression) {
+        ASTAssignmentExpressionRef assignment = (ASTAssignmentExpressionRef)expression;
+        _PerformNameResolutionForExpression(context, assignment->variable);
+        assignment->expression->expectedType = assignment->variable->type;
+        _PerformNameResolutionForExpression(context, assignment->expression);
         return;
     }
 

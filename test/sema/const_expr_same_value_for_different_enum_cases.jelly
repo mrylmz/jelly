@@ -1,5 +1,0 @@
-let globalOne: Int = 1
-
-enum C {
-    case a = globalOne
-}

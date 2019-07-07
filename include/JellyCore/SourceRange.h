@@ -17,6 +17,8 @@ SourceRange SourceRangeNull(void);
 
 Bool SourceRangeIsEqual(SourceRange range, const Char *string);
 
+Index SourceRangeLength(SourceRange range);
+
 JELLY_EXTERN_C_END
 
 #endif

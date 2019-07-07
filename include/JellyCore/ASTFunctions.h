@@ -14,6 +14,8 @@ ASTOperatorPrecedence ASTGetOperatorPrecedenceBefore(ASTOperatorPrecedence prece
 
 ASTOperatorAssociativity ASTGetBinaryOperatorAssociativity(ASTBinaryOperator binary);
 
+Bool ASTBinaryOperatorIsAssignment(ASTBinaryOperator binary);
+
 StringRef ASTGetPrefixOperatorName(AllocatorRef allocator, ASTUnaryOperator op);
 
 StringRef ASTGetInfixOperatorName(AllocatorRef allocator, ASTBinaryOperator op);

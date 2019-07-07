@@ -182,7 +182,7 @@ ASTDeclarationRef ASTScopeLookupDeclarationInHierarchyByNameOrMatchingFunctionSi
 ASTScopeRef ASTScopeGetNextParentForLookup(ASTScopeRef scope) {
     ASTScopeRef parent = scope->parent;
     while (parent) {
-        switch (parent->kind) {
+        switch (scope->kind) {
         case ASTScopeKindGlobal:
         case ASTScopeKindBranch:
         case ASTScopeKindLoop:

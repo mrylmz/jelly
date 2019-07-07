@@ -1,5 +1,0 @@
-func main() -> Void {
-    while condition { // expect-error: Unresolved identifier
-        var condition: Bool = false
-    }
-}

@@ -1,3 +1,0 @@
-func main() -> Void {
-    var buffer: Unknown[1000] // expect-error: Unresolved identifier
-}

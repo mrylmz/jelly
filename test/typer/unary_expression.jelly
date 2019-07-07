@@ -1,3 +1,0 @@
-func main() -> Void {
-    var value: Bool = !true
-}

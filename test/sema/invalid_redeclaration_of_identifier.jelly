@@ -1,1 +1,0 @@
-struct Void {} // expect-error: Invalid redeclaration of 'Void'

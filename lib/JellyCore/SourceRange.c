@@ -27,3 +27,7 @@ Bool SourceRangeIsEqual(SourceRange range, const Char *string) {
 
     return true;
 }
+
+Index SourceRangeLength(SourceRange range) {
+    return range.end - range.start;
+}

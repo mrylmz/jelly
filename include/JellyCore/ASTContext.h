@@ -49,6 +49,9 @@ ASTIdentifierExpressionRef ASTContextCreateIdentifierExpression(ASTContextRef co
                                                                 StringRef name);
 ASTMemberAccessExpressionRef ASTContextCreateMemberAccessExpression(ASTContextRef context, SourceRange location, ASTScopeRef scope,
                                                                     ASTExpressionRef argument, StringRef memberName);
+ASTAssignmentExpressionRef ASTContextCreateAssignmentExpression(ASTContextRef context, SourceRange location, ASTScopeRef scope,
+                                                                ASTBinaryOperator op, ASTExpressionRef variable,
+                                                                ASTExpressionRef expression);
 ASTCallExpressionRef ASTContextCreateCallExpression(ASTContextRef context, SourceRange location, ASTScopeRef scope, ASTExpressionRef callee,
                                                     ArrayRef arguments);
 ASTConstantExpressionRef ASTContextCreateConstantNilExpression(ASTContextRef context, SourceRange location, ASTScopeRef scope);

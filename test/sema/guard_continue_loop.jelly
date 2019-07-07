@@ -1,5 +1,0 @@
-func guard_continue_loop(condition: Bool) -> Void {
-    while condition {
-        guard condition else { continue }
-    }
-}

@@ -7,10 +7,10 @@
 
 #include "FileTestDiagnostic.h"
 
-class TyperTests : public testing::TestWithParam<FileTest> {
+class NameResolutionTests : public testing::TestWithParam<FileTest> {
 };
 
-TEST_P(TyperTests, run) {
+TEST_P(NameResolutionTests, run) {
     auto test = GetParam();
     printf("[   TEST   ] %s\n", test.context.filePath.substr(test.context.filePath.rfind("/")).c_str());
 
@@ -56,4 +56,4 @@ TEST_P(TyperTests, run) {
     }
 }
 
-INSTANTIATE_TEST_CASE_P(run, TyperTests, testing::ValuesIn(FileTest::ReadFromDirectory("typeresolution")));
+INSTANTIATE_TEST_CASE_P(run, NameResolutionTests, testing::ValuesIn(FileTest::ReadFromDirectory("typeresolution")));

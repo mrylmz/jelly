@@ -1,0 +1,1 @@
+struct Void {} // expect-error: Expected `name` of `struct-declaration`

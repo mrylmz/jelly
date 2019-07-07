@@ -4,6 +4,7 @@
 #include "JellyCore/NameResolution.h"
 #include "JellyCore/Parser.h"
 #include "JellyCore/Queue.h"
+#include "JellyCore/TypeChecker.h"
 #include "JellyCore/Workspace.h"
 
 #include <pthread.h>
@@ -73,7 +74,7 @@ void WorkspaceAddSourceFile(WorkspaceRef workspace, StringRef filePath) {
     StringAppend(absoluteFilePath, "/");
     StringAppendString(absoluteFilePath, filePath);
     if (ArrayContainsElement(workspace->sourceFilePaths, &_ArrayContainsString, &absoluteFilePath)) {
-        ReportError("Cannot load same source file twice");
+        ReportErrorFormat("Cannot load source file at path '%s' twice", StringGetCharacters(filePath));
         StringDestroy(absoluteFilePath);
         return;
     }
@@ -138,7 +139,7 @@ void _WorkspacePerformLoads(WorkspaceRef workspace, ASTSourceUnitRef sourceUnit)
             StringAppendString(absoluteFilePath, relativeFilePath);
 
             if (ArrayContainsElement(workspace->sourceFilePaths, &_ArrayContainsString, &absoluteFilePath)) {
-                ReportError("Cannot load same source file twice");
+                ReportErrorFormat("Cannot load source file at path '%s' twice", StringGetCharacters(filePath));
                 StringDestroy(relativeFilePath);
                 StringDestroy(absoluteFilePath);
             } else {
@@ -181,7 +182,7 @@ void *_WorkspaceProcess(void *context) {
     }
 
     if ((workspace->options & WorkspaceOptionsDumpAST) > 0) {
-        ASTDumperRef dumper = ASTDumperCreate(AllocatorGetSystemDefault(), workspace->dumpASTOutput);
+        ASTDumperRef dumper = ASTDumperCreate(workspace->allocator, workspace->dumpASTOutput);
         ASTDumperDump(dumper, (ASTNodeRef)ASTContextGetModule(workspace->context));
         ASTDumperDestroy(dumper);
         // TODO: Verify if early return is correct behaviour here...
@@ -196,6 +197,10 @@ void *_WorkspaceProcess(void *context) {
     if ((workspace->options & WorkspaceOptionsDumpScope) > 0) {
         ASTScopeDump(ASTContextGetGlobalScope(workspace->context), workspace->dumpScopeOutput);
     }
+
+    TypeCheckerRef typeChecker = TypeCheckerCreate(workspace->allocator);
+    TypeCheckerValidateModule(typeChecker, workspace->context, ASTContextGetModule(workspace->context));
+    TypeCheckerDestroy(typeChecker);
 
     return NULL;
 }

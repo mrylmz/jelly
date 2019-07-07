@@ -41,6 +41,7 @@ ASTContextRef ASTContextCreate(AllocatorRef allocator) {
     context->nodes[ASTTagBinaryExpression]       = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTBinaryExpression), 1024);
     context->nodes[ASTTagIdentifierExpression]   = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTIdentifierExpression), 1024);
     context->nodes[ASTTagMemberAccessExpression] = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTMemberAccessExpression), 1024);
+    context->nodes[ASTTagAssignmentExpression]   = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTAssignmentExpression), 1024);
     context->nodes[ASTTagCallExpression]         = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTCallExpression), 1024);
     context->nodes[ASTTagConstantExpression]     = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTConstantExpression), 1024);
     context->nodes[ASTTagModuleDeclaration]      = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTModuleDeclaration), 1024);
@@ -174,6 +175,7 @@ ASTControlStatementRef ASTContextCreateControlStatement(ASTContextRef context, S
     ASTControlStatementRef node = (ASTControlStatementRef)_ASTContextCreateNode(context, ASTTagControlStatement, location, scope);
     node->kind                  = kind;
     node->result                = result;
+    node->enclosingNode         = NULL;
     return node;
 }
 
@@ -213,6 +215,7 @@ ASTIdentifierExpressionRef ASTContextCreateIdentifierExpression(ASTContextRef co
     node->base.expectedType         = NULL;
     node->candidateDeclarations     = ASTContextCreateArray(context, location, scope);
     node->resolvedDeclaration       = NULL;
+    node->resolvedEnumeration       = NULL;
     return node;
 }
 
@@ -227,6 +230,19 @@ ASTMemberAccessExpressionRef ASTContextCreateMemberAccessExpression(ASTContextRe
     node->pointerDepth                = 0;
     node->base.type                   = NULL;
     node->base.expectedType           = NULL;
+    return node;
+}
+
+ASTAssignmentExpressionRef ASTContextCreateAssignmentExpression(ASTContextRef context, SourceRange location, ASTScopeRef scope,
+                                                                ASTBinaryOperator op, ASTExpressionRef variable,
+                                                                ASTExpressionRef expression) {
+    assert(variable && expression);
+
+    ASTAssignmentExpressionRef node = (ASTAssignmentExpressionRef)_ASTContextCreateNode(context, ASTTagAssignmentExpression, location,
+                                                                                        scope);
+    node->op                        = op;
+    node->variable                  = variable;
+    node->expression                = expression;
     return node;
 }
 
@@ -471,6 +487,7 @@ ASTBuiltinTypeRef ASTContextGetBuiltinType(ASTContextRef context, ASTBuiltinType
 ASTNodeRef _ASTContextCreateNode(ASTContextRef context, ASTTag tag, SourceRange location, ASTScopeRef scope) {
     ASTNodeRef node = ArrayAppendUninitializedElement(context->nodes[tag]);
     node->tag       = tag;
+    node->flags     = ASTFlagsNone;
     node->location  = location;
     node->scope     = scope;
     return node;

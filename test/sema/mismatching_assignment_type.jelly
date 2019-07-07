@@ -1,1 +1,1 @@
-let myBrokenConst: Int = 99.999 // expect-error: Assignment expression of 'myBrokenConst' has mismatching type
+var myBrokenConst: Int = 99.999 // expect-error: Assignment expression of 'myBrokenConst' has mismatching type

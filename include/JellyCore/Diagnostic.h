@@ -23,18 +23,23 @@ void DiagnosticEngineSetDefaultHandler(DiagnosticHandler handler, void *context)
 
 void ReportDebug(const Char *message);
 void ReportDebugString(StringRef message);
+void ReportDebugFormat(const Char *format, ...);
 
 void ReportInfo(const Char *message);
 void ReportInfoString(StringRef message);
+void ReportInfoFormat(const Char *format, ...);
 
 void ReportWarning(const Char *message);
 void ReportWarningString(StringRef message);
+void ReportWarningFormat(const Char *format, ...);
 
 void ReportError(const Char *message);
 void ReportErrorString(StringRef message);
+void ReportErrorFormat(const Char *format, ...);
 
 void ReportCritical(const Char *message);
 void ReportCriticalString(StringRef message);
+void ReportCriticalFormat(const Char *format, ...);
 
 void FatalError(const Char *message);
 

@@ -26,6 +26,7 @@ enum _ASTTag {
     ASTTagBinaryExpression,
     ASTTagIdentifierExpression,
     ASTTagMemberAccessExpression,
+    ASTTagAssignmentExpression,
     ASTTagCallExpression,
     ASTTagConstantExpression,
     ASTTagModuleDeclaration,
@@ -45,6 +46,14 @@ enum _ASTTag {
     AST_TAG_COUNT
 };
 typedef enum _ASTTag ASTTag;
+
+enum _ASTFlags {
+    ASTFlagsNone                       = 0,
+    ASTFlagsStructureHasCyclicStorage  = 1 << 0,
+    ASTFlagsStatementIsAlwaysReturning = 1 << 1,
+    ASTFlagsSwitchIsExhaustive         = 1 << 2,
+};
+typedef enum _ASTFlags ASTFlags;
 
 typedef Index ASTOperatorPrecedence;
 
@@ -73,6 +82,7 @@ typedef struct _ASTUnaryExpression *ASTUnaryExpressionRef;
 typedef struct _ASTBinaryExpression *ASTBinaryExpressionRef;
 typedef struct _ASTIdentifierExpression *ASTIdentifierExpressionRef;
 typedef struct _ASTMemberAccessExpression *ASTMemberAccessExpressionRef;
+typedef struct _ASTAssignmentExpression *ASTAssignmentExpressionRef;
 typedef struct _ASTCallExpression *ASTCallExpressionRef;
 typedef struct _ASTConstantExpression *ASTConstantExpressionRef;
 typedef struct _ASTModuleDeclaration *ASTModuleDeclarationRef;
@@ -91,6 +101,7 @@ typedef struct _ASTScope *ASTScopeRef;
 
 struct _ASTNode {
     ASTTag tag;
+    ASTFlags flags;
     SourceRange location;
     ASTScopeRef scope;
 };
@@ -192,6 +203,7 @@ struct _ASTControlStatement {
 
     ASTControlKind kind;
     ASTExpressionRef result;
+    ASTNodeRef enclosingNode;
 };
 
 enum _ASTUnaryOperator {
@@ -266,6 +278,7 @@ struct _ASTIdentifierExpression {
     StringRef name;
     ASTArrayRef candidateDeclarations;
     ASTDeclarationRef resolvedDeclaration;
+    ASTEnumerationDeclarationRef resolvedEnumeration;
 };
 
 struct _ASTMemberAccessExpression {
@@ -275,6 +288,14 @@ struct _ASTMemberAccessExpression {
     StringRef memberName;
     Index pointerDepth;
     ASTDeclarationRef resolvedDeclaration;
+};
+
+struct _ASTAssignmentExpression {
+    struct _ASTExpression base;
+
+    ASTBinaryOperator op;
+    ASTExpressionRef variable;
+    ASTExpressionRef expression;
 };
 
 struct _ASTCallExpression {

@@ -1,2 +1,2 @@
-let m: Int = 0
-let m: Int = 1 // expect-error: Invalid redeclaration of 'm'
+var m: Int = 0
+var m: Int = 1 // expect-error: Invalid redeclaration of identifier

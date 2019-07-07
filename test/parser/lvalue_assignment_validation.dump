@@ -20,23 +20,23 @@ ModuleDeclaration
             @name = 'Int'
           IntLiteral
             @value = '0'
-        BinaryExpression
+        AssignmentExpression
           @operator = '='
           NilLiteral
           NilLiteral
-        BinaryExpression
+        AssignmentExpression
           @operator = '='
           BoolLiteral
             @value = 'true'
           BoolLiteral
             @value = 'false'
-        BinaryExpression
+        AssignmentExpression
           @operator = '='
           BoolLiteral
             @value = 'false'
           BoolLiteral
             @value = 'true'
-        BinaryExpression
+        AssignmentExpression
           @operator = '='
           UnaryExpression
             @operator = '!'
@@ -44,25 +44,25 @@ ModuleDeclaration
               @value = 'true'
           BoolLiteral
             @value = 'true'
-        BinaryExpression
+        AssignmentExpression
           @operator = '='
           IntLiteral
             @value = '123'
           IntLiteral
             @value = '456'
-        BinaryExpression
+        AssignmentExpression
           @operator = '='
           FloatLiteral
             @value = '1.000000'
           FloatLiteral
             @value = '2.000000'
-        BinaryExpression
+        AssignmentExpression
           @operator = '='
           StringLiteral
             @value = 'Hello'
           StringLiteral
             @value = 'World'
-        BinaryExpression
+        AssignmentExpression
           @operator = '='
           BinaryExpression
             @operator = '*'
@@ -72,20 +72,20 @@ ModuleDeclaration
               @value = '1'
           IntLiteral
             @value = '2'
-        BinaryExpression
+        AssignmentExpression
           @operator = '='
           CallExpression
             IdentifierExpression
               @identifier = 'zero'
           IntLiteral
             @value = '3'
-        BinaryExpression
+        AssignmentExpression
           @operator = '='
           IdentifierExpression
             @identifier = 'x'
           IntLiteral
             @value = '10'
-        BinaryExpression
+        AssignmentExpression
           @operator = '='
           IdentifierExpression
             @identifier = 'y'
