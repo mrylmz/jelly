@@ -21,6 +21,10 @@ typedef void (*DiagnosticHandler)(DiagnosticLevel level, const Char *message, vo
 
 void DiagnosticEngineSetDefaultHandler(DiagnosticHandler handler, void *context);
 
+void DiagnosticEngineResetMessageCounts();
+
+Index DiagnosticEngineGetMessageCount(DiagnosticLevel level);
+
 void ReportDebug(const Char *message);
 void ReportDebugString(StringRef message);
 void ReportDebugFormat(const Char *format, ...);

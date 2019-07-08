@@ -4,6 +4,7 @@ struct _DiagnosticEngine {
     DiagnosticHandler handler;
     void *context;
     Char formatBuffer[65535];
+    Index messageCount[DIAGNOSTIC_LEVEL_COUNT];
 };
 
 void _DiagnosticHandlerStd(DiagnosticLevel level, const Char *message, void *context);
@@ -15,6 +16,16 @@ static struct _DiagnosticEngine kSharedDiagnosticEngine = {&_DiagnosticHandlerSt
 void DiagnosticEngineSetDefaultHandler(DiagnosticHandler handler, void *context) {
     kSharedDiagnosticEngine.handler = handler;
     kSharedDiagnosticEngine.context = context;
+}
+
+void DiagnosticEngineResetMessageCounts() {
+    for (Index level = 0; level < DIAGNOSTIC_LEVEL_COUNT; level++) {
+        kSharedDiagnosticEngine.messageCount[level] = 0;
+    }
+}
+
+Index DiagnosticEngineGetMessageCount(DiagnosticLevel level) {
+    return kSharedDiagnosticEngine.messageCount[level];
 }
 
 void ReportDebug(const Char *message) {
@@ -132,6 +143,7 @@ void _DiagnosticHandlerStd(DiagnosticLevel level, const Char *message, void *con
 void _ReportDiagnostic(DiagnosticLevel level, const Char *message) {
     assert(kSharedDiagnosticEngine.handler);
     kSharedDiagnosticEngine.handler(level, message, kSharedDiagnosticEngine.context);
+    kSharedDiagnosticEngine.messageCount[level] += 1;
 }
 
 void FatalError(const Char *message) {

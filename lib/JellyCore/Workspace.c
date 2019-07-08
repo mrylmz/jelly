@@ -101,6 +101,7 @@ Bool WorkspaceStartAsync(WorkspaceRef workspace) {
     assert(!workspace->running);
     workspace->running = true;
 
+    DiagnosticEngineResetMessageCounts();
     pthread_mutex_init(&workspace->mutex, NULL);
     pthread_mutex_init(&workspace->empty, NULL);
     return pthread_create(&workspace->thread, NULL, &_WorkspaceProcess, workspace) == 0;
@@ -191,6 +192,10 @@ void *_WorkspaceProcess(void *context) {
         return NULL;
     }
 
+    if (DiagnosticEngineGetMessageCount(DiagnosticLevelError) > 0 || DiagnosticEngineGetMessageCount(DiagnosticLevelCritical) > 0) {
+        return NULL;
+    }
+
     // Name resolution phase
     PerformNameResolution(workspace->context, ASTContextGetModule(workspace->context));
 
@@ -201,6 +206,10 @@ void *_WorkspaceProcess(void *context) {
     TypeCheckerRef typeChecker = TypeCheckerCreate(workspace->allocator);
     TypeCheckerValidateModule(typeChecker, workspace->context, ASTContextGetModule(workspace->context));
     TypeCheckerDestroy(typeChecker);
+
+    if (DiagnosticEngineGetMessageCount(DiagnosticLevelError) > 0 || DiagnosticEngineGetMessageCount(DiagnosticLevelCritical) > 0) {
+        return NULL;
+    }
 
     return NULL;
 }
