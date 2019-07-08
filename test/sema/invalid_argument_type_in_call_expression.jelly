@@ -1,0 +1,21 @@
+func myFunc(argument: Int) -> Void {}
+func anotherFunc(lhs: Int, rhs: Int) -> Void {}
+
+func myInvalidFunc() -> Void {
+    myFunc(1.0) // expect-error: Mismatching type for parameter 'argument'
+    anotherFunc(0) // expect-error: Invalid argument count expected '2' found '1'
+}
+
+struct MyStruct {
+    var x: Int
+}
+
+func match() -> Void {}
+func match(arg0: Int) -> Void {}
+func match(arg1: Int, arg2: Bool) -> Void {}
+func match(arg1: Int, myStruct: MyStruct, arg3: Int) -> Void {}
+
+func myInvalidFunc2() -> Void {
+    match(0, 0, 0) // expect-error: Mismatching type for parameter 'myStruct'
+    match(0, false, true) // expect-error: Invalid argument count expected '2' found '3'
+}

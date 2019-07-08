@@ -3,6 +3,13 @@
 #include "JellyCore/Diagnostic.h"
 #include "JellyCore/TypeChecker.h"
 
+#define _GuardValidateOnce(__NODE__)                                                                                                       \
+    if ((((ASTNodeRef)__NODE__)->flags & ASTFlagsIsValidated) > 0) {                                                                       \
+        return;                                                                                                                            \
+    } else {                                                                                                                               \
+        ((ASTNodeRef)__NODE__)->flags |= ASTFlagsIsValidated;                                                                              \
+    }
+
 struct _TypeChecker {
     AllocatorRef allocator;
 };
@@ -41,6 +48,8 @@ void TypeCheckerDestroy(TypeCheckerRef typeChecker) {
 }
 
 void TypeCheckerValidateModule(TypeCheckerRef typeChecker, ASTContextRef context, ASTModuleDeclarationRef module) {
+    _GuardValidateOnce(module);
+
     for (Index index = 0; index < ASTArrayGetElementCount(module->sourceUnits); index++) {
         ASTSourceUnitRef sourceUnit = (ASTSourceUnitRef)ASTArrayGetElementAtIndex(module->sourceUnits, index);
         _TypeCheckerValidateSourceUnit(typeChecker, context, sourceUnit);
@@ -48,6 +57,8 @@ void TypeCheckerValidateModule(TypeCheckerRef typeChecker, ASTContextRef context
 }
 
 static inline void _TypeCheckerValidateSourceUnit(TypeCheckerRef typeChecker, ASTContextRef context, ASTSourceUnitRef sourceUnit) {
+    _GuardValidateOnce(sourceUnit);
+
     for (Index index = 0; index < ASTArrayGetElementCount(sourceUnit->declarations); index++) {
         ASTNodeRef node = (ASTNodeRef)ASTArrayGetElementAtIndex(sourceUnit->declarations, index);
         _TypeCheckerValidateTopLevelNode(typeChecker, context, node);
@@ -80,6 +91,8 @@ static inline void _TypeCheckerValidateTopLevelNode(TypeCheckerRef typeChecker, 
 
 static inline void _TypeCheckerValidateEnumerationDeclaration(TypeCheckerRef typeChecker, ASTContextRef context,
                                                               ASTEnumerationDeclarationRef declaration) {
+    _GuardValidateOnce(declaration);
+
     ArrayRef values        = ArrayCreateEmpty(typeChecker->allocator, sizeof(UInt64), ASTArrayGetElementCount(declaration->elements));
     UInt64 nextMemberValue = 0;
     for (Index index = 0; index < ASTArrayGetElementCount(declaration->elements); index++) {
@@ -137,6 +150,8 @@ static inline void _TypeCheckerValidateEnumerationDeclaration(TypeCheckerRef typ
 
 static inline void _TypeCheckerValidateFunctionDeclaration(TypeCheckerRef typeChecker, ASTContextRef context,
                                                            ASTFunctionDeclarationRef declaration) {
+    _GuardValidateOnce(declaration);
+
     for (Index index = 0; index < ASTArrayGetElementCount(declaration->parameters); index++) {
         ASTValueDeclarationRef parameter = (ASTValueDeclarationRef)ASTArrayGetElementAtIndex(declaration->parameters, index);
         assert(parameter->base.type);
@@ -172,6 +187,8 @@ static inline void _TypeCheckerValidateFunctionDeclaration(TypeCheckerRef typeCh
 
 static inline void _TypeCheckerValidateStructureDeclaration(TypeCheckerRef typeChecker, ASTContextRef context,
                                                             ASTStructureDeclarationRef declaration) {
+    _GuardValidateOnce(declaration);
+
     ArrayRef parents = ArrayCreateEmpty(typeChecker->allocator, sizeof(ASTDeclarationRef), 8);
     ArrayAppendElement(parents, &declaration);
     _CheckCyclicStorageInStructureDeclaration(context, declaration, parents);
@@ -194,6 +211,7 @@ static inline void _TypeCheckerValidateStructureDeclaration(TypeCheckerRef typeC
 static inline void _TypeCheckerValidateVariableDeclaration(TypeCheckerRef typeChecker, ASTContextRef context,
                                                            ASTValueDeclarationRef declaration) {
     assert(declaration->kind == ASTValueKindVariable);
+    _GuardValidateOnce(declaration);
 
     if (declaration->initializer) {
         _TypeCheckerValidateExpression(typeChecker, context, declaration->initializer);
@@ -378,6 +396,8 @@ static inline void _TypeCheckerValidateStatement(TypeCheckerRef typeChecker, AST
 }
 
 static inline void _TypeCheckerValidateSwitchStatement(TypeCheckerRef typeChecker, ASTContextRef context, ASTSwitchStatementRef statement) {
+    _GuardValidateOnce(statement);
+
     _TypeCheckerValidateExpression(typeChecker, context, statement->argument);
     Bool containsElseCase = false;
     for (Index index = 0; index < ASTArrayGetElementCount(statement->cases); index++) {
@@ -407,6 +427,8 @@ static inline void _TypeCheckerValidateSwitchStatement(TypeCheckerRef typeChecke
 }
 
 static inline void _TypeCheckerValidateExpression(TypeCheckerRef typeChecker, ASTContextRef context, ASTExpressionRef expression) {
+    _GuardValidateOnce(expression);
+
     switch (expression->base.tag) {
     case ASTTagUnaryExpression: {
         // TODO: Validate expression
@@ -419,12 +441,10 @@ static inline void _TypeCheckerValidateExpression(TypeCheckerRef typeChecker, AS
     }
 
     case ASTTagIdentifierExpression: {
-        // TODO: Validate expression
         break;
     }
 
     case ASTTagMemberAccessExpression: {
-        // TODO: Validate expression
         break;
     }
 
@@ -448,12 +468,41 @@ static inline void _TypeCheckerValidateExpression(TypeCheckerRef typeChecker, AS
     }
 
     case ASTTagCallExpression: {
-        // TODO: Validate expression
+        ASTCallExpressionRef call = (ASTCallExpressionRef)expression;
+        _TypeCheckerValidateExpression(typeChecker, context, call->callee);
+        for (Index index = 0; index < ASTArrayGetElementCount(call->arguments); index++) {
+            ASTExpressionRef argument = (ASTExpressionRef)ASTArrayGetElementAtIndex(call->arguments, index);
+            _TypeCheckerValidateExpression(typeChecker, context, argument);
+        }
+
+        if (!_ASTTypeIsError(call->callee->type)) {
+            if (call->callee->type->tag == ASTTagFunctionType) {
+                ASTFunctionTypeRef functionType    = (ASTFunctionTypeRef)call->callee->type;
+                ASTFunctionDeclarationRef function = (ASTFunctionDeclarationRef)functionType->declaration;
+                _TypeCheckerValidateFunctionDeclaration(typeChecker, context, function);
+
+                if (ASTArrayGetElementCount(call->arguments) == ASTArrayGetElementCount(function->parameters)) {
+                    for (Index index = 0; index < ASTArrayGetElementCount(function->parameters); index++) {
+                        ASTValueDeclarationRef parameter = (ASTValueDeclarationRef)ASTArrayGetElementAtIndex(function->parameters, index);
+                        ASTExpressionRef argument        = (ASTExpressionRef)ASTArrayGetElementAtIndex(call->arguments, index);
+
+                        if (!_ASTTypeIsEqualOrError(parameter->base.type, argument->type)) {
+                            ReportErrorFormat("Mismatching type for parameter '%s'", StringGetCharacters(parameter->base.name));
+                        }
+                    }
+                } else {
+                    ReportErrorFormat("Invalid argument count expected '%d' found '%d'", ASTArrayGetElementCount(function->parameters),
+                                      ASTArrayGetElementCount(call->arguments));
+                }
+
+            } else {
+                ReportError("Cannot call a non function type");
+            }
+        }
         break;
     }
 
     case ASTTagConstantExpression: {
-        // TODO: Validate expression
         break;
     }
 
@@ -464,6 +513,8 @@ static inline void _TypeCheckerValidateExpression(TypeCheckerRef typeChecker, AS
 }
 
 static inline void _TypeCheckerValidateBlock(TypeCheckerRef typeChecker, ASTContextRef context, ASTBlockRef block) {
+    _GuardValidateOnce(block);
+
     for (Index index = 0; index < ASTArrayGetElementCount(block->statements); index++) {
         ASTNodeRef statement = ASTArrayGetElementAtIndex(block->statements, index);
         _TypeCheckerValidateStatement(typeChecker, context, statement);

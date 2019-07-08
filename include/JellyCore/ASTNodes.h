@@ -47,11 +47,13 @@ enum _ASTTag {
 };
 typedef enum _ASTTag ASTTag;
 
+// TODO: Add error flag for validity checks
 enum _ASTFlags {
     ASTFlagsNone                       = 0,
     ASTFlagsStructureHasCyclicStorage  = 1 << 0,
     ASTFlagsStatementIsAlwaysReturning = 1 << 1,
     ASTFlagsSwitchIsExhaustive         = 1 << 2,
+    ASTFlagsIsValidated                = 1 << 3,
 };
 typedef enum _ASTFlags ASTFlags;
 

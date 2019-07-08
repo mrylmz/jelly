@@ -3,6 +3,15 @@
 #include "JellyCore/Diagnostic.h"
 #include "JellyCore/NameResolution.h"
 
+enum _CandidateFunctionMatchKind {
+    CandidateFunctionMatchKindNone,
+    CandidateFunctionMatchKindName,
+    CandidateFunctionMatchKindParameterCount,
+    CandidateFunctionMatchKindParameterTypes,
+    CandidateFunctionMatchKindExpectedType,
+};
+typedef enum _CandidateFunctionMatchKind CandidateFunctionMatchKind;
+
 static inline void _AddSourceUnitRecordDeclarationsToScope(ASTContextRef context, ASTSourceUnitRef sourceUnit);
 static inline Bool _ResolveDeclarationsOfFunctionSignature(ASTContextRef context, ASTFunctionDeclarationRef function);
 static inline Bool _ResolveDeclarationsOfTypeAndSubstituteType(ASTContextRef context, ASTScopeRef scope, ASTTypeRef *type);
@@ -409,6 +418,9 @@ static inline void _PerformNameResolutionForExpression(ASTContextRef context, AS
         if (call->callee->base.tag == ASTTagIdentifierExpression) {
             ASTIdentifierExpressionRef identifier = (ASTIdentifierExpressionRef)call->callee;
             ASTScopeRef globalScope               = ASTContextGetGlobalScope(context);
+            ASTDeclarationRef matchingDeclaration = NULL;
+            CandidateFunctionMatchKind matchKind  = CandidateFunctionMatchKindNone;
+            Index matchingParameterTypeCount      = 0;
             for (Index index = 0; index < ASTArrayGetElementCount(globalScope->declarations); index++) {
                 ASTDeclarationRef declaration = (ASTDeclarationRef)ASTArrayGetElementAtIndex(globalScope->declarations, index);
                 if (declaration->base.tag != ASTTagFunctionDeclaration) {
@@ -419,19 +431,34 @@ static inline void _PerformNameResolutionForExpression(ASTContextRef context, AS
                     continue;
                 }
 
+                if (matchKind < CandidateFunctionMatchKindName) {
+                    matchingDeclaration = declaration;
+                    matchKind           = CandidateFunctionMatchKindName;
+                }
+
                 ASTFunctionDeclarationRef function = (ASTFunctionDeclarationRef)declaration;
-                if (ASTArrayGetElementCount(function->parameters) != ASTArrayGetElementCount(call->arguments)) {
-                    continue;
+                Index minParameterCheckCount = MIN(ASTArrayGetElementCount(function->parameters), ASTArrayGetElementCount(call->arguments));
+                Index hasCorrectArgumentCount = ASTArrayGetElementCount(function->parameters) == ASTArrayGetElementCount(call->arguments);
+
+                if (matchKind < CandidateFunctionMatchKindParameterCount && hasCorrectArgumentCount) {
+                    matchingDeclaration = declaration;
+                    matchKind           = CandidateFunctionMatchKindParameterCount;
                 }
 
                 if (call->base.expectedType) {
                     if (!ASTTypeIsEqual(call->base.expectedType, function->returnType)) {
                         continue;
                     }
+
+                    if (matchKind < CandidateFunctionMatchKindExpectedType) {
+                        matchingDeclaration = declaration;
+                        matchKind           = CandidateFunctionMatchKindExpectedType;
+                    }
                 }
 
-                Bool hasMatchingParameterTypes = true;
-                for (Index parameterIndex = 0; parameterIndex < ASTArrayGetElementCount(function->parameters); parameterIndex++) {
+                Bool hasMatchingParameterTypes          = true;
+                Index currentMatchingParameterTypeCount = 0;
+                for (Index parameterIndex = 0; parameterIndex < minParameterCheckCount; parameterIndex++) {
                     ASTValueDeclarationRef parameter = (ASTValueDeclarationRef)ASTArrayGetElementAtIndex(function->parameters,
                                                                                                          parameterIndex);
                     ASTExpressionRef argument        = (ASTExpressionRef)ASTArrayGetElementAtIndex(call->arguments, parameterIndex);
@@ -439,14 +466,20 @@ static inline void _PerformNameResolutionForExpression(ASTContextRef context, AS
                     assert(parameter->base.type);
                     assert(argument->type);
 
-                    if (!ASTTypeIsEqual(parameter->base.type, argument->type)) {
+                    if (ASTTypeIsEqual(parameter->base.type, argument->type)) {
+                        currentMatchingParameterTypeCount += 1;
+                    } else {
                         hasMatchingParameterTypes = false;
-                        break;
                     }
                 }
 
-                if (hasMatchingParameterTypes) {
+                if (hasMatchingParameterTypes && hasCorrectArgumentCount) {
                     ASTArrayAppendElement(identifier->candidateDeclarations, declaration);
+                } else if (matchKind <= CandidateFunctionMatchKindParameterTypes &&
+                           matchingParameterTypeCount < currentMatchingParameterTypeCount) {
+                    matchingDeclaration        = declaration;
+                    matchKind                  = CandidateFunctionMatchKindParameterTypes;
+                    matchingParameterTypeCount = currentMatchingParameterTypeCount;
                 }
             }
 
@@ -455,8 +488,14 @@ static inline void _PerformNameResolutionForExpression(ASTContextRef context, AS
                 identifier->resolvedDeclaration = (ASTDeclarationRef)ASTArrayGetElementAtIndex(identifier->candidateDeclarations, 0);
                 identifier->base.type           = identifier->resolvedDeclaration->type;
             } else if (candidateCount == 0) {
-                ReportError("Use of unresolved identifier");
-                identifier->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
+                // Fall back to best matching declaration to emit better error reports in type checking phase
+                if (matchingDeclaration) {
+                    identifier->resolvedDeclaration = matchingDeclaration;
+                    identifier->base.type           = identifier->resolvedDeclaration->type;
+                } else {
+                    ReportError("Use of unresolved identifier");
+                    identifier->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
+                }
             } else {
                 ReportError("Ambigous use of identifier");
                 identifier->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
