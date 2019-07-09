@@ -332,6 +332,7 @@ struct _ASTDeclaration {
     struct _ASTNode base;
 
     StringRef name;
+    StringRef mangledName;
     ASTTypeRef type;
 };
 

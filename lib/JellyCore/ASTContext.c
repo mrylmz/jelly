@@ -314,11 +314,13 @@ ASTConstantExpressionRef ASTContextCreateConstantStringExpression(ASTContextRef 
 ASTModuleDeclarationRef ASTContextCreateModuleDeclaration(ASTContextRef context, SourceRange location, ASTScopeRef scope,
                                                           ArrayRef sourceUnits, ArrayRef importedModules) {
     ASTModuleDeclarationRef node = (ASTModuleDeclarationRef)_ASTContextCreateNode(context, ASTTagModuleDeclaration, location, scope);
-    node->base.name              = NULL;
-    node->base.type              = NULL;
-    node->scope                  = ASTContextCreateScope(context, location, (ASTNodeRef)node, scope, ASTScopeKindGlobal);
-    node->sourceUnits            = ASTContextCreateArray(context, location, scope);
-    node->importedModules        = ASTContextCreateArray(context, location, scope);
+    // TODO: The name of the module is a placeholder for now, there has to be a convenient way in the language to specify a module name
+    node->base.name        = StringCreate(context->allocator, "Module");
+    node->base.mangledName = NULL;
+    node->base.type        = NULL;
+    node->scope            = ASTContextCreateScope(context, location, (ASTNodeRef)node, scope, ASTScopeKindGlobal);
+    node->sourceUnits      = ASTContextCreateArray(context, location, scope);
+    node->importedModules  = ASTContextCreateArray(context, location, scope);
     if (sourceUnits) {
         ASTArrayAppendArray(node->sourceUnits, sourceUnits);
     }
@@ -335,6 +337,7 @@ ASTEnumerationDeclarationRef ASTContextCreateEnumerationDeclaration(ASTContextRe
     ASTEnumerationDeclarationRef node = (ASTEnumerationDeclarationRef)_ASTContextCreateNode(context, ASTTagEnumerationDeclaration, location,
                                                                                             scope);
     node->base.name                   = StringCreateCopy(context->allocator, name);
+    node->base.mangledName            = NULL;
     node->elements                    = ASTContextCreateArray(context, location, scope);
     node->innerScope                  = NULL;
     if (elements) {
@@ -351,6 +354,7 @@ ASTFunctionDeclarationRef ASTContextCreateFunctionDeclaration(ASTContextRef cont
 
     ASTFunctionDeclarationRef node = (ASTFunctionDeclarationRef)_ASTContextCreateNode(context, ASTTagFunctionDeclaration, location, scope);
     node->base.name                = StringCreateCopy(context->allocator, name);
+    node->base.mangledName         = NULL;
     node->fixity                   = ASTFixityNone;
     node->parameters               = ASTContextCreateArray(context, location, scope);
     node->returnType               = returnType;
@@ -372,6 +376,7 @@ ASTFunctionDeclarationRef ASTContextCreateForeignFunctionDeclaration(ASTContextR
 
     ASTFunctionDeclarationRef node = (ASTFunctionDeclarationRef)_ASTContextCreateNode(context, ASTTagFunctionDeclaration, location, scope);
     node->base.name                = StringCreateCopy(context->allocator, name);
+    node->base.mangledName         = NULL;
     node->fixity                   = ASTFixityNone;
     node->parameters               = ASTContextCreateArray(context, location, scope);
     node->returnType               = returnType;
@@ -392,6 +397,7 @@ ASTStructureDeclarationRef ASTContextCreateStructureDeclaration(ASTContextRef co
     ASTStructureDeclarationRef node = (ASTStructureDeclarationRef)_ASTContextCreateNode(context, ASTTagStructureDeclaration, location,
                                                                                         scope);
     node->base.name                 = StringCreateCopy(context->allocator, name);
+    node->base.mangledName          = NULL;
     node->values                    = ASTContextCreateArray(context, location, scope);
     node->innerScope                = NULL;
     if (values) {
@@ -408,6 +414,7 @@ ASTValueDeclarationRef ASTContextCreateValueDeclaration(ASTContextRef context, S
 
     ASTValueDeclarationRef node = (ASTValueDeclarationRef)_ASTContextCreateNode(context, ASTTagValueDeclaration, location, scope);
     node->base.name             = StringCreateCopy(context->allocator, name);
+    node->base.mangledName      = NULL;
     node->kind                  = kind;
     node->base.type             = type;
     node->initializer           = initializer;

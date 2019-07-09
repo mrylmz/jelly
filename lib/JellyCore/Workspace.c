@@ -1,4 +1,5 @@
 #include "JellyCore/ASTDumper.h"
+#include "JellyCore/ASTMangling.h"
 #include "JellyCore/ASTScope.h"
 #include "JellyCore/Diagnostic.h"
 #include "JellyCore/NameResolution.h"
@@ -206,6 +207,12 @@ void *_WorkspaceProcess(void *context) {
     TypeCheckerRef typeChecker = TypeCheckerCreate(workspace->allocator);
     TypeCheckerValidateModule(typeChecker, workspace->context, ASTContextGetModule(workspace->context));
     TypeCheckerDestroy(typeChecker);
+
+    if (DiagnosticEngineGetMessageCount(DiagnosticLevelError) > 0 || DiagnosticEngineGetMessageCount(DiagnosticLevelCritical) > 0) {
+        return NULL;
+    }
+
+    PerformNameMangling(workspace->context, ASTContextGetModule(workspace->context));
 
     if (DiagnosticEngineGetMessageCount(DiagnosticLevelError) > 0 || DiagnosticEngineGetMessageCount(DiagnosticLevelCritical) > 0) {
         return NULL;
