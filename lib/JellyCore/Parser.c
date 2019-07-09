@@ -1087,7 +1087,7 @@ static inline ASTValueDeclarationRef _ParserParseVariableDeclaration(ParserRef p
     SourceRange location = parser->token.location;
 
     if (!_ParserConsumeToken(parser, TokenKindKeywordVar)) {
-        ReportErrorFormat("Expected 'var' found '%.*s'", SourceRangeLength(parser->token.location), parser->token.location.start);
+        ReportErrorFormat("Expected 'var' found '%.*s'", (Int32)SourceRangeLength(parser->token.location), parser->token.location.start);
         return NULL;
     }
 

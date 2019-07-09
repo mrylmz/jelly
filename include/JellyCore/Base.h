@@ -39,6 +39,10 @@ typedef size_t Index;
 #define JELLY_UNREACHABLE(__MESSAGE__) assert(0 && __MESSAGE__)
 #endif
 
+#ifndef JELLY_PRINTFLIKE
+#define JELLY_PRINTFLIKE(__FORMAT_INDEX__, __VARARG_INDEX__) __attribute__((__format__(__printf__, __FORMAT_INDEX__, __VARARG_INDEX__)))
+#endif
+
 #ifndef MIN
 #define MIN(__X__, __Y__) __X__ <= __Y__ ? __X__ : __Y__
 #endif

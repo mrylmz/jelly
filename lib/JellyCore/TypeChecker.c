@@ -140,7 +140,7 @@ static inline void _TypeCheckerValidateEnumerationDeclaration(TypeCheckerRef typ
         }
 
         if (isOverlappingOtherElementValue) {
-            ReportErrorFormat("Invalid reuse of value %d for different enum elements", constant->intValue);
+            ReportErrorFormat("Invalid reuse of value %llu for different enum elements", constant->intValue);
         } else {
             ArrayAppendElement(values, &constant->intValue);
             nextMemberValue = constant->intValue + 1;
@@ -491,7 +491,7 @@ static inline void _TypeCheckerValidateExpression(TypeCheckerRef typeChecker, AS
                         }
                     }
                 } else {
-                    ReportErrorFormat("Invalid argument count expected '%d' found '%d'", ASTArrayGetElementCount(function->parameters),
+                    ReportErrorFormat("Invalid argument count expected '%zu' found '%zu'", ASTArrayGetElementCount(function->parameters),
                                       ASTArrayGetElementCount(call->arguments));
                 }
 

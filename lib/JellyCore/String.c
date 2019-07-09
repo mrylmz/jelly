@@ -1,5 +1,9 @@
 #include "JellyCore/String.h"
 
+// TODO: Allow dynamic buffer sizes for string formatting, this buffer is only a temporary solution and unlikely to cause memory issues for
+// now because there won't be any known string which more than 65535 characters...
+static Char _kStringFormatBuffer[65535] = {};
+
 struct _String {
     AllocatorRef allocator;
     Index length;
@@ -133,6 +137,15 @@ void StringAppendString(StringRef string, StringRef other) {
         string->length += other->length;
         string->memory = newMemory;
     }
+}
+
+void StringAppendFormat(StringRef string, const Char *format, ...) {
+    va_list argumentPointer;
+    va_start(argumentPointer, format);
+    vsprintf(&_kStringFormatBuffer[0], format, argumentPointer);
+    va_end(argumentPointer);
+
+    StringAppend(string, &_kStringFormatBuffer[0]);
 }
 
 Bool StringIsEqual(StringRef lhs, StringRef rhs) {

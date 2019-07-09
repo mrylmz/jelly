@@ -27,23 +27,23 @@ Index DiagnosticEngineGetMessageCount(DiagnosticLevel level);
 
 void ReportDebug(const Char *message);
 void ReportDebugString(StringRef message);
-void ReportDebugFormat(const Char *format, ...);
+void ReportDebugFormat(const Char *format, ...) JELLY_PRINTFLIKE(1, 2);
 
 void ReportInfo(const Char *message);
 void ReportInfoString(StringRef message);
-void ReportInfoFormat(const Char *format, ...);
+void ReportInfoFormat(const Char *format, ...) JELLY_PRINTFLIKE(1, 2);
 
 void ReportWarning(const Char *message);
 void ReportWarningString(StringRef message);
-void ReportWarningFormat(const Char *format, ...);
+void ReportWarningFormat(const Char *format, ...) JELLY_PRINTFLIKE(1, 2);
 
 void ReportError(const Char *message);
 void ReportErrorString(StringRef message);
-void ReportErrorFormat(const Char *format, ...);
+void ReportErrorFormat(const Char *format, ...) JELLY_PRINTFLIKE(1, 2);
 
 void ReportCritical(const Char *message);
 void ReportCriticalString(StringRef message);
-void ReportCriticalFormat(const Char *format, ...);
+void ReportCriticalFormat(const Char *format, ...) JELLY_PRINTFLIKE(1, 2);
 
 void FatalError(const Char *message);
 

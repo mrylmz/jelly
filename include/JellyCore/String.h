@@ -35,6 +35,8 @@ void StringAppend(StringRef string, const Char *rawString);
 
 void StringAppendString(StringRef string, StringRef other);
 
+void StringAppendFormat(StringRef string, const Char *format, ...) JELLY_PRINTFLIKE(2, 3);
+
 bool StringIsEqual(StringRef lhs, StringRef rhs);
 
 JELLY_EXTERN_C_END
