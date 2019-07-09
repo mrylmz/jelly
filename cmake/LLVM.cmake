@@ -1,6 +1,5 @@
 cmake_minimum_required(VERSION 3.4.3)
 
-set(LLVM_DIR /usr/local/opt/llvm/lib/cmake/llvm)
 find_package(LLVM REQUIRED CONFIG)
 
 message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")

@@ -4,12 +4,26 @@ project(jelly
         VERSION 0.0.0
         LANGUAGES C)
 
+if (APPLE)
+    # Add support for brew packages which will not be linked by
+    # brew because they are expected to be pre-installed on the
+    # target os (e.g. llvm on macOS)
+    list(APPEND CMAKE_PREFIX_PATH /usr/local/opt/)
+endif()
+
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
+set(CMAKE_BUILD_TYPE Debug)
 
+# LLVM Libraries
+include(LLVM)
+
+llvm_map_components_to_libnames(JELLY_LLVM_LIBS support core irreader interpreter)
+
+# Libraries
 set(JELLY_CORE_HEADER_FILES "include/JellyCore/Allocator.h"
                             "include/JellyCore/Array.h"
                             "include/JellyCore/ASTArray.h"
@@ -52,11 +66,14 @@ set(JELLY_CORE_SOURCE_FILES "lib/JellyCore/Allocator.c"
 add_library(JellyCore STATIC ${JELLY_CORE_HEADER_FILES} 
                              ${JELLY_CORE_SOURCE_FILES})
 target_include_directories(JellyCore PUBLIC include)
+target_link_libraries(JellyCore ${JELLY_LLVM_LIBS})
 
+# Tools
 add_executable(${PROJECT_NAME} "src/main.c")
 target_include_directories(${PROJECT_NAME} PUBLIC include)
 target_link_libraries(${PROJECT_NAME} JellyCore)
 
+# Testing
 add_subdirectory(googletest)
 add_subdirectory(test)
 
