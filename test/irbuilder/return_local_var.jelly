@@ -1,0 +1,4 @@
+func return_local_var() -> Bool {
+    var value: Bool = false
+    return value
+}

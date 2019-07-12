@@ -14,7 +14,12 @@ void _ReportDiagnostic(DiagnosticLevel level, const Char *message);
 static struct _DiagnosticEngine kSharedDiagnosticEngine = {&_DiagnosticHandlerStd, NULL};
 
 void DiagnosticEngineSetDefaultHandler(DiagnosticHandler handler, void *context) {
-    kSharedDiagnosticEngine.handler = handler;
+    if (handler) {
+        kSharedDiagnosticEngine.handler = handler;
+    } else {
+        kSharedDiagnosticEngine.handler = &_DiagnosticHandlerStd;
+    }
+
     kSharedDiagnosticEngine.context = context;
 }
 

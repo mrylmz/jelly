@@ -67,9 +67,11 @@ void ASTArrayInsertElementAtIndex(ASTArrayRef array, Index index, void *element)
     }
 
     ASTLinkedListRef list = array->list;
-    for (Index offset = 0; offset < MAX(0, index - 1); offset++) {
-        assert(list->next);
-        list = list->next;
+    if (index > 0) {
+        for (Index offset = 0; offset < index - 1; offset++) {
+            assert(list->next);
+            list = list->next;
+        }
     }
 
     ASTLinkedListRef next = list->next;

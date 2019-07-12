@@ -11,6 +11,8 @@ JELLY_EXTERN_C_BEGIN
 
 // TODO: Replace all linked lists...
 
+typedef void *IRRef;
+
 enum _ASTTag {
     ASTTagSourceUnit,
     ASTTagLinkedList,
@@ -54,6 +56,7 @@ enum _ASTFlags {
     ASTFlagsStatementIsAlwaysReturning = 1 << 1,
     ASTFlagsSwitchIsExhaustive         = 1 << 2,
     ASTFlagsIsValidated                = 1 << 3,
+    ASTFlagsBlockHasTerminator         = 1 << 5,
 };
 typedef enum _ASTFlags ASTFlags;
 
@@ -106,6 +109,9 @@ struct _ASTNode {
     ASTFlags flags;
     SourceRange location;
     ASTScopeRef scope;
+
+    IRRef irValue;
+    IRRef irType;
 };
 
 struct _ASTExpression {
@@ -169,6 +175,9 @@ struct _ASTLoopStatement {
     ASTLoopKind kind;
     ASTExpressionRef condition;
     ASTBlockRef loopBlock;
+
+    IRRef irEntry;
+    IRRef irExit;
 };
 
 enum _ASTCaseKind {
@@ -183,6 +192,9 @@ struct _ASTCaseStatement {
     ASTCaseKind kind;
     ASTExpressionRef condition;
     ASTBlockRef body;
+    ASTSwitchStatementRef enclosingSwitch;
+
+    IRRef irNext;
 };
 
 struct _ASTSwitchStatement {
@@ -190,6 +202,8 @@ struct _ASTSwitchStatement {
 
     ASTExpressionRef argument;
     ASTArrayRef cases;
+
+    IRRef irExit;
 };
 
 enum _ASTControlKind {

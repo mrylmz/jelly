@@ -1,0 +1,16 @@
+func simple_switch_in_loop(cond: Bool) -> Float {
+    while cond {
+        switch cond {
+        case true:
+            fallthrough
+        case false:
+            break
+        }
+
+        if cond {
+            break
+        }
+    }
+
+    return 2.7981238781273
+}

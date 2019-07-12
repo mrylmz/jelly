@@ -106,10 +106,15 @@ static inline Bool _ResolveDeclarationsOfFunctionSignature(ASTContextRef context
     Bool success = true;
     for (Index index = 0; index < ASTArrayGetElementCount(function->parameters); index++) {
         ASTValueDeclarationRef value = (ASTValueDeclarationRef)ASTArrayGetElementAtIndex(function->parameters, index);
-        success = success && _ResolveDeclarationsOfTypeAndSubstituteType(context, function->base.base.scope, &value->base.type);
+        if (!_ResolveDeclarationsOfTypeAndSubstituteType(context, function->base.base.scope, &value->base.type)) {
+            success = false;
+        }
     }
 
-    success = success && _ResolveDeclarationsOfTypeAndSubstituteType(context, function->base.base.scope, &function->returnType);
+    if (!_ResolveDeclarationsOfTypeAndSubstituteType(context, function->base.base.scope, &function->returnType)) {
+        success = false;
+    }
+
     return success;
 }
 

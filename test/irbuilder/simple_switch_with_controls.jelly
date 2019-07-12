@@ -1,0 +1,18 @@
+func simple_switch_with_controls(cond: Int) -> Int {
+    switch cond {
+    case 0:
+        return 1
+    case 1:
+        return 2
+    case 2:
+        break
+    case 10:
+        fallthrough
+    case 11:
+        return 12
+    else:
+        return 10
+    }
+
+    return 0
+}

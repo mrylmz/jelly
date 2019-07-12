@@ -56,6 +56,10 @@ Index ArrayGetCapacity(ArrayRef array) {
     return array->capacity;
 }
 
+UInt8 *ArrayGetMemoryPointer(ArrayRef array) {
+    return array->memory;
+}
+
 Index ArrayGetSortedInsertionIndex(ArrayRef array, ArrayPredicate isOrderedAscending, void *element) {
     if (ArrayGetElementCount(array) < 1) {
         return 0;

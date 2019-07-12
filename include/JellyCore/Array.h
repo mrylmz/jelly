@@ -24,6 +24,8 @@ Index ArrayGetElementCount(ArrayRef array);
 
 Index ArrayGetCapacity(ArrayRef array);
 
+UInt8 *ArrayGetMemoryPointer(ArrayRef array);
+
 Index ArrayGetSortedInsertionIndex(ArrayRef array, ArrayPredicate isOrderedAscending, void *element);
 
 void *ArrayGetElementAtIndex(ArrayRef array, Index index);

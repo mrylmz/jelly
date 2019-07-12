@@ -10,6 +10,9 @@
         ((ASTNodeRef)__NODE__)->flags |= ASTFlagsIsValidated;                                                                              \
     }
 
+// TODO: Add validation for types like expecting a constant expression for the size of an array type
+// TODO: Emit warning for unreachable code which will be determined by preceding nodes with the flag ASTFlagsBlockHasTerminator
+
 struct _TypeChecker {
     AllocatorRef allocator;
 };
@@ -258,10 +261,9 @@ static inline void _TypeCheckerValidateStatement(TypeCheckerRef typeChecker, AST
             scope = ASTScopeGetNextParentForLookup(scope);
         }
 
-        ASTSwitchStatementRef switchStatement = NULL;
         if (scope) {
             assert(scope->node->tag == ASTTagSwitchStatement);
-            switchStatement = (ASTSwitchStatementRef)scope->node;
+            statement->enclosingSwitch = (ASTSwitchStatementRef)scope->node;
         } else {
             ReportError("'case' is only allowed inside a switch");
         }
@@ -285,6 +287,8 @@ static inline void _TypeCheckerValidateStatement(TypeCheckerRef typeChecker, AST
             JELLY_UNREACHABLE("Invalid kind given for ASTCaseStatement");
             break;
         }
+
+        _TypeCheckerValidateBlock(typeChecker, context, statement->body);
         return;
     }
 
@@ -297,14 +301,14 @@ static inline void _TypeCheckerValidateStatement(TypeCheckerRef typeChecker, AST
         switch (control->kind) {
         case ASTControlKindBreak: {
             ASTScopeRef scope = control->base.scope;
-            while (scope && (scope->kind != ASTScopeKindLoop || scope->kind != ASTScopeKindCase)) {
+            while (scope && (scope->kind != ASTScopeKindLoop && scope->kind != ASTScopeKindSwitch)) {
                 scope = ASTScopeGetNextParentForLookup(scope);
             }
 
             if (scope) {
                 control->enclosingNode = scope->node;
             } else {
-                ReportError("'break' is only allowed inside a case or loop");
+                ReportError("'break' is only allowed inside a switch or loop");
             }
             break;
         }
@@ -403,10 +407,9 @@ static inline void _TypeCheckerValidateSwitchStatement(TypeCheckerRef typeChecke
     for (Index index = 0; index < ASTArrayGetElementCount(statement->cases); index++) {
         ASTNodeRef child = (ASTNodeRef)ASTArrayGetElementAtIndex(statement->cases, index);
         assert(child->tag == ASTTagCaseStatement);
-
+        ASTCaseStatementRef caseStatement = (ASTCaseStatementRef)child;
         _TypeCheckerValidateStatement(typeChecker, context, child);
 
-        ASTCaseStatementRef caseStatement = (ASTCaseStatementRef)child;
         if (caseStatement->kind == ASTCaseKindElse) {
             if (index + 1 < ASTArrayGetElementCount(statement->cases)) {
                 ReportError("The 'else' case has to be the last case of a switch statement");
@@ -518,6 +521,11 @@ static inline void _TypeCheckerValidateBlock(TypeCheckerRef typeChecker, ASTCont
     for (Index index = 0; index < ASTArrayGetElementCount(block->statements); index++) {
         ASTNodeRef statement = ASTArrayGetElementAtIndex(block->statements, index);
         _TypeCheckerValidateStatement(typeChecker, context, statement);
+
+        // Every control statement is a terminator
+        if (statement->tag == ASTTagControlStatement) {
+            block->base.flags |= ASTFlagsBlockHasTerminator;
+        }
     }
 }
 
@@ -629,6 +637,7 @@ static inline void _CheckIsBlockAlwaysReturning(ASTBlockRef block) {
     }
 }
 
+// TODO: Verify do we have to check `break` statements explicity, if there is any then the switch is not exhaustive!
 static inline void _CheckIsSwitchExhaustive(TypeCheckerRef typeChecker, ASTSwitchStatementRef statement) {
     assert(ASTArrayGetElementCount(statement->cases) > 0);
 
@@ -683,6 +692,36 @@ static inline void _CheckIsSwitchExhaustive(TypeCheckerRef typeChecker, ASTSwitc
         }
 
         ArrayDestroy(intValues);
+    } else if (statement->argument->type->tag == ASTTagBuiltinType) {
+        ASTBuiltinTypeRef type = (ASTBuiltinTypeRef)statement->argument->type;
+        if (type->kind == ASTBuiltinTypeKindBool) {
+            ArrayRef boolValues = ArrayCreateEmpty(typeChecker->allocator, sizeof(Bool), 2);
+            Bool trueValue      = true;
+            Bool falseValue     = false;
+            ArrayAppendElement(boolValues, &trueValue);
+            ArrayAppendElement(boolValues, &falseValue);
+            for (Index index = 0; index < ASTArrayGetElementCount(statement->cases); index++) {
+                ASTCaseStatementRef child = (ASTCaseStatementRef)ASTArrayGetElementAtIndex(statement->cases, index);
+                if (child->condition->base.tag == ASTTagConstantExpression) {
+                    ASTConstantExpressionRef constant = (ASTConstantExpressionRef)child->condition;
+                    if (constant->kind == ASTConstantKindBool) {
+                        for (Index valueIndex = 0; valueIndex < ArrayGetElementCount(boolValues); valueIndex++) {
+                            Bool value = *((Bool *)ArrayGetElementAtIndex(boolValues, valueIndex));
+                            if (value == constant->boolValue) {
+                                ArrayRemoveElementAtIndex(boolValues, valueIndex);
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (ArrayGetElementCount(boolValues) == 0) {
+                statement->base.flags |= ASTFlagsSwitchIsExhaustive;
+            }
+
+            ArrayDestroy(boolValues);
+        }
     }
 }
 

@@ -7,6 +7,7 @@ int main(int argc, char **argv) {
         ArrayAppendElement(arguments, &argument);
     }
 
+    ReportInfoFormat("jelly version %s", JELLY_VERSION);
     Int status = CompilerRun(arguments);
 
     for (Index index = 0; index < ArrayGetElementCount(arguments); index++) {

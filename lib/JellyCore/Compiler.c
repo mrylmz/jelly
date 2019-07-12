@@ -20,6 +20,7 @@ Int CompilerRun(ArrayRef arguments) {
 
     Int32 optionDumpAST          = 0;
     Int32 optionDumpScope        = 0;
+    Int32 optionDumpIR           = 0;
     Int32 optionWorkingDirectory = 0;
     StringRef dumpASTFilePath    = NULL;
     StringRef dumpScopeFilePath  = NULL;
@@ -28,6 +29,7 @@ Int CompilerRun(ArrayRef arguments) {
     struct option options[] = {
         {"dump-ast", optional_argument, &optionDumpAST, 1},
         {"dump-scope", optional_argument, &optionDumpScope, 1},
+        {"dump-ir", no_argument, &optionDumpIR, 1},
         {"working-directory", required_argument, &optionWorkingDirectory, 1},
         {0, 0, 0, 0},
     };
@@ -47,7 +49,7 @@ Int CompilerRun(ArrayRef arguments) {
                 dumpScopeFilePath = StringCreate(AllocatorGetSystemDefault(), optarg);
             }
 
-            if (index == 2) {
+            if (index == 3) {
                 workingDirectory = StringCreate(AllocatorGetSystemDefault(), optarg);
             }
             break;
@@ -106,6 +108,10 @@ Int CompilerRun(ArrayRef arguments) {
 
     if (optionDumpScope) {
         workspaceOptions |= WorkspaceOptionsDumpScope;
+    }
+
+    if (optionDumpIR) {
+        workspaceOptions |= WorkspaceOptionsDumpIR;
     }
 
     WorkspaceRef workspace = WorkspaceCreate(AllocatorGetSystemDefault(), workingDirectory, workspaceOptions);

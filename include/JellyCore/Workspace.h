@@ -11,6 +11,7 @@ enum _WorkspaceOptions {
     WorkspaceOptionsNone      = 0,
     WorkspaceOptionsDumpAST   = 1 << 0,
     WorkspaceOptionsDumpScope = 1 << 1,
+    WorkspaceOptionsDumpIR    = 1 << 2,
 };
 typedef enum _WorkspaceOptions WorkspaceOptions;
 

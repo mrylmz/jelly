@@ -1,0 +1,7 @@
+struct Point {
+    var x: Float
+    var y: Float
+    var z: Float
+}
+
+func __force_emit_struct(p: Point) -> Void {}

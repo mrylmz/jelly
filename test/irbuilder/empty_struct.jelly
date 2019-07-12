@@ -1,0 +1,3 @@
+struct Empty {}
+
+func __force_emit_struct(e: Empty) -> Void {}

@@ -143,6 +143,8 @@ ASTLoopStatementRef ASTContextCreateLoopStatement(ASTContextRef context, SourceR
     node->kind               = kind;
     node->condition          = condition;
     node->loopBlock          = loopBlock;
+    node->irEntry            = NULL;
+    node->irExit             = NULL;
     return node;
 }
 
@@ -154,6 +156,7 @@ ASTCaseStatementRef ASTContextCreateCaseStatement(ASTContextRef context, SourceR
     node->kind               = kind;
     node->condition          = condition;
     node->body               = body;
+    node->enclosingSwitch    = NULL;
     return node;
 }
 
@@ -164,6 +167,7 @@ ASTSwitchStatementRef ASTContextCreateSwitchStatement(ASTContextRef context, Sou
     ASTSwitchStatementRef node = (ASTSwitchStatementRef)_ASTContextCreateNode(context, ASTTagSwitchStatement, location, scope);
     node->argument             = argument;
     node->cases                = ASTContextCreateArray(context, location, scope);
+    node->irExit               = NULL;
     if (cases) {
         ASTArrayAppendArray(node->cases, cases);
     }
@@ -497,6 +501,8 @@ ASTNodeRef _ASTContextCreateNode(ASTContextRef context, ASTTag tag, SourceRange 
     node->flags     = ASTFlagsNone;
     node->location  = location;
     node->scope     = scope;
+    node->irValue   = NULL;
+    node->irType    = NULL;
     return node;
 }
 

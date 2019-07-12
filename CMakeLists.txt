@@ -12,6 +12,7 @@ if (APPLE)
 endif()
 
 set(CMAKE_C_STANDARD 99)
+set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
@@ -37,6 +38,7 @@ set(JELLY_CORE_HEADER_FILES "include/JellyCore/Allocator.h"
                             "include/JellyCore/BumpAllocator.h"
                             "include/JellyCore/Compiler.h"
                             "include/JellyCore/Diagnostic.h"
+                            "include/JellyCore/IRBuilder.h"
                             "include/JellyCore/JellyCore.h"
                             "include/JellyCore/Lexer.h"
                             "include/JellyCore/NameResolution.h"
@@ -57,6 +59,7 @@ set(JELLY_CORE_SOURCE_FILES "lib/JellyCore/Allocator.c"
                             "lib/JellyCore/BumpAllocator.c"
                             "lib/JellyCore/Compiler.c"
                             "lib/JellyCore/Diagnostic.c"
+                            "lib/JellyCore/IRBuilder.c"
                             "lib/JellyCore/Lexer.c"
                             "lib/JellyCore/NameResolution.c"
                             "lib/JellyCore/Parser.c"
@@ -71,7 +74,9 @@ target_include_directories(JellyCore PUBLIC include)
 target_link_libraries(JellyCore ${JELLY_LLVM_LIBS})
 
 # Tools
-add_executable(${PROJECT_NAME} "src/main.c")
+add_executable(${PROJECT_NAME} "src/main.cpp")
+target_compile_definitions(${PROJECT_NAME}
+                           PRIVATE -DJELLY_VERSION="${PROJECT_VERSION}")
 target_include_directories(${PROJECT_NAME} PUBLIC include)
 target_link_libraries(${PROJECT_NAME} JellyCore)
 

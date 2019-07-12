@@ -2,6 +2,7 @@
 #include "JellyCore/ASTMangling.h"
 #include "JellyCore/ASTScope.h"
 #include "JellyCore/Diagnostic.h"
+#include "JellyCore/IRBuilder.h"
 #include "JellyCore/NameResolution.h"
 #include "JellyCore/Parser.h"
 #include "JellyCore/Queue.h"
@@ -173,7 +174,7 @@ void *_WorkspaceProcess(void *context) {
                 StringDestroy(source);
                 _WorkspacePerformLoads(workspace, sourceUnit);
             } else {
-                ReportError("File not found");
+                ReportErrorFormat("File not found: %s", StringGetCharacters(absoluteFilePath));
             }
 
             StringDestroy(absoluteFilePath);
@@ -216,6 +217,12 @@ void *_WorkspaceProcess(void *context) {
 
     if (DiagnosticEngineGetMessageCount(DiagnosticLevelError) > 0 || DiagnosticEngineGetMessageCount(DiagnosticLevelCritical) > 0) {
         return NULL;
+    }
+
+    if ((workspace->options & WorkspaceOptionsDumpIR) > 0) {
+        IRBuilderRef builder = IRBuilderCreate(workspace->allocator);
+        IRBuilderBuild(builder, ASTContextGetModule(workspace->context));
+        IRBuilderDestroy(builder);
     }
 
     return NULL;
