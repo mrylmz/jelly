@@ -102,6 +102,49 @@ void IRBuilderBuild(IRBuilderRef builder, ASTModuleDeclarationRef module) {
 
     LLVMDisposeBuilder(builder->builder);
     LLVMDisposeModule(builder->module);
+
+    //    LLVMValueRef sendMessage = LLVMAddFunction(builder->module, "_JellyMessage", LLVMFunctionType(LLVMVoidType(), NULL, 0, false));
+
+    //    LLVMLinkInInterpreter();
+    //    LLVMExecutionEngineRef engine;
+    //    LLVMBool state = LLVMCreateInterpreterForModule(&engine, builder->module, &message);
+    //    //    LLVMRunFunctionAsMain(engine, main, 0, NULL, NULL);
+    //    LLVMRunFunction(engine, sendMessage, 0, NULL);
+    //    LLVMDisposeExecutionEngine(engine);
+
+    //    LLVMContextDispose(builder->context);
+
+    //    LLVMTypeRef type = LLVMFunctionType(LLVMInt32Type(), NULL, 0, false);
+
+    //    LLVMTypeRef params[] = {LLVMInt32Type()};
+    //    LLVMValueRef putchar = LLVMAddFunction(builder->module, "putchar", LLVMFunctionType(LLVMInt32Type(), params, 1, false));
+    //    LLVMValueRef start   = LLVMAddFunction(builder->module, "start", type);
+    //    LLVMBasicBlockRef entry = LLVMAppendBasicBlock(start, "entry");
+    //    LLVMBuildRet(builder->builder, NULL);
+    //    LLVMValueRef args[] = {LLVMCreateGenericValueOfInt(LLVMInt32Type(), 'H', false)};
+    //    LLVMValueRef call   = LLVMBuildCall(builder->builder, putchar, args, 1, "putchar");
+    //    char *error = NULL;
+    //    LLVMVerifyModule(builder->module, LLVMAbortProcessAction, &error);
+    //    LLVMDisposeMessage(error);
+
+    //    LLVMValueRef sendMessage = LLVMAddFunction(builder->module, "_JellyMessage", LLVMFunctionType(LLVMVoidType(), NULL, 0, false));
+    //
+    //
+    //    LLVMLinkInInterpreter();
+    //    LLVMExecutionEngineRef engine;
+    //    Char *error;
+    //    LLVMBool state = LLVMCreateInterpreterForModule(&engine, builder->module, &error);
+    //    //    LLVMRunFunctionAsMain(engine, main, 0, NULL, NULL);
+    //    LLVMRunFunction(engine, sendMessage, 0, NULL);
+    //    LLVMDisposeExecutionEngine(engine);
+
+    //    Because LLVM is a virtual machine (VM), it likely should have its own intermediate byte code representation, right? Ultimately,
+    //    you need to compile LLVM byte code into your platform-specific assembly language. Then you can run the assembly code through a
+    //    native assembler and linker to generate executables, shared libraries, and so on. You use llc to convert LLVM byte code to
+    //    platform-specific assembly code (see Related topics for a link to more information about this tool). For directly executing
+    //    portions of LLVM byte code, don't wait until the native executable crashes to figure out that you have a bug or two in your
+    //    program. This is where lli comes in handy, as it can directly execute the byte code. lli performs this feat either through an
+    //    interpreter or by using a just-in-time (JIT) compiler under the hood. See Related topics for a link to more information about lli.
 }
 
 static inline void _IRBuilderBuildTypes(IRBuilderRef builder, ASTModuleDeclarationRef module) {
@@ -194,8 +237,15 @@ static inline void _IRBuilderBuildGlobalVariable(IRBuilderRef builder, ASTValueD
 static inline void _IRBuilderBuildFunctionDeclaration(IRBuilderRef builder, ASTFunctionDeclarationRef declaration) {
     assert(declaration->base.base.irType);
 
-    LLVMValueRef function          = LLVMAddFunction(builder->module, StringGetCharacters(declaration->base.mangledName),
-                                            (LLVMTypeRef)declaration->base.base.irType);
+    LLVMValueRef function = NULL;
+    if (declaration->foreign && declaration->foreignName) {
+        // TODO: Check if the foreignName has to be mangled according to the used calling convention...
+        function = LLVMAddFunction(builder->module, StringGetCharacters(declaration->foreignName),
+                                   (LLVMTypeRef)declaration->base.base.irType);
+    } else {
+        function = LLVMAddFunction(builder->module, StringGetCharacters(declaration->base.mangledName),
+                                   (LLVMTypeRef)declaration->base.base.irType);
+    }
     declaration->base.base.irValue = function;
 
     for (Index index = 0; index < ASTArrayGetElementCount(declaration->parameters); index++) {
@@ -203,16 +253,22 @@ static inline void _IRBuilderBuildFunctionDeclaration(IRBuilderRef builder, ASTF
         parameter->base.base.irValue     = LLVMGetParam(function, index);
     }
 
-    LLVMBasicBlockRef entry = LLVMAppendBasicBlock(function, "entry");
-    LLVMPositionBuilder(builder->builder, entry, NULL);
+    if (!declaration->foreign) {
+        LLVMBasicBlockRef entry = LLVMAppendBasicBlock(function, "entry");
+        LLVMPositionBuilder(builder->builder, entry, NULL);
 
-    for (Index index = 0; index < ASTArrayGetElementCount(declaration->body->statements); index++) {
-        ASTNodeRef statement = (ASTNodeRef)ASTArrayGetElementAtIndex(declaration->body->statements, index);
-        _IRBuilderBuildStatement(builder, function, statement);
-    }
+        for (Index index = 0; index < ASTArrayGetElementCount(declaration->body->statements); index++) {
+            ASTNodeRef statement = (ASTNodeRef)ASTArrayGetElementAtIndex(declaration->body->statements, index);
+            _IRBuilderBuildStatement(builder, function, statement);
+        }
 
-    if (!(declaration->body->base.flags & ASTFlagsStatementIsAlwaysReturning)) {
-        LLVMBuildRetVoid(builder->builder);
+        if (!(declaration->body->base.flags & ASTFlagsStatementIsAlwaysReturning)) {
+            LLVMBuildRetVoid(builder->builder);
+        }
+    } else {
+        // We are using the C calling convention for all foreign function declarations for now because we do not allow to specify the
+        // calling convention in the AST
+        LLVMSetFunctionCallConv(function, LLVMCCallConv);
     }
 }
 
@@ -361,6 +417,7 @@ static inline void _IRBuilderBuildSwitchStatement(IRBuilderRef builder, LLVMValu
     LLVMBasicBlockRef endBB    = LLVMAppendBasicBlock(function, "switch-end");
 
     // TODO: Refine this...
+
     statement->irExit = endBB;
 
     Index caseCount = ASTArrayGetElementCount(statement->cases);
@@ -401,6 +458,8 @@ static inline void _IRBuilderBuildSwitchStatement(IRBuilderRef builder, LLVMValu
         _IRBuilderBuildExpression(builder, function, child->condition);
     }
 
+    // TODO: LLVM Switch is only supported for integer types, if the condition is not an integer then this will not work so this should be
+    // implemented in a general way by resolving a comparison operator for the argument type and each case expression type
     LLVMValueRef switchValue = LLVMBuildSwitch(builder->builder, condition, elseBB, caseCount);
     statement->base.irValue  = switchValue;
     for (Index caseIndex = 0; caseIndex < caseCount; caseIndex++) {
@@ -495,9 +554,34 @@ static inline void _IRBuilderBuildControlStatement(IRBuilderRef builder, LLVMVal
 
 static inline void _IRBuilderBuildExpression(IRBuilderRef builder, LLVMValueRef function, ASTExpressionRef expression) {
     switch (expression->base.tag) {
-    case ASTTagUnaryExpression:
-        ReportCritical("Unary expressions are not supported at the moment!");
+    case ASTTagUnaryExpression: {
+        ASTUnaryExpressionRef unary = (ASTUnaryExpressionRef)expression;
+
+        assert(unary->opFunction);
+
+        // Prefix functions are currently not added to the declarations of the module and are just contained inside the global scope, so we
+        // will force the IR generation of the function here for now...
+        if (!unary->opFunction->base.base.irType) {
+            assert(ASTArrayGetElementCount(unary->opFunction->parameters) == 1);
+            ASTValueDeclarationRef parameter    = (ASTValueDeclarationRef)ASTArrayGetElementAtIndex(unary->opFunction->parameters, 0);
+            LLVMTypeRef parameterTypes[]        = {_IRBuilderGetIRType(builder, parameter->base.type)};
+            unary->opFunction->base.base.irType = LLVMFunctionType(_IRBuilderGetIRType(builder, unary->opFunction->returnType),
+                                                                   parameterTypes, 1, false);
+        }
+
+        if (!unary->opFunction->base.base.irValue) {
+            _IRBuilderBuildFunctionDeclaration(builder, unary->opFunction);
+        }
+        assert(unary->opFunction->base.base.irValue);
+
+        _IRBuilderBuildExpression(builder, function, unary->arguments[0]);
+        assert(unary->arguments[0]->base.irValue);
+
+        LLVMValueRef function    = (LLVMValueRef)unary->opFunction->base.base.irValue;
+        LLVMValueRef arguments[] = {unary->arguments[0]->base.irValue};
+        unary->base.base.irValue = LLVMBuildCall(builder->builder, function, arguments, 1, "");
         return;
+    }
 
     case ASTTagBinaryExpression:
         ReportCritical("Binary expressions are not supported at the moment!");

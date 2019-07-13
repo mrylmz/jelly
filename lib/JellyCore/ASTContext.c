@@ -18,6 +18,9 @@ ASTNodeRef _ASTContextCreateNode(ASTContextRef context, ASTTag tag, SourceRange 
 ASTBuiltinTypeRef _ASTContextCreateBuiltinType(ASTContextRef context, SourceRange location, ASTScopeRef scope,
                                                ASTBuiltinTypeKind builtinKind);
 void _ASTContextInitBuiltinTypes(ASTContextRef context);
+void _ASTContextInitBuiltinFunctions(ASTContextRef context);
+
+ASTBuiltinTypeRef _ASTContextGetBuiltinTypeByName(ASTContextRef context, const Char *name);
 
 Bool _ASTArrayIsScopeLocationOrderedAscending(const void *lhs, const void *rhs);
 
@@ -59,6 +62,7 @@ ASTContextRef ASTContextCreate(AllocatorRef allocator) {
     context->nodes[ASTTagScope]                  = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTScope), 1024);
     context->module                              = ASTContextCreateModuleDeclaration(context, SourceRangeNull(), NULL, NULL, NULL);
     _ASTContextInitBuiltinTypes(context);
+    _ASTContextInitBuiltinFunctions(context);
     return context;
 }
 
@@ -190,6 +194,7 @@ ASTUnaryExpressionRef ASTContextCreateUnaryExpression(ASTContextRef context, Sou
     ASTUnaryExpressionRef node = (ASTUnaryExpressionRef)_ASTContextCreateNode(context, ASTTagUnaryExpression, location, scope);
     node->op                   = op;
     node->arguments[0]         = arguments[0];
+    node->opFunction           = NULL;
     node->base.type            = NULL;
     node->base.expectedType    = NULL;
     return node;
@@ -381,7 +386,7 @@ ASTFunctionDeclarationRef ASTContextCreateForeignFunctionDeclaration(ASTContextR
     ASTFunctionDeclarationRef node = (ASTFunctionDeclarationRef)_ASTContextCreateNode(context, ASTTagFunctionDeclaration, location, scope);
     node->base.name                = StringCreateCopy(context->allocator, name);
     node->base.mangledName         = NULL;
-    node->fixity                   = ASTFixityNone;
+    node->fixity                   = fixity;
     node->parameters               = ASTContextCreateArray(context, location, scope);
     node->returnType               = returnType;
     node->body                     = NULL;
@@ -536,6 +541,44 @@ void _ASTContextInitBuiltinTypes(ASTContextRef context) {
         structure->base.type                 = (ASTTypeRef)context->builtinTypes[index];
         ASTScopeInsertDeclaration(globalScope, (ASTDeclarationRef)structure);
     }
+}
+
+void _ASTContextInitBuiltinFunctions(ASTContextRef context) {
+    ASTScopeRef globalScope = ASTContextGetGlobalScope(context);
+#define UNARY_OPERATOR(SYMBOL, ARGUMENT_TYPE, RESULT_TYPE, FOREIGN_NAME)                                                                   \
+    {                                                                                                                                      \
+        ArrayRef parameters              = ArrayCreateEmpty(AllocatorGetSystemDefault(), sizeof(ASTValueDeclarationRef), 1);               \
+        ASTScopeRef scope                = ASTContextCreateScope(context, SourceRangeNull(), NULL, globalScope, ASTScopeKindFunction);     \
+        StringRef parameterName          = StringCreate(context->allocator, "value");                                                      \
+        ASTTypeRef parameterType         = (ASTTypeRef)_ASTContextGetBuiltinTypeByName(context, ARGUMENT_TYPE);                            \
+        ASTValueDeclarationRef parameter = ASTContextCreateValueDeclaration(context, SourceRangeNull(), scope, ASTValueKindParameter,      \
+                                                                            parameterName, parameterType, NULL);                           \
+        ArrayAppendElement(parameters, &parameter);                                                                                        \
+        ASTTypeRef resultType                 = (ASTTypeRef)_ASTContextGetBuiltinTypeByName(context, RESULT_TYPE);                         \
+        StringRef foreignName                 = StringCreate(context->allocator, FOREIGN_NAME);                                            \
+        StringRef symbol                      = StringCreate(context->allocator, SYMBOL);                                                  \
+        ASTFunctionDeclarationRef declaration = ASTContextCreateForeignFunctionDeclaration(                                                \
+            context, SourceRangeNull(), globalScope, ASTFixityPrefix, symbol, parameters, resultType, foreignName);                        \
+        ASTScopeInsertDeclaration(globalScope, (ASTDeclarationRef)declaration);                                                            \
+        ArrayDestroy(parameters);                                                                                                          \
+    }
+#include "JellyCore/RuntimeSupportDefinitions.h"
+#undef UNARY_OPERATOR
+}
+
+ASTBuiltinTypeRef _ASTContextGetBuiltinTypeByName(ASTContextRef context, const Char *name) {
+    const Char *builtinTypeNames[AST_BUILTIN_TYPE_KIND_COUNT - 1] = {
+        "Void",   "Bool",   "Int8",   "Int16", "Int32",   "Int64",   "Int",   "UInt8",
+        "UInt16", "UInt32", "UInt64", "UInt",  "Float32", "Float64", "Float",
+    };
+
+    for (Index index = 0; index < AST_BUILTIN_TYPE_KIND_COUNT - 1; index++) {
+        if (strcmp(builtinTypeNames[index], name) == 0) {
+            return ASTContextGetBuiltinType(context, (ASTBuiltinTypeKind)(index + 1));
+        }
+    }
+
+    return NULL;
 }
 
 Bool _ASTArrayIsScopeLocationOrderedAscending(const void *lhs, const void *rhs) {

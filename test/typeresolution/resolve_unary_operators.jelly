@@ -1,0 +1,15 @@
+func logical_not(value: Bool) -> Bool {
+    return !value
+}
+
+func bitwise_not(value: Int) -> Int {
+    return ~value
+}
+
+func unary_plus(value: Int) -> Int {
+    return +value
+}
+
+func unary_minus(value: Int) -> Int {
+    return -value
+}

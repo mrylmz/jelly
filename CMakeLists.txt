@@ -44,6 +44,7 @@ set(JELLY_CORE_HEADER_FILES "include/JellyCore/Allocator.h"
                             "include/JellyCore/NameResolution.h"
                             "include/JellyCore/Parser.h"
                             "include/JellyCore/Queue.h"
+                            "include/JellyCore/RuntimeSupportDefinitions.h"
                             "include/JellyCore/SourceRange.h"
                             "include/JellyCore/String.h"
                             "include/JellyCore/TypeChecker.h"
@@ -72,6 +73,14 @@ add_library(JellyCore STATIC ${JELLY_CORE_HEADER_FILES}
                              ${JELLY_CORE_SOURCE_FILES})
 target_include_directories(JellyCore PUBLIC include)
 target_link_libraries(JellyCore ${JELLY_LLVM_LIBS})
+
+set(JELLY_RUNTIME_SUPPORT_HEADER_FILES "include/JellyRuntimeSupport/Base.h"
+                                       "include/JellyRuntimeSupport/JellyRuntimeSupport.h"
+                                       "include/JellyRuntimeSupport/UnaryFunctions.h")
+set(JELLY_RUNTIME_SUPPORT_SOURCE_FILES "lib/JellyRuntimeSupport/UnaryFunctions.c")
+add_library(JellyRuntimeSupport STATIC ${JELLY_RUNTIME_SUPPORT_HEADER_FILES} 
+                                       ${JELLY_RUNTIME_SUPPORT_SOURCE_FILES})
+target_include_directories(JellyRuntimeSupport PUBLIC include)
 
 # Tools
 add_executable(${PROJECT_NAME} "src/main.cpp")

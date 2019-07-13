@@ -258,7 +258,11 @@ static inline void _PerformNameResolutionForNode(ASTContextRef context, ASTNodeR
             }
 
             _PerformNameResolutionForExpression(context, statement->condition);
+
+            // TODO: Try resolving an infix function with the signature:
+            // `infix func == (lhs: $switch.argument.type, rhs: $switch.case.type) -> Bool`
         }
+
         _PerformNameResolutionForNode(context, (ASTNodeRef)statement->body);
         break;
     }
@@ -332,8 +336,53 @@ static inline void _PerformNameResolutionForExpression(ASTContextRef context, AS
     if (expression->base.tag == ASTTagUnaryExpression) {
         ASTUnaryExpressionRef unary = (ASTUnaryExpressionRef)expression;
         _PerformNameResolutionForExpression(context, unary->arguments[0]);
-        ReportCritical("Unary expression are not supported at the moment!");
-        unary->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
+
+        ASTScopeRef globalScope                       = ASTContextGetGlobalScope(context);
+        StringRef operatorName                        = ASTGetPrefixOperatorName(AllocatorGetSystemDefault(), unary->op);
+        ASTFunctionDeclarationRef matchingDeclaration = NULL;
+        for (Index index = 0; index < ASTArrayGetElementCount(globalScope->declarations); index++) {
+            ASTDeclarationRef declaration = (ASTDeclarationRef)ASTArrayGetElementAtIndex(globalScope->declarations, index);
+            if (declaration->base.tag != ASTTagFunctionDeclaration) {
+                continue;
+            }
+
+            ASTFunctionDeclarationRef function = (ASTFunctionDeclarationRef)declaration;
+            if (function->fixity != ASTFixityPrefix) {
+                continue;
+            }
+
+            if (ASTArrayGetElementCount(function->parameters) != 1) {
+                continue;
+            }
+
+            if (!StringIsEqual(function->base.name, operatorName)) {
+                continue;
+            }
+
+            ASTValueDeclarationRef parameter = ASTArrayGetElementAtIndex(function->parameters, 0);
+            if (!ASTTypeIsEqual(parameter->base.type, unary->arguments[0]->type)) {
+                continue;
+            }
+
+            if (unary->base.expectedType) {
+                if (!ASTTypeIsEqual(unary->base.expectedType, function->returnType)) {
+                    continue;
+                }
+            }
+
+            assert(!matchingDeclaration && "Candidate declarations is currently not supported for unary expressions!");
+            matchingDeclaration = function;
+        }
+
+        if (!matchingDeclaration) {
+            ReportError("Use of unresolved prefix function");
+            unary->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
+        } else {
+            unary->opFunction = (ASTFunctionDeclarationRef)matchingDeclaration;
+            unary->base.type  = unary->opFunction->returnType;
+        }
+
+        StringDestroy(operatorName);
         return;
     }
 

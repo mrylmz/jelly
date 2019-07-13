@@ -482,6 +482,8 @@ static inline void _TypeCheckerValidateExpression(TypeCheckerRef typeChecker, AS
             if (call->callee->type->tag == ASTTagFunctionType) {
                 ASTFunctionTypeRef functionType    = (ASTFunctionTypeRef)call->callee->type;
                 ASTFunctionDeclarationRef function = (ASTFunctionDeclarationRef)functionType->declaration;
+                assert(function->fixity == ASTFixityNone);
+
                 _TypeCheckerValidateFunctionDeclaration(typeChecker, context, function);
 
                 if (ASTArrayGetElementCount(call->arguments) == ASTArrayGetElementCount(function->parameters)) {

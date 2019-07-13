@@ -1,0 +1,30 @@
+func logical_not(value: Bool) -> Bool {
+    return !value
+}
+
+func bitwise_not(value: Int) -> Int {
+    return ~value
+}
+
+func unary_plus(value: Int) -> Int {
+    return +value
+}
+
+func unary_minus(value: Int) -> Int {
+    return -value
+}
+
+var globalBool: Bool
+var globalInt: Int
+
+func logical_not_on_global_var() -> Bool {
+    return !globalBool
+}
+
+func bitwise_not_on_global_var() -> Int {
+    return ~globalInt
+}
+
+func chained_unary_expressions() -> Int {
+    return ~-+globalInt
+}

@@ -236,6 +236,7 @@ struct _ASTUnaryExpression {
 
     ASTUnaryOperator op;
     ASTExpressionRef arguments[1];
+    ASTFunctionDeclarationRef opFunction;
 };
 
 enum _ASTBinaryOperator {
