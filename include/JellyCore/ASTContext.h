@@ -9,7 +9,7 @@ JELLY_EXTERN_C_BEGIN
 
 typedef struct _ASTContext *ASTContextRef;
 
-ASTContextRef ASTContextCreate(AllocatorRef allocator);
+ASTContextRef ASTContextCreate(AllocatorRef allocator, StringRef moduleName);
 
 void ASTContextDestroy(ASTContextRef context);
 
@@ -63,7 +63,7 @@ ASTConstantExpressionRef ASTContextCreateConstantFloatExpression(ASTContextRef c
 ASTConstantExpressionRef ASTContextCreateConstantStringExpression(ASTContextRef context, SourceRange location, ASTScopeRef scope,
                                                                   StringRef value);
 ASTModuleDeclarationRef ASTContextCreateModuleDeclaration(ASTContextRef context, SourceRange location, ASTScopeRef scope,
-                                                          ArrayRef sourceUnits, ArrayRef importedModules);
+                                                          StringRef moduleName, ArrayRef sourceUnits, ArrayRef importedModules);
 
 ASTEnumerationDeclarationRef ASTContextCreateEnumerationDeclaration(ASTContextRef context, SourceRange location, ASTScopeRef scope,
                                                                     StringRef name, ArrayRef elements);

@@ -2,12 +2,15 @@
 #define __JELLY_BASE__
 
 #include <assert.h>
+#include <dirent.h>
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 typedef bool Bool;
 typedef char Char;

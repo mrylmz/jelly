@@ -99,6 +99,19 @@ std::vector<FileTest> FileTest::ReadFromDirectory(std::string testDirectoryPath)
     return suit;
 }
 
+std::string FileTest::GetFileName(std::string filepath) {
+    std::string result(filepath);
+    if (result.rfind(".") != std::string::npos) {
+        result = result.substr(0, result.find_last_of('.'));
+    }
+
+    if (result.find("/") != std::string::npos) {
+        result = result.substr(result.find_last_of('/'));
+    }
+
+    return result;
+}
+
 void FileTestDiagnosticHandler(DiagnosticLevel level, const Char *message, void *context) {
     printf("[  MESSAGE ] %s\n", message);
 

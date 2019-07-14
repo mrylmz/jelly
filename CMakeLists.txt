@@ -22,7 +22,8 @@ set(CMAKE_BUILD_TYPE Debug)
 # LLVM Libraries
 include(LLVM)
 
-llvm_map_components_to_libnames(JELLY_LLVM_LIBS support core irreader interpreter)
+# All llvm libraries will be linked for now should be reduced to the required ones soon...
+llvm_map_components_to_libnames(JELLY_LLVM_LIBS all)
 
 # Libraries
 set(JELLY_CORE_HEADER_FILES "include/JellyCore/Allocator.h"

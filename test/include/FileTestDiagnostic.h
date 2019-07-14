@@ -37,6 +37,8 @@ struct FileTest {
     }
 
     static std::vector<FileTest> ReadFromDirectory(std::string testDirectoryPath);
+
+    static std::string GetFileName(std::string filepath);
 };
 
 JELLY_EXTERN_C_BEGIN

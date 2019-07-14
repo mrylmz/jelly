@@ -16,6 +16,7 @@
 struct _Workspace {
     AllocatorRef allocator;
     StringRef workingDirectory;
+    StringRef buildDirectory;
     ArrayRef sourceFilePaths;
     ASTContextRef context;
     ParserRef parser;
@@ -38,12 +39,14 @@ void _WorkspacePerformLoads(WorkspaceRef workspace, ASTSourceUnitRef sourceUnit)
 void _WorkspaceParse(void *argument, void *context);
 void *_WorkspaceProcess(void *context);
 
-WorkspaceRef WorkspaceCreate(AllocatorRef allocator, StringRef workingDirectory, WorkspaceOptions options) {
+WorkspaceRef WorkspaceCreate(AllocatorRef allocator, StringRef workingDirectory, StringRef buildDirectory, StringRef moduleName,
+                             WorkspaceOptions options) {
     WorkspaceRef workspace      = AllocatorAllocate(allocator, sizeof(struct _Workspace));
     workspace->allocator        = allocator;
     workspace->workingDirectory = StringCreateCopy(allocator, workingDirectory);
+    workspace->buildDirectory   = StringCreateCopy(allocator, buildDirectory);
     workspace->sourceFilePaths  = ArrayCreateEmpty(allocator, sizeof(StringRef *), 8);
-    workspace->context          = ASTContextCreate(allocator);
+    workspace->context          = ASTContextCreate(allocator, moduleName);
     workspace->parser           = ParserCreate(allocator, workspace->context);
     workspace->parseQueue       = QueueCreate(allocator);
     workspace->options          = options;
@@ -63,6 +66,7 @@ void WorkspaceDestroy(WorkspaceRef workspace) {
     QueueDestroy(workspace->parseQueue);
     ParserDestroy(workspace->parser);
     ASTContextDestroy(workspace->context);
+    StringDestroy(workspace->buildDirectory);
     StringDestroy(workspace->workingDirectory);
     AllocatorDeallocate(workspace->allocator, workspace);
 }
@@ -215,12 +219,21 @@ void *_WorkspaceProcess(void *context) {
 
     PerformNameMangling(workspace->context, ASTContextGetModule(workspace->context));
 
+    DIR *buildDirectory = opendir(StringGetCharacters(workspace->buildDirectory));
+    if (!buildDirectory) {
+        if (mkdir(StringGetCharacters(workspace->buildDirectory), S_IRWXU | S_IRWXG | S_IRWXO) != 0) {
+            ReportErrorFormat("Couldn't create build directory at path: '%s'", StringGetCharacters(workspace->buildDirectory));
+        }
+    } else {
+        closedir(buildDirectory);
+    }
+
     if (DiagnosticEngineGetMessageCount(DiagnosticLevelError) > 0 || DiagnosticEngineGetMessageCount(DiagnosticLevelCritical) > 0) {
         return NULL;
     }
 
     if ((workspace->options & WorkspaceOptionsDumpIR) > 0) {
-        IRBuilderRef builder = IRBuilderCreate(workspace->allocator);
+        IRBuilderRef builder = IRBuilderCreate(workspace->allocator, workspace->buildDirectory);
         IRBuilderBuild(builder, ASTContextGetModule(workspace->context));
         IRBuilderDestroy(builder);
     }

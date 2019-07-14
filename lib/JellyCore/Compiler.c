@@ -22,15 +22,18 @@ Int CompilerRun(ArrayRef arguments) {
     Int32 optionDumpScope        = 0;
     Int32 optionDumpIR           = 0;
     Int32 optionWorkingDirectory = 0;
+    Int32 optionModuleName       = 0;
     StringRef dumpASTFilePath    = NULL;
     StringRef dumpScopeFilePath  = NULL;
     StringRef workingDirectory   = NULL;
+    StringRef moduleName         = NULL;
 
     struct option options[] = {
         {"dump-ast", optional_argument, &optionDumpAST, 1},
         {"dump-scope", optional_argument, &optionDumpScope, 1},
         {"dump-ir", no_argument, &optionDumpIR, 1},
         {"working-directory", required_argument, &optionWorkingDirectory, 1},
+        {"module-name", optional_argument, &optionModuleName, 1},
         {0, 0, 0, 0},
     };
 
@@ -52,6 +55,10 @@ Int CompilerRun(ArrayRef arguments) {
             if (index == 3) {
                 workingDirectory = StringCreate(AllocatorGetSystemDefault(), optarg);
             }
+
+            if (index == 4 && optarg) {
+                moduleName = StringCreate(AllocatorGetSystemDefault(), optarg);
+            }
             break;
 
         case '?':
@@ -72,6 +79,10 @@ Int CompilerRun(ArrayRef arguments) {
 
             if (workingDirectory) {
                 StringDestroy(workingDirectory);
+            }
+
+            if (moduleName) {
+                StringDestroy(moduleName);
             }
 
             return EXIT_FAILURE;
@@ -97,6 +108,10 @@ Int CompilerRun(ArrayRef arguments) {
                 StringDestroy(workingDirectory);
             }
 
+            if (moduleName) {
+                StringDestroy(moduleName);
+            }
+
             return EXIT_FAILURE;
         }
     }
@@ -114,7 +129,14 @@ Int CompilerRun(ArrayRef arguments) {
         workspaceOptions |= WorkspaceOptionsDumpIR;
     }
 
-    WorkspaceRef workspace = WorkspaceCreate(AllocatorGetSystemDefault(), workingDirectory, workspaceOptions);
+    StringRef buildDirectory = StringCreateCopy(AllocatorGetSystemDefault(), workingDirectory);
+    StringAppend(buildDirectory, "/build");
+
+    if (!moduleName) {
+        moduleName = StringCreate(AllocatorGetSystemDefault(), "Module");
+    }
+
+    WorkspaceRef workspace = WorkspaceCreate(AllocatorGetSystemDefault(), workingDirectory, buildDirectory, moduleName, workspaceOptions);
 
     FILE *dumpASTOutput = NULL;
     if (dumpASTFilePath) {
@@ -157,6 +179,8 @@ Int CompilerRun(ArrayRef arguments) {
         StringDestroy(dumpScopeFilePath);
     }
 
+    StringDestroy(moduleName);
+    StringDestroy(buildDirectory);
     StringDestroy(workingDirectory);
     return EXIT_SUCCESS;
 }

@@ -17,7 +17,8 @@ typedef enum _WorkspaceOptions WorkspaceOptions;
 
 typedef struct _Workspace *WorkspaceRef;
 
-WorkspaceRef WorkspaceCreate(AllocatorRef allocator, StringRef workingDirectory, WorkspaceOptions options);
+WorkspaceRef WorkspaceCreate(AllocatorRef allocator, StringRef workingDirectory, StringRef buildDirectory, StringRef moduleName,
+                             WorkspaceOptions options);
 
 void WorkspaceDestroy(WorkspaceRef workspace);
 

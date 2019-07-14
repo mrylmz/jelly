@@ -24,7 +24,7 @@ ASTBuiltinTypeRef _ASTContextGetBuiltinTypeByName(ASTContextRef context, const C
 
 Bool _ASTArrayIsScopeLocationOrderedAscending(const void *lhs, const void *rhs);
 
-ASTContextRef ASTContextCreate(AllocatorRef allocator) {
+ASTContextRef ASTContextCreate(AllocatorRef allocator, StringRef moduleName) {
     AllocatorRef bumpAllocator = BumpAllocatorCreate(allocator);
     ASTContextRef context      = AllocatorAllocate(bumpAllocator, sizeof(struct _ASTContext));
     context->allocator         = bumpAllocator;
@@ -60,7 +60,7 @@ ASTContextRef ASTContextCreate(AllocatorRef allocator) {
     context->nodes[ASTTagFunctionType]           = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTFunctionType), 1024);
     context->nodes[ASTTagStructureType]          = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTStructureType), 1024);
     context->nodes[ASTTagScope]                  = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTScope), 1024);
-    context->module                              = ASTContextCreateModuleDeclaration(context, SourceRangeNull(), NULL, NULL, NULL);
+    context->module = ASTContextCreateModuleDeclaration(context, SourceRangeNull(), NULL, moduleName, NULL, NULL);
     _ASTContextInitBuiltinTypes(context);
     _ASTContextInitBuiltinFunctions(context);
     return context;
@@ -322,11 +322,11 @@ ASTConstantExpressionRef ASTContextCreateConstantStringExpression(ASTContextRef 
     return node;
 }
 
-ASTModuleDeclarationRef ASTContextCreateModuleDeclaration(ASTContextRef context, SourceRange location, ASTScopeRef scope,
+ASTModuleDeclarationRef ASTContextCreateModuleDeclaration(ASTContextRef context, SourceRange location, ASTScopeRef scope, StringRef name,
                                                           ArrayRef sourceUnits, ArrayRef importedModules) {
     ASTModuleDeclarationRef node = (ASTModuleDeclarationRef)_ASTContextCreateNode(context, ASTTagModuleDeclaration, location, scope);
     // TODO: The name of the module is a placeholder for now, there has to be a convenient way in the language to specify a module name
-    node->base.name        = StringCreate(context->allocator, "Module");
+    node->base.name        = StringCreateCopy(context->allocator, name);
     node->base.mangledName = NULL;
     node->base.type        = NULL;
     node->scope            = ASTContextCreateScope(context, location, (ASTNodeRef)node, scope, ASTScopeKindGlobal);

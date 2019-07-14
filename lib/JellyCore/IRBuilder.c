@@ -7,8 +7,10 @@
 #include <llvm-c/ExecutionEngine.h>
 #include <llvm-c/Support.h>
 
+// TODO: Rename this to LLVMBackend
 struct _IRBuilder {
     AllocatorRef allocator;
+    StringRef buildDirectory;
     LLVMContextRef context;
     LLVMModuleRef module;
     LLVMBuilderRef builder;
@@ -30,13 +32,15 @@ static inline LLVMValueRef _IRBuilderLoadExpression(IRBuilderRef builder, LLVMVa
 
 static inline LLVMTypeRef _IRBuilderGetIRType(IRBuilderRef builder, ASTTypeRef type);
 
-IRBuilderRef IRBuilderCreate(AllocatorRef allocator) {
-    IRBuilderRef builder = (IRBuilderRef)AllocatorAllocate(allocator, sizeof(struct _IRBuilder));
-    builder->allocator   = allocator;
+IRBuilderRef IRBuilderCreate(AllocatorRef allocator, StringRef buildDirectory) {
+    IRBuilderRef builder    = (IRBuilderRef)AllocatorAllocate(allocator, sizeof(struct _IRBuilder));
+    builder->allocator      = allocator;
+    builder->buildDirectory = StringCreateCopy(allocator, buildDirectory);
     return builder;
 }
 
 void IRBuilderDestroy(IRBuilderRef builder) {
+    StringDestroy(builder->buildDirectory);
     AllocatorDeallocate(builder->allocator, builder);
 }
 
@@ -91,14 +95,90 @@ void IRBuilderBuild(IRBuilderRef builder, ASTModuleDeclarationRef module) {
 
     Char *message;
     LLVMBool error = LLVMVerifyModule(builder->module, LLVMReturnStatusAction, &message);
-    if (error && message) {
-        ReportCriticalFormat("LLVM Error:\n%s\n", message);
-        LLVMDisposeMessage(message);
+    if (error) {
+        if (message) {
+            ReportCriticalFormat("LLVM Error:\n%s\n", message);
+            LLVMDisposeMessage(message);
+        } else {
+            ReportCritical("LLVM Error");
+        }
+
+        // TODO: Dispose all LLVM references
+        return;
     }
 
     // TODO: Add configuration option to IRBuilder to disable dumping and also allow dumping to a FILE instead of stdout
-    LLVMDumpModule(builder->module);
+    //    LLVMDumpModule(builder->module);
 
+    if (DiagnosticEngineGetMessageCount(DiagnosticLevelError) > 0 || DiagnosticEngineGetMessageCount(DiagnosticLevelCritical) > 0) {
+        // TODO: Dispose all LLVM references
+        return;
+    }
+
+    Char *targetTriple = LLVMGetDefaultTargetTriple();
+    Char *cpu          = LLVMGetHostCPUName();
+    Char *features     = LLVMGetHostCPUFeatures();
+
+    // Currently we are initializing all target machines but we should only initialize the required ones, this could cause some overhead...
+    LLVMInitializeAllTargetInfos();
+    LLVMInitializeAllTargets();
+    LLVMInitializeAllTargetMCs();
+    LLVMInitializeAllAsmParsers();
+    LLVMInitializeAllAsmPrinters();
+
+    LLVMTargetRef target = NULL;
+    error                = LLVMGetTargetFromTriple(targetTriple, &target, &message);
+    if (error) {
+        if (message) {
+            ReportCriticalFormat("LLVM Error:\n%s\n", message);
+            LLVMDisposeMessage(message);
+        } else {
+            ReportCritical("LLVM Error");
+        }
+
+        // TODO: Dispose all LLVM references
+        return;
+    }
+
+    // TODO: Add configuration option to IRBuilder for LLVMCodeGenLevel
+    LLVMTargetMachineRef machine = LLVMCreateTargetMachine(target, targetTriple, cpu, features, LLVMCodeGenLevelNone, LLVMRelocDefault,
+                                                           LLVMCodeModelDefault);
+    LLVMTargetDataRef dataLayout = LLVMCreateTargetDataLayout(machine);
+
+    LLVMSetTarget(builder->module, targetTriple);
+    LLVMSetModuleDataLayout(builder->module, dataLayout);
+
+    StringRef objectFilePath = StringCreateCopy(builder->allocator, builder->buildDirectory);
+    StringAppendFormat(objectFilePath, "/%s.o", StringGetCharacters(module->base.name));
+
+    FILE *objectFile = fopen(StringGetCharacters(objectFilePath), "w+");
+    if (!objectFile) {
+        ReportErrorFormat("Couldn't create object file at path: '%s'", StringGetCharacters(objectFilePath));
+        // TODO: Dispose all LLVM references
+        return;
+    } else {
+        fclose(objectFile);
+    }
+
+    error = LLVMTargetMachineEmitToFile(machine, builder->module, StringGetCharacters(objectFilePath), LLVMObjectFile, &message);
+    if (error) {
+        if (message) {
+            ReportCriticalFormat("LLVM Error:\n%s\n", message);
+            LLVMDisposeMessage(message);
+        } else {
+            ReportCritical("LLVM Error");
+        }
+
+        // TODO: Dispose all LLVM references
+        return;
+    }
+
+    StringDestroy(objectFilePath);
+    LLVMDisposeTargetData(dataLayout);
+    LLVMDisposeTargetMachine(machine);
+    LLVMDisposeMessage(targetTriple);
+    LLVMDisposeMessage(cpu);
+    LLVMDisposeMessage(features);
     LLVMDisposeBuilder(builder->builder);
     LLVMDisposeModule(builder->module);
 }

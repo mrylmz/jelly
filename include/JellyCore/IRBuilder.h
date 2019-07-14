@@ -8,7 +8,7 @@ JELLY_EXTERN_C_BEGIN
 
 typedef struct _IRBuilder *IRBuilderRef;
 
-IRBuilderRef IRBuilderCreate(AllocatorRef allocator);
+IRBuilderRef IRBuilderCreate(AllocatorRef allocator, StringRef buildDirectory);
 
 void IRBuilderDestroy(IRBuilderRef builder);
 

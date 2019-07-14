@@ -23,6 +23,8 @@ TEST_P(TypeCheckerTests, run) {
     } else {
         DiagnosticEngineSetDefaultHandler(&FileTestDiagnosticHandler, &test.context);
 
+        std::string filename = test.GetFileName(test.filePath);
+        
         StringRef absoluteFilePath = StringCreate(AllocatorGetSystemDefault(), test.context.filePath.c_str());
         StringRef workingDirectory = StringCreateCopyUntilLastOccurenceOf(AllocatorGetSystemDefault(), absoluteFilePath, '/');
 
@@ -30,11 +32,15 @@ TEST_P(TypeCheckerTests, run) {
         StringRef filePath = StringCreateCopyFromLastOccurenceOf(AllocatorGetSystemDefault(), absoluteFilePath, '/');
         StringRef workingDirectoryArgument = StringCreate(AllocatorGetSystemDefault(), "-working-directory=");
         StringAppendString(workingDirectoryArgument, workingDirectory);
+        StringRef moduleName = StringCreate(AllocatorGetSystemDefault(), filename.c_str());
+        StringRef moduleNameArgument = StringCreate(AllocatorGetSystemDefault(), "-module-name=");
+        StringAppendString(moduleNameArgument, moduleName);
 
         ArrayRef arguments = ArrayCreateEmpty(AllocatorGetSystemDefault(), sizeof(StringRef), 4);
         ArrayAppendElement(arguments, &executable);
         ArrayAppendElement(arguments, &filePath);
         ArrayAppendElement(arguments, &workingDirectoryArgument);
+        ArrayAppendElement(arguments, &moduleNameArgument);
 
         CompilerRun(arguments);
 
@@ -42,6 +48,7 @@ TEST_P(TypeCheckerTests, run) {
             StringDestroy(*((StringRef*)ArrayGetElementAtIndex(arguments, index)));
         }
 
+        StringDestroy(moduleName);
         ArrayDestroy(arguments);
 
         if (test.context.index < test.context.records.size()) {
