@@ -56,7 +56,8 @@ enum _ASTFlags {
     ASTFlagsStatementIsAlwaysReturning = 1 << 1,
     ASTFlagsSwitchIsExhaustive         = 1 << 2,
     ASTFlagsIsValidated                = 1 << 3,
-    ASTFlagsBlockHasTerminator         = 1 << 5,
+    ASTFlagsBlockHasTerminator         = 1 << 4,
+    ASTFlagsIsValuePointer             = 1 << 5,
 };
 typedef enum _ASTFlags ASTFlags;
 
@@ -280,6 +281,7 @@ struct _ASTBinaryExpression {
 
     ASTBinaryOperator op;
     ASTExpressionRef arguments[2];
+    ASTFunctionDeclarationRef opFunction;
 };
 
 enum _ASTPostfixOperator {
@@ -303,6 +305,7 @@ struct _ASTMemberAccessExpression {
 
     ASTExpressionRef argument;
     StringRef memberName;
+    Int memberIndex;
     Index pointerDepth;
     ASTDeclarationRef resolvedDeclaration;
 };

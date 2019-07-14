@@ -1,1 +1,1 @@
-#load "path/to/source/file.jelly" // expect-error: File not found
+#load "path/to/source/file.jelly" // expect-error: File not found: 'path/to/source/file.jelly'

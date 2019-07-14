@@ -55,12 +55,6 @@ void PerformNameResolution(ASTContextRef context, ASTModuleDeclarationRef module
                 continue;
             }
 
-            if (child->tag == ASTTagFunctionDeclaration) {
-                ASTFunctionDeclarationRef function = (ASTFunctionDeclarationRef)child;
-                _PerformNameResolutionForFunctionBody(context, function);
-                continue;
-            }
-
             if (child->tag == ASTTagStructureDeclaration) {
                 ASTStructureDeclarationRef structure = (ASTStructureDeclarationRef)child;
                 _PerformNameResolutionForStructureBody(context, structure);
@@ -69,9 +63,24 @@ void PerformNameResolution(ASTContextRef context, ASTModuleDeclarationRef module
 
             if (child->tag == ASTTagValueDeclaration) {
                 ASTValueDeclarationRef value = (ASTValueDeclarationRef)child;
+                _ResolveDeclarationsOfTypeAndSubstituteType(context, value->base.base.scope, &value->base.type);
+
                 if (value->initializer) {
+                    value->initializer->expectedType = value->base.type;
                     _PerformNameResolutionForExpression(context, value->initializer);
                 }
+            }
+        }
+    }
+
+    for (Index index = 0; index < ASTArrayGetElementCount(module->sourceUnits); index++) {
+        ASTSourceUnitRef sourceUnit = (ASTSourceUnitRef)ASTArrayGetElementAtIndex(module->sourceUnits, index);
+        for (Index sourceUnitIndex = 0; sourceUnitIndex < ASTArrayGetElementCount(sourceUnit->declarations); sourceUnitIndex++) {
+            ASTNodeRef child = (ASTNodeRef)ASTArrayGetElementAtIndex(sourceUnit->declarations, sourceUnitIndex);
+            if (child->tag == ASTTagFunctionDeclaration) {
+                ASTFunctionDeclarationRef function = (ASTFunctionDeclarationRef)child;
+                _PerformNameResolutionForFunctionBody(context, function);
+                continue;
             }
         }
     }
@@ -390,7 +399,59 @@ static inline void _PerformNameResolutionForExpression(ASTContextRef context, AS
         ASTBinaryExpressionRef binary = (ASTBinaryExpressionRef)expression;
         _PerformNameResolutionForExpression(context, binary->arguments[0]);
         _PerformNameResolutionForExpression(context, binary->arguments[1]);
-        ReportCritical("Binary expression are not supported at the moment!");
+
+        ASTScopeRef globalScope                       = ASTContextGetGlobalScope(context);
+        StringRef operatorName                        = ASTGetInfixOperatorName(AllocatorGetSystemDefault(), binary->op);
+        ASTFunctionDeclarationRef matchingDeclaration = NULL;
+        for (Index index = 0; index < ASTArrayGetElementCount(globalScope->declarations); index++) {
+            ASTDeclarationRef declaration = (ASTDeclarationRef)ASTArrayGetElementAtIndex(globalScope->declarations, index);
+            if (declaration->base.tag != ASTTagFunctionDeclaration) {
+                continue;
+            }
+
+            ASTFunctionDeclarationRef function = (ASTFunctionDeclarationRef)declaration;
+            if (function->fixity != ASTFixityInfix) {
+                continue;
+            }
+
+            if (ASTArrayGetElementCount(function->parameters) != 2) {
+                continue;
+            }
+
+            if (!StringIsEqual(function->base.name, operatorName)) {
+                continue;
+            }
+
+            ASTValueDeclarationRef lhsParameter = ASTArrayGetElementAtIndex(function->parameters, 0);
+            if (!ASTTypeIsEqual(lhsParameter->base.type, binary->arguments[0]->type)) {
+                continue;
+            }
+
+            ASTValueDeclarationRef rhsParameter = ASTArrayGetElementAtIndex(function->parameters, 1);
+            if (!ASTTypeIsEqual(rhsParameter->base.type, binary->arguments[1]->type)) {
+                continue;
+            }
+
+            if (binary->base.expectedType) {
+                if (!ASTTypeIsEqual(binary->base.expectedType, function->returnType)) {
+                    continue;
+                }
+            }
+
+            assert(!matchingDeclaration && "Candidate declarations is currently not supported for binary expressions!");
+            matchingDeclaration = function;
+        }
+
+        if (!matchingDeclaration) {
+            ReportError("Use of unresolved infix function");
+            binary->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
+        } else {
+            binary->opFunction = (ASTFunctionDeclarationRef)matchingDeclaration;
+            binary->base.type  = binary->opFunction->returnType;
+        }
+
+        StringDestroy(operatorName);
+
         binary->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
         return;
     }
@@ -436,12 +497,19 @@ static inline void _PerformNameResolutionForExpression(ASTContextRef context, AS
         }
 
         if (type->tag == ASTTagStructureType) {
-            ASTStructureTypeRef structType = (ASTStructureTypeRef)type;
-            ASTDeclarationRef declaration  = ASTScopeLookupDeclarationByName(structType->declaration->innerScope, memberAccess->memberName);
-            if (declaration) {
-                memberAccess->base.type           = declaration->type;
-                memberAccess->resolvedDeclaration = declaration;
-            } else {
+            ASTStructureTypeRef structType               = (ASTStructureTypeRef)type;
+            ASTStructureDeclarationRef structDeclaration = structType->declaration;
+            for (Index index = 0; index < ASTArrayGetElementCount(structDeclaration->values); index++) {
+                ASTValueDeclarationRef value = (ASTValueDeclarationRef)ASTArrayGetElementAtIndex(structDeclaration->values, index);
+                if (StringIsEqual(value->base.name, memberAccess->memberName)) {
+                    memberAccess->memberIndex         = index;
+                    memberAccess->base.type           = value->base.type;
+                    memberAccess->resolvedDeclaration = (ASTDeclarationRef)value;
+                    break;
+                }
+            }
+
+            if (memberAccess->memberIndex < 0) {
                 memberAccess->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
                 ReportError("Use of undeclared member");
             }

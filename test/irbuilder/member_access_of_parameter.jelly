@@ -1,0 +1,21 @@
+struct Point {
+    var x: Float
+    var y: Float
+    var z: Float
+}
+
+func getX(p: Point) -> Float {
+    return p.x
+}
+
+func getY(p: Point) -> Float {
+    return p.y
+}
+
+func getZ(p: Point) -> Float {
+    return p.z
+}
+
+func getY(p: Point*) -> Float {
+    return p.y
+}

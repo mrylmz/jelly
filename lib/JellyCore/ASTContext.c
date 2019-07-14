@@ -208,6 +208,7 @@ ASTBinaryExpressionRef ASTContextCreateBinaryExpression(ASTContextRef context, S
     node->op                    = op;
     node->arguments[0]          = arguments[0];
     node->arguments[1]          = arguments[1];
+    node->opFunction            = NULL;
     node->base.type             = NULL;
     node->base.expectedType     = NULL;
     return node;
@@ -236,6 +237,7 @@ ASTMemberAccessExpressionRef ASTContextCreateMemberAccessExpression(ASTContextRe
                                                                                             scope);
     node->argument                    = argument;
     node->memberName                  = StringCreateCopy(context->allocator, memberName);
+    node->memberIndex                 = -1;
     node->pointerDepth                = 0;
     node->base.type                   = NULL;
     node->base.expectedType           = NULL;
@@ -559,11 +561,36 @@ void _ASTContextInitBuiltinFunctions(ASTContextRef context) {
         StringRef symbol                      = StringCreate(context->allocator, SYMBOL);                                                  \
         ASTFunctionDeclarationRef declaration = ASTContextCreateForeignFunctionDeclaration(                                                \
             context, SourceRangeNull(), globalScope, ASTFixityPrefix, symbol, parameters, resultType, foreignName);                        \
+        scope->node = (ASTNodeRef)declaration;                                                                                             \
         ASTScopeInsertDeclaration(globalScope, (ASTDeclarationRef)declaration);                                                            \
         ArrayDestroy(parameters);                                                                                                          \
     }
+
+#define BINARY_OPERATOR(SYMBOL, ARGUMENT_TYPE1, ARGUMENT_TYPE2, RESULT_TYPE, FOREIGN_NAME)                                                 \
+    {                                                                                                                                      \
+        ArrayRef parameters                 = ArrayCreateEmpty(AllocatorGetSystemDefault(), sizeof(ASTValueDeclarationRef), 2);            \
+        ASTScopeRef scope                   = ASTContextCreateScope(context, SourceRangeNull(), NULL, globalScope, ASTScopeKindFunction);  \
+        StringRef lhsParameterName          = StringCreate(context->allocator, "lhs");                                                     \
+        ASTTypeRef lhsParameterType         = (ASTTypeRef)_ASTContextGetBuiltinTypeByName(context, ARGUMENT_TYPE1);                        \
+        ASTValueDeclarationRef lhsParameter = ASTContextCreateValueDeclaration(context, SourceRangeNull(), scope, ASTValueKindParameter,   \
+                                                                               lhsParameterName, lhsParameterType, NULL);                  \
+        StringRef rhsParameterName          = StringCreate(context->allocator, "rhs");                                                     \
+        ASTTypeRef rhsParameterType         = (ASTTypeRef)_ASTContextGetBuiltinTypeByName(context, ARGUMENT_TYPE2);                        \
+        ASTValueDeclarationRef rhsParameter = ASTContextCreateValueDeclaration(context, SourceRangeNull(), scope, ASTValueKindParameter,   \
+                                                                               rhsParameterName, rhsParameterType, NULL);                  \
+        ArrayAppendElement(parameters, &lhsParameter);                                                                                     \
+        ArrayAppendElement(parameters, &rhsParameter);                                                                                     \
+        ASTTypeRef resultType                 = (ASTTypeRef)_ASTContextGetBuiltinTypeByName(context, RESULT_TYPE);                         \
+        StringRef foreignName                 = StringCreate(context->allocator, FOREIGN_NAME);                                            \
+        StringRef symbol                      = StringCreate(context->allocator, SYMBOL);                                                  \
+        ASTFunctionDeclarationRef declaration = ASTContextCreateForeignFunctionDeclaration(                                                \
+            context, SourceRangeNull(), globalScope, ASTFixityInfix, symbol, parameters, resultType, foreignName);                         \
+        scope->node = (ASTNodeRef)declaration;                                                                                             \
+        ASTScopeInsertDeclaration(globalScope, (ASTDeclarationRef)declaration);                                                            \
+        ArrayDestroy(parameters);                                                                                                          \
+    }
+
 #include "JellyCore/RuntimeSupportDefinitions.h"
-#undef UNARY_OPERATOR
 }
 
 ASTBuiltinTypeRef _ASTContextGetBuiltinTypeByName(ASTContextRef context, const Char *name) {

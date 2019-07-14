@@ -1,0 +1,30 @@
+struct Entity {
+    var position: Point
+    var age: Int
+}
+
+struct Point {
+    var x: Float
+    var y: Float
+    var z: Float
+}
+
+func getPosition(e: Entity) -> Point {
+    return e.position
+}
+
+func getAge(e: Entity) -> Int {
+    return e.age
+}
+
+func getPositionX(e: Entity) -> Float {
+    return e.position.x
+}
+
+func getPositionY(e: Entity) -> Float {
+    return e.position.y
+}
+
+func getPositionZ(e: Entity) -> Float {
+    return e.position.z
+}

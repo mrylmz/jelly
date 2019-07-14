@@ -1,0 +1,5 @@
+func value_assignment(x: Int) -> Int {
+    var y: Int
+    y = x
+    return y
+}

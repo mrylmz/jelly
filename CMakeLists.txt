@@ -75,9 +75,11 @@ target_include_directories(JellyCore PUBLIC include)
 target_link_libraries(JellyCore ${JELLY_LLVM_LIBS})
 
 set(JELLY_RUNTIME_SUPPORT_HEADER_FILES "include/JellyRuntimeSupport/Base.h"
+                                       "include/JellyRuntimeSupport/BinaryFunctions.h"
                                        "include/JellyRuntimeSupport/JellyRuntimeSupport.h"
                                        "include/JellyRuntimeSupport/UnaryFunctions.h")
-set(JELLY_RUNTIME_SUPPORT_SOURCE_FILES "lib/JellyRuntimeSupport/UnaryFunctions.c")
+set(JELLY_RUNTIME_SUPPORT_SOURCE_FILES "lib/JellyRuntimeSupport/BinaryFunctions.c"
+                                       "lib/JellyRuntimeSupport/UnaryFunctions.c")
 add_library(JellyRuntimeSupport STATIC ${JELLY_RUNTIME_SUPPORT_HEADER_FILES} 
                                        ${JELLY_RUNTIME_SUPPORT_SOURCE_FILES})
 target_include_directories(JellyRuntimeSupport PUBLIC include)

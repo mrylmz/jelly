@@ -33,6 +33,7 @@ void ASTScopeInsertDeclaration(ASTScopeRef scope, ASTDeclarationRef declaration)
     }
 
     case ASTTagFunctionDeclaration: {
+        ASTFunctionDeclarationRef function = (ASTFunctionDeclarationRef)declaration;
         if (scope->kind == ASTScopeKindGlobal) {
             for (Index index = 0; index < ASTArrayGetElementCount(scope->declarations); index++) {
                 ASTDeclarationRef child = (ASTDeclarationRef)ASTArrayGetElementAtIndex(scope->declarations, index);
@@ -42,13 +43,31 @@ void ASTScopeInsertDeclaration(ASTScopeRef scope, ASTDeclarationRef declaration)
                         return;
                     }
 
-                    // TODO: Perform check for parameter types and result type,
-                    // NOTE: This is maybe dependendent on the resolution of the parameter types and result type
+                    // TODO: @Verify This is maybe dependendent on the resolution of the parameter types and result type
                     //       so the addition of this could depend on partial resolution of the function signature
 
-                    // We will report an error for now until function overloading is supported...
-                    ReportError("Invalid redeclaration of identifier");
-                    return;
+                    ASTFunctionDeclarationRef childFunction = (ASTFunctionDeclarationRef)child;
+                    if (ASTArrayGetElementCount(function->parameters) == ASTArrayGetElementCount(childFunction->parameters)) {
+                        Bool hasMatchingParameterTypes = true;
+                        for (Index parameterIndex = 0; parameterIndex < ASTArrayGetElementCount(function->parameters); parameterIndex++) {
+                            ASTValueDeclarationRef lhsParameter = (ASTValueDeclarationRef)ASTArrayGetElementAtIndex(function->parameters,
+                                                                                                                    parameterIndex);
+                            ASTValueDeclarationRef rhsParameter = (ASTValueDeclarationRef)ASTArrayGetElementAtIndex(
+                                childFunction->parameters, parameterIndex);
+                            assert(lhsParameter->base.type);
+                            assert(rhsParameter->base.type);
+
+                            if (!ASTTypeIsEqual(lhsParameter->base.type, rhsParameter->base.type)) {
+                                hasMatchingParameterTypes = false;
+                                break;
+                            }
+                        }
+
+                        if (hasMatchingParameterTypes && ASTTypeIsEqual(function->returnType, childFunction->returnType)) {
+                            ReportError("Invalid redeclaration of identifier");
+                            return;
+                        }
+                    }
                 }
             }
 

@@ -1,0 +1,15 @@
+struct Entity {
+    var position: Point
+    var age: Int
+}
+
+struct Point {
+    var x: Float
+    var y: Float
+    var z: Float
+}
+
+var entity: Entity
+func getGlobalPositionY() -> Float {
+    return entity.position.x
+}

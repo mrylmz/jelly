@@ -1,0 +1,72 @@
+func bitwise_left_shift(lhs: Int, rhs: Int) -> Int {
+    return lhs << rhs
+}
+
+func bitwise_right_shift(lhs: Int, rhs: Int) -> Int {
+    return lhs >> rhs
+}
+
+func multiply(lhs: Int, rhs: Int) -> Int {
+    return lhs * rhs
+}
+
+func divide(lhs: Int, rhs: Int) -> Int {
+    return lhs / rhs
+} 
+
+func reminder(lhs: Int, rhs: Int) -> Int {
+    return lhs % rhs
+}
+
+func bitwise_and(lhs: Int, rhs: Int) -> Int {
+    return lhs & rhs
+}
+
+func add(lhs: Int, rhs: Int) -> Int {
+    return lhs + rhs
+}
+
+func subtract(lhs: Int, rhs: Int) -> Int {
+    return lhs - rhs
+}
+
+func bitwise_or(lhs: Int, rhs: Int) -> Int {
+    return lhs | rhs
+}
+
+func bitwise_xor(lhs: Int, rhs: Int) -> Int {
+    return lhs ^ rhs
+}
+
+func less_than(lhs: Int, rhs: Int) -> Bool {
+    return lhs < rhs
+}
+
+func less_than_equal(lhs: Int, rhs: Int) -> Bool {
+    return lhs <= rhs
+}
+
+func greater_than(lhs: Int, rhs: Int) -> Bool {
+    return lhs > rhs
+}
+
+func greater_than_equal(lhs: Int, rhs: Int) -> Bool {
+    return lhs >= rhs
+}
+
+func equal(lhs: Int, rhs: Int) -> Bool {
+    return lhs == rhs
+}
+
+func not_equal(lhs: Int, rhs: Int) -> Bool {
+    return lhs != rhs
+}
+
+func logical_and(lhs: Bool, rhs: Bool) -> Bool {
+    return lhs && rhs
+}
+
+func logical_or(lhs: Bool, rhs: Bool) -> Bool {
+    return lhs || rhs
+}
+

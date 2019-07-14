@@ -1,0 +1,11 @@
+struct Container {
+    var member: Contained*
+}
+
+struct Contained {
+    var value: Int
+}
+
+func member_access_of_pointer(container: Container) -> Int {
+    return container.member.value
+}

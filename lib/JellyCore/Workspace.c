@@ -174,7 +174,7 @@ void *_WorkspaceProcess(void *context) {
                 StringDestroy(source);
                 _WorkspacePerformLoads(workspace, sourceUnit);
             } else {
-                ReportErrorFormat("File not found: %s", StringGetCharacters(absoluteFilePath));
+                ReportErrorFormat("File not found: '%s'", StringGetCharacters(filePath));
             }
 
             StringDestroy(absoluteFilePath);
