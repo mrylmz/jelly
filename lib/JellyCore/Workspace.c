@@ -3,6 +3,7 @@
 #include "JellyCore/ASTScope.h"
 #include "JellyCore/Diagnostic.h"
 #include "JellyCore/IRBuilder.h"
+#include "JellyCore/LDLinker.h"
 #include "JellyCore/NameResolution.h"
 #include "JellyCore/Parser.h"
 #include "JellyCore/Queue.h"
@@ -259,6 +260,19 @@ void *_WorkspaceProcess(void *context) {
         return NULL;
     }
 
+    ArrayRef objectFiles     = ArrayCreateEmpty(workspace->allocator, sizeof(StringRef), 1);
+    StringRef objectFilePath = StringCreateCopy(workspace->allocator, workspace->buildDirectory);
+    StringAppendFormat(objectFilePath, "/%s.o", StringGetCharacters(ASTContextGetModule(workspace->context)->base.name));
+    ArrayAppendElement(objectFiles, &objectFilePath);
+
+    StringRef targetPath = StringCreateCopy(workspace->allocator, workspace->buildDirectory);
+    StringAppendFormat(targetPath, "/program");
+
+    LDLinkerLink(workspace->allocator, objectFiles, targetPath, LDLinkerTargetTypeExecutable, NULL);
+
+    StringDestroy(targetPath);
+    ArrayDestroy(objectFiles);
+    StringDestroy(objectFilePath);
 
     return NULL;
 }
