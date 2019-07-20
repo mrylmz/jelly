@@ -147,3 +147,17 @@ bool ASTArrayIsEqual(ASTArrayRef lhs, ASTArrayRef rhs) {
 
     return true;
 }
+
+ASTArrayIteratorRef ASTArrayGetIterator(ASTArrayRef array) {
+    return (ASTArrayIteratorRef)array->list;
+}
+
+ASTArrayIteratorRef ASTArrayIteratorNext(ASTArrayIteratorRef iterator) {
+    ASTLinkedListRef list = (ASTLinkedListRef)iterator;
+    return (ASTArrayIteratorRef)list->next;
+}
+
+void *ASTArrayIteratorGetElement(ASTArrayIteratorRef iterator) {
+    ASTLinkedListRef list = (ASTLinkedListRef)iterator;
+    return list->node;
+}

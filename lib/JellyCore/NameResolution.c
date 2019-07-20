@@ -31,11 +31,12 @@ void PerformNameResolution(ASTContextRef context, ASTModuleDeclarationRef module
         ASTSourceUnitRef sourceUnit = (ASTSourceUnitRef)ASTArrayGetElementAtIndex(module->sourceUnits, index);
         for (Index sourceUnitIndex = 0; sourceUnitIndex < ASTArrayGetElementCount(sourceUnit->declarations); sourceUnitIndex++) {
             ASTNodeRef child = (ASTNodeRef)ASTArrayGetElementAtIndex(sourceUnit->declarations, sourceUnitIndex);
-            if (child->tag == ASTTagFunctionDeclaration) {
+            if (child->tag == ASTTagFunctionDeclaration || child->tag == ASTTagForeignFunctionDeclaration ||
+                child->tag == ASTTagIntrinsicFunctionDeclaration) {
                 ASTFunctionDeclarationRef function = (ASTFunctionDeclarationRef)child;
                 if (_ResolveDeclarationsOfFunctionSignature(context, function)) {
-                    if (ASTScopeLookupDeclarationByNameOrMatchingFunctionSignature(child->scope, function->base.name, function->parameters,
-                                                                                   function->returnType) == NULL) {
+                    if (ASTScopeLookupDeclarationByNameOrMatchingFunctionSignature(child->scope, function->base.name, function->fixity,
+                                                                                   function->parameters, function->returnType) == NULL) {
                         ASTArrayAppendElement(child->scope->declarations, (ASTDeclarationRef)child);
                     } else {
                         ReportError("Invalid redeclaration of identifier");
@@ -351,7 +352,8 @@ static inline void _PerformNameResolutionForExpression(ASTContextRef context, AS
         ASTFunctionDeclarationRef matchingDeclaration = NULL;
         for (Index index = 0; index < ASTArrayGetElementCount(globalScope->declarations); index++) {
             ASTDeclarationRef declaration = (ASTDeclarationRef)ASTArrayGetElementAtIndex(globalScope->declarations, index);
-            if (declaration->base.tag != ASTTagFunctionDeclaration) {
+            if (declaration->base.tag != ASTTagFunctionDeclaration && declaration->base.tag != ASTTagForeignFunctionDeclaration &&
+                declaration->base.tag != ASTTagIntrinsicFunctionDeclaration) {
                 continue;
             }
 
@@ -405,7 +407,8 @@ static inline void _PerformNameResolutionForExpression(ASTContextRef context, AS
         ASTFunctionDeclarationRef matchingDeclaration = NULL;
         for (Index index = 0; index < ASTArrayGetElementCount(globalScope->declarations); index++) {
             ASTDeclarationRef declaration = (ASTDeclarationRef)ASTArrayGetElementAtIndex(globalScope->declarations, index);
-            if (declaration->base.tag != ASTTagFunctionDeclaration) {
+            if (declaration->base.tag != ASTTagFunctionDeclaration && declaration->base.tag != ASTTagForeignFunctionDeclaration &&
+                declaration->base.tag != ASTTagIntrinsicFunctionDeclaration) {
                 continue;
             }
 
@@ -545,7 +548,8 @@ static inline void _PerformNameResolutionForExpression(ASTContextRef context, AS
             Index matchingParameterTypeCount      = 0;
             for (Index index = 0; index < ASTArrayGetElementCount(globalScope->declarations); index++) {
                 ASTDeclarationRef declaration = (ASTDeclarationRef)ASTArrayGetElementAtIndex(globalScope->declarations, index);
-                if (declaration->base.tag != ASTTagFunctionDeclaration) {
+                if (declaration->base.tag != ASTTagFunctionDeclaration && declaration->base.tag != ASTTagForeignFunctionDeclaration &&
+                    declaration->base.tag != ASTTagIntrinsicFunctionDeclaration) {
                     continue;
                 }
 

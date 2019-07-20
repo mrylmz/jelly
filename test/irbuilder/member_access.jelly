@@ -1,3 +1,5 @@
+// run: -dump-ir
+
 struct Entity {
     var position: Point
     var age: Int
@@ -13,3 +15,5 @@ var entity: Entity
 func getGlobalPositionY() -> Float {
     return entity.position.x
 }
+
+func main() -> Void {}

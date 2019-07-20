@@ -1,3 +1,5 @@
+// run: -type-check
+
 func myFunc(condition: Bool) -> Int {
     if condition {
         return x // expect-error: Use of unresolved identifier
@@ -6,3 +8,5 @@ func myFunc(condition: Bool) -> Int {
     var x: Int = 0
     return x
 }
+
+func main() -> Void {}

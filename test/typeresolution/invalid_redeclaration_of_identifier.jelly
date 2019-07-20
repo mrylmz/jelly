@@ -1,3 +1,5 @@
-func main(x: Int, y: Int) -> Void {
+func myFunc(x: Int, y: Int) -> Void {
     var x: Int // expect-error: Invalid redeclaration of identifier
 }
+
+func main() -> Void {}

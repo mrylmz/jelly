@@ -1,3 +1,5 @@
+// run: -type-check
+
 struct A {
     var b: B // expect-error: Struct cannot store a variable of same type recursively
 }
@@ -13,3 +15,5 @@ struct C {
 struct SelfContained {
     var mySelf: SelfContained // expect-error: Struct cannot store a variable of same type recursively
 }
+
+func main() -> Void {}

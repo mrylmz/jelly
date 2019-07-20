@@ -1,2 +1,5 @@
+// run: -type-check
+
 func empty_func_missing_return() -> Int {} // expect-error: Not all code paths return a value
 
+func main() -> Void {}

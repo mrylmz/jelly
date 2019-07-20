@@ -1,1 +1,5 @@
+// run: -dump-ir
+
 func empty_function() -> Void {}
+
+func main() -> Void {}

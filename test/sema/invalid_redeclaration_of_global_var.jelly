@@ -1,2 +1,6 @@
+// run: -type-check
+
 var m: Int = 0
 var m: Int = 1 // expect-error: Invalid redeclaration of identifier
+
+func main() -> Void {}

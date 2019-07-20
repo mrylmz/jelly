@@ -42,6 +42,11 @@ TEST_P(TypeCheckerTests, run) {
         ArrayAppendElement(arguments, &workingDirectoryArgument);
         ArrayAppendElement(arguments, &moduleNameArgument);
 
+        for (auto arg : test.context.arguments) {
+            StringRef argument = StringCreate(AllocatorGetSystemDefault(), arg.c_str());
+            ArrayAppendElement(arguments, &argument);
+        }
+
         CompilerRun(arguments);
 
         for (Index index = 0; index < ArrayGetElementCount(arguments); index++) {

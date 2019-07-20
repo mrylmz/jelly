@@ -1,1 +1,5 @@
+// run: -type-check
+
 struct Void {} // expect-error: Expected `name` of `struct-declaration`
+
+func main() -> Void {}

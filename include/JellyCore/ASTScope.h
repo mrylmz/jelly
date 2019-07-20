@@ -13,8 +13,8 @@ void ASTScopeInsertDeclaration(ASTScopeRef scope, ASTDeclarationRef declaration)
 
 ASTDeclarationRef ASTScopeLookupDeclarationByName(ASTScopeRef scope, StringRef name);
 
-ASTDeclarationRef ASTScopeLookupDeclarationByNameOrMatchingFunctionSignature(ASTScopeRef scope, StringRef name, ASTArrayRef parameters,
-                                                                             ASTTypeRef resultType);
+ASTDeclarationRef ASTScopeLookupDeclarationByNameOrMatchingFunctionSignature(ASTScopeRef scope, StringRef name, ASTFixity fixity,
+                                                                             ASTArrayRef parameters, ASTTypeRef resultType);
 
 ASTDeclarationRef ASTScopeLookupDeclarationInHierarchyByName(ASTScopeRef scope, StringRef name);
 

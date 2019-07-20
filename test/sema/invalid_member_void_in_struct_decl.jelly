@@ -1,3 +1,7 @@
+// run: -type-check
+
 struct Broken {
     var nothing: Void // expect-error: Cannot store 'Void' type as member
 }
+
+func main() -> Void {}

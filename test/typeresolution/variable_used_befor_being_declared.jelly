@@ -6,3 +6,5 @@ func myFunc(condition: Bool) -> Int {
     var x: Int
     return x
 }
+
+func main() -> Void {}

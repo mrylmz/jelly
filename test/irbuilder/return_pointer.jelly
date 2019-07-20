@@ -1,5 +1,9 @@
+// run: -dump-ir
+
 func peek(x: Int*) -> Int* {
     var y: Int*
     y = x
     return y
 }
+
+func main() -> Void {}

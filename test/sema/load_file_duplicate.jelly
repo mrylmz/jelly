@@ -1,1 +1,5 @@
+// run: -type-check
+
 #load "load_file_duplicate.jelly" // expect-error: Cannot load source file at path 'load_file_duplicate.jelly' twice
+
+func main() -> Void {}

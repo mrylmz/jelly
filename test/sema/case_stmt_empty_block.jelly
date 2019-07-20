@@ -1,3 +1,5 @@
+// run: -type-check
+
 func caseStmtEmptyBlock() -> Void {
     var x: Int
     switch x {
@@ -11,3 +13,5 @@ func caseStmtEmptyBlock() -> Void {
     else:   // expect-error: Switch case should contain at least one statement
     }
 }
+
+func main() -> Void {}

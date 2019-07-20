@@ -1,6 +1,10 @@
+// run: -type-check
+
 enum Direction {
     case north = 1000
     case east 
     case south
     case west  = 3
 }
+
+func main() -> Void {}

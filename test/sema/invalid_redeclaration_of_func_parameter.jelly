@@ -1,1 +1,5 @@
+// run: -type-check
+
 func myFunc(a: Int, a: Int) -> Void {} // expect-error: Invalid redeclaration of identifier
+
+func main() -> Void {}

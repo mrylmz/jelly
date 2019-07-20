@@ -1,1 +1,5 @@
+// run: -dump-ir
+
 var x: Int
+
+func main() -> Void {}

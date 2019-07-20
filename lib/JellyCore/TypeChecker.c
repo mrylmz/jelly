@@ -23,6 +23,10 @@ static inline void _TypeCheckerValidateEnumerationDeclaration(TypeCheckerRef typ
                                                               ASTEnumerationDeclarationRef declaration);
 static inline void _TypeCheckerValidateFunctionDeclaration(TypeCheckerRef typeChecker, ASTContextRef context,
                                                            ASTFunctionDeclarationRef declaration);
+static inline void _TypeCheckerValidateForeignFunctionDeclaration(TypeCheckerRef typeChecker, ASTContextRef context,
+                                                                  ASTFunctionDeclarationRef declaration);
+static inline void _TypeCheckerValidateIntrinsicFunctionDeclaration(TypeCheckerRef typeChecker, ASTContextRef context,
+                                                                    ASTFunctionDeclarationRef declaration);
 static inline void _TypeCheckerValidateStructureDeclaration(TypeCheckerRef typeChecker, ASTContextRef context,
                                                             ASTStructureDeclarationRef declaration);
 static inline void _TypeCheckerValidateVariableDeclaration(TypeCheckerRef typeChecker, ASTContextRef context,
@@ -57,6 +61,56 @@ void TypeCheckerValidateModule(TypeCheckerRef typeChecker, ASTContextRef context
         ASTSourceUnitRef sourceUnit = (ASTSourceUnitRef)ASTArrayGetElementAtIndex(module->sourceUnits, index);
         _TypeCheckerValidateSourceUnit(typeChecker, context, sourceUnit);
     }
+
+    if (DiagnosticEngineGetMessageCount(DiagnosticLevelError) > 0 || DiagnosticEngineGetMessageCount(DiagnosticLevelCritical) > 0) {
+        return;
+    }
+
+    // Lookup entry point of program
+    Bool hasError = false;
+    for (Index sourceUnitIndex = 0; sourceUnitIndex < ASTArrayGetElementCount(module->sourceUnits); sourceUnitIndex++) {
+        ASTSourceUnitRef sourceUnit = (ASTSourceUnitRef)ASTArrayGetElementAtIndex(module->sourceUnits, sourceUnitIndex);
+        for (Index index = 0; index < ASTArrayGetElementCount(sourceUnit->declarations); index++) {
+            ASTDeclarationRef declaration = (ASTDeclarationRef)ASTArrayGetElementAtIndex(sourceUnit->declarations, index);
+            if (declaration->base.tag != ASTTagFunctionDeclaration) {
+                continue;
+            }
+
+            if (!StringIsEqual(declaration->name, module->entryPointName)) {
+                continue;
+            }
+
+            if (module->entryPoint) {
+                ReportError("Invalid redeclaration of program entry point");
+                hasError = true;
+                break;
+            }
+
+            ASTFunctionDeclarationRef function = (ASTFunctionDeclarationRef)declaration;
+
+            if (ASTArrayGetElementCount(function->parameters) != 0) {
+                ReportError("Expected no parameters for program entry point");
+                hasError = true;
+                break;
+            }
+
+            if (!_ASTTypeIsEqualOrError(function->returnType, (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindVoid))) {
+                ReportError("Return type of program entry point is not 'Void'");
+                hasError = true;
+                break;
+            }
+
+            module->entryPoint = function;
+        }
+
+        if (hasError) {
+            break;
+        }
+    }
+
+    if (!hasError && !module->entryPoint) {
+        ReportError("No entry point specified for module");
+    }
 }
 
 static inline void _TypeCheckerValidateSourceUnit(TypeCheckerRef typeChecker, ASTContextRef context, ASTSourceUnitRef sourceUnit) {
@@ -79,6 +133,14 @@ static inline void _TypeCheckerValidateTopLevelNode(TypeCheckerRef typeChecker, 
 
     if (node->tag == ASTTagFunctionDeclaration) {
         return _TypeCheckerValidateFunctionDeclaration(typeChecker, context, (ASTFunctionDeclarationRef)node);
+    }
+
+    if (node->tag == ASTTagForeignFunctionDeclaration) {
+        return _TypeCheckerValidateForeignFunctionDeclaration(typeChecker, context, (ASTFunctionDeclarationRef)node);
+    }
+
+    if (node->tag == ASTTagIntrinsicFunctionDeclaration) {
+        return _TypeCheckerValidateIntrinsicFunctionDeclaration(typeChecker, context, (ASTFunctionDeclarationRef)node);
     }
 
     if (node->tag == ASTTagStructureDeclaration) {
@@ -185,6 +247,60 @@ static inline void _TypeCheckerValidateFunctionDeclaration(TypeCheckerRef typeCh
     for (Index index = 0; index < ASTArrayGetElementCount(declaration->body->statements); index++) {
         ASTNodeRef child = (ASTNodeRef)ASTArrayGetElementAtIndex(declaration->body->statements, index);
         _TypeCheckerValidateStatement(typeChecker, context, child);
+    }
+}
+
+static inline void _TypeCheckerValidateForeignFunctionDeclaration(TypeCheckerRef typeChecker, ASTContextRef context,
+                                                                  ASTFunctionDeclarationRef declaration) {
+    _GuardValidateOnce(declaration);
+
+    for (Index index = 0; index < ASTArrayGetElementCount(declaration->parameters); index++) {
+        ASTValueDeclarationRef parameter = (ASTValueDeclarationRef)ASTArrayGetElementAtIndex(declaration->parameters, index);
+        assert(parameter->base.type);
+
+        if (parameter->base.type->tag == ASTTagBuiltinType) {
+            ASTBuiltinTypeRef builtinType = (ASTBuiltinTypeRef)parameter->base.type;
+            if (builtinType->kind == ASTBuiltinTypeKindVoid) {
+                parameter->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
+                ReportError("Cannot pass 'Void' type as parameter");
+            }
+        }
+    }
+
+    assert(declaration->returnType->tag != ASTTagOpaqueType);
+    Bool requiresReturnValue = true;
+    if (declaration->returnType->tag == ASTTagBuiltinType) {
+        ASTBuiltinTypeRef builtinType = (ASTBuiltinTypeRef)declaration->returnType;
+        if (builtinType->kind == ASTBuiltinTypeKindVoid) {
+            requiresReturnValue = false;
+        }
+    }
+}
+
+static inline void _TypeCheckerValidateIntrinsicFunctionDeclaration(TypeCheckerRef typeChecker, ASTContextRef context,
+                                                                    ASTFunctionDeclarationRef declaration) {
+    _GuardValidateOnce(declaration);
+
+    for (Index index = 0; index < ASTArrayGetElementCount(declaration->parameters); index++) {
+        ASTValueDeclarationRef parameter = (ASTValueDeclarationRef)ASTArrayGetElementAtIndex(declaration->parameters, index);
+        assert(parameter->base.type);
+
+        if (parameter->base.type->tag == ASTTagBuiltinType) {
+            ASTBuiltinTypeRef builtinType = (ASTBuiltinTypeRef)parameter->base.type;
+            if (builtinType->kind == ASTBuiltinTypeKindVoid) {
+                parameter->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
+                ReportError("Cannot pass 'Void' type as parameter");
+            }
+        }
+    }
+
+    assert(declaration->returnType->tag != ASTTagOpaqueType);
+    Bool requiresReturnValue = true;
+    if (declaration->returnType->tag == ASTTagBuiltinType) {
+        ASTBuiltinTypeRef builtinType = (ASTBuiltinTypeRef)declaration->returnType;
+        if (builtinType->kind == ASTBuiltinTypeKindVoid) {
+            requiresReturnValue = false;
+        }
     }
 }
 

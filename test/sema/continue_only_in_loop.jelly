@@ -1,4 +1,6 @@
-func main(arg: Bool) -> Void {
+// run: -type-check
+
+func myFunc(arg: Bool) -> Void {
     if arg {
         if true { 
             continue // expect-error: 'continue' is only allowed inside a loop
@@ -7,3 +9,5 @@ func main(arg: Bool) -> Void {
         continue // expect-error: 'continue' is only allowed inside a loop
     }
 }
+
+func main() -> Void {}

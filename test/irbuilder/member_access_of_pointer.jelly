@@ -1,3 +1,5 @@
+// run: -dump-ir
+
 struct Container {
     var member: Contained*
 }
@@ -9,3 +11,5 @@ struct Contained {
 func member_access_of_pointer(container: Container) -> Int {
     return container.member.value
 }
+
+func main() -> Void {}

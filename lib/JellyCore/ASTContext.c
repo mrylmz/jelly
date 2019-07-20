@@ -50,16 +50,18 @@ ASTContextRef ASTContextCreate(AllocatorRef allocator, StringRef moduleName) {
     context->nodes[ASTTagModuleDeclaration]      = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTModuleDeclaration), 1024);
     context->nodes[ASTTagEnumerationDeclaration] = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTEnumerationDeclaration), 1024);
     context->nodes[ASTTagFunctionDeclaration]    = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTFunctionDeclaration), 1024);
-    context->nodes[ASTTagStructureDeclaration]   = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTStructureDeclaration), 1024);
-    context->nodes[ASTTagValueDeclaration]       = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTValueDeclaration), 1024);
-    context->nodes[ASTTagOpaqueType]             = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTOpaqueType), 1024);
-    context->nodes[ASTTagPointerType]            = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTPointerType), 1024);
-    context->nodes[ASTTagArrayType]              = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTArrayType), 1024);
-    context->nodes[ASTTagBuiltinType]            = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTBuiltinType), 1024);
-    context->nodes[ASTTagEnumerationType]        = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTEnumerationType), 1024);
-    context->nodes[ASTTagFunctionType]           = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTFunctionType), 1024);
-    context->nodes[ASTTagStructureType]          = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTStructureType), 1024);
-    context->nodes[ASTTagScope]                  = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTScope), 1024);
+    context->nodes[ASTTagForeignFunctionDeclaration]   = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTFunctionDeclaration), 1024);
+    context->nodes[ASTTagIntrinsicFunctionDeclaration] = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTFunctionDeclaration), 1024);
+    context->nodes[ASTTagStructureDeclaration] = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTStructureDeclaration), 1024);
+    context->nodes[ASTTagValueDeclaration]     = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTValueDeclaration), 1024);
+    context->nodes[ASTTagOpaqueType]           = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTOpaqueType), 1024);
+    context->nodes[ASTTagPointerType]          = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTPointerType), 1024);
+    context->nodes[ASTTagArrayType]            = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTArrayType), 1024);
+    context->nodes[ASTTagBuiltinType]          = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTBuiltinType), 1024);
+    context->nodes[ASTTagEnumerationType]      = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTEnumerationType), 1024);
+    context->nodes[ASTTagFunctionType]         = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTFunctionType), 1024);
+    context->nodes[ASTTagStructureType]        = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTStructureType), 1024);
+    context->nodes[ASTTagScope]                = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTScope), 1024);
     context->module = ASTContextCreateModuleDeclaration(context, SourceRangeNull(), NULL, moduleName, NULL, NULL);
     _ASTContextInitBuiltinTypes(context);
     _ASTContextInitBuiltinFunctions(context);
@@ -325,13 +327,14 @@ ASTConstantExpressionRef ASTContextCreateConstantStringExpression(ASTContextRef 
 ASTModuleDeclarationRef ASTContextCreateModuleDeclaration(ASTContextRef context, SourceRange location, ASTScopeRef scope, StringRef name,
                                                           ArrayRef sourceUnits, ArrayRef importedModules) {
     ASTModuleDeclarationRef node = (ASTModuleDeclarationRef)_ASTContextCreateNode(context, ASTTagModuleDeclaration, location, scope);
-    // TODO: The name of the module is a placeholder for now, there has to be a convenient way in the language to specify a module name
-    node->base.name        = StringCreateCopy(context->allocator, name);
-    node->base.mangledName = NULL;
-    node->base.type        = NULL;
-    node->scope            = ASTContextCreateScope(context, location, (ASTNodeRef)node, scope, ASTScopeKindGlobal);
-    node->sourceUnits      = ASTContextCreateArray(context, location, scope);
-    node->importedModules  = ASTContextCreateArray(context, location, scope);
+    node->base.name              = StringCreateCopy(context->allocator, name);
+    node->base.mangledName       = NULL;
+    node->base.type              = NULL;
+    node->scope                  = ASTContextCreateScope(context, location, (ASTNodeRef)node, scope, ASTScopeKindGlobal);
+    node->sourceUnits            = ASTContextCreateArray(context, location, scope);
+    node->importedModules        = ASTContextCreateArray(context, location, scope);
+    node->entryPointName         = StringCreate(context->allocator, "main");
+    node->entryPoint             = NULL;
     if (sourceUnits) {
         ASTArrayAppendArray(node->sourceUnits, sourceUnits);
     }
@@ -374,9 +377,9 @@ ASTFunctionDeclarationRef ASTContextCreateFunctionDeclaration(ASTContextRef cont
     if (parameters) {
         ASTArrayAppendArray(node->parameters, parameters);
     }
-    node->base.type   = (ASTTypeRef)ASTContextCreateFunctionType(context, location, scope, node);
-    node->foreign     = false;
-    node->foreignName = NULL;
+    node->base.type     = (ASTTypeRef)ASTContextCreateFunctionType(context, location, scope, node);
+    node->foreignName   = NULL;
+    node->intrinsicName = NULL;
     return node;
 }
 
@@ -385,7 +388,8 @@ ASTFunctionDeclarationRef ASTContextCreateForeignFunctionDeclaration(ASTContextR
                                                                      ASTTypeRef returnType, StringRef foreignName) {
     assert(name && returnType && foreignName);
 
-    ASTFunctionDeclarationRef node = (ASTFunctionDeclarationRef)_ASTContextCreateNode(context, ASTTagFunctionDeclaration, location, scope);
+    ASTFunctionDeclarationRef node = (ASTFunctionDeclarationRef)_ASTContextCreateNode(context, ASTTagForeignFunctionDeclaration, location,
+                                                                                      scope);
     node->base.name                = StringCreateCopy(context->allocator, name);
     node->base.mangledName         = NULL;
     node->fixity                   = fixity;
@@ -395,9 +399,31 @@ ASTFunctionDeclarationRef ASTContextCreateForeignFunctionDeclaration(ASTContextR
     if (parameters) {
         ASTArrayAppendArray(node->parameters, parameters);
     }
-    node->base.type   = (ASTTypeRef)ASTContextCreateFunctionType(context, location, scope, node);
-    node->foreign     = true;
-    node->foreignName = StringCreateCopy(context->allocator, foreignName);
+    node->base.type     = (ASTTypeRef)ASTContextCreateFunctionType(context, location, scope, node);
+    node->foreignName   = StringCreateCopy(context->allocator, foreignName);
+    node->intrinsicName = NULL;
+    return node;
+}
+
+ASTFunctionDeclarationRef ASTContextCreateIntrinsicFunctionDeclaration(ASTContextRef context, SourceRange location, ASTScopeRef scope,
+                                                                       ASTFixity fixity, StringRef name, ArrayRef parameters,
+                                                                       ASTTypeRef returnType, StringRef intrinsicName) {
+    assert(name && returnType && intrinsicName);
+
+    ASTFunctionDeclarationRef node = (ASTFunctionDeclarationRef)_ASTContextCreateNode(context, ASTTagIntrinsicFunctionDeclaration, location,
+                                                                                      scope);
+    node->base.name                = StringCreateCopy(context->allocator, name);
+    node->base.mangledName         = NULL;
+    node->fixity                   = fixity;
+    node->parameters               = ASTContextCreateArray(context, location, scope);
+    node->returnType               = returnType;
+    node->body                     = NULL;
+    if (parameters) {
+        ASTArrayAppendArray(node->parameters, parameters);
+    }
+    node->base.type     = (ASTTypeRef)ASTContextCreateFunctionType(context, location, scope, node);
+    node->foreignName   = NULL;
+    node->intrinsicName = StringCreateCopy(context->allocator, intrinsicName);
     return node;
 }
 
@@ -547,7 +573,8 @@ void _ASTContextInitBuiltinTypes(ASTContextRef context) {
 
 void _ASTContextInitBuiltinFunctions(ASTContextRef context) {
     ASTScopeRef globalScope = ASTContextGetGlobalScope(context);
-#define UNARY_OPERATOR(SYMBOL, ARGUMENT_TYPE, RESULT_TYPE, FOREIGN_NAME)                                                                   \
+
+#define UNARY_OPERATOR(SYMBOL, ARGUMENT_TYPE, RESULT_TYPE, INTRINSIC)                                                                      \
     {                                                                                                                                      \
         ArrayRef parameters              = ArrayCreateEmpty(AllocatorGetSystemDefault(), sizeof(ASTValueDeclarationRef), 1);               \
         ASTScopeRef scope                = ASTContextCreateScope(context, SourceRangeNull(), NULL, globalScope, ASTScopeKindFunction);     \
@@ -557,16 +584,16 @@ void _ASTContextInitBuiltinFunctions(ASTContextRef context) {
                                                                             parameterName, parameterType, NULL);                           \
         ArrayAppendElement(parameters, &parameter);                                                                                        \
         ASTTypeRef resultType                 = (ASTTypeRef)_ASTContextGetBuiltinTypeByName(context, RESULT_TYPE);                         \
-        StringRef foreignName                 = StringCreate(context->allocator, FOREIGN_NAME);                                            \
         StringRef symbol                      = StringCreate(context->allocator, SYMBOL);                                                  \
-        ASTFunctionDeclarationRef declaration = ASTContextCreateForeignFunctionDeclaration(                                                \
-            context, SourceRangeNull(), globalScope, ASTFixityPrefix, symbol, parameters, resultType, foreignName);                        \
+        StringRef intrinsic                   = StringCreate(context->allocator, INTRINSIC);                                               \
+        ASTFunctionDeclarationRef declaration = ASTContextCreateIntrinsicFunctionDeclaration(                                              \
+            context, SourceRangeNull(), globalScope, ASTFixityPrefix, symbol, parameters, resultType, intrinsic);                          \
         scope->node = (ASTNodeRef)declaration;                                                                                             \
         ASTScopeInsertDeclaration(globalScope, (ASTDeclarationRef)declaration);                                                            \
         ArrayDestroy(parameters);                                                                                                          \
     }
 
-#define BINARY_OPERATOR(SYMBOL, ARGUMENT_TYPE1, ARGUMENT_TYPE2, RESULT_TYPE, FOREIGN_NAME)                                                 \
+#define BINARY_OPERATOR(SYMBOL, ARGUMENT_TYPE1, ARGUMENT_TYPE2, RESULT_TYPE, INTRINSIC)                                                    \
     {                                                                                                                                      \
         ArrayRef parameters                 = ArrayCreateEmpty(AllocatorGetSystemDefault(), sizeof(ASTValueDeclarationRef), 2);            \
         ASTScopeRef scope                   = ASTContextCreateScope(context, SourceRangeNull(), NULL, globalScope, ASTScopeKindFunction);  \
@@ -581,10 +608,10 @@ void _ASTContextInitBuiltinFunctions(ASTContextRef context) {
         ArrayAppendElement(parameters, &lhsParameter);                                                                                     \
         ArrayAppendElement(parameters, &rhsParameter);                                                                                     \
         ASTTypeRef resultType                 = (ASTTypeRef)_ASTContextGetBuiltinTypeByName(context, RESULT_TYPE);                         \
-        StringRef foreignName                 = StringCreate(context->allocator, FOREIGN_NAME);                                            \
+        StringRef intrinsic                   = StringCreate(context->allocator, INTRINSIC);                                               \
         StringRef symbol                      = StringCreate(context->allocator, SYMBOL);                                                  \
-        ASTFunctionDeclarationRef declaration = ASTContextCreateForeignFunctionDeclaration(                                                \
-            context, SourceRangeNull(), globalScope, ASTFixityInfix, symbol, parameters, resultType, foreignName);                         \
+        ASTFunctionDeclarationRef declaration = ASTContextCreateIntrinsicFunctionDeclaration(                                              \
+            context, SourceRangeNull(), globalScope, ASTFixityInfix, symbol, parameters, resultType, intrinsic);                           \
         scope->node = (ASTNodeRef)declaration;                                                                                             \
         ASTScopeInsertDeclaration(globalScope, (ASTDeclarationRef)declaration);                                                            \
         ArrayDestroy(parameters);                                                                                                          \

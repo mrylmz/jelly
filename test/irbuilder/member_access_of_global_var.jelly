@@ -1,3 +1,5 @@
+// run: -dump-ir
+
 struct Entity {
     var position: Point
     var age: Int
@@ -14,3 +16,5 @@ struct Point {
     var y: Float
     var z: Float
 }
+
+func main() -> Void {}

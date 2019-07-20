@@ -28,14 +28,12 @@ TEST_P(NameResolutionTests, run) {
 
         StringRef executable = StringCreate(AllocatorGetSystemDefault(), "jelly");
         StringRef filePath = StringCreateCopyFromLastOccurenceOf(AllocatorGetSystemDefault(), absoluteFilePath, '/');
-        StringRef dumpScopeArgument = StringCreate(AllocatorGetSystemDefault(), "-dump-scope"); // TODO: Add file path for option...
         StringRef workingDirectoryArgument = StringCreate(AllocatorGetSystemDefault(), "-working-directory=");
         StringAppendString(workingDirectoryArgument, workingDirectory);
 
         ArrayRef arguments = ArrayCreateEmpty(AllocatorGetSystemDefault(), sizeof(StringRef), 4);
         ArrayAppendElement(arguments, &executable);
         ArrayAppendElement(arguments, &filePath);
-//        ArrayAppendElement(arguments, &dumpScopeArgument);
         ArrayAppendElement(arguments, &workingDirectoryArgument);
 
         CompilerRun(arguments);

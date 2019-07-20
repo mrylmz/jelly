@@ -7,12 +7,19 @@
 JELLY_EXTERN_C_BEGIN
 
 typedef struct _IRBuilder *IRBuilderRef;
+typedef struct _IRModule *IRModuleRef;
 
 IRBuilderRef IRBuilderCreate(AllocatorRef allocator, StringRef buildDirectory);
 
 void IRBuilderDestroy(IRBuilderRef builder);
 
-void IRBuilderBuild(IRBuilderRef builder, ASTModuleDeclarationRef module);
+IRModuleRef IRBuilderBuild(IRBuilderRef builder, ASTModuleDeclarationRef module);
+
+void IRBuilderDumpModule(IRBuilderRef builder, IRModuleRef module, FILE *target);
+
+void IRBuilderVerifyModule(IRBuilderRef builder, IRModuleRef module);
+
+void IRBuilderEmitObjectFile(IRBuilderRef builder, IRModuleRef module, StringRef fileName);
 
 JELLY_EXTERN_C_END
 

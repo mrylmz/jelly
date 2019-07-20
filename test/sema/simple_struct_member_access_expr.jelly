@@ -1,3 +1,5 @@
+// run: -type-check
+
 struct MyStruct {
     var myMember: Int
 }
@@ -6,3 +8,5 @@ func single_struct_member_access_expr() -> Int {
     var myStruct: MyStruct
     return myStruct.myMember
 }
+
+func main() -> Void {}

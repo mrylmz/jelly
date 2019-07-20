@@ -14,12 +14,14 @@ struct FileTestDiagnosticContext {
     Index index;
     std::vector<FileTestDiagnosticRecord> records;
     std::vector<std::string> reports;
+    std::vector<std::string> arguments;
 
     FileTestDiagnosticContext(std::string filePath);
 
   private:
     void ReadFileContent();
     void ParseTestDiagnosticRecords();
+    void ParseArguments();
 };
 
 struct FileTest {

@@ -23,6 +23,7 @@ Int CompilerRun(ArrayRef arguments) {
     Int32 optionDumpIR           = 0;
     Int32 optionWorkingDirectory = 0;
     Int32 optionModuleName       = 0;
+    Int32 optionTypeCheck        = 0;
     StringRef dumpASTFilePath    = NULL;
     StringRef dumpScopeFilePath  = NULL;
     StringRef workingDirectory   = NULL;
@@ -34,6 +35,7 @@ Int CompilerRun(ArrayRef arguments) {
         {"dump-ir", no_argument, &optionDumpIR, 1},
         {"working-directory", required_argument, &optionWorkingDirectory, 1},
         {"module-name", optional_argument, &optionModuleName, 1},
+        {"type-check", no_argument, &optionTypeCheck, 1},
         {0, 0, 0, 0},
     };
 
@@ -127,6 +129,10 @@ Int CompilerRun(ArrayRef arguments) {
 
     if (optionDumpIR) {
         workspaceOptions |= WorkspaceOptionsDumpIR;
+    }
+
+    if (optionTypeCheck) {
+        workspaceOptions |= WorkspaceOptionsTypeCheck;
     }
 
     StringRef buildDirectory = StringCreateCopy(AllocatorGetSystemDefault(), workingDirectory);

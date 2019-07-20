@@ -1,3 +1,7 @@
+// run: -dump-ir
+
 func return_parameter(x: Int) -> Int {
     return x
 }
+
+func main() -> Void {}

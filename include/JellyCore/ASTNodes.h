@@ -34,6 +34,8 @@ enum _ASTTag {
     ASTTagModuleDeclaration,
     ASTTagEnumerationDeclaration,
     ASTTagFunctionDeclaration,
+    ASTTagForeignFunctionDeclaration,
+    ASTTagIntrinsicFunctionDeclaration,
     ASTTagStructureDeclaration,
     ASTTagValueDeclaration,
     ASTTagOpaqueType,
@@ -364,6 +366,9 @@ struct _ASTModuleDeclaration {
     // TODO: Move scope to ASTSourceUnitRef after resolving @SourceUnitTree
     ASTScopeRef scope;
     ASTArrayRef importedModules;
+
+    StringRef entryPointName;
+    ASTFunctionDeclarationRef entryPoint;
 };
 
 struct _ASTEnumerationDeclaration {
@@ -389,9 +394,8 @@ struct _ASTFunctionDeclaration {
     ASTTypeRef returnType;
     ASTBlockRef body;
     ASTScopeRef innerScope;
-
-    Bool foreign;
     StringRef foreignName;
+    StringRef intrinsicName;
 };
 
 struct _ASTStructureDeclaration {

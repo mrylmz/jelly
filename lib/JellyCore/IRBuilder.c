@@ -5,6 +5,7 @@
 #include <llvm-c/Analysis.h>
 #include <llvm-c/Core.h>
 #include <llvm-c/ExecutionEngine.h>
+#include <llvm-c/Linker.h>
 #include <llvm-c/Support.h>
 
 // TODO: Rename this to LLVMBackend
@@ -12,14 +13,22 @@ struct _IRBuilder {
     AllocatorRef allocator;
     StringRef buildDirectory;
     LLVMContextRef context;
-    LLVMModuleRef module;
     LLVMBuilderRef builder;
+    IRModuleRef module;
+    ArrayRef uninitializedGlobals;
 };
 
+struct _IRModule {
+    LLVMModuleRef module;
+    Bool isVerified;
+};
+
+static inline void _IRBuilderBuildEntryPoint(IRBuilderRef builder, ASTModuleDeclarationRef module);
 static inline void _IRBuilderBuildTypes(IRBuilderRef builder, ASTModuleDeclarationRef module);
 static inline void _IRBuilderBuildGlobalVariables(IRBuilderRef builder, ASTModuleDeclarationRef module);
 static inline void _IRBuilderBuildGlobalVariable(IRBuilderRef builder, ASTValueDeclarationRef declaration);
 static inline void _IRBuilderBuildFunctionDeclaration(IRBuilderRef builder, ASTFunctionDeclarationRef declaration);
+static inline void _IRBuilderBuildForeignFunctionDeclaration(IRBuilderRef builder, ASTFunctionDeclarationRef declaration);
 static inline void _IRBuilderBuildLocalVariable(IRBuilderRef builder, LLVMValueRef function, ASTValueDeclarationRef declaration);
 static inline void _IRBuilderBuildBlock(IRBuilderRef builder, LLVMValueRef function, ASTBlockRef block);
 static inline void _IRBuilderBuildStatement(IRBuilderRef builder, LLVMValueRef function, ASTNodeRef node);
@@ -28,33 +37,48 @@ static inline void _IRBuilderBuildLoopStatement(IRBuilderRef builder, LLVMValueR
 static inline void _IRBuilderBuildSwitchStatement(IRBuilderRef builder, LLVMValueRef function, ASTSwitchStatementRef statement);
 static inline void _IRBuilderBuildControlStatement(IRBuilderRef builder, LLVMValueRef function, ASTControlStatementRef statement);
 static inline void _IRBuilderBuildExpression(IRBuilderRef builder, LLVMValueRef function, ASTExpressionRef expression);
+
 static inline LLVMValueRef _IRBuilderLoadExpression(IRBuilderRef builder, LLVMValueRef function, ASTExpressionRef expression);
 
 static inline LLVMTypeRef _IRBuilderGetIRType(IRBuilderRef builder, ASTTypeRef type);
 
+static inline LLVMValueRef _IRBuilderBuildIntrinsic(IRBuilderRef builder, LLVMValueRef function, StringRef intrinsic,
+                                                    LLVMValueRef *arguments, unsigned argumentCount, LLVMTypeRef resultType);
+
 IRBuilderRef IRBuilderCreate(AllocatorRef allocator, StringRef buildDirectory) {
-    IRBuilderRef builder    = (IRBuilderRef)AllocatorAllocate(allocator, sizeof(struct _IRBuilder));
-    builder->allocator      = allocator;
-    builder->buildDirectory = StringCreateCopy(allocator, buildDirectory);
+    IRBuilderRef builder          = (IRBuilderRef)AllocatorAllocate(allocator, sizeof(struct _IRBuilder));
+    builder->allocator            = allocator;
+    builder->buildDirectory       = StringCreateCopy(allocator, buildDirectory);
+    builder->context              = LLVMGetGlobalContext();
+    builder->builder              = LLVMCreateBuilderInContext(builder->context);
+    builder->module               = NULL;
+    builder->uninitializedGlobals = ArrayCreateEmpty(AllocatorGetSystemDefault(), sizeof(ASTValueDeclarationRef), 8);
     return builder;
 }
 
 void IRBuilderDestroy(IRBuilderRef builder) {
     StringDestroy(builder->buildDirectory);
+    ArrayDestroy(builder->uninitializedGlobals);
     AllocatorDeallocate(builder->allocator, builder);
+
+    if (builder->module) {
+        LLVMDisposeModule(builder->module->module);
+    }
+
+    LLVMDisposeBuilder(builder->builder);
 }
 
-void IRBuilderBuild(IRBuilderRef builder, ASTModuleDeclarationRef module) {
+IRModuleRef IRBuilderBuild(IRBuilderRef builder, ASTModuleDeclarationRef module) {
     assert(module->base.name);
 
-    builder->context = LLVMGetGlobalContext();
-    builder->module  = LLVMModuleCreateWithNameInContext(StringGetCharacters(module->base.name), builder->context);
-    builder->builder = LLVMCreateBuilderInContext(builder->context);
+    builder->module             = (IRModuleRef)AllocatorAllocate(builder->allocator, sizeof(struct _IRModule));
+    builder->module->module     = LLVMModuleCreateWithNameInContext(StringGetCharacters(module->base.name), builder->context);
+    builder->module->isVerified = false;
 
     // It would at least be better to pre create all known types and only use the prebuild types, same applies for literal values
     if (ASTArrayGetElementCount(module->sourceUnits) > 0) {
-        ASTSourceUnitRef initialSourceUnit = ASTArrayGetElementAtIndex(module->sourceUnits, 0);
-        LLVMSetSourceFileName(builder->module, StringGetCharacters(initialSourceUnit->filePath),
+        ASTSourceUnitRef initialSourceUnit = (ASTSourceUnitRef)ASTArrayGetElementAtIndex(module->sourceUnits, 0);
+        LLVMSetSourceFileName(builder->module->module, StringGetCharacters(initialSourceUnit->filePath),
                               StringGetLength(initialSourceUnit->filePath));
     }
 
@@ -80,6 +104,13 @@ void IRBuilderBuild(IRBuilderRef builder, ASTModuleDeclarationRef module) {
                 _IRBuilderBuildFunctionDeclaration(builder, (ASTFunctionDeclarationRef)child);
                 break;
 
+            case ASTTagForeignFunctionDeclaration:
+                _IRBuilderBuildForeignFunctionDeclaration(builder, (ASTFunctionDeclarationRef)child);
+                break;
+
+            case ASTTagIntrinsicFunctionDeclaration:
+                continue;
+
             case ASTTagStructureDeclaration:
                 continue;
 
@@ -93,33 +124,46 @@ void IRBuilderBuild(IRBuilderRef builder, ASTModuleDeclarationRef module) {
         }
     }
 
-    Char *message;
-    LLVMBool error = LLVMVerifyModule(builder->module, LLVMReturnStatusAction, &message);
+    _IRBuilderBuildEntryPoint(builder, module);
+
+    return builder->module;
+}
+
+void IRBuilderDumpModule(IRBuilderRef builder, IRModuleRef module, FILE *target) {
+    assert(builder->module == module && module);
+
+    Char *dump = LLVMPrintModuleToString(module->module);
+    fprintf(target, "%s", dump);
+}
+
+void IRBuilderVerifyModule(IRBuilderRef builder, IRModuleRef module) {
+    assert(builder->module == module && module);
+
+    if (module->isVerified) {
+        return;
+    }
+    module->isVerified = true;
+
+    Char *message  = NULL;
+    LLVMBool error = LLVMVerifyModule(module->module, LLVMReturnStatusAction, &message);
     if (error) {
         if (message) {
-            ReportCriticalFormat("LLVM Error:\n%s\n", message);
+            ReportErrorFormat("LLVM Error:\n%s\n", message);
             LLVMDisposeMessage(message);
         } else {
-            ReportCritical("LLVM Error");
+            ReportError("LLVM Module Verification failed");
         }
-
-        // TODO: Dispose all LLVM references
-        return;
     }
+}
 
-    // TODO: Add configuration option to IRBuilder to disable dumping and also allow dumping to a FILE instead of stdout
-    //    LLVMDumpModule(builder->module);
-
-    if (DiagnosticEngineGetMessageCount(DiagnosticLevelError) > 0 || DiagnosticEngineGetMessageCount(DiagnosticLevelCritical) > 0) {
-        // TODO: Dispose all LLVM references
-        return;
-    }
+void IRBuilderEmitObjectFile(IRBuilderRef builder, IRModuleRef module, StringRef fileName) {
+    assert(builder->module == module && module);
+    assert(builder->module->isVerified);
 
     Char *targetTriple = LLVMGetDefaultTargetTriple();
     Char *cpu          = LLVMGetHostCPUName();
     Char *features     = LLVMGetHostCPUFeatures();
 
-    // Currently we are initializing all target machines but we should only initialize the required ones, this could cause some overhead...
     LLVMInitializeAllTargetInfos();
     LLVMInitializeAllTargets();
     LLVMInitializeAllTargetMCs();
@@ -127,16 +171,16 @@ void IRBuilderBuild(IRBuilderRef builder, ASTModuleDeclarationRef module) {
     LLVMInitializeAllAsmPrinters();
 
     LLVMTargetRef target = NULL;
-    error                = LLVMGetTargetFromTriple(targetTriple, &target, &message);
+    Char *message        = NULL;
+    LLVMBool error       = LLVMGetTargetFromTriple(targetTriple, &target, &message);
     if (error) {
         if (message) {
-            ReportCriticalFormat("LLVM Error:\n%s\n", message);
+            ReportErrorFormat("LLVM Error:\n%s\n", message);
             LLVMDisposeMessage(message);
         } else {
-            ReportCritical("LLVM Error");
+            ReportError("LLVM Target initialization failed");
         }
 
-        // TODO: Dispose all LLVM references
         return;
     }
 
@@ -145,11 +189,11 @@ void IRBuilderBuild(IRBuilderRef builder, ASTModuleDeclarationRef module) {
                                                            LLVMCodeModelDefault);
     LLVMTargetDataRef dataLayout = LLVMCreateTargetDataLayout(machine);
 
-    LLVMSetTarget(builder->module, targetTriple);
-    LLVMSetModuleDataLayout(builder->module, dataLayout);
+    LLVMSetTarget(builder->module->module, targetTriple);
+    LLVMSetModuleDataLayout(builder->module->module, dataLayout);
 
     StringRef objectFilePath = StringCreateCopy(builder->allocator, builder->buildDirectory);
-    StringAppendFormat(objectFilePath, "/%s.o", StringGetCharacters(module->base.name));
+    StringAppendFormat(objectFilePath, "/%s.o", StringGetCharacters(fileName));
 
     FILE *objectFile = fopen(StringGetCharacters(objectFilePath), "w+");
     if (!objectFile) {
@@ -160,7 +204,7 @@ void IRBuilderBuild(IRBuilderRef builder, ASTModuleDeclarationRef module) {
         fclose(objectFile);
     }
 
-    error = LLVMTargetMachineEmitToFile(machine, builder->module, StringGetCharacters(objectFilePath), LLVMObjectFile, &message);
+    error = LLVMTargetMachineEmitToFile(machine, builder->module->module, StringGetCharacters(objectFilePath), LLVMObjectFile, &message);
     if (error) {
         if (message) {
             ReportCriticalFormat("LLVM Error:\n%s\n", message);
@@ -179,8 +223,20 @@ void IRBuilderBuild(IRBuilderRef builder, ASTModuleDeclarationRef module) {
     LLVMDisposeMessage(targetTriple);
     LLVMDisposeMessage(cpu);
     LLVMDisposeMessage(features);
-    LLVMDisposeBuilder(builder->builder);
-    LLVMDisposeModule(builder->module);
+}
+
+static inline void _IRBuilderBuildEntryPoint(IRBuilderRef builder, ASTModuleDeclarationRef module) {
+    if (module->entryPoint) {
+        assert(module->entryPoint->base.base.irValue);
+        LLVMTypeRef entryPointParameterTypes[] = {LLVMInt32Type(), LLVMPointerType(LLVMInt8Type(), 0)};
+        LLVMTypeRef entryPointType             = LLVMFunctionType(LLVMInt32Type(), entryPointParameterTypes, 2, false);
+        LLVMValueRef entryPoint                = LLVMAddFunction(builder->module->module, "main", entryPointType);
+        LLVMSetFunctionCallConv(entryPoint, LLVMCCallConv);
+        LLVMBasicBlockRef entryBB = LLVMAppendBasicBlock(entryPoint, "entry");
+        LLVMPositionBuilder(builder->builder, entryBB, NULL);
+        LLVMBuildCall(builder->builder, (LLVMValueRef)module->entryPoint->base.base.irValue, NULL, 0, "");
+        LLVMBuildRet(builder->builder, LLVMConstInt(LLVMInt32Type(), 0, true));
+    }
 }
 
 static inline void _IRBuilderBuildTypes(IRBuilderRef builder, ASTModuleDeclarationRef module) {
@@ -260,11 +316,13 @@ static inline void _IRBuilderBuildGlobalVariable(IRBuilderRef builder, ASTValueD
     assert(declaration->base.base.irType);
 
     LLVMTypeRef type   = (LLVMTypeRef)declaration->base.base.irType;
-    LLVMValueRef value = LLVMAddGlobal(builder->module, type, StringGetCharacters(declaration->base.mangledName));
+    LLVMValueRef value = LLVMAddGlobal(builder->module->module, type, StringGetCharacters(declaration->base.mangledName));
     if (declaration->initializer) {
-        // TODO: Emit initialization of value into program entry point, this will also require the creation of a global value initialization
-        // dependency graphs which would track cyclic initializations in global scope and also be helpful for topological sorting of
-        // initialization instructions
+        // TODO: Check if initializer is constant, if so set initializer of global else emit initialization of value into program entry
+        // point, this will also require the creation of a global value initialization dependency graphs which would track cyclic
+        // initializations in global scope and also be helpful for topological sorting of initialization instructions
+    } else {
+        ArrayAppendElement(builder->uninitializedGlobals, &declaration);
     }
 
     declaration->base.base.irValue = value;
@@ -272,17 +330,16 @@ static inline void _IRBuilderBuildGlobalVariable(IRBuilderRef builder, ASTValueD
 }
 
 static inline void _IRBuilderBuildFunctionDeclaration(IRBuilderRef builder, ASTFunctionDeclarationRef declaration) {
+    if (declaration->base.base.irValue) {
+        return;
+    }
+
+    assert(declaration->base.base.tag == ASTTagFunctionDeclaration);
     assert(declaration->base.base.irType);
 
-    LLVMValueRef function = NULL;
-    if (declaration->foreign && declaration->foreignName) {
-        // TODO: Check if the foreignName has to be mangled according to the used calling convention...
-        function = LLVMAddFunction(builder->module, StringGetCharacters(declaration->foreignName),
-                                   (LLVMTypeRef)declaration->base.base.irType);
-    } else {
-        function = LLVMAddFunction(builder->module, StringGetCharacters(declaration->base.mangledName),
-                                   (LLVMTypeRef)declaration->base.base.irType);
-    }
+    LLVMValueRef function = LLVMAddFunction(builder->module->module, StringGetCharacters(declaration->base.mangledName),
+                                            (LLVMTypeRef)declaration->base.base.irType);
+
     declaration->base.base.irValue = function;
 
     for (Index index = 0; index < ASTArrayGetElementCount(declaration->parameters); index++) {
@@ -290,23 +347,39 @@ static inline void _IRBuilderBuildFunctionDeclaration(IRBuilderRef builder, ASTF
         parameter->base.base.irValue     = LLVMGetParam(function, index);
     }
 
-    if (!declaration->foreign) {
-        LLVMBasicBlockRef entry = LLVMAppendBasicBlock(function, "entry");
-        LLVMPositionBuilder(builder->builder, entry, NULL);
+    LLVMBasicBlockRef entry = LLVMAppendBasicBlock(function, "entry");
+    LLVMPositionBuilder(builder->builder, entry, NULL);
 
-        for (Index index = 0; index < ASTArrayGetElementCount(declaration->body->statements); index++) {
-            ASTNodeRef statement = (ASTNodeRef)ASTArrayGetElementAtIndex(declaration->body->statements, index);
-            _IRBuilderBuildStatement(builder, function, statement);
-        }
-
-        if (!(declaration->body->base.flags & ASTFlagsStatementIsAlwaysReturning)) {
-            LLVMBuildRetVoid(builder->builder);
-        }
-    } else {
-        // We are using the C calling convention for all foreign function declarations for now because we do not allow to specify the
-        // calling convention in the AST
-        LLVMSetFunctionCallConv(function, LLVMCCallConv);
+    for (Index index = 0; index < ASTArrayGetElementCount(declaration->body->statements); index++) {
+        ASTNodeRef statement = (ASTNodeRef)ASTArrayGetElementAtIndex(declaration->body->statements, index);
+        _IRBuilderBuildStatement(builder, function, statement);
     }
+
+    if (!(declaration->body->base.flags & ASTFlagsStatementIsAlwaysReturning)) {
+        LLVMBuildRetVoid(builder->builder);
+    }
+}
+
+static inline void _IRBuilderBuildForeignFunctionDeclaration(IRBuilderRef builder, ASTFunctionDeclarationRef declaration) {
+    if (declaration->base.base.irValue) {
+        return;
+    }
+
+    assert(declaration->base.base.tag == ASTTagForeignFunctionDeclaration);
+    assert(declaration->base.base.irType);
+
+    LLVMValueRef function          = LLVMAddFunction(builder->module->module, StringGetCharacters(declaration->foreignName),
+                                            (LLVMTypeRef)declaration->base.base.irType);
+    declaration->base.base.irValue = function;
+
+    for (Index index = 0; index < ASTArrayGetElementCount(declaration->parameters); index++) {
+        ASTValueDeclarationRef parameter = (ASTValueDeclarationRef)ASTArrayGetElementAtIndex(declaration->parameters, index);
+        parameter->base.base.irValue     = LLVMGetParam(function, index);
+    }
+
+    // We are using the C calling convention for all foreign function declarations for now because we do not allow to specify the
+    // calling convention in the AST
+    LLVMSetFunctionCallConv(function, LLVMCCallConv);
 }
 
 static inline void _IRBuilderBuildLocalVariable(IRBuilderRef builder, LLVMValueRef function, ASTValueDeclarationRef declaration) {
@@ -587,6 +660,7 @@ static inline void _IRBuilderBuildExpression(IRBuilderRef builder, LLVMValueRef 
 
         // Prefix functions are currently not added to the declarations of the module and are just contained inside the global scope, so we
         // will force the IR generation of the function here for now...
+        // TODO: Remove this after finishing implementation for foreign and prefix infix functions
         if (!unary->opFunction->base.base.irType) {
             assert(ASTArrayGetElementCount(unary->opFunction->parameters) == 1);
             ASTValueDeclarationRef parameter    = (ASTValueDeclarationRef)ASTArrayGetElementAtIndex(unary->opFunction->parameters, 0);
@@ -595,15 +669,27 @@ static inline void _IRBuilderBuildExpression(IRBuilderRef builder, LLVMValueRef 
                                                                    parameterTypes, 1, false);
         }
 
-        if (!unary->opFunction->base.base.irValue) {
+        if (unary->opFunction->base.base.tag == ASTTagFunctionDeclaration) {
             _IRBuilderBuildFunctionDeclaration(builder, unary->opFunction);
+            _IRBuilderBuildExpression(builder, function, unary->arguments[0]);
+            LLVMValueRef arguments[] = {_IRBuilderLoadExpression(builder, function, unary->arguments[0])};
+            LLVMValueRef opFunction  = (LLVMValueRef)unary->opFunction->base.base.irValue;
+            unary->base.base.irValue = LLVMBuildCall(builder->builder, opFunction, arguments, 1, "");
+        } else if (unary->opFunction->base.base.tag == ASTTagForeignFunctionDeclaration) {
+            _IRBuilderBuildForeignFunctionDeclaration(builder, unary->opFunction);
+            _IRBuilderBuildExpression(builder, function, unary->arguments[0]);
+            LLVMValueRef arguments[] = {_IRBuilderLoadExpression(builder, function, unary->arguments[0])};
+            LLVMValueRef opFunction  = (LLVMValueRef)unary->opFunction->base.base.irValue;
+            unary->base.base.irValue = LLVMBuildCall(builder->builder, opFunction, arguments, 1, "");
+        } else if (unary->opFunction->base.base.tag == ASTTagIntrinsicFunctionDeclaration) {
+            _IRBuilderBuildExpression(builder, function, unary->arguments[0]);
+            LLVMValueRef arguments[] = {_IRBuilderLoadExpression(builder, function, unary->arguments[0])};
+            unary->base.base.irValue = _IRBuilderBuildIntrinsic(builder, function, unary->opFunction->intrinsicName, arguments, 1,
+                                                                (LLVMTypeRef)unary->opFunction->returnType->irType);
+        } else {
+            JELLY_UNREACHABLE("Invalid tag given for ASTFunctionDeclaration!");
         }
-        assert(unary->opFunction->base.base.irValue);
 
-        _IRBuilderBuildExpression(builder, function, unary->arguments[0]);
-        LLVMValueRef arguments[] = {_IRBuilderLoadExpression(builder, function, unary->arguments[0])};
-        LLVMValueRef opFunction  = (LLVMValueRef)unary->opFunction->base.base.irValue;
-        unary->base.base.irValue = LLVMBuildCall(builder->builder, opFunction, arguments, 1, "");
         return;
     }
 
@@ -856,4 +942,409 @@ static inline LLVMTypeRef _IRBuilderGetIRType(IRBuilderRef builder, ASTTypeRef t
 
     type->irType = llvmType;
     return llvmType;
+}
+
+static inline LLVMValueRef _IRBuilderBuildIntrinsic(IRBuilderRef builder, LLVMValueRef function, StringRef intrinsic,
+                                                    LLVMValueRef *arguments, unsigned argumentCount, LLVMTypeRef resultType) {
+    if (StringIsEqualToCString(intrinsic, "bitwise_neg_i1")) {
+        if (argumentCount != 1) {
+            ReportErrorFormat("Intrinsic '%s' expects one argument of type 'Bool'", StringGetCharacters(intrinsic));
+            return LLVMGetUndef(resultType);
+        }
+
+        return LLVMBuildSelect(builder->builder, arguments[0], LLVMConstInt(LLVMInt1Type(), 0, false),
+                               LLVMConstInt(LLVMInt1Type(), 1, false), "");
+    }
+
+    if (StringIsEqualToCString(intrinsic, "bitwise_neg_i8")) {
+        if (argumentCount != 1) {
+            ReportErrorFormat("Intrinsic '%s' expects one argument of type 'Int8' or 'UInt8'", StringGetCharacters(intrinsic));
+            return LLVMGetUndef(resultType);
+        }
+
+        LLVMValueRef mask = LLVMConstInt(LLVMInt8Type(), 0xFF, false);
+        return LLVMBuildSub(builder->builder, mask, arguments[0], "");
+    }
+
+    if (StringIsEqualToCString(intrinsic, "bitwise_neg_i16")) {
+        if (argumentCount != 1) {
+            ReportErrorFormat("Intrinsic '%s' expects one argument of type 'Int16' or 'UInt16'", StringGetCharacters(intrinsic));
+            return LLVMGetUndef(resultType);
+        }
+
+        LLVMValueRef mask = LLVMConstInt(LLVMInt16Type(), 0xFFFF, false);
+        return LLVMBuildSub(builder->builder, mask, arguments[0], "");
+    }
+
+    if (StringIsEqualToCString(intrinsic, "bitwise_neg_i32")) {
+        if (argumentCount != 1) {
+            ReportErrorFormat("Intrinsic '%s' expects one argument of type 'Int32' or 'UInt32'", StringGetCharacters(intrinsic));
+            return LLVMGetUndef(resultType);
+        }
+
+        LLVMValueRef mask = LLVMConstInt(LLVMInt32Type(), 0xFFFFFFFF, false);
+        return LLVMBuildSub(builder->builder, mask, arguments[0], "");
+    }
+
+    if (StringIsEqualToCString(intrinsic, "bitwise_neg_i64")) {
+        if (argumentCount != 1) {
+            ReportErrorFormat("Intrinsic '%s' expects one argument of type 'Int64' or 'UInt64'", StringGetCharacters(intrinsic));
+            return LLVMGetUndef(resultType);
+        }
+
+        LLVMValueRef mask = LLVMConstInt(LLVMInt64Type(), 0xFFFFFFFFFFFFFFFF, false);
+        return LLVMBuildSub(builder->builder, mask, arguments[0], "");
+    }
+
+    if (StringIsEqualToCString(intrinsic, "arg_val_0")) {
+        if (argumentCount != 1) {
+            ReportErrorFormat("Intrinsic '%s' expects one argument", StringGetCharacters(intrinsic));
+            return LLVMGetUndef(resultType);
+        }
+
+        return arguments[0];
+    }
+
+    if (StringIsEqualToCString(intrinsic, "neg_i8") || StringIsEqualToCString(intrinsic, "neg_i16") ||
+        StringIsEqualToCString(intrinsic, "neg_i32") || StringIsEqualToCString(intrinsic, "neg_i64")) {
+        if (argumentCount != 1) {
+            ReportErrorFormat("Intrinsic '%s' expects one argument", StringGetCharacters(intrinsic));
+            return LLVMGetUndef(resultType);
+        }
+
+        return LLVMBuildNeg(builder->builder, arguments[0], "");
+    }
+
+    if (StringIsEqualToCString(intrinsic, "neg_f32") || StringIsEqualToCString(intrinsic, "neg_f64")) {
+        if (argumentCount != 1) {
+            ReportErrorFormat("Intrinsic '%s' expects one argument", StringGetCharacters(intrinsic));
+            return LLVMGetUndef(resultType);
+        }
+
+        return LLVMBuildFNeg(builder->builder, arguments[0], "");
+    }
+
+    if (StringIsEqualToCString(intrinsic, "shl_i8") || StringIsEqualToCString(intrinsic, "shl_i16") ||
+        StringIsEqualToCString(intrinsic, "shl_i32") || StringIsEqualToCString(intrinsic, "shl_i64")) {
+        if (argumentCount != 2) {
+            ReportErrorFormat("Intrinsic '%s' expectes two arguments", StringGetCharacters(intrinsic));
+            return LLVMGetUndef(resultType);
+        }
+
+        return LLVMBuildShl(builder->builder, arguments[0], arguments[1], "");
+    }
+
+    if (StringIsEqualToCString(intrinsic, "shr_i8") || StringIsEqualToCString(intrinsic, "shr_i16") ||
+        StringIsEqualToCString(intrinsic, "shr_i32") || StringIsEqualToCString(intrinsic, "shr_i64")) {
+        if (argumentCount != 2) {
+            ReportErrorFormat("Intrinsic '%s' expects two arguments", StringGetCharacters(intrinsic));
+            return LLVMGetUndef(resultType);
+        }
+
+        return LLVMBuildLShr(builder->builder, arguments[0], arguments[1], "");
+    }
+
+    if (StringIsEqualToCString(intrinsic, "mul_i8") || StringIsEqualToCString(intrinsic, "mul_i16") ||
+        StringIsEqualToCString(intrinsic, "mul_i32") || StringIsEqualToCString(intrinsic, "mul_i64")) {
+        if (argumentCount != 2) {
+            ReportErrorFormat("Intrinsic '%s' expects two arguments", StringGetCharacters(intrinsic));
+            return LLVMGetUndef(resultType);
+        }
+
+        return LLVMBuildMul(builder->builder, arguments[0], arguments[1], "");
+    }
+
+    if (StringIsEqualToCString(intrinsic, "mul_f32") || StringIsEqualToCString(intrinsic, "mul_f64")) {
+        if (argumentCount != 2) {
+            ReportErrorFormat("Intrinsic '%s' expects two arguments", StringGetCharacters(intrinsic));
+            return LLVMGetUndef(resultType);
+        }
+
+        return LLVMBuildFMul(builder->builder, arguments[0], arguments[1], "");
+    }
+
+    if (StringIsEqualToCString(intrinsic, "div_s8") || StringIsEqualToCString(intrinsic, "div_s16") ||
+        StringIsEqualToCString(intrinsic, "div_s32") || StringIsEqualToCString(intrinsic, "div_s64")) {
+        if (argumentCount != 2) {
+            ReportErrorFormat("Intrinsic '%s' expects two arguments", StringGetCharacters(intrinsic));
+            return LLVMGetUndef(resultType);
+        }
+
+        return LLVMBuildSDiv(builder->builder, arguments[0], arguments[1], "");
+    }
+
+    if (StringIsEqualToCString(intrinsic, "div_u8") || StringIsEqualToCString(intrinsic, "div_u16") ||
+        StringIsEqualToCString(intrinsic, "div_u32") || StringIsEqualToCString(intrinsic, "div_u64")) {
+        if (argumentCount != 2) {
+            ReportErrorFormat("Intrinsic '%s' expects two arguments", StringGetCharacters(intrinsic));
+            return LLVMGetUndef(resultType);
+        }
+
+        return LLVMBuildUDiv(builder->builder, arguments[0], arguments[1], "");
+    }
+
+    if (StringIsEqualToCString(intrinsic, "div_f32") || StringIsEqualToCString(intrinsic, "div_f64")) {
+        if (argumentCount != 2) {
+            ReportErrorFormat("Intrinsic '%s' expects two arguments", StringGetCharacters(intrinsic));
+            return LLVMGetUndef(resultType);
+        }
+
+        return LLVMBuildFDiv(builder->builder, arguments[0], arguments[1], "");
+    }
+
+    if (StringIsEqualToCString(intrinsic, "rem_s8") || StringIsEqualToCString(intrinsic, "rem_s16") ||
+        StringIsEqualToCString(intrinsic, "rem_s32") || StringIsEqualToCString(intrinsic, "rem_s64")) {
+        if (argumentCount != 2) {
+            ReportErrorFormat("Intrinsic '%s' expects two arguments", StringGetCharacters(intrinsic));
+            return LLVMGetUndef(resultType);
+        }
+
+        return LLVMBuildSRem(builder->builder, arguments[0], arguments[1], "");
+    }
+
+    if (StringIsEqualToCString(intrinsic, "rem_u8") || StringIsEqualToCString(intrinsic, "rem_u16") ||
+        StringIsEqualToCString(intrinsic, "rem_u32") || StringIsEqualToCString(intrinsic, "rem_u64")) {
+        if (argumentCount != 2) {
+            ReportErrorFormat("Intrinsic '%s' expects two arguments", StringGetCharacters(intrinsic));
+            return LLVMGetUndef(resultType);
+        }
+
+        return LLVMBuildURem(builder->builder, arguments[0], arguments[1], "");
+    }
+
+    if (StringIsEqualToCString(intrinsic, "rem_f32") || StringIsEqualToCString(intrinsic, "rem_f64")) {
+        if (argumentCount != 2) {
+            ReportErrorFormat("Intrinsic '%s' expects two arguments", StringGetCharacters(intrinsic));
+            return LLVMGetUndef(resultType);
+        }
+
+        return LLVMBuildFRem(builder->builder, arguments[0], arguments[1], "");
+    }
+
+    if (StringIsEqualToCString(intrinsic, "bitwise_and_i1") || StringIsEqualToCString(intrinsic, "bitwise_and_i8") ||
+        StringIsEqualToCString(intrinsic, "bitwise_and_i16") || StringIsEqualToCString(intrinsic, "bitwise_and_i32") ||
+        StringIsEqualToCString(intrinsic, "bitwise_and_i64")) {
+        if (argumentCount != 2) {
+            ReportErrorFormat("Intrinsic '%s' expects two arguments", StringGetCharacters(intrinsic));
+            return LLVMGetUndef(resultType);
+        }
+
+        return LLVMBuildAnd(builder->builder, arguments[0], arguments[1], "");
+    }
+
+    if (StringIsEqualToCString(intrinsic, "add_i8") || StringIsEqualToCString(intrinsic, "add_i16") ||
+        StringIsEqualToCString(intrinsic, "add_i32") || StringIsEqualToCString(intrinsic, "add_i64")) {
+        if (argumentCount != 2) {
+            ReportErrorFormat("Intrinsic '%s' expects two arguments", StringGetCharacters(intrinsic));
+            return LLVMGetUndef(resultType);
+        }
+
+        return LLVMBuildAdd(builder->builder, arguments[0], arguments[1], "");
+    }
+
+    if (StringIsEqualToCString(intrinsic, "add_f32") || StringIsEqualToCString(intrinsic, "add_f64")) {
+        if (argumentCount != 2) {
+            ReportErrorFormat("Intrinsic '%s' expects two arguments", StringGetCharacters(intrinsic));
+            return LLVMGetUndef(resultType);
+        }
+
+        return LLVMBuildFAdd(builder->builder, arguments[0], arguments[1], "");
+    }
+
+    if (StringIsEqualToCString(intrinsic, "sub_i8") || StringIsEqualToCString(intrinsic, "sub_i16") ||
+        StringIsEqualToCString(intrinsic, "sub_i32") || StringIsEqualToCString(intrinsic, "sub_i64")) {
+        if (argumentCount != 2) {
+            ReportErrorFormat("Intrinsic '%s' expects two arguments", StringGetCharacters(intrinsic));
+            return LLVMGetUndef(resultType);
+        }
+
+        return LLVMBuildSub(builder->builder, arguments[0], arguments[1], "");
+    }
+
+    if (StringIsEqualToCString(intrinsic, "sub_f32") || StringIsEqualToCString(intrinsic, "sub_f64")) {
+        if (argumentCount != 2) {
+            ReportErrorFormat("Intrinsic '%s' expects two arguments", StringGetCharacters(intrinsic));
+            return LLVMGetUndef(resultType);
+        }
+
+        return LLVMBuildFSub(builder->builder, arguments[0], arguments[1], "");
+    }
+
+    if (StringIsEqualToCString(intrinsic, "bitwise_or_i1") || StringIsEqualToCString(intrinsic, "bitwise_or_i8") ||
+        StringIsEqualToCString(intrinsic, "bitwise_or_i16") || StringIsEqualToCString(intrinsic, "bitwise_or_i32") ||
+        StringIsEqualToCString(intrinsic, "bitwise_or_i64")) {
+        if (argumentCount != 2) {
+            ReportErrorFormat("Intrinsic '%s' expects two arguments", StringGetCharacters(intrinsic));
+            return LLVMGetUndef(resultType);
+        }
+
+        return LLVMBuildOr(builder->builder, arguments[0], arguments[1], "");
+    }
+
+    if (StringIsEqualToCString(intrinsic, "bitwise_xor_i8") || StringIsEqualToCString(intrinsic, "bitwise_xor_i16") ||
+        StringIsEqualToCString(intrinsic, "bitwise_xor_i32") || StringIsEqualToCString(intrinsic, "bitwise_xor_i64")) {
+        if (argumentCount != 2) {
+            ReportErrorFormat("Intrinsic '%s' expects two arguments", StringGetCharacters(intrinsic));
+            return LLVMGetUndef(resultType);
+        }
+
+        return LLVMBuildXor(builder->builder, arguments[0], arguments[1], "");
+    }
+
+    if (StringIsEqualToCString(intrinsic, "cmp_lt_s8") || StringIsEqualToCString(intrinsic, "cmp_lt_s16") ||
+        StringIsEqualToCString(intrinsic, "cmp_lt_s32") || StringIsEqualToCString(intrinsic, "cmp_lt_s64")) {
+        if (argumentCount != 2) {
+            ReportErrorFormat("Intrinsic '%s' expects two arguments", StringGetCharacters(intrinsic));
+            return LLVMGetUndef(resultType);
+        }
+
+        return LLVMBuildICmp(builder->builder, LLVMIntSLT, arguments[0], arguments[1], "");
+    }
+
+    if (StringIsEqualToCString(intrinsic, "cmp_lt_u8") || StringIsEqualToCString(intrinsic, "cmp_lt_u16") ||
+        StringIsEqualToCString(intrinsic, "cmp_lt_u32") || StringIsEqualToCString(intrinsic, "cmp_lt_u64")) {
+        if (argumentCount != 2) {
+            ReportErrorFormat("Intrinsic '%s' expects two arguments", StringGetCharacters(intrinsic));
+            return LLVMGetUndef(resultType);
+        }
+
+        return LLVMBuildICmp(builder->builder, LLVMIntULT, arguments[0], arguments[1], "");
+    }
+
+    if (StringIsEqualToCString(intrinsic, "cmp_lt_f32") || StringIsEqualToCString(intrinsic, "cmp_lt_f64")) {
+        if (argumentCount != 2) {
+            ReportErrorFormat("Intrinsic '%s' expects two arguments", StringGetCharacters(intrinsic));
+            return LLVMGetUndef(resultType);
+        }
+
+        return LLVMBuildFCmp(builder->builder, LLVMRealULT, arguments[0], arguments[1], "");
+    }
+
+    if (StringIsEqualToCString(intrinsic, "cmp_le_s8") || StringIsEqualToCString(intrinsic, "cmp_le_s16") ||
+        StringIsEqualToCString(intrinsic, "cmp_le_s32") || StringIsEqualToCString(intrinsic, "cmp_le_s64")) {
+        if (argumentCount != 2) {
+            ReportErrorFormat("Intrinsic '%s' expects two arguments", StringGetCharacters(intrinsic));
+            return LLVMGetUndef(resultType);
+        }
+
+        return LLVMBuildICmp(builder->builder, LLVMIntSLE, arguments[0], arguments[1], "");
+    }
+
+    if (StringIsEqualToCString(intrinsic, "cmp_le_u8") || StringIsEqualToCString(intrinsic, "cmp_le_u16") ||
+        StringIsEqualToCString(intrinsic, "cmp_le_u32") || StringIsEqualToCString(intrinsic, "cmp_le_u64")) {
+        if (argumentCount != 2) {
+            ReportErrorFormat("Intrinsic '%s' expects two arguments", StringGetCharacters(intrinsic));
+            return LLVMGetUndef(resultType);
+        }
+
+        return LLVMBuildICmp(builder->builder, LLVMIntULE, arguments[0], arguments[1], "");
+    }
+
+    if (StringIsEqualToCString(intrinsic, "cmp_le_f32") || StringIsEqualToCString(intrinsic, "cmp_le_f64")) {
+        if (argumentCount != 2) {
+            ReportErrorFormat("Intrinsic '%s' expects two arguments", StringGetCharacters(intrinsic));
+            return LLVMGetUndef(resultType);
+        }
+
+        return LLVMBuildFCmp(builder->builder, LLVMRealULE, arguments[0], arguments[1], "");
+    }
+
+    if (StringIsEqualToCString(intrinsic, "cmp_gt_s8") || StringIsEqualToCString(intrinsic, "cmp_gt_s16") ||
+        StringIsEqualToCString(intrinsic, "cmp_gt_s32") || StringIsEqualToCString(intrinsic, "cmp_gt_s64")) {
+        if (argumentCount != 2) {
+            ReportErrorFormat("Intrinsic '%s' expects two arguments", StringGetCharacters(intrinsic));
+            return LLVMGetUndef(resultType);
+        }
+
+        return LLVMBuildICmp(builder->builder, LLVMIntSGT, arguments[0], arguments[1], "");
+    }
+
+    if (StringIsEqualToCString(intrinsic, "cmp_gt_u8") || StringIsEqualToCString(intrinsic, "cmp_gt_u16") ||
+        StringIsEqualToCString(intrinsic, "cmp_gt_u32") || StringIsEqualToCString(intrinsic, "cmp_gt_u64")) {
+        if (argumentCount != 2) {
+            ReportErrorFormat("Intrinsic '%s' expects two arguments", StringGetCharacters(intrinsic));
+            return LLVMGetUndef(resultType);
+        }
+
+        return LLVMBuildICmp(builder->builder, LLVMIntUGT, arguments[0], arguments[1], "");
+    }
+
+    if (StringIsEqualToCString(intrinsic, "cmp_gt_f32") || StringIsEqualToCString(intrinsic, "cmp_gt_f64")) {
+        if (argumentCount != 2) {
+            ReportErrorFormat("Intrinsic '%s' expects two arguments", StringGetCharacters(intrinsic));
+            return LLVMGetUndef(resultType);
+        }
+
+        return LLVMBuildFCmp(builder->builder, LLVMRealUGT, arguments[0], arguments[1], "");
+    }
+
+    if (StringIsEqualToCString(intrinsic, "cmp_ge_s8") || StringIsEqualToCString(intrinsic, "cmp_ge_s16") ||
+        StringIsEqualToCString(intrinsic, "cmp_ge_s32") || StringIsEqualToCString(intrinsic, "cmp_ge_s64")) {
+        if (argumentCount != 2) {
+            ReportErrorFormat("Intrinsic '%s' expects two arguments", StringGetCharacters(intrinsic));
+            return LLVMGetUndef(resultType);
+        }
+
+        return LLVMBuildICmp(builder->builder, LLVMIntSGE, arguments[0], arguments[1], "");
+    }
+
+    if (StringIsEqualToCString(intrinsic, "cmp_ge_u8") || StringIsEqualToCString(intrinsic, "cmp_ge_u16") ||
+        StringIsEqualToCString(intrinsic, "cmp_ge_u32") || StringIsEqualToCString(intrinsic, "cmp_ge_u64")) {
+        if (argumentCount != 2) {
+            ReportErrorFormat("Intrinsic '%s' expects two arguments", StringGetCharacters(intrinsic));
+            return LLVMGetUndef(resultType);
+        }
+
+        return LLVMBuildICmp(builder->builder, LLVMIntUGE, arguments[0], arguments[1], "");
+    }
+
+    if (StringIsEqualToCString(intrinsic, "cmp_ge_f32") || StringIsEqualToCString(intrinsic, "cmp_ge_f64")) {
+        if (argumentCount != 2) {
+            ReportErrorFormat("Intrinsic '%s' expects two arguments", StringGetCharacters(intrinsic));
+            return LLVMGetUndef(resultType);
+        }
+
+        return LLVMBuildFCmp(builder->builder, LLVMRealUGE, arguments[0], arguments[1], "");
+    }
+
+    if (StringIsEqualToCString(intrinsic, "cmp_eq_i8") || StringIsEqualToCString(intrinsic, "cmp_eq_i16") ||
+        StringIsEqualToCString(intrinsic, "cmp_eq_i32") || StringIsEqualToCString(intrinsic, "cmp_eq_i64")) {
+        if (argumentCount != 2) {
+            ReportErrorFormat("Intrinsic '%s' expects two arguments", StringGetCharacters(intrinsic));
+            return LLVMGetUndef(resultType);
+        }
+
+        return LLVMBuildICmp(builder->builder, LLVMIntEQ, arguments[0], arguments[1], "");
+    }
+
+    if (StringIsEqualToCString(intrinsic, "cmp_eq_f32") || StringIsEqualToCString(intrinsic, "cmp_eq_f64")) {
+        if (argumentCount != 2) {
+            ReportErrorFormat("Intrinsic '%s' expects two arguments", StringGetCharacters(intrinsic));
+            return LLVMGetUndef(resultType);
+        }
+
+        return LLVMBuildFCmp(builder->builder, LLVMRealUEQ, arguments[0], arguments[1], "");
+    }
+
+    if (StringIsEqualToCString(intrinsic, "cmp_ne_i8") || StringIsEqualToCString(intrinsic, "cmp_ne_i16") ||
+        StringIsEqualToCString(intrinsic, "cmp_ne_i32") || StringIsEqualToCString(intrinsic, "cmp_ne_i64")) {
+        if (argumentCount != 2) {
+            ReportErrorFormat("Intrinsic '%s' expects two arguments", StringGetCharacters(intrinsic));
+            return LLVMGetUndef(resultType);
+        }
+
+        return LLVMBuildICmp(builder->builder, LLVMIntNE, arguments[0], arguments[1], "");
+    }
+
+    if (StringIsEqualToCString(intrinsic, "cmp_ne_f32") || StringIsEqualToCString(intrinsic, "cmp_ne_f64")) {
+        if (argumentCount != 2) {
+            ReportErrorFormat("Intrinsic '%s' expects two arguments", StringGetCharacters(intrinsic));
+            return LLVMGetUndef(resultType);
+        }
+
+        return LLVMBuildFCmp(builder->builder, LLVMRealUNE, arguments[0], arguments[1], "");
+    }
+
+    ReportError("Use of unknown intrinsic");
+    return LLVMGetUndef(resultType);
 }

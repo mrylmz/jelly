@@ -1,1 +1,5 @@
+// run: -type-check
+
 #load 123456 // expect-error: Expected string literal after `#load` directive
+
+func main() -> Void {}

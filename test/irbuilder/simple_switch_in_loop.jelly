@@ -1,3 +1,5 @@
+// run: -dump-ir
+
 func simple_switch_in_loop(cond: Bool) -> Float {
     while cond {
         switch cond {
@@ -14,3 +16,5 @@ func simple_switch_in_loop(cond: Bool) -> Float {
 
     return 2.7981238781273
 }
+
+func main() -> Void {}

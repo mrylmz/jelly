@@ -1,5 +1,9 @@
+// run: -dump-ir
+
 var x: Float = 5.0
 
 func return_global_var() -> Float {
     return x
 }
+
+func main() -> Void {}

@@ -30,7 +30,6 @@ TEST_P(IRBuilderTests, run) {
 
         StringRef executable = StringCreate(AllocatorGetSystemDefault(), "jelly");
         StringRef filePath = StringCreateCopyFromLastOccurenceOf(AllocatorGetSystemDefault(), absoluteFilePath, '/');
-        StringRef dumpIRArgument = StringCreate(AllocatorGetSystemDefault(), "-dump-ir");
         StringRef workingDirectoryArgument = StringCreate(AllocatorGetSystemDefault(), "-working-directory=");
         StringAppendString(workingDirectoryArgument, workingDirectory);
         StringRef moduleName = StringCreate(AllocatorGetSystemDefault(), filename.c_str());
@@ -40,9 +39,13 @@ TEST_P(IRBuilderTests, run) {
         ArrayRef arguments = ArrayCreateEmpty(AllocatorGetSystemDefault(), sizeof(StringRef), 4);
         ArrayAppendElement(arguments, &executable);
         ArrayAppendElement(arguments, &filePath);
-        ArrayAppendElement(arguments, &dumpIRArgument);
         ArrayAppendElement(arguments, &workingDirectoryArgument);
         ArrayAppendElement(arguments, &moduleNameArgument);
+
+        for (auto arg : test.context.arguments) {
+            StringRef argument = StringCreate(AllocatorGetSystemDefault(), arg.c_str());
+            ArrayAppendElement(arguments, &argument);
+        }
 
         CompilerRun(arguments);
 

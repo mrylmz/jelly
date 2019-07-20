@@ -1,3 +1,5 @@
+// run: -type-check
+
 func myReturningFunc(arg0: Bool, arg1: Bool, arg2: Bool, arg3: Bool, arg4: Bool) -> Int {
     if arg0 {
         if arg1 {
@@ -25,3 +27,5 @@ func myReturningFunc(arg0: Bool, arg1: Bool, arg2: Bool, arg3: Bool, arg4: Bool)
         return 8
     }
 }
+
+func main() -> Void {}

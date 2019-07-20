@@ -217,6 +217,10 @@ void *_WorkspaceProcess(void *context) {
         return NULL;
     }
 
+    if (workspace->options & WorkspaceOptionsTypeCheck) {
+        return NULL;
+    }
+
     PerformNameMangling(workspace->context, ASTContextGetModule(workspace->context));
 
     DIR *buildDirectory = opendir(StringGetCharacters(workspace->buildDirectory));
@@ -232,11 +236,29 @@ void *_WorkspaceProcess(void *context) {
         return NULL;
     }
 
+    IRBuilderRef builder = IRBuilderCreate(workspace->allocator, workspace->buildDirectory);
+    IRModuleRef module   = IRBuilderBuild(builder, ASTContextGetModule(workspace->context));
+
     if ((workspace->options & WorkspaceOptionsDumpIR) > 0) {
-        IRBuilderRef builder = IRBuilderCreate(workspace->allocator, workspace->buildDirectory);
-        IRBuilderBuild(builder, ASTContextGetModule(workspace->context));
+        IRBuilderDumpModule(builder, module, stdout);
         IRBuilderDestroy(builder);
+        return NULL;
     }
+
+    IRBuilderVerifyModule(builder, module);
+
+    if (DiagnosticEngineGetMessageCount(DiagnosticLevelError) > 0 || DiagnosticEngineGetMessageCount(DiagnosticLevelCritical) > 0) {
+        IRBuilderDestroy(builder);
+        return NULL;
+    }
+
+    IRBuilderEmitObjectFile(builder, module, ASTContextGetModule(workspace->context)->base.name);
+    IRBuilderDestroy(builder);
+
+    if (DiagnosticEngineGetMessageCount(DiagnosticLevelError) > 0 || DiagnosticEngineGetMessageCount(DiagnosticLevelCritical) > 0) {
+        return NULL;
+    }
+
 
     return NULL;
 }

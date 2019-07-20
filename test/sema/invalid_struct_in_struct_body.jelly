@@ -1,3 +1,7 @@
+// run: -type-check
+
 struct A {
     struct B {} // expect-error: Expected 'var' found 'struct'
 }
+
+func main() -> Void {}

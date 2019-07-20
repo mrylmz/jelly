@@ -11,6 +11,7 @@ filePath(filePath),
 index(0) {
     ReadFileContent();
     ParseTestDiagnosticRecords();
+    ParseArguments();
 }
 
 void FileTestDiagnosticContext::ReadFileContent() {
@@ -56,6 +57,21 @@ void FileTestDiagnosticContext::ParseTestDiagnosticRecords() {
         assert(matches.size() == 2);
         reports.push_back(matches[1].str());
         searchContent = matches.suffix();
+    }
+}
+
+void FileTestDiagnosticContext::ParseArguments() {
+    std::regex regex("\\/\\/ run:[^\\S\\r\\n]*([^\n]*)[^\\S\\r\\n]*", std::regex::icase);
+    std::smatch matches;
+    std::string searchContent = std::string(fileContent);
+    if (std::regex_search(searchContent, matches, regex)) {
+        assert(matches.size() == 2);
+
+        std::string match = matches[1].str();
+        std::istringstream stream(match);
+        for (std::string argument; stream >> argument;) {
+            arguments.push_back(argument);
+        }
     }
 }
 

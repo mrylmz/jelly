@@ -1,3 +1,5 @@
+// run: -type-check
+
 struct RecursiveMember {
     var recursiveMember: Pair // expect-error: Struct cannot store a variable of same type recursively
 }
@@ -9,3 +11,5 @@ struct Pair {
 struct Other {
     var pair: Pair // expect-error: Struct cannot store a variable of same type recursively
 }
+
+func main() -> Void {}

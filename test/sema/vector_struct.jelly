@@ -1,4 +1,8 @@
+// run: -type-check
+
 struct Vector {
     var x: Float
     var y: Float
 }
+
+func main() -> Void {}

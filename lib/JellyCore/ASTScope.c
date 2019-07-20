@@ -16,12 +16,15 @@ void ASTScopeInsertDeclaration(ASTScopeRef scope, ASTDeclarationRef declaration)
     switch (declaration->base.tag) {
     case ASTTagEnumerationDeclaration: {
         if (scope->kind == ASTScopeKindGlobal) {
-            for (Index index = 0; index < ASTArrayGetElementCount(scope->declarations); index++) {
-                ASTDeclarationRef child = (ASTDeclarationRef)ASTArrayGetElementAtIndex(scope->declarations, index);
+            ASTArrayIteratorRef iterator = ASTArrayGetIterator(scope->declarations);
+            while (iterator) {
+                ASTDeclarationRef child = (ASTDeclarationRef)ASTArrayIteratorGetElement(iterator);
                 if (StringIsEqual(child->name, declaration->name)) {
                     ReportError("Invalid redeclaration of identifier");
                     return;
                 }
+
+                iterator = ASTArrayIteratorNext(iterator);
             }
 
             ASTArrayAppendElement(scope->declarations, declaration);
@@ -32,13 +35,17 @@ void ASTScopeInsertDeclaration(ASTScopeRef scope, ASTDeclarationRef declaration)
         }
     }
 
-    case ASTTagFunctionDeclaration: {
+    case ASTTagFunctionDeclaration:
+    case ASTTagForeignFunctionDeclaration:
+    case ASTTagIntrinsicFunctionDeclaration: {
         ASTFunctionDeclarationRef function = (ASTFunctionDeclarationRef)declaration;
         if (scope->kind == ASTScopeKindGlobal) {
-            for (Index index = 0; index < ASTArrayGetElementCount(scope->declarations); index++) {
-                ASTDeclarationRef child = (ASTDeclarationRef)ASTArrayGetElementAtIndex(scope->declarations, index);
+            ASTArrayIteratorRef iterator = ASTArrayGetIterator(scope->declarations);
+            while (iterator) {
+                ASTDeclarationRef child = (ASTDeclarationRef)ASTArrayIteratorGetElement(iterator);
                 if (StringIsEqual(child->name, declaration->name)) {
-                    if (child->base.tag != ASTTagFunctionDeclaration) {
+                    if (child->base.tag != ASTTagFunctionDeclaration && child->base.tag != ASTTagForeignFunctionDeclaration &&
+                        child->base.tag != ASTTagIntrinsicFunctionDeclaration) {
                         ReportError("Invalid redeclaration of identifier");
                         return;
                     }
@@ -69,6 +76,8 @@ void ASTScopeInsertDeclaration(ASTScopeRef scope, ASTDeclarationRef declaration)
                         }
                     }
                 }
+
+                iterator = ASTArrayIteratorNext(iterator);
             }
 
             ASTArrayAppendElement(scope->declarations, declaration);
@@ -81,12 +90,15 @@ void ASTScopeInsertDeclaration(ASTScopeRef scope, ASTDeclarationRef declaration)
 
     case ASTTagStructureDeclaration: {
         if (scope->kind == ASTScopeKindGlobal) {
-            for (Index index = 0; index < ASTArrayGetElementCount(scope->declarations); index++) {
-                ASTDeclarationRef child = (ASTDeclarationRef)ASTArrayGetElementAtIndex(scope->declarations, index);
+            ASTArrayIteratorRef iterator = ASTArrayGetIterator(scope->declarations);
+            while (iterator) {
+                ASTDeclarationRef child = (ASTDeclarationRef)ASTArrayIteratorGetElement(iterator);
                 if (StringIsEqual(child->name, declaration->name)) {
                     ReportError("Invalid redeclaration of identifier");
                     return;
                 }
+
+                iterator = ASTArrayIteratorNext(iterator);
             }
 
             ASTArrayAppendElement(scope->declarations, declaration);
@@ -98,12 +110,15 @@ void ASTScopeInsertDeclaration(ASTScopeRef scope, ASTDeclarationRef declaration)
     }
 
     case ASTTagValueDeclaration: {
-        for (Index index = 0; index < ASTArrayGetElementCount(scope->declarations); index++) {
-            ASTDeclarationRef child = (ASTDeclarationRef)ASTArrayGetElementAtIndex(scope->declarations, index);
+        ASTArrayIteratorRef iterator = ASTArrayGetIterator(scope->declarations);
+        while (iterator) {
+            ASTDeclarationRef child = (ASTDeclarationRef)ASTArrayIteratorGetElement(iterator);
             if (StringIsEqual(child->name, declaration->name)) {
                 ReportError("Invalid redeclaration of identifier");
                 return;
             }
+
+            iterator = ASTArrayIteratorNext(iterator);
         }
 
         ASTArrayAppendElement(scope->declarations, declaration);
@@ -117,35 +132,48 @@ void ASTScopeInsertDeclaration(ASTScopeRef scope, ASTDeclarationRef declaration)
 }
 
 ASTDeclarationRef ASTScopeLookupDeclarationByName(ASTScopeRef scope, StringRef name) {
-    for (Index index = 0; index < ASTArrayGetElementCount(scope->declarations); index++) {
-        ASTDeclarationRef declaration = (ASTDeclarationRef)ASTArrayGetElementAtIndex(scope->declarations, index);
+    ASTArrayIteratorRef iterator = ASTArrayGetIterator(scope->declarations);
+    while (iterator) {
+        ASTDeclarationRef declaration = (ASTDeclarationRef)ASTArrayIteratorGetElement(iterator);
         if (StringIsEqual(declaration->name, name)) {
             return declaration;
         }
+
+        iterator = ASTArrayIteratorNext(iterator);
     }
 
     return NULL;
 }
 
-ASTDeclarationRef ASTScopeLookupDeclarationByNameOrMatchingFunctionSignature(ASTScopeRef scope, StringRef name, ASTArrayRef parameters,
-                                                                             ASTTypeRef resultType) {
-    for (Index index = 0; index < ASTArrayGetElementCount(scope->declarations); index++) {
-        ASTDeclarationRef declaration = (ASTDeclarationRef)ASTArrayGetElementAtIndex(scope->declarations, index);
+ASTDeclarationRef ASTScopeLookupDeclarationByNameOrMatchingFunctionSignature(ASTScopeRef scope, StringRef name, ASTFixity fixity,
+                                                                             ASTArrayRef parameters, ASTTypeRef resultType) {
+    ASTArrayIteratorRef iterator = ASTArrayGetIterator(scope->declarations);
+    while (iterator) {
+        ASTDeclarationRef declaration = (ASTDeclarationRef)ASTArrayIteratorGetElement(iterator);
         if (!StringIsEqual(declaration->name, name)) {
+            iterator = ASTArrayIteratorNext(iterator);
             continue;
         }
 
-        if (declaration->base.tag != ASTTagFunctionDeclaration) {
+        if (declaration->base.tag != ASTTagFunctionDeclaration && declaration->base.tag != ASTTagForeignFunctionDeclaration &&
+            declaration->base.tag != ASTTagIntrinsicFunctionDeclaration) {
             return declaration;
         }
 
         // TODO: Perform checks
         ASTFunctionDeclarationRef function = (ASTFunctionDeclarationRef)declaration;
+        if (function->fixity != fixity) {
+            iterator = ASTArrayIteratorNext(iterator);
+            continue;
+        }
+
         if (ASTArrayGetElementCount(function->parameters) != ASTArrayGetElementCount(parameters)) {
+            iterator = ASTArrayIteratorNext(iterator);
             continue;
         }
 
         if (!ASTTypeIsEqual(function->returnType, resultType)) {
+            iterator = ASTArrayIteratorNext(iterator);
             continue;
         }
 
@@ -163,6 +191,8 @@ ASTDeclarationRef ASTScopeLookupDeclarationByNameOrMatchingFunctionSignature(AST
         if (hasSameParameters) {
             return declaration;
         }
+
+        iterator = ASTArrayIteratorNext(iterator);
     }
 
     return NULL;
@@ -172,22 +202,6 @@ ASTDeclarationRef ASTScopeLookupDeclarationInHierarchyByName(ASTScopeRef scope, 
     ASTScopeRef currentScope = scope;
     while (currentScope) {
         ASTDeclarationRef declaration = ASTScopeLookupDeclarationByName(currentScope, name);
-        if (declaration) {
-            return declaration;
-        }
-
-        currentScope = ASTScopeGetNextParentForLookup(currentScope);
-    }
-
-    return NULL;
-}
-
-ASTDeclarationRef ASTScopeLookupDeclarationInHierarchyByNameOrMatchingFunctionSignature(ASTScopeRef scope, StringRef name,
-                                                                                        ASTArrayRef parameters, ASTTypeRef resultType) {
-    ASTScopeRef currentScope = scope;
-    while (currentScope) {
-        ASTDeclarationRef declaration = ASTScopeLookupDeclarationByNameOrMatchingFunctionSignature(currentScope, name, parameters,
-                                                                                                   resultType);
         if (declaration) {
             return declaration;
         }

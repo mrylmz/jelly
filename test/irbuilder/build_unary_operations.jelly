@@ -1,3 +1,5 @@
+// run: -dump-ir
+
 func logical_not(value: Bool) -> Bool {
     return !value
 }
@@ -28,3 +30,5 @@ func bitwise_not_on_global_var() -> Int {
 func chained_unary_expressions() -> Int {
     return ~-+globalInt
 }
+
+func main() -> Void {}

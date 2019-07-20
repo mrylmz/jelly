@@ -159,3 +159,16 @@ Bool StringIsEqual(StringRef lhs, StringRef rhs) {
 
     return true;
 }
+
+Bool StringIsEqualToCString(StringRef lhs, const Char *rawString) {
+    Index length = strlen(rawString);
+    if (lhs->length != length) {
+        return false;
+    }
+
+    if (lhs->length > 0) {
+        return memcmp(lhs->memory, rawString, sizeof(Char) * lhs->length) == 0;
+    }
+
+    return true;
+}

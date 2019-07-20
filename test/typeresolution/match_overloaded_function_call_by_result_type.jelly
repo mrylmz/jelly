@@ -44,3 +44,5 @@ func main4(arg: Bool) -> Int {
         return 1
     }
 }
+
+func main() -> Void {}

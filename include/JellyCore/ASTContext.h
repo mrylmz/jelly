@@ -76,6 +76,10 @@ ASTFunctionDeclarationRef ASTContextCreateForeignFunctionDeclaration(ASTContextR
                                                                      ASTFixity fixity, StringRef name, ArrayRef parameters,
                                                                      ASTTypeRef returnType, StringRef foreignName);
 
+ASTFunctionDeclarationRef ASTContextCreateIntrinsicFunctionDeclaration(ASTContextRef context, SourceRange location, ASTScopeRef scope,
+                                                                       ASTFixity fixity, StringRef name, ArrayRef parameters,
+                                                                       ASTTypeRef returnType, StringRef intrinsicName);
+
 ASTStructureDeclarationRef ASTContextCreateStructureDeclaration(ASTContextRef context, SourceRange location, ASTScopeRef scope,
                                                                 StringRef name, ArrayRef values);
 

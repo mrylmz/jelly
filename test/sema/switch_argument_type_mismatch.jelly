@@ -1,0 +1,20 @@
+// run: -type-check
+
+func test1(cond: Bool) -> Void {
+    while cond {
+        switch cond {
+        case 0: // expect-error: Type mismatch
+            continue
+        case 1: // expect-error: Type mismatch
+            return
+        case 2: // expect-error: Type mismatch
+            break
+        case true:
+            fallthrough
+        case false:
+            return
+        }
+    }
+}
+
+func main() -> Void {}

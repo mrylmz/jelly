@@ -45,6 +45,8 @@ static inline ASTCallExpressionRef _ParserParseCallExpression(ParserRef parser, 
 static inline ASTConstantExpressionRef _ParserParseConstantExpression(ParserRef parser);
 static inline ASTEnumerationDeclarationRef _ParserParseEnumerationDeclaration(ParserRef parser);
 static inline ASTFunctionDeclarationRef _ParserParseFunctionDeclaration(ParserRef parser);
+static inline ASTFunctionDeclarationRef _ParserParsePrefixFunctionDeclaration(ParserRef parser);
+static inline ASTFunctionDeclarationRef _ParserParseInfixFunctionDeclaration(ParserRef parser);
 static inline ASTStructureDeclarationRef _ParserParseStructureDeclaration(ParserRef parser);
 static inline ASTValueDeclarationRef _ParserParseVariableDeclaration(ParserRef parser);
 static inline ASTValueDeclarationRef _ParserParseEnumerationElementDeclaration(ParserRef parser);
@@ -1008,19 +1010,250 @@ static inline ASTFunctionDeclarationRef _ParserParseFunctionDeclaration(ParserRe
         return NULL;
     }
 
-    ASTBlockRef body = _ParserParseBlock(parser);
-    if (!body) {
+    if (_ParserConsumeToken(parser, TokenKindDirectiveIntrinsic)) {
+        ASTConstantExpressionRef intrinsic = _ParserParseConstantExpression(parser);
+        if (!intrinsic || intrinsic->kind != ASTConstantKindString) {
+            ReportError("Expected string literal after `#intrinsic` directive");
+            return NULL;
+        }
+
+        StringRef intrinsicName = intrinsic->stringValue;
+
+        _ParserPopScope(parser);
+
+        location.end                       = parser->token.location.start;
+        ASTFunctionDeclarationRef function = ASTContextCreateIntrinsicFunctionDeclaration(
+            parser->context, location, parser->currentScope, ASTFixityPrefix, name, parameters, returnType, intrinsicName);
+        function->innerScope = funcScope;
+        funcScope->node      = (ASTNodeRef)function;
+        return function;
+    } else {
+        ASTBlockRef body = _ParserParseBlock(parser);
+        if (!body) {
+            return NULL;
+        }
+
+        _ParserPopScope(parser);
+
+        location.end                       = parser->token.location.start;
+        ASTFunctionDeclarationRef function = ASTContextCreateFunctionDeclaration(parser->context, location, parser->currentScope,
+                                                                                 ASTFixityPrefix, name, parameters, returnType, body);
+        function->innerScope               = funcScope;
+        funcScope->node                    = (ASTNodeRef)function;
+        return function;
+    }
+}
+
+/// grammar: prefix-func-declaration := "prefix" "func" unary-operator "(" [ parameter { "," parameter } ] ")" "->" type-identifier block
+static inline ASTFunctionDeclarationRef _ParserParsePrefixFunctionDeclaration(ParserRef parser) {
+    SourceRange location = parser->token.location;
+
+    if (!_ParserConsumeToken(parser, TokenKindKeywordPrefix)) {
         return NULL;
     }
 
-    _ParserPopScope(parser);
+    if (!_ParserConsumeToken(parser, TokenKindKeywordFunc)) {
+        ReportError("Expected keyword 'func' after 'prefix'");
+        return NULL;
+    }
 
-    location.end                       = parser->token.location.start;
-    ASTFunctionDeclarationRef function = ASTContextCreateFunctionDeclaration(parser->context, location, parser->currentScope, ASTFixityNone,
-                                                                             name, parameters, returnType, body);
-    function->innerScope               = funcScope;
-    funcScope->node                    = (ASTNodeRef)function;
-    return function;
+    ASTUnaryOperator op = _ParserConsumeUnaryOperator(parser);
+    if (op == ASTUnaryOperatorUnknown) {
+        ReportError("Expected unary operator of prefix func");
+        return NULL;
+    }
+
+    StringRef name = ASTGetPrefixOperatorName(parser->tempAllocator, op);
+
+    if (!_ParserConsumeToken(parser, TokenKindLeftParenthesis)) {
+        ReportError("Expected parameter list after name of 'func'");
+        return NULL;
+    }
+
+    // TODO: @ScopeLocation The location of scope will not be correct it has to encapsulate the associated node!
+    ASTScopeRef funcScope = _ParserPushScope(parser, parser->token.location, NULL, ASTScopeKindFunction);
+    ArrayRef parameters   = ArrayCreateEmpty(parser->tempAllocator, sizeof(ASTNodeRef), 8);
+
+    if (!_ParserIsToken(parser, TokenKindRightParenthesis)) {
+        while (true) {
+            ASTValueDeclarationRef parameter = _ParserParseParameterDeclaration(parser);
+            if (!parameter) {
+                return NULL;
+            }
+
+            assert(parameter->kind == ASTValueKindParameter);
+
+            ArrayAppendElement(parameters, &parameter);
+
+            if (_ParserIsToken(parser, TokenKindRightParenthesis)) {
+                break;
+            }
+
+            if (!_ParserConsumeToken(parser, TokenKindComma)) {
+                ReportError("Expected ',' or ')' in parameter list of 'func'");
+                return NULL;
+            }
+        }
+    }
+
+    if (!_ParserConsumeToken(parser, TokenKindRightParenthesis)) {
+        ReportError("Expected ')' after parameter list of 'func'");
+        return NULL;
+    }
+
+    if (!_ParserConsumeToken(parser, TokenKindArrow)) {
+        ReportError("Expected '->' after parameter list of 'func'");
+        return NULL;
+    }
+
+    ASTTypeRef returnType = _ParserParseType(parser);
+    if (!returnType) {
+        ReportError("Expected type for function result");
+        return NULL;
+    }
+
+    if (ArrayGetElementCount(parameters) != 1) {
+        ReportError("Prefix functions must have exactly one argument");
+    }
+
+    if (_ParserConsumeToken(parser, TokenKindDirectiveIntrinsic)) {
+        ASTConstantExpressionRef intrinsic = _ParserParseConstantExpression(parser);
+        if (!intrinsic || intrinsic->kind != ASTConstantKindString) {
+            ReportError("Expected string literal after `#intrinsic` directive");
+            return NULL;
+        }
+
+        StringRef intrinsicName = intrinsic->stringValue;
+
+        _ParserPopScope(parser);
+
+        location.end                       = parser->token.location.start;
+        ASTFunctionDeclarationRef function = ASTContextCreateIntrinsicFunctionDeclaration(
+            parser->context, location, parser->currentScope, ASTFixityPrefix, name, parameters, returnType, intrinsicName);
+        function->innerScope = funcScope;
+        funcScope->node      = (ASTNodeRef)function;
+        return function;
+    } else {
+        ASTBlockRef body = _ParserParseBlock(parser);
+        if (!body) {
+            return NULL;
+        }
+
+        _ParserPopScope(parser);
+
+        location.end                       = parser->token.location.start;
+        ASTFunctionDeclarationRef function = ASTContextCreateFunctionDeclaration(parser->context, location, parser->currentScope,
+                                                                                 ASTFixityPrefix, name, parameters, returnType, body);
+        function->innerScope               = funcScope;
+        funcScope->node                    = (ASTNodeRef)function;
+        return function;
+    }
+}
+
+/// grammar: infix-func-declaration := "infix" "func" binary-operator "(" [ parameter { "," parameter } ] ")" "->" type-identifier block
+static inline ASTFunctionDeclarationRef _ParserParseInfixFunctionDeclaration(ParserRef parser) {
+    SourceRange location = parser->token.location;
+
+    if (!_ParserConsumeToken(parser, TokenKindKeywordPrefix)) {
+        return NULL;
+    }
+
+    if (!_ParserConsumeToken(parser, TokenKindKeywordFunc)) {
+        ReportError("Expected keyword 'func' after 'infix'");
+        return NULL;
+    }
+
+    ASTUnaryOperator op = _ParserConsumeUnaryOperator(parser);
+    if (op == ASTUnaryOperatorUnknown) {
+        ReportError("Expected unary operator of infix func");
+        return NULL;
+    }
+
+    StringRef name = ASTGetPrefixOperatorName(parser->tempAllocator, op);
+
+    if (!_ParserConsumeToken(parser, TokenKindLeftParenthesis)) {
+        ReportError("Expected parameter list after name of 'func'");
+        return NULL;
+    }
+
+    // TODO: @ScopeLocation The location of scope will not be correct it has to encapsulate the associated node!
+    ASTScopeRef funcScope = _ParserPushScope(parser, parser->token.location, NULL, ASTScopeKindFunction);
+    ArrayRef parameters   = ArrayCreateEmpty(parser->tempAllocator, sizeof(ASTNodeRef), 8);
+
+    if (!_ParserIsToken(parser, TokenKindRightParenthesis)) {
+        while (true) {
+            ASTValueDeclarationRef parameter = _ParserParseParameterDeclaration(parser);
+            if (!parameter) {
+                return NULL;
+            }
+
+            assert(parameter->kind == ASTValueKindParameter);
+
+            ArrayAppendElement(parameters, &parameter);
+
+            if (_ParserIsToken(parser, TokenKindRightParenthesis)) {
+                break;
+            }
+
+            if (!_ParserConsumeToken(parser, TokenKindComma)) {
+                ReportError("Expected ',' or ')' in parameter list of 'func'");
+                return NULL;
+            }
+        }
+    }
+
+    if (!_ParserConsumeToken(parser, TokenKindRightParenthesis)) {
+        ReportError("Expected ')' after parameter list of 'func'");
+        return NULL;
+    }
+
+    if (!_ParserConsumeToken(parser, TokenKindArrow)) {
+        ReportError("Expected '->' after parameter list of 'func'");
+        return NULL;
+    }
+
+    ASTTypeRef returnType = _ParserParseType(parser);
+    if (!returnType) {
+        ReportError("Expected type for function result");
+        return NULL;
+    }
+
+    if (ArrayGetElementCount(parameters) != 2) {
+        ReportError("Infix functions must have exactly two arguments");
+    }
+
+    if (_ParserConsumeToken(parser, TokenKindDirectiveIntrinsic)) {
+        ASTConstantExpressionRef intrinsic = _ParserParseConstantExpression(parser);
+        if (!intrinsic || intrinsic->kind != ASTConstantKindString) {
+            ReportError("Expected string literal after `#intrinsic` directive");
+            return NULL;
+        }
+
+        StringRef intrinsicName = intrinsic->stringValue;
+
+        _ParserPopScope(parser);
+
+        location.end                       = parser->token.location.start;
+        ASTFunctionDeclarationRef function = ASTContextCreateIntrinsicFunctionDeclaration(
+            parser->context, location, parser->currentScope, ASTFixityInfix, name, parameters, returnType, intrinsicName);
+        function->innerScope = funcScope;
+        funcScope->node      = (ASTNodeRef)function;
+        return function;
+    } else {
+        ASTBlockRef body = _ParserParseBlock(parser);
+        if (!body) {
+            return NULL;
+        }
+
+        _ParserPopScope(parser);
+
+        location.end                       = parser->token.location.start;
+        ASTFunctionDeclarationRef function = ASTContextCreateFunctionDeclaration(parser->context, location, parser->currentScope,
+                                                                                 ASTFixityInfix, name, parameters, returnType, body);
+        function->innerScope               = funcScope;
+        funcScope->node                    = (ASTNodeRef)function;
+        return function;
+    }
 }
 
 /// grammar: struct-declaration := "struct" identifier "{" { value-declaration } "}"
@@ -1318,6 +1551,14 @@ static inline ASTNodeRef _ParserParseTopLevelNode(ParserRef parser) {
 
     if (_ParserIsToken(parser, TokenKindKeywordFunc)) {
         return (ASTNodeRef)_ParserParseFunctionDeclaration(parser);
+    }
+
+    if (_ParserIsToken(parser, TokenKindKeywordPrefix)) {
+        return (ASTNodeRef)_ParserParsePrefixFunctionDeclaration(parser);
+    }
+
+    if (_ParserIsToken(parser, TokenKindKeywordInfix)) {
+        return (ASTNodeRef)_ParserParseInfixFunctionDeclaration(parser);
     }
 
     if (_ParserIsToken(parser, TokenKindKeywordStruct)) {

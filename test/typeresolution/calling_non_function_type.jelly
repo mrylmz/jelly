@@ -1,5 +1,7 @@
 var x: Int
 
-func main() -> Int {
+func myFunc() -> Int {
     return x() // expect-error: Use of unresolved identifier
 }
+
+func main() -> Void {}

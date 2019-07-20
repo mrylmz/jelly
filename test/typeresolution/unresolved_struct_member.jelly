@@ -1,3 +1,5 @@
 struct Invalid {
     var unknown: Unknown // expect-error: Use of unresolved type
 }
+
+func main() -> Void {}

@@ -1,3 +1,5 @@
+// run: -dump-ir
+
 func bitwise_left_shift(lhs: Int, rhs: Int) -> Int {
     return lhs << rhs
 }
@@ -70,3 +72,4 @@ func logical_or(lhs: Bool, rhs: Bool) -> Bool {
     return lhs || rhs
 }
 
+func main() -> Void {}

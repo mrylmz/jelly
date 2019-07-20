@@ -7,6 +7,7 @@
 JELLY_EXTERN_C_BEGIN
 
 typedef struct _ASTArray *ASTArrayRef;
+typedef void *ASTArrayIteratorRef;
 
 typedef Bool (*ASTArrayPredicate)(const void *elementLeft, const void *elementRight);
 
@@ -33,6 +34,12 @@ void ASTArrayRemoveAllElements(ASTArrayRef array);
 bool ASTArrayContainsElement(ASTArrayRef array, ASTArrayPredicate predicate, void *element);
 
 bool ASTArrayIsEqual(ASTArrayRef lhs, ASTArrayRef rhs);
+
+ASTArrayIteratorRef ASTArrayGetIterator(ASTArrayRef array);
+
+ASTArrayIteratorRef ASTArrayIteratorNext(ASTArrayIteratorRef iterator);
+
+void *ASTArrayIteratorGetElement(ASTArrayIteratorRef iterator);
 
 JELLY_EXTERN_C_END
 

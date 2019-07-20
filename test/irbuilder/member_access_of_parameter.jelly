@@ -1,3 +1,5 @@
+// run: -dump-ir
+
 struct Point {
     var x: Float
     var y: Float
@@ -19,3 +21,5 @@ func getZ(p: Point) -> Float {
 func getY(p: Point*) -> Float {
     return p.y
 }
+
+func main() -> Void {}

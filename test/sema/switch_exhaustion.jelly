@@ -1,3 +1,5 @@
+// run: -type-check
+
 enum MyEnum {
     case zero
     case one
@@ -18,3 +20,5 @@ func nonExhaustiveSwitchStatement(e: MyEnum) -> Void {
         case one:  break
     }
 }
+
+func main() -> Void {}

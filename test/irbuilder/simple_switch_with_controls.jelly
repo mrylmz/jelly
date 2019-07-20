@@ -1,3 +1,5 @@
+// run: -dump-ir
+
 func simple_switch_with_controls(cond: Int) -> Int {
     switch cond {
     case 0:
@@ -16,3 +18,5 @@ func simple_switch_with_controls(cond: Int) -> Int {
 
     return 0
 }
+
+func main() -> Void {}
