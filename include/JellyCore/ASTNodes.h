@@ -24,6 +24,8 @@ enum _ASTTag {
     ASTTagCaseStatement,
     ASTTagSwitchStatement,
     ASTTagControlStatement,
+    ASTTagReferenceExpression,
+    ASTTagDereferenceExpression,
     ASTTagUnaryExpression,
     ASTTagBinaryExpression,
     ASTTagIdentifierExpression,
@@ -86,6 +88,8 @@ typedef struct _ASTLoopStatement *ASTLoopStatementRef;
 typedef struct _ASTCaseStatement *ASTCaseStatementRef;
 typedef struct _ASTSwitchStatement *ASTSwitchStatementRef;
 typedef struct _ASTControlStatement *ASTControlStatementRef;
+typedef struct _ASTReferenceExpression *ASTReferenceExpressionRef;
+typedef struct _ASTDereferenceExpression *ASTDereferenceExpressionRef;
 typedef struct _ASTUnaryExpression *ASTUnaryExpressionRef;
 typedef struct _ASTBinaryExpression *ASTBinaryExpressionRef;
 typedef struct _ASTIdentifierExpression *ASTIdentifierExpressionRef;
@@ -223,6 +227,18 @@ struct _ASTControlStatement {
     ASTControlKind kind;
     ASTExpressionRef result;
     ASTNodeRef enclosingNode;
+};
+
+struct _ASTReferenceExpression {
+    struct _ASTExpression base;
+
+    ASTExpressionRef argument;
+};
+
+struct _ASTDereferenceExpression {
+    struct _ASTExpression base;
+
+    ASTExpressionRef argument;
 };
 
 enum _ASTUnaryOperator {

@@ -41,6 +41,10 @@ ASTSwitchStatementRef ASTContextCreateSwitchStatement(ASTContextRef context, Sou
                                                       ASTExpressionRef argument, ArrayRef cases);
 ASTControlStatementRef ASTContextCreateControlStatement(ASTContextRef context, SourceRange location, ASTScopeRef scope, ASTControlKind kind,
                                                         ASTExpressionRef result);
+ASTReferenceExpressionRef ASTContextCreateReferenceExpression(ASTContextRef context, SourceRange location, ASTScopeRef scope,
+                                                              ASTExpressionRef argument);
+ASTDereferenceExpressionRef ASTContextCreateDereferenceExpression(ASTContextRef context, SourceRange location, ASTScopeRef scope,
+                                                                  ASTExpressionRef argument);
 ASTUnaryExpressionRef ASTContextCreateUnaryExpression(ASTContextRef context, SourceRange location, ASTScopeRef scope, ASTUnaryOperator op,
                                                       ASTExpressionRef arguments[1]);
 ASTBinaryExpressionRef ASTContextCreateBinaryExpression(ASTContextRef context, SourceRange location, ASTScopeRef scope,

@@ -549,6 +549,16 @@ static inline void _TypeCheckerValidateExpression(TypeCheckerRef typeChecker, AS
     _GuardValidateOnce(expression);
 
     switch (expression->base.tag) {
+    case ASTTagReferenceExpression: {
+        // TODO: Validate expression
+        break;
+    }
+
+    case ASTTagDereferenceExpression: {
+        // TODO: Validate expression
+        break;
+    }
+
     case ASTTagUnaryExpression: {
         // TODO: Validate expression
         break;

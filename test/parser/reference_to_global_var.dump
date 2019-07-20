@@ -1,0 +1,32 @@
+ModuleDeclaration
+  SourceUnit
+    @filePath = 'reference_to_global_var.jelly'
+    VariableDeclaration
+      @name = 'x'
+      BuiltinType
+        @name = 'Int'
+      IntLiteral
+        @value = '0'
+    FunctionDeclaration
+      @name = 'referenceX'
+      PointerType
+        BuiltinType
+          @name = 'Int'
+      Block
+        ReturnStatement
+          ReferenceExpression
+            IdentifierExpression
+              @identifier = 'x'
+    FunctionDeclaration
+      @name = 'main'
+      BuiltinType
+        @name = 'Void'
+      Block
+        VariableDeclaration
+          @name = 'x'
+          BuiltinType
+            @name = 'Int'
+          DereferenceExpression
+            CallExpression
+              IdentifierExpression
+                @identifier = 'referenceX'

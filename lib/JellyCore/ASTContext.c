@@ -40,6 +40,8 @@ ASTContextRef ASTContextCreate(AllocatorRef allocator, StringRef moduleName) {
     context->nodes[ASTTagCaseStatement]          = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTCaseStatement), 1024);
     context->nodes[ASTTagSwitchStatement]        = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTSwitchStatement), 1024);
     context->nodes[ASTTagControlStatement]       = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTControlStatement), 1024);
+    context->nodes[ASTTagReferenceExpression]    = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTReferenceExpression), 1024);
+    context->nodes[ASTTagDereferenceExpression]  = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTDereferenceExpression), 1024);
     context->nodes[ASTTagUnaryExpression]        = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTUnaryExpression), 1024);
     context->nodes[ASTTagBinaryExpression]       = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTBinaryExpression), 1024);
     context->nodes[ASTTagIdentifierExpression]   = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTIdentifierExpression), 1024);
@@ -186,6 +188,29 @@ ASTControlStatementRef ASTContextCreateControlStatement(ASTContextRef context, S
     node->kind                  = kind;
     node->result                = result;
     node->enclosingNode         = NULL;
+    return node;
+}
+
+ASTReferenceExpressionRef ASTContextCreateReferenceExpression(ASTContextRef context, SourceRange location, ASTScopeRef scope,
+                                                              ASTExpressionRef argument) {
+    assert(argument);
+
+    ASTReferenceExpressionRef node = (ASTReferenceExpressionRef)_ASTContextCreateNode(context, ASTTagReferenceExpression, location, scope);
+    node->argument                 = argument;
+    node->base.type                = NULL;
+    node->base.expectedType        = NULL;
+    return node;
+}
+
+ASTDereferenceExpressionRef ASTContextCreateDereferenceExpression(ASTContextRef context, SourceRange location, ASTScopeRef scope,
+                                                                  ASTExpressionRef argument) {
+    assert(argument);
+
+    ASTDereferenceExpressionRef node = (ASTDereferenceExpressionRef)_ASTContextCreateNode(context, ASTTagDereferenceExpression, location,
+                                                                                          scope);
+    node->argument                   = argument;
+    node->base.type                  = NULL;
+    node->base.expectedType          = NULL;
     return node;
 }
 

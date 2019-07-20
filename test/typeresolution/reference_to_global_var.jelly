@@ -1,0 +1,11 @@
+// run: -type-check
+
+var x: Int = 0
+
+func referenceX() -> Int* {
+    return &x
+}
+
+func main() -> Void {
+    var x: Int = *referenceX()
+}

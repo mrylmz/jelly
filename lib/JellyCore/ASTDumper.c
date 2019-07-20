@@ -96,6 +96,18 @@ void ASTDumperDump(ASTDumperRef dumper, ASTNodeRef node) {
         return;
     }
 
+    case ASTTagReferenceExpression: {
+        ASTReferenceExpressionRef expression = (ASTReferenceExpressionRef)node;
+        _ASTDumperDumpChild(dumper, (ASTNodeRef)expression->argument);
+        return;
+    }
+
+    case ASTTagDereferenceExpression: {
+        ASTDereferenceExpressionRef expression = (ASTDereferenceExpressionRef)node;
+        _ASTDumperDumpChild(dumper, (ASTNodeRef)expression->argument);
+        return;
+    }
+
     case ASTTagUnaryExpression: {
         ASTUnaryExpressionRef unary = (ASTUnaryExpressionRef)node;
 
@@ -349,6 +361,12 @@ static inline void _ASTDumperPrintTag(ASTDumperRef dumper, ASTNodeRef node) {
         }
         break;
     }
+
+    case ASTTagReferenceExpression:
+        return _ASTDumperPrintCString(dumper, "ReferenceExpression");
+
+    case ASTTagDereferenceExpression:
+        return _ASTDumperPrintCString(dumper, "DereferenceExpression");
 
     case ASTTagUnaryExpression:
         return _ASTDumperPrintCString(dumper, "UnaryExpression");

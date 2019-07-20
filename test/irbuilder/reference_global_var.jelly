@@ -1,0 +1,11 @@
+// run: -dump-ir
+
+var x: Int
+
+func referenceX() -> Int* {
+    return &x
+}
+
+func main() -> Void {
+    var x: Int = *referenceX()
+}

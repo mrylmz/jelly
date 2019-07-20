@@ -663,12 +663,34 @@ static inline ASTExpressionRef _ParserParseAtomExpression(ParserRef parser) {
     return (ASTExpressionRef)_ParserParseIdentifierExpression(parser);
 }
 
-/// grammar: primary-expression := unary-expression | atom-expression
+/// grammar: primary-expression     := unary-expression | atom-expression | reference-expression | dereference-expression
+/// grammar: reference-expression   := '&' expression
+/// grammar: dereference-expression := '*' expression
 static inline ASTExpressionRef _ParserParsePrimaryExpression(ParserRef parser) {
     SourceRange location   = parser->token.location;
     ASTUnaryOperator unary = _ParserConsumeUnaryOperator(parser);
     if (unary != ASTUnaryOperatorUnknown) {
         return (ASTExpressionRef)_ParserParseUnaryExpression(parser, unary, location);
+    }
+
+    if (_ParserConsumeToken(parser, TokenKindAmpersand)) {
+        ASTExpressionRef argument = _ParserParseExpression(parser, 0, false);
+        if (!argument) {
+            return NULL;
+        }
+
+        location.end = parser->token.location.start;
+        return (ASTExpressionRef)ASTContextCreateReferenceExpression(parser->context, location, parser->currentScope, argument);
+    }
+
+    if (_ParserConsumeToken(parser, TokenKindAsterisk)) {
+        ASTExpressionRef argument = _ParserParseExpression(parser, 0, false);
+        if (!argument) {
+            return NULL;
+        }
+
+        location.end = parser->token.location.start;
+        return (ASTExpressionRef)ASTContextCreateDereferenceExpression(parser->context, location, parser->currentScope, argument);
     }
 
     return _ParserParseAtomExpression(parser);

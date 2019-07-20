@@ -36,6 +36,11 @@ TEST_P(NameResolutionTests, run) {
         ArrayAppendElement(arguments, &filePath);
         ArrayAppendElement(arguments, &workingDirectoryArgument);
 
+        for (auto arg : test.context.arguments) {
+            StringRef argument = StringCreate(AllocatorGetSystemDefault(), arg.c_str());
+            ArrayAppendElement(arguments, &argument);
+        }
+
         CompilerRun(arguments);
 
         for (Index index = 0; index < ArrayGetElementCount(arguments); index++) {

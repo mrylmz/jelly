@@ -654,6 +654,30 @@ static inline void _IRBuilderBuildControlStatement(IRBuilderRef builder, LLVMVal
 
 static inline void _IRBuilderBuildExpression(IRBuilderRef builder, LLVMValueRef function, ASTExpressionRef expression) {
     switch (expression->base.tag) {
+    case ASTTagReferenceExpression: {
+        ASTReferenceExpressionRef reference = (ASTReferenceExpressionRef)expression;
+        _IRBuilderBuildExpression(builder, function, reference->argument);
+        LLVMValueRef pointer = NULL;
+        if (reference->argument->base.flags & ASTFlagsIsValuePointer) {
+            pointer = reference->argument->base.irValue;
+        } else {
+            pointer = LLVMBuildAlloca(builder->builder, (LLVMTypeRef)reference->argument->base.irType, "");
+            LLVMBuildStore(builder->builder, _IRBuilderLoadExpression(builder, function, reference->argument), pointer);
+        }
+
+        reference->base.base.irType  = _IRBuilderGetIRType(builder, reference->base.type);
+        reference->base.base.irValue = pointer;
+        return;
+    }
+
+    case ASTTagDereferenceExpression: {
+        ASTDereferenceExpressionRef dereference = (ASTDereferenceExpressionRef)expression;
+        _IRBuilderBuildExpression(builder, function, dereference->argument);
+        dereference->base.base.irType  = _IRBuilderGetIRType(builder, dereference->base.type);
+        dereference->base.base.irValue = LLVMBuildLoad(builder->builder, (LLVMValueRef)dereference->argument->base.irValue, "");
+        return;
+    }
+
     case ASTTagUnaryExpression: {
         ASTUnaryExpressionRef unary = (ASTUnaryExpressionRef)expression;
         assert(unary->opFunction);
@@ -832,6 +856,8 @@ static inline void _IRBuilderBuildExpression(IRBuilderRef builder, LLVMValueRef 
     default:
         break;
     }
+
+    JELLY_UNREACHABLE("Invalid tag given for ASTExpression!");
 }
 
 static inline LLVMValueRef _IRBuilderLoadExpression(IRBuilderRef builder, LLVMValueRef function, ASTExpressionRef expression) {

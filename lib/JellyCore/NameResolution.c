@@ -343,6 +343,38 @@ static inline void _PerformNameResolutionForNode(ASTContextRef context, ASTNodeR
 }
 
 static inline void _PerformNameResolutionForExpression(ASTContextRef context, ASTExpressionRef expression) {
+    if (expression->base.tag == ASTTagReferenceExpression) {
+        ASTReferenceExpressionRef reference = (ASTReferenceExpressionRef)expression;
+        _PerformNameResolutionForExpression(context, reference->argument);
+
+        if (reference->argument->type->tag == ASTTagBuiltinType &&
+            ((ASTBuiltinTypeRef)reference->argument->type)->kind == ASTBuiltinTypeKindError) {
+            reference->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
+        } else {
+            reference->base.type = (ASTTypeRef)ASTContextCreatePointerType(context, reference->base.base.location,
+                                                                           reference->base.base.scope, reference->argument->type);
+        }
+        return;
+    }
+
+    if (expression->base.tag == ASTTagDereferenceExpression) {
+        ASTDereferenceExpressionRef dereference = (ASTDereferenceExpressionRef)expression;
+        _PerformNameResolutionForExpression(context, dereference->argument);
+        if (dereference->argument->type->tag == ASTTagBuiltinType &&
+            ((ASTBuiltinTypeRef)dereference->argument->type)->kind == ASTBuiltinTypeKindError) {
+            dereference->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
+        } else {
+            if (dereference->argument->type->tag == ASTTagPointerType) {
+                ASTPointerTypeRef pointerType = (ASTPointerTypeRef)dereference->argument->type;
+                dereference->base.type        = pointerType->pointeeType;
+            } else {
+                ReportError("Cannot derefence expression of non pointer type");
+                dereference->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
+            }
+        }
+        return;
+    }
+
     if (expression->base.tag == ASTTagUnaryExpression) {
         ASTUnaryExpressionRef unary = (ASTUnaryExpressionRef)expression;
         _PerformNameResolutionForExpression(context, unary->arguments[0]);
