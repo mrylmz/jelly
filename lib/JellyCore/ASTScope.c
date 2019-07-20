@@ -55,12 +55,12 @@ void ASTScopeInsertDeclaration(ASTScopeRef scope, ASTDeclarationRef declaration)
 
                     ASTFunctionDeclarationRef childFunction = (ASTFunctionDeclarationRef)child;
                     if (ASTArrayGetElementCount(function->parameters) == ASTArrayGetElementCount(childFunction->parameters)) {
-                        Bool hasMatchingParameterTypes = true;
-                        for (Index parameterIndex = 0; parameterIndex < ASTArrayGetElementCount(function->parameters); parameterIndex++) {
-                            ASTValueDeclarationRef lhsParameter = (ASTValueDeclarationRef)ASTArrayGetElementAtIndex(function->parameters,
-                                                                                                                    parameterIndex);
-                            ASTValueDeclarationRef rhsParameter = (ASTValueDeclarationRef)ASTArrayGetElementAtIndex(
-                                childFunction->parameters, parameterIndex);
+                        Bool hasMatchingParameterTypes  = true;
+                        ASTArrayIteratorRef lhsIterator = ASTArrayGetIterator(function->parameters);
+                        ASTArrayIteratorRef rhsIterator = ASTArrayGetIterator(childFunction->parameters);
+                        while (lhsIterator && rhsIterator) {
+                            ASTValueDeclarationRef lhsParameter = (ASTValueDeclarationRef)ASTArrayIteratorGetElement(lhsIterator);
+                            ASTValueDeclarationRef rhsParameter = (ASTValueDeclarationRef)ASTArrayIteratorGetElement(rhsIterator);
                             assert(lhsParameter->base.type);
                             assert(rhsParameter->base.type);
 
@@ -68,6 +68,9 @@ void ASTScopeInsertDeclaration(ASTScopeRef scope, ASTDeclarationRef declaration)
                                 hasMatchingParameterTypes = false;
                                 break;
                             }
+
+                            lhsIterator = ASTArrayIteratorNext(lhsIterator);
+                            rhsIterator = ASTArrayIteratorNext(rhsIterator);
                         }
 
                         if (hasMatchingParameterTypes && ASTTypeIsEqual(function->returnType, childFunction->returnType)) {
@@ -177,15 +180,20 @@ ASTDeclarationRef ASTScopeLookupDeclarationByNameOrMatchingFunctionSignature(AST
             continue;
         }
 
-        Bool hasSameParameters = true;
-        for (Index parameterIndex = 0; parameterIndex < ASTArrayGetElementCount(function->parameters); parameterIndex++) {
-            ASTValueDeclarationRef lhsParameter = (ASTValueDeclarationRef)ASTArrayGetElementAtIndex(function->parameters, parameterIndex);
-            ASTValueDeclarationRef rhsParameter = (ASTValueDeclarationRef)ASTArrayGetElementAtIndex(parameters, parameterIndex);
+        Bool hasSameParameters          = true;
+        ASTArrayIteratorRef lhsIterator = ASTArrayGetIterator(function->parameters);
+        ASTArrayIteratorRef rhsIterator = ASTArrayGetIterator(parameters);
+        while (lhsIterator && rhsIterator) {
+            ASTValueDeclarationRef lhsParameter = (ASTValueDeclarationRef)ASTArrayIteratorGetElement(lhsIterator);
+            ASTValueDeclarationRef rhsParameter = (ASTValueDeclarationRef)ASTArrayIteratorGetElement(rhsIterator);
 
             if (!ASTTypeIsEqual(lhsParameter->base.type, rhsParameter->base.type)) {
                 hasSameParameters = false;
                 break;
             }
+
+            lhsIterator = ASTArrayIteratorNext(lhsIterator);
+            rhsIterator = ASTArrayIteratorNext(rhsIterator);
         }
 
         if (hasSameParameters) {
