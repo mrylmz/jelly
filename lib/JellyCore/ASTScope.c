@@ -417,20 +417,20 @@ static inline void _PrintType(FILE *target, ASTTypeRef type) {
         ASTFunctionTypeRef func = (ASTFunctionTypeRef)type;
         assert(func->declaration);
         _PrintCString(target, "func (");
-        for (Index index = 0; index < ASTArrayGetElementCount(func->declaration->parameters); index++) {
-            ASTNodeRef child = (ASTNodeRef)ASTArrayGetElementAtIndex(func->declaration->parameters, index);
-            assert(child->tag == ASTTagValueDeclaration);
+        ASTArrayIteratorRef iterator = ASTArrayGetIterator(func->parameterTypes);
+        while (iterator) {
+            ASTTypeRef parameterType = (ASTTypeRef)ASTArrayIteratorGetElement(iterator);
+            _PrintType(target, parameterType);
 
-            ASTValueDeclarationRef value = (ASTValueDeclarationRef)child;
-            assert(value->kind == ASTValueKindParameter);
+            iterator = ASTArrayIteratorNext(iterator);
 
-            _PrintType(target, value->base.type);
-            if (index + 1 < ASTArrayGetElementCount(func->declaration->parameters)) {
+            if (iterator) {
                 _PrintCString(target, ", ");
             }
         }
+
         _PrintCString(target, ") -> ");
-        _PrintType(target, func->declaration->returnType);
+        _PrintType(target, func->resultType);
         return;
     }
 

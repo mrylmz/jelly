@@ -757,6 +757,12 @@ static inline void _IRBuilderBuildExpression(IRBuilderRef builder, LLVMValueRef 
 
         identifier->base.base.irType  = identifier->resolvedDeclaration->base.irType;
         identifier->base.base.irValue = identifier->resolvedDeclaration->base.irValue;
+
+        if (identifier->resolvedDeclaration->base.tag == ASTTagFunctionDeclaration) {
+            identifier->base.base.irType = LLVMPointerType((LLVMTypeRef)identifier->base.base.irType, 0);
+            identifier->base.base.flags |= ASTFlagsIsValuePointer;
+        }
+
         return;
     }
 
@@ -799,10 +805,9 @@ static inline void _IRBuilderBuildExpression(IRBuilderRef builder, LLVMValueRef 
 
     case ASTTagCallExpression: {
         ASTCallExpressionRef call = (ASTCallExpressionRef)expression;
-        assert(call->callee->type->tag == ASTTagFunctionType);
-        ASTFunctionTypeRef functionType               = (ASTFunctionTypeRef)call->callee->type;
-        ASTFunctionDeclarationRef functionDeclaration = functionType->declaration;
-
+        assert(call->callee->type->tag == ASTTagFunctionType ||
+               (call->callee->type->tag == ASTTagPointerType &&
+                ((ASTPointerTypeRef)call->callee->type)->pointeeType->tag == ASTTagFunctionType));
         _IRBuilderBuildExpression(builder, function, call->callee);
 
         ArrayRef arguments = ArrayCreateEmpty(builder->allocator, sizeof(LLVMValueRef), ASTArrayGetElementCount(call->arguments));
@@ -812,8 +817,17 @@ static inline void _IRBuilderBuildExpression(IRBuilderRef builder, LLVMValueRef 
             ArrayAppendElement(arguments, &argument->base.irValue);
         }
 
-        assert(functionDeclaration->returnType->irType);
-        call->base.base.irType  = functionDeclaration->returnType->irType;
+        if (call->callee->type->tag == ASTTagPointerType) {
+            ASTPointerTypeRef pointerType   = (ASTPointerTypeRef)call->callee->type;
+            ASTFunctionTypeRef functionType = (ASTFunctionTypeRef)pointerType->pointeeType;
+            assert(functionType->resultType->irType);
+            call->base.base.irType = functionType->resultType->irType;
+        } else {
+            ASTFunctionTypeRef functionType = (ASTFunctionTypeRef)call->callee->type;
+            assert(functionType->resultType->irType);
+            call->base.base.irType = functionType->resultType->irType;
+        }
+
         call->base.base.irValue = (LLVMValueRef)LLVMBuildCall(builder->builder, (LLVMValueRef)call->callee->base.irValue,
                                                               (LLVMValueRef *)ArrayGetMemoryPointer(arguments),
                                                               ArrayGetElementCount(arguments), "");
@@ -949,8 +963,19 @@ static inline LLVMTypeRef _IRBuilderGetIRType(IRBuilderRef builder, ASTTypeRef t
 
     case ASTTagFunctionType: {
         ASTFunctionTypeRef functionType = (ASTFunctionTypeRef)type;
-        assert(functionType->declaration->base.base.irType);
-        llvmType = (LLVMTypeRef)functionType->declaration->base.base.irType;
+        ArrayRef parameterTypes         = ArrayCreateEmpty(builder->allocator, sizeof(LLVMTypeRef),
+                                                   ASTArrayGetElementCount(functionType->parameterTypes));
+        ASTArrayIteratorRef iterator    = ASTArrayGetIterator(functionType->parameterTypes);
+        while (iterator) {
+            ASTTypeRef parameterType = ASTArrayIteratorGetElement(iterator);
+            parameterType->irType    = _IRBuilderGetIRType(builder, parameterType);
+            iterator                 = ASTArrayIteratorNext(iterator);
+        }
+
+        functionType->resultType->irType = _IRBuilderGetIRType(builder, functionType->resultType);
+
+        llvmType = LLVMFunctionType((LLVMTypeRef)functionType->resultType->irType, (LLVMTypeRef *)ArrayGetMemoryPointer(parameterTypes),
+                                    ArrayGetElementCount(parameterTypes), false);
         break;
     }
 

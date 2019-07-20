@@ -492,6 +492,8 @@ struct _ASTEnumerationType {
 struct _ASTFunctionType {
     struct _ASTNode base;
 
+    ASTArrayRef parameterTypes;
+    ASTTypeRef resultType;
     ASTFunctionDeclarationRef declaration;
 };
 

@@ -191,9 +191,14 @@ static inline void _StringAppendMangledTypeName(StringRef string, ASTTypeRef typ
 
     case ASTTagFunctionType: {
         ASTFunctionTypeRef functionType = (ASTFunctionTypeRef)type;
-        assert(functionType->declaration);
         StringAppend(string, "$f");
-        ReportCritical("Name mangling for function types is not supported at the moment!");
+        StringAppendFormat(string, "%zu", ASTArrayGetElementCount(functionType->parameterTypes));
+        for (Index index = 0; index < ASTArrayGetElementCount(functionType->parameterTypes); index++) {
+            ASTTypeRef parameterType = (ASTTypeRef)ASTArrayGetElementAtIndex(functionType->parameterTypes, index);
+            _StringAppendMangledTypeName(string, parameterType);
+        }
+
+        _StringAppendMangledTypeName(string, functionType->resultType);
         break;
     }
 

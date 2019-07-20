@@ -1442,14 +1442,15 @@ static inline ASTValueDeclarationRef _ParserParseParameterDeclaration(ParserRef 
     return ASTContextCreateValueDeclaration(parser->context, location, parser->currentScope, ASTValueKindParameter, name, type, NULL);
 }
 
-/// grammar: type         := builtin-type | opaque-type | pointer-type | array-type
-/// grammar: builtin-type := "Void" | "Bool" |
-///                          "Int8" | "Int16" | "Int32" | "Int64" | "Int128" | "Int" |
-///                          "UInt8" | "UInt16" | "UInt32" | "UInt64" | "UInt128" | "UInt" |
-///                          "Float16" | "Float32" | "Float64" | "Float128" | "Float"
-/// grammar: opaque-type  := identifier
-/// grammar: pointer-type := type "*"
-/// grammar: array-type   := type "[" [ expression ] "]"
+/// grammar: type                     := builtin-type | opaque-type | pointer-type | array-type | function-pointer-type
+/// grammar: builtin-type             := "Void" | "Bool" |
+///                                      "Int8" | "Int16" | "Int32" | "Int64" | "Int" |
+///                                      "UInt8" | "UInt16" | "UInt32" | "UInt64" | "UInt" |
+///                                      "Float32" | "Float64" | "Float"
+/// grammar: opaque-type              := identifier
+/// grammar: pointer-type             := type "*"
+/// grammar: array-type               := type "[" [ expression ] "]"
+/// grammar: function-pointer-type    := "(" [ type { "," type } ] ")" "->" type
 static inline ASTTypeRef _ParserParseType(ParserRef parser) {
     SourceRange location = parser->token.location;
     ASTTypeRef result    = NULL;
@@ -1499,6 +1500,44 @@ static inline ASTTypeRef _ParserParseType(ParserRef parser) {
     } else if (_ParserConsumeToken(parser, TokenKindKeywordFloat)) {
         location.end = parser->token.location.start;
         result       = (ASTTypeRef)ASTContextGetBuiltinType(parser->context, ASTBuiltinTypeKindFloat);
+    } else if (_ParserConsumeToken(parser, TokenKindLeftParenthesis)) {
+        ArrayRef parameterTypes = ArrayCreateEmpty(parser->tempAllocator, sizeof(ASTTypeRef), 8);
+        while (!_ParserIsToken(parser, TokenKindRightParenthesis)) {
+            ASTTypeRef parameterType = _ParserParseType(parser);
+            if (!parameterType) {
+                return NULL;
+            }
+
+            ArrayAppendElement(parameterTypes, &parameterType);
+
+            if (!_ParserConsumeToken(parser, TokenKindComma)) {
+                break;
+            }
+        }
+
+        if (!_ParserConsumeToken(parser, TokenKindRightParenthesis)) {
+            ReportError("Expected ')' after parameter list of type");
+            return NULL;
+        }
+
+        if (!_ParserConsumeToken(parser, TokenKindArrow)) {
+            ReportError("Expected '->' after parameter list of type");
+            return NULL;
+        }
+
+        ASTTypeRef resultType = _ParserParseType(parser);
+        if (!resultType) {
+            return NULL;
+        }
+
+        location.end = parser->token.location.start;
+        result = (ASTTypeRef)ASTContextCreateFunctionType(parser->context, location, parser->currentScope, parameterTypes, resultType);
+        result = (ASTTypeRef)ASTContextCreatePointerType(parser->context, location, parser->currentScope, result);
+        // Early returning here because trailing '*' or '[]' is ambigous with resultType and will be parsed into it...
+        // ..so it is impossible to create an array type of function pointer or an pointer type of function pointer in the grammar.
+        // If there will be a requirement for this kind of expressivity in the grammar then adding something like alias types will help
+        // solving that problem.
+        return result;
     } else {
         StringRef name = _ParserConsumeIdentifier(parser);
         if (!name) {

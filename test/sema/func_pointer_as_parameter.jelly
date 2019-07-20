@@ -1,0 +1,11 @@
+// run: -type-check
+
+func call(myFunc: () -> Void) -> Void {
+    myFunc()
+}
+
+func myDummyFunc() -> Void {}
+
+func main() -> Void {
+    call(&myDummyFunc)
+}

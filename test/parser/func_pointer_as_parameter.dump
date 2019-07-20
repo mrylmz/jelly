@@ -1,0 +1,17 @@
+ModuleDeclaration
+  SourceUnit
+    @filePath = 'func_pointer_as_parameter.jelly'
+    FunctionDeclaration
+      @name = 'call'
+      ParameterDeclaration
+        @name = 'myFunc'
+        PointerType
+          FunctionType
+            BuiltinType
+              @name = 'Void'
+      BuiltinType
+        @name = 'Void'
+      Block
+        CallExpression
+          IdentifierExpression
+            @identifier = 'myFunc'

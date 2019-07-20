@@ -293,10 +293,24 @@ Bool ASTTypeIsEqual(ASTTypeRef lhs, ASTTypeRef rhs) {
         ASTFunctionTypeRef lhsFunction = (ASTFunctionTypeRef)lhs;
         ASTFunctionTypeRef rhsFunction = (ASTFunctionTypeRef)rhs;
 
-        assert(lhsFunction->declaration);
-        assert(rhsFunction->declaration);
+        if (ASTArrayGetElementCount(lhsFunction->parameterTypes) != ASTArrayGetElementCount(rhsFunction->parameterTypes)) {
+            return false;
+        }
 
-        return lhsFunction->declaration == rhsFunction->declaration;
+        ASTArrayIteratorRef lhsIterator = ASTArrayGetIterator(lhsFunction->parameterTypes);
+        ASTArrayIteratorRef rhsIterator = ASTArrayGetIterator(rhsFunction->parameterTypes);
+        while (lhsIterator && rhsIterator) {
+            ASTTypeRef lhsType = (ASTTypeRef)ASTArrayIteratorGetElement(lhsIterator);
+            ASTTypeRef rhsType = (ASTTypeRef)ASTArrayIteratorGetElement(rhsIterator);
+            if (!ASTTypeIsEqual(lhsType, rhsType)) {
+                return false;
+            }
+
+            lhsIterator = ASTArrayIteratorNext(lhsIterator);
+            rhsIterator = ASTArrayIteratorNext(rhsIterator);
+        }
+
+        return ASTTypeIsEqual(lhsFunction->resultType, rhsFunction->resultType);
     }
 
     if (lhs->tag == ASTTagStructureType && rhs->tag == ASTTagStructureType) {
@@ -330,8 +344,11 @@ static inline Bool _ASTOpaqueTypeIsEqual(ASTOpaqueTypeRef opaque, ASTTypeRef oth
 
     case ASTTagFunctionType: {
         ASTFunctionTypeRef function = (ASTFunctionTypeRef)other;
-        assert(function->declaration);
-        return opaque->declaration == (ASTDeclarationRef)function->declaration;
+        if (function->declaration) {
+            return opaque->declaration == (ASTDeclarationRef)function->declaration;
+        }
+
+        return false;
     }
 
     case ASTTagStructureType: {

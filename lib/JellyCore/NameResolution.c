@@ -164,9 +164,27 @@ static inline Bool _ResolveDeclarationsOfTypeAndSubstituteType(ASTContextRef con
         return _ResolveDeclarationsOfTypeAndSubstituteType(context, scope, &array->elementType);
     }
 
+    case ASTTagFunctionType: {
+        ASTFunctionTypeRef func      = (ASTFunctionTypeRef)(*type);
+        ASTArrayIteratorRef iterator = ASTArrayGetIterator(func->parameterTypes);
+        Bool success                 = true;
+        while (iterator) {
+            if (!_ResolveDeclarationsOfTypeAndSubstituteType(context, scope, (ASTTypeRef *)ASTArrayIteratorGetElementPointer(iterator))) {
+                success = false;
+            }
+
+            iterator = ASTArrayIteratorNext(iterator);
+        }
+
+        if (!_ResolveDeclarationsOfTypeAndSubstituteType(context, scope, &func->resultType)) {
+            success = false;
+        }
+
+        return success;
+    }
+
     case ASTTagBuiltinType:
     case ASTTagEnumerationType:
-    case ASTTagFunctionType:
     case ASTTagStructureType:
         return true;
 
@@ -574,6 +592,12 @@ static inline void _PerformNameResolutionForExpression(ASTContextRef context, AS
 
         if (call->callee->base.tag == ASTTagIdentifierExpression) {
             ASTIdentifierExpressionRef identifier = (ASTIdentifierExpressionRef)call->callee;
+            ASTDeclarationRef declaration = ASTScopeLookupDeclarationInHierarchyByName(identifier->base.base.scope, identifier->name);
+            if (declaration && declaration->type->tag == ASTTagPointerType &&
+                ((ASTPointerTypeRef)declaration->type)->pointeeType->tag == ASTTagFunctionType) {
+                ASTArrayAppendElement(identifier->candidateDeclarations, declaration);
+            }
+
             ASTScopeRef globalScope               = ASTContextGetGlobalScope(context);
             ASTDeclarationRef matchingDeclaration = NULL;
             CandidateFunctionMatchKind matchKind  = CandidateFunctionMatchKindNone;
@@ -651,7 +675,7 @@ static inline void _PerformNameResolutionForExpression(ASTContextRef context, AS
                     identifier->resolvedDeclaration = matchingDeclaration;
                     identifier->base.type           = identifier->resolvedDeclaration->type;
                 } else {
-                    ReportError("Use of unresolved identifier");
+                    ReportErrorFormat("Use of unresolved identifier '%s'", StringGetCharacters(identifier->name));
                     identifier->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
                 }
             } else {
@@ -666,11 +690,15 @@ static inline void _PerformNameResolutionForExpression(ASTContextRef context, AS
 
         if (call->callee->type->tag == ASTTagFunctionType) {
             ASTFunctionTypeRef functionType = (ASTFunctionTypeRef)call->callee->type;
-            call->base.type                 = functionType->declaration->returnType;
-        } else if (call->callee->type->tag != ASTTagFunctionType &&
-                   (call->callee->type->tag != ASTTagBuiltinType ||
+            call->base.type                 = functionType->resultType;
+        } else if (call->callee->type->tag == ASTTagPointerType &&
+                   ((ASTPointerTypeRef)call->callee->type)->pointeeType->tag == ASTTagFunctionType) {
+            ASTPointerTypeRef pointerType   = (ASTPointerTypeRef)call->callee->type;
+            ASTFunctionTypeRef functionType = (ASTFunctionTypeRef)pointerType->pointeeType;
+            call->base.type                 = functionType->resultType;
+        } else if ((call->callee->type->tag != ASTTagBuiltinType ||
                     ((ASTBuiltinTypeRef)call->callee->type)->kind != ASTBuiltinTypeKindError)) {
-            ReportError("Cannot call non function type");
+            ReportError("Cannot call a non function type");
             call->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
         } else {
             call->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);

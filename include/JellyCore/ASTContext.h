@@ -100,8 +100,11 @@ ASTArrayTypeRef ASTContextCreateArrayType(ASTContextRef context, SourceRange loc
 ASTEnumerationTypeRef ASTContextCreateEnumerationType(ASTContextRef context, SourceRange location, ASTScopeRef scope,
                                                       ASTEnumerationDeclarationRef declaration);
 
-ASTFunctionTypeRef ASTContextCreateFunctionType(ASTContextRef context, SourceRange location, ASTScopeRef scope,
-                                                ASTFunctionDeclarationRef declaration);
+ASTFunctionTypeRef ASTContextCreateFunctionTypeForDeclaration(ASTContextRef context, SourceRange location, ASTScopeRef scope,
+                                                              ASTFunctionDeclarationRef declaration);
+
+ASTFunctionTypeRef ASTContextCreateFunctionType(ASTContextRef context, SourceRange location, ASTScopeRef scope, ArrayRef parameterTypes,
+                                                ASTTypeRef resultType);
 
 ASTStructureTypeRef ASTContextCreateStructureType(ASTContextRef context, SourceRange location, ASTScopeRef scope,
                                                   ASTStructureDeclarationRef declaration);

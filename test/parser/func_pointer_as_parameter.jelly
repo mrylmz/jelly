@@ -1,0 +1,5 @@
+// run: -dump-ast
+
+func call(myFunc: () -> Void) -> Void {
+    myFunc()
+}

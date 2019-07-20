@@ -1,7 +1,7 @@
 var x: Int
 
 func myFunc() -> Int {
-    return x() // expect-error: Use of unresolved identifier
+    return x() // expect-error: Use of unresolved identifier 'x'
 }
 
 func main() -> Void {}

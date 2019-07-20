@@ -402,7 +402,7 @@ ASTFunctionDeclarationRef ASTContextCreateFunctionDeclaration(ASTContextRef cont
     if (parameters) {
         ASTArrayAppendArray(node->parameters, parameters);
     }
-    node->base.type     = (ASTTypeRef)ASTContextCreateFunctionType(context, location, scope, node);
+    node->base.type     = (ASTTypeRef)ASTContextCreateFunctionTypeForDeclaration(context, location, scope, node);
     node->foreignName   = NULL;
     node->intrinsicName = NULL;
     return node;
@@ -424,7 +424,7 @@ ASTFunctionDeclarationRef ASTContextCreateForeignFunctionDeclaration(ASTContextR
     if (parameters) {
         ASTArrayAppendArray(node->parameters, parameters);
     }
-    node->base.type     = (ASTTypeRef)ASTContextCreateFunctionType(context, location, scope, node);
+    node->base.type     = (ASTTypeRef)ASTContextCreateFunctionTypeForDeclaration(context, location, scope, node);
     node->foreignName   = StringCreateCopy(context->allocator, foreignName);
     node->intrinsicName = NULL;
     return node;
@@ -446,7 +446,7 @@ ASTFunctionDeclarationRef ASTContextCreateIntrinsicFunctionDeclaration(ASTContex
     if (parameters) {
         ASTArrayAppendArray(node->parameters, parameters);
     }
-    node->base.type     = (ASTTypeRef)ASTContextCreateFunctionType(context, location, scope, node);
+    node->base.type     = (ASTTypeRef)ASTContextCreateFunctionTypeForDeclaration(context, location, scope, node);
     node->foreignName   = NULL;
     node->intrinsicName = StringCreateCopy(context->allocator, intrinsicName);
     return node;
@@ -517,10 +517,35 @@ ASTEnumerationTypeRef ASTContextCreateEnumerationType(ASTContextRef context, Sou
     return node;
 }
 
-ASTFunctionTypeRef ASTContextCreateFunctionType(ASTContextRef context, SourceRange location, ASTScopeRef scope,
-                                                ASTFunctionDeclarationRef declaration) {
+ASTFunctionTypeRef ASTContextCreateFunctionTypeForDeclaration(ASTContextRef context, SourceRange location, ASTScopeRef scope,
+                                                              ASTFunctionDeclarationRef declaration) {
     ASTFunctionTypeRef node = (ASTFunctionTypeRef)_ASTContextCreateNode(context, ASTTagFunctionType, location, scope);
     node->declaration       = declaration;
+    node->parameterTypes    = ASTContextCreateArray(context, location, scope);
+    node->resultType        = declaration->returnType;
+
+    ASTArrayIteratorRef iterator = ASTArrayGetIterator(declaration->parameters);
+    while (iterator) {
+        ASTValueDeclarationRef parameter = (ASTValueDeclarationRef)ASTArrayIteratorGetElement(iterator);
+        ASTArrayAppendElement(node->parameterTypes, parameter->base.type);
+
+        iterator = ASTArrayIteratorNext(iterator);
+    }
+
+    return node;
+}
+
+ASTFunctionTypeRef ASTContextCreateFunctionType(ASTContextRef context, SourceRange location, ASTScopeRef scope, ArrayRef parameterTypes,
+                                                ASTTypeRef resultType) {
+    assert(resultType);
+
+    ASTFunctionTypeRef node = (ASTFunctionTypeRef)_ASTContextCreateNode(context, ASTTagFunctionType, location, scope);
+    node->declaration       = NULL;
+    node->parameterTypes    = ASTContextCreateArray(context, location, scope);
+    node->resultType        = resultType;
+    if (parameterTypes) {
+        ASTArrayAppendArray(node->parameterTypes, parameterTypes);
+    }
     return node;
 }
 

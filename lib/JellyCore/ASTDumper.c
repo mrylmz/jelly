@@ -284,6 +284,13 @@ void ASTDumperDump(ASTDumperRef dumper, ASTNodeRef node) {
         return;
     }
 
+    case ASTTagFunctionType: {
+        ASTFunctionTypeRef type = (ASTFunctionTypeRef)node;
+        _ASTDumperDumpChildrenArray(dumper, type->parameterTypes);
+        _ASTDumperDumpChild(dumper, type->resultType);
+        return;
+    }
+
     default:
         JELLY_UNREACHABLE("Invalid tag given for ASTNode in ASTDumper!");
         return;
@@ -437,6 +444,9 @@ static inline void _ASTDumperPrintTag(ASTDumperRef dumper, ASTNodeRef node) {
 
     case ASTTagBuiltinType:
         return _ASTDumperPrintCString(dumper, "BuiltinType");
+
+    case ASTTagFunctionType:
+        return _ASTDumperPrintCString(dumper, "FunctionType");
 
     default:
         break;

@@ -605,25 +605,38 @@ static inline void _TypeCheckerValidateExpression(TypeCheckerRef typeChecker, AS
         }
 
         if (!_ASTTypeIsError(call->callee->type)) {
-            if (call->callee->type->tag == ASTTagFunctionType) {
-                ASTFunctionTypeRef functionType    = (ASTFunctionTypeRef)call->callee->type;
-                ASTFunctionDeclarationRef function = (ASTFunctionDeclarationRef)functionType->declaration;
-                assert(function->fixity == ASTFixityNone);
+            ASTTypeRef calleeType = call->callee->type;
+            if (calleeType->tag == ASTTagPointerType) {
+                ASTPointerTypeRef pointerType = (ASTPointerTypeRef)calleeType;
+                calleeType                    = pointerType->pointeeType;
+            }
 
-                _TypeCheckerValidateFunctionDeclaration(typeChecker, context, function);
+            if (calleeType->tag == ASTTagFunctionType) {
+                ASTFunctionTypeRef functionType = (ASTFunctionTypeRef)calleeType;
+                if (ASTArrayGetElementCount(call->arguments) == ASTArrayGetElementCount(functionType->parameterTypes)) {
+                    ASTArrayIteratorRef argumentIterator  = ASTArrayGetIterator(call->arguments);
+                    ASTArrayIteratorRef parameterIterator = ASTArrayGetIterator(functionType->parameterTypes);
+                    Index index                           = 0;
+                    while (argumentIterator && parameterIterator) {
+                        ASTExpressionRef argument = (ASTExpressionRef)ASTArrayIteratorGetElement(argumentIterator);
+                        ASTTypeRef parameterType  = (ASTTypeRef)ASTArrayIteratorGetElement(parameterIterator);
 
-                if (ASTArrayGetElementCount(call->arguments) == ASTArrayGetElementCount(function->parameters)) {
-                    for (Index index = 0; index < ASTArrayGetElementCount(function->parameters); index++) {
-                        ASTValueDeclarationRef parameter = (ASTValueDeclarationRef)ASTArrayGetElementAtIndex(function->parameters, index);
-                        ASTExpressionRef argument        = (ASTExpressionRef)ASTArrayGetElementAtIndex(call->arguments, index);
-
-                        if (!_ASTTypeIsEqualOrError(parameter->base.type, argument->type)) {
-                            ReportErrorFormat("Mismatching type for parameter '%s'", StringGetCharacters(parameter->base.name));
+                        if (!_ASTTypeIsEqualOrError(argument->type, parameterType)) {
+                            if (functionType->declaration) {
+                                ASTValueDeclarationRef parameter = ASTArrayGetElementAtIndex(functionType->declaration->parameters, index);
+                                ReportErrorFormat("Mismatching type for parameter '%s'", StringGetCharacters(parameter->base.name));
+                            } else {
+                                ReportErrorFormat("Mismatching type for parameter at position '%zu'", index);
+                            }
                         }
+
+                        index += 1;
+                        argumentIterator  = ASTArrayIteratorNext(argumentIterator);
+                        parameterIterator = ASTArrayIteratorNext(parameterIterator);
                     }
                 } else {
-                    ReportErrorFormat("Invalid argument count expected '%zu' found '%zu'", ASTArrayGetElementCount(function->parameters),
-                                      ASTArrayGetElementCount(call->arguments));
+                    ReportErrorFormat("Invalid argument count expected '%zu' found '%zu'",
+                                      ASTArrayGetElementCount(functionType->parameterTypes), ASTArrayGetElementCount(call->arguments));
                 }
 
             } else {

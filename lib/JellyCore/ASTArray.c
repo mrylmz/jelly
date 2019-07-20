@@ -161,3 +161,8 @@ void *ASTArrayIteratorGetElement(ASTArrayIteratorRef iterator) {
     ASTLinkedListRef list = (ASTLinkedListRef)iterator;
     return list->node;
 }
+
+void *ASTArrayIteratorGetElementPointer(ASTArrayIteratorRef iterator) {
+    ASTLinkedListRef list = (ASTLinkedListRef)iterator;
+    return &list->node;
+}
