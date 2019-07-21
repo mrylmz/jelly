@@ -3,6 +3,8 @@
 #include "JellyCore/Diagnostic.h"
 #include "JellyCore/NameResolution.h"
 
+// TODO: @Bug Type all enumeration elements with the enumeration type and replace it with lowered int type in the backend
+
 enum _CandidateFunctionMatchKind {
     CandidateFunctionMatchKindNone,
     CandidateFunctionMatchKindName,
@@ -541,14 +543,36 @@ static inline void _PerformNameResolutionForExpression(ASTContextRef context, AS
                 if (declaration) {
                     identifier->base.type           = declaration->type;
                     identifier->resolvedDeclaration = declaration;
-                    identifier->resolvedEnumeration = enumeration;
                 } else {
                     identifier->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
                     ReportError("Use of unresolved identifier");
                 }
             } else {
-                identifier->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
-                ReportError("Use of unresolved identifier");
+                ASTScopeRef globalScope      = ASTContextGetGlobalScope(context);
+                ASTArrayIteratorRef iterator = ASTArrayGetIterator(globalScope->declarations);
+                while (iterator) {
+                    ASTNodeRef child = (ASTNodeRef)ASTArrayIteratorGetElement(iterator);
+                    if (child->tag == ASTTagEnumerationDeclaration) {
+                        ASTEnumerationDeclarationRef enumeration = (ASTEnumerationDeclarationRef)child;
+                        ASTDeclarationRef declaration = ASTScopeLookupDeclarationByName(enumeration->innerScope, identifier->name);
+                        if (declaration) {
+                            ASTArrayAppendElement(identifier->candidateDeclarations, declaration);
+                        }
+                    }
+
+                    iterator = ASTArrayIteratorNext(iterator);
+                }
+
+                if (ASTArrayGetElementCount(identifier->candidateDeclarations) == 1) {
+                    ASTDeclarationRef declaration   = ASTArrayGetElementAtIndex(identifier->candidateDeclarations, 0);
+                    identifier->base.type           = declaration->type;
+                    identifier->resolvedDeclaration = declaration;
+                } else {
+                    // TODO: If count of candidateDeclarations is greater than 1, then continue matching candidates in outer expression or
+                    // report ambigous use of identifier error
+                    identifier->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
+                    ReportError("Use of unresolved identifier");
+                }
             }
         }
         return;

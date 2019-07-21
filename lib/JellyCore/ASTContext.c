@@ -32,7 +32,7 @@ ASTContextRef ASTContextCreate(AllocatorRef allocator, StringRef moduleName) {
     //            We can just allocate nodes dynamically without holding a reference to them because the BumpAllocator will be freed once...
     context->nodes[ASTTagSourceUnit]             = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTSourceUnit), 1024);
     context->nodes[ASTTagLinkedList]             = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTLinkedList), 1024);
-    context->nodes[ASTTagArray]                  = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTArray), 1024);
+    context->nodes[ASTTagArray]                  = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTArray), 2048);
     context->nodes[ASTTagLoadDirective]          = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTLoadDirective), 1024);
     context->nodes[ASTTagBlock]                  = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTBlock), 1024);
     context->nodes[ASTTagIfStatement]            = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTIfStatement), 1024);
@@ -254,7 +254,6 @@ ASTIdentifierExpressionRef ASTContextCreateIdentifierExpression(ASTContextRef co
     node->base.expectedType         = NULL;
     node->candidateDeclarations     = ASTContextCreateArray(context, location, scope);
     node->resolvedDeclaration       = NULL;
-    node->resolvedEnumeration       = NULL;
     return node;
 }
 

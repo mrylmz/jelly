@@ -23,6 +23,8 @@ struct _IRModule {
     Bool isVerified;
 };
 
+// TODO: Add correct implementation for enumeration type and cases
+
 static inline void _IRBuilderBuildEntryPoint(IRBuilderRef builder, ASTModuleDeclarationRef module);
 static inline void _IRBuilderBuildTypes(IRBuilderRef builder, ASTModuleDeclarationRef module);
 static inline void _IRBuilderBuildGlobalVariables(IRBuilderRef builder, ASTModuleDeclarationRef module);

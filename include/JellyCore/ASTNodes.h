@@ -316,7 +316,6 @@ struct _ASTIdentifierExpression {
     StringRef name;
     ASTArrayRef candidateDeclarations;
     ASTDeclarationRef resolvedDeclaration;
-    ASTEnumerationDeclarationRef resolvedEnumeration;
 };
 
 struct _ASTMemberAccessExpression {
