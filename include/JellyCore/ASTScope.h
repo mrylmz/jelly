@@ -16,6 +16,8 @@ ASTDeclarationRef ASTScopeLookupDeclarationByName(ASTScopeRef scope, StringRef n
 ASTDeclarationRef ASTScopeLookupDeclarationByNameOrMatchingFunctionSignature(ASTScopeRef scope, StringRef name, ASTFixity fixity,
                                                                              ASTArrayRef parameters, ASTTypeRef resultType);
 
+ASTFunctionDeclarationRef ASTScopeLookupInfixFunction(ASTScopeRef scope, StringRef name, ArrayRef parameterTypes, ASTTypeRef resultType);
+
 ASTDeclarationRef ASTScopeLookupDeclarationInHierarchyByName(ASTScopeRef scope, StringRef name);
 
 void ASTScopeDump(ASTScopeRef scope, FILE *target);

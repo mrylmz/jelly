@@ -165,6 +165,8 @@ ASTCaseStatementRef ASTContextCreateCaseStatement(ASTContextRef context, SourceR
     node->condition          = condition;
     node->body               = body;
     node->enclosingSwitch    = NULL;
+    node->comparator         = NULL;
+    node->irNext             = NULL;
     return node;
 }
 

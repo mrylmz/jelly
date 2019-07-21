@@ -223,6 +223,7 @@ BINARY_OPERATOR(">=", "Float32", "Float32", "Bool", "cmp_ge_f32")
 BINARY_OPERATOR(">=", "Float64", "Float64", "Bool", "cmp_ge_f64")
 BINARY_OPERATOR(">=", "Float", "Float", "Bool", "cmp_ge_f64")
 
+BINARY_OPERATOR("==", "Bool", "Bool", "Bool", "cmp_eq_i1")
 BINARY_OPERATOR("==", "Int8", "Int8", "Bool", "cmp_eq_i8")
 BINARY_OPERATOR("==", "Int16", "Int16", "Bool", "cmp_eq_i16")
 BINARY_OPERATOR("==", "Int32", "Int32", "Bool", "cmp_eq_i32")

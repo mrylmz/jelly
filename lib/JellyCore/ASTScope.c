@@ -206,6 +206,63 @@ ASTDeclarationRef ASTScopeLookupDeclarationByNameOrMatchingFunctionSignature(AST
     return NULL;
 }
 
+ASTFunctionDeclarationRef ASTScopeLookupInfixFunction(ASTScopeRef scope, StringRef name, ArrayRef parameterTypes, ASTTypeRef resultType) {
+    ASTArrayIteratorRef iterator = ASTArrayGetIterator(scope->declarations);
+    while (iterator) {
+        ASTDeclarationRef declaration = (ASTDeclarationRef)ASTArrayIteratorGetElement(iterator);
+        if (!StringIsEqual(declaration->name, name)) {
+            iterator = ASTArrayIteratorNext(iterator);
+            continue;
+        }
+
+        if (declaration->base.tag != ASTTagFunctionDeclaration && declaration->base.tag != ASTTagForeignFunctionDeclaration &&
+            declaration->base.tag != ASTTagIntrinsicFunctionDeclaration) {
+            iterator = ASTArrayIteratorNext(iterator);
+            continue;
+        }
+
+        ASTFunctionDeclarationRef function = (ASTFunctionDeclarationRef)declaration;
+        if (function->fixity != ASTFixityInfix) {
+            iterator = ASTArrayIteratorNext(iterator);
+            continue;
+        }
+
+        if (ASTArrayGetElementCount(function->parameters) != ArrayGetElementCount(parameterTypes)) {
+            iterator = ASTArrayIteratorNext(iterator);
+            continue;
+        }
+
+        if (!ASTTypeIsEqual(function->returnType, resultType)) {
+            iterator = ASTArrayIteratorNext(iterator);
+            continue;
+        }
+
+        Bool hasSameParameters          = true;
+        Index parameterIndex            = 0;
+        ASTArrayIteratorRef lhsIterator = ASTArrayGetIterator(function->parameters);
+        while (lhsIterator) {
+            ASTValueDeclarationRef lhsParameter = (ASTValueDeclarationRef)ASTArrayIteratorGetElement(lhsIterator);
+            ASTTypeRef parameterType            = *((ASTTypeRef *)ArrayGetElementAtIndex(parameterTypes, parameterIndex));
+
+            if (!ASTTypeIsEqual(lhsParameter->base.type, parameterType)) {
+                hasSameParameters = false;
+                break;
+            }
+
+            lhsIterator = ASTArrayIteratorNext(lhsIterator);
+            parameterIndex += 1;
+        }
+
+        if (hasSameParameters) {
+            return function;
+        }
+
+        iterator = ASTArrayIteratorNext(iterator);
+    }
+
+    return NULL;
+}
+
 ASTDeclarationRef ASTScopeLookupDeclarationInHierarchyByName(ASTScopeRef scope, StringRef name) {
     ASTScopeRef currentScope = scope;
     while (currentScope) {

@@ -1,10 +1,10 @@
 // run: -dump-ir
 
-func bitwise_left_shift(lhs: Int, rhs: Int) -> Int {
+func bitwise_left_shift(lhs: Int, rhs: UInt) -> Int {
     return lhs << rhs
 }
 
-func bitwise_right_shift(lhs: Int, rhs: Int) -> Int {
+func bitwise_right_shift(lhs: Int, rhs: UInt) -> Int {
     return lhs >> rhs
 }
 

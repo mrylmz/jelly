@@ -200,6 +200,7 @@ struct _ASTCaseStatement {
     ASTExpressionRef condition;
     ASTBlockRef body;
     ASTSwitchStatementRef enclosingSwitch;
+    ASTFunctionDeclarationRef comparator;
 
     IRRef irNext;
 };

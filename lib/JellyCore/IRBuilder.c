@@ -38,6 +38,9 @@ static inline void _IRBuilderBuildSwitchStatement(IRBuilderRef builder, LLVMValu
 static inline void _IRBuilderBuildControlStatement(IRBuilderRef builder, LLVMValueRef function, ASTControlStatementRef statement);
 static inline void _IRBuilderBuildExpression(IRBuilderRef builder, LLVMValueRef function, ASTExpressionRef expression);
 
+static inline LLVMValueRef _IRBuilderBuildBinaryExpression(IRBuilderRef builder, LLVMValueRef function, ASTFunctionDeclarationRef callee,
+                                                           LLVMValueRef *arguments);
+
 static inline LLVMValueRef _IRBuilderLoadExpression(IRBuilderRef builder, LLVMValueRef function, ASTExpressionRef expression);
 
 static inline LLVMTypeRef _IRBuilderGetIRType(IRBuilderRef builder, ASTTypeRef type);
@@ -520,77 +523,71 @@ static inline void _IRBuilderBuildLoopStatement(IRBuilderRef builder, LLVMValueR
 static inline void _IRBuilderBuildSwitchStatement(IRBuilderRef builder, LLVMValueRef function, ASTSwitchStatementRef statement) {
     LLVMBasicBlockRef insertBB = LLVMGetInsertBlock(builder->builder);
     LLVMBasicBlockRef branchBB = LLVMAppendBasicBlock(function, "switch-branch");
-    LLVMBasicBlockRef elseBB   = LLVMAppendBasicBlock(function, "switch-else");
     LLVMBasicBlockRef endBB    = LLVMAppendBasicBlock(function, "switch-end");
 
     statement->irExit = endBB;
 
-    Index caseCount = ASTArrayGetElementCount(statement->cases);
-    assert(caseCount > 0);
-    ASTCaseStatementRef lastCase = ASTArrayGetElementAtIndex(statement->cases, caseCount - 1);
-    if (lastCase->kind == ASTCaseKindElse) {
-        lastCase->base.irValue = elseBB;
-        caseCount -= 1;
-    }
-
-    for (Index caseIndex = 0; caseIndex < caseCount; caseIndex++) {
-        ASTCaseStatementRef child = ASTArrayGetElementAtIndex(statement->cases, caseIndex);
-        assert(child->kind != ASTCaseKindElse);
-        child->base.irValue = LLVMAppendBasicBlock(function, "switch-case");
-    }
-
-    if (lastCase->kind == ASTCaseKindElse) {
-        LLVMPositionBuilder(builder->builder, elseBB, NULL);
-        for (Index index = 0; index < ASTArrayGetElementCount(lastCase->body->statements); index++) {
-            ASTNodeRef child = (ASTNodeRef)ASTArrayGetElementAtIndex(lastCase->body->statements, index);
-            _IRBuilderBuildStatement(builder, function, child);
-        }
-    } else {
-        LLVMPositionBuilder(builder->builder, elseBB, NULL);
-        LLVMBuildBr(builder->builder, endBB);
-    }
-
     LLVMPositionBuilder(builder->builder, insertBB, NULL);
     LLVMBuildBr(builder->builder, branchBB);
+
     LLVMPositionBuilder(builder->builder, branchBB, NULL);
     _IRBuilderBuildExpression(builder, function, statement->argument);
 
-    for (Index caseIndex = 0; caseIndex < caseCount; caseIndex++) {
-        ASTCaseStatementRef child = ASTArrayGetElementAtIndex(statement->cases, caseIndex);
-        assert(child->kind != ASTCaseKindElse);
-        _IRBuilderBuildExpression(builder, function, child->condition);
-    }
+    assert(ASTArrayGetElementCount(statement->cases) > 0);
 
-    // TODO: LLVM Switch is only supported for integer types, if the condition is not an integer then this will not work so this should be
-    // implemented in a general way by resolving a comparison operator for the argument type and each case expression type
-    LLVMValueRef switchValue = LLVMBuildSwitch(builder->builder, _IRBuilderLoadExpression(builder, function, statement->argument), elseBB,
-                                               caseCount);
-    statement->base.irValue  = switchValue;
-    for (Index caseIndex = 0; caseIndex < caseCount; caseIndex++) {
-        ASTCaseStatementRef child = (ASTCaseStatementRef)ASTArrayGetElementAtIndex(statement->cases, caseIndex);
-        assert(child->kind != ASTCaseKindElse);
-        assert(child->base.irValue);
+    LLVMBasicBlockRef caseBodyBB = LLVMAppendBasicBlock(function, "switch-body");
 
-        if (caseIndex + 1 < ASTArrayGetElementCount(statement->cases)) {
-            ASTCaseStatementRef next = (ASTCaseStatementRef)ASTArrayGetElementAtIndex(statement->cases, caseIndex + 1);
-            assert(next->base.irValue);
-            child->irNext = next->base.irValue;
+    ASTArrayIteratorRef iterator = ASTArrayGetIterator(statement->cases);
+    while (iterator) {
+        ASTArrayIteratorRef iteratorNext = ASTArrayIteratorNext(iterator);
+
+        LLVMBasicBlockRef caseBranchBB = LLVMGetInsertBlock(builder->builder);
+        ASTCaseStatementRef child      = (ASTCaseStatementRef)ASTArrayIteratorGetElement(iterator);
+
+        LLVMPositionBuilder(builder->builder, caseBranchBB, NULL);
+
+        LLVMBasicBlockRef nextBodyBB   = NULL;
+        LLVMBasicBlockRef nextBranchBB = endBB;
+        if (iteratorNext) {
+            nextBodyBB    = LLVMAppendBasicBlock(function, "switch-body");
+            nextBranchBB  = LLVMAppendBasicBlock(function, "switch-branch");
+            child->irNext = nextBodyBB;
         }
 
-        LLVMValueRef condition   = (LLVMValueRef)_IRBuilderLoadExpression(builder, function, child->condition);
-        LLVMBasicBlockRef caseBB = (LLVMBasicBlockRef)child->base.irValue;
+        if (child->kind == ASTCaseKindConditional) {
+            assert(child->comparator);
 
-        LLVMPositionBuilder(builder->builder, branchBB, NULL);
-        LLVMAddCase(switchValue, condition, caseBB);
-
-        LLVMPositionBuilder(builder->builder, caseBB, NULL);
-        for (Index index = 0; index < ASTArrayGetElementCount(child->body->statements); index++) {
-            ASTNodeRef caseChild = (ASTNodeRef)ASTArrayGetElementAtIndex(child->body->statements, index);
-            _IRBuilderBuildStatement(builder, function, caseChild);
+            _IRBuilderBuildExpression(builder, function, child->condition);
+            LLVMValueRef arguments[] = {_IRBuilderLoadExpression(builder, function, statement->argument),
+                                        _IRBuilderLoadExpression(builder, function, child->condition)};
+            LLVMValueRef condition   = _IRBuilderBuildBinaryExpression(builder, function, child->comparator, arguments);
+            LLVMBuildCondBr(builder->builder, condition, caseBodyBB, nextBranchBB);
+        } else {
+            LLVMBuildBr(builder->builder, caseBodyBB);
         }
+
+        LLVMPositionBuilder(builder->builder, caseBodyBB, NULL);
+        ASTArrayIteratorRef bodyIterator = ASTArrayGetIterator(child->body->statements);
+        while (bodyIterator) {
+            ASTNodeRef bodyChild = (ASTNodeRef)ASTArrayIteratorGetElement(bodyIterator);
+            _IRBuilderBuildStatement(builder, function, bodyChild);
+
+            bodyIterator = ASTArrayIteratorNext(bodyIterator);
+        }
+
+        if (!(child->body->base.flags & ASTFlagsBlockHasTerminator)) {
+            LLVMBuildBr(builder->builder, endBB);
+        }
+
+        caseBodyBB = nextBodyBB;
+        iterator   = iteratorNext;
+        LLVMPositionBuilder(builder->builder, nextBranchBB, NULL);
     }
 
     LLVMPositionBuilder(builder->builder, endBB, NULL);
+    if (statement->base.flags & ASTFlagsStatementIsAlwaysReturning) {
+        LLVMBuildUnreachable(builder->builder);
+    }
 }
 
 static inline void _IRBuilderBuildControlStatement(IRBuilderRef builder, LLVMValueRef function, ASTControlStatementRef statement) {
@@ -636,6 +633,12 @@ static inline void _IRBuilderBuildControlStatement(IRBuilderRef builder, LLVMVal
     case ASTControlKindReturn: {
         if (statement->result) {
             _IRBuilderBuildExpression(builder, function, statement->result);
+            if (statement->result->type->tag == ASTTagBuiltinType &&
+                ((ASTBuiltinTypeRef)statement->result->type)->kind == ASTBuiltinTypeKindVoid) {
+                LLVMBuildRetVoid(builder->builder);
+                return;
+            }
+
             LLVMBuildRet(builder->builder, _IRBuilderLoadExpression(builder, function, statement->result));
             return;
         } else {
@@ -733,18 +736,33 @@ static inline void _IRBuilderBuildExpression(IRBuilderRef builder, LLVMValueRef 
                                                                     parameterTypes, 2, false);
         }
 
-        if (!binary->opFunction->base.base.irValue) {
+        if (binary->opFunction->base.base.tag == ASTTagFunctionDeclaration) {
             _IRBuilderBuildFunctionDeclaration(builder, binary->opFunction);
+            _IRBuilderBuildExpression(builder, function, binary->arguments[0]);
+            _IRBuilderBuildExpression(builder, function, binary->arguments[1]);
+            LLVMValueRef opFunction   = (LLVMValueRef)binary->opFunction->base.base.irValue;
+            LLVMValueRef arguments[]  = {_IRBuilderLoadExpression(builder, function, binary->arguments[0]),
+                                        _IRBuilderLoadExpression(builder, function, binary->arguments[1])};
+            binary->base.base.irValue = LLVMBuildCall(builder->builder, opFunction, arguments, 2, "");
+        } else if (binary->opFunction->base.base.tag == ASTTagForeignFunctionDeclaration) {
+            _IRBuilderBuildForeignFunctionDeclaration(builder, binary->opFunction);
+            _IRBuilderBuildExpression(builder, function, binary->arguments[0]);
+            _IRBuilderBuildExpression(builder, function, binary->arguments[1]);
+            LLVMValueRef opFunction   = (LLVMValueRef)binary->opFunction->base.base.irValue;
+            LLVMValueRef arguments[]  = {_IRBuilderLoadExpression(builder, function, binary->arguments[0]),
+                                        _IRBuilderLoadExpression(builder, function, binary->arguments[1])};
+            binary->base.base.irValue = LLVMBuildCall(builder->builder, opFunction, arguments, 2, "");
+        } else if (binary->opFunction->base.base.tag == ASTTagIntrinsicFunctionDeclaration) {
+            _IRBuilderBuildExpression(builder, function, binary->arguments[0]);
+            _IRBuilderBuildExpression(builder, function, binary->arguments[1]);
+            LLVMValueRef arguments[]  = {_IRBuilderLoadExpression(builder, function, binary->arguments[0]),
+                                        _IRBuilderLoadExpression(builder, function, binary->arguments[1])};
+            binary->base.base.irValue = _IRBuilderBuildIntrinsic(builder, function, binary->opFunction->intrinsicName, arguments, 2,
+                                                                 (LLVMTypeRef)binary->opFunction->returnType->irType);
+        } else {
+            JELLY_UNREACHABLE("Invalid tag given for ASTFunctionDeclaration!");
         }
-        assert(binary->opFunction->base.base.irValue);
 
-        _IRBuilderBuildExpression(builder, function, binary->arguments[0]);
-        _IRBuilderBuildExpression(builder, function, binary->arguments[1]);
-
-        LLVMValueRef opFunction   = (LLVMValueRef)binary->opFunction->base.base.irValue;
-        LLVMValueRef arguments[]  = {_IRBuilderLoadExpression(builder, function, binary->arguments[0]),
-                                    _IRBuilderLoadExpression(builder, function, binary->arguments[1])};
-        binary->base.base.irValue = LLVMBuildCall(builder->builder, opFunction, arguments, 2, "");
         return;
     }
 
@@ -872,6 +890,34 @@ static inline void _IRBuilderBuildExpression(IRBuilderRef builder, LLVMValueRef 
     }
 
     JELLY_UNREACHABLE("Invalid tag given for ASTExpression!");
+}
+
+static inline LLVMValueRef _IRBuilderBuildBinaryExpression(IRBuilderRef builder, LLVMValueRef function, ASTFunctionDeclarationRef callee,
+                                                           LLVMValueRef *arguments) {
+    // Infix functions are currently not added to the declarations of the module and are just contained inside the global scope, so we
+    // will force the IR generation of the function here for now...
+    if (!callee->base.base.irType) {
+        assert(ASTArrayGetElementCount(callee->parameters) == 2);
+        ASTValueDeclarationRef lhsParameter = (ASTValueDeclarationRef)ASTArrayGetElementAtIndex(callee->parameters, 0);
+        ASTValueDeclarationRef rhsParameter = (ASTValueDeclarationRef)ASTArrayGetElementAtIndex(callee->parameters, 1);
+        LLVMTypeRef parameterTypes[]        = {_IRBuilderGetIRType(builder, lhsParameter->base.type),
+                                        _IRBuilderGetIRType(builder, rhsParameter->base.type)};
+        callee->base.base.irType            = LLVMFunctionType(_IRBuilderGetIRType(builder, callee->returnType), parameterTypes, 2, false);
+    }
+
+    if (callee->base.base.tag == ASTTagFunctionDeclaration) {
+        _IRBuilderBuildFunctionDeclaration(builder, callee);
+        LLVMValueRef opFunction = (LLVMValueRef)callee->base.base.irValue;
+        return LLVMBuildCall(builder->builder, opFunction, arguments, 2, "");
+    } else if (callee->base.base.tag == ASTTagForeignFunctionDeclaration) {
+        _IRBuilderBuildForeignFunctionDeclaration(builder, callee);
+        LLVMValueRef opFunction = (LLVMValueRef)callee->base.base.irValue;
+        return LLVMBuildCall(builder->builder, opFunction, arguments, 2, "");
+    } else if (callee->base.base.tag == ASTTagIntrinsicFunctionDeclaration) {
+        return _IRBuilderBuildIntrinsic(builder, function, callee->intrinsicName, arguments, 2, (LLVMTypeRef)callee->returnType->irType);
+    } else {
+        JELLY_UNREACHABLE("Invalid tag given for ASTFunctionDeclaration!");
+    }
 }
 
 static inline LLVMValueRef _IRBuilderLoadExpression(IRBuilderRef builder, LLVMValueRef function, ASTExpressionRef expression) {
@@ -1358,8 +1404,9 @@ static inline LLVMValueRef _IRBuilderBuildIntrinsic(IRBuilderRef builder, LLVMVa
         return LLVMBuildFCmp(builder->builder, LLVMRealUGE, arguments[0], arguments[1], "");
     }
 
-    if (StringIsEqualToCString(intrinsic, "cmp_eq_i8") || StringIsEqualToCString(intrinsic, "cmp_eq_i16") ||
-        StringIsEqualToCString(intrinsic, "cmp_eq_i32") || StringIsEqualToCString(intrinsic, "cmp_eq_i64")) {
+    if (StringIsEqualToCString(intrinsic, "cmp_eq_i1") || StringIsEqualToCString(intrinsic, "cmp_eq_i8") ||
+        StringIsEqualToCString(intrinsic, "cmp_eq_i16") || StringIsEqualToCString(intrinsic, "cmp_eq_i32") ||
+        StringIsEqualToCString(intrinsic, "cmp_eq_i64")) {
         if (argumentCount != 2) {
             ReportErrorFormat("Intrinsic '%s' expects two arguments", StringGetCharacters(intrinsic));
             return LLVMGetUndef(resultType);

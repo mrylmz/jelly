@@ -4,5 +4,3 @@ func ambigous(x: Int) -> Void {}
 func main() -> Void {
     ambigous(0) // expect-error: Ambigous use of identifier
 }
-
-func main() -> Void {}

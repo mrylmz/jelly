@@ -287,8 +287,25 @@ static inline void _PerformNameResolutionForNode(ASTContextRef context, ASTNodeR
 
             _PerformNameResolutionForExpression(context, statement->condition);
 
-            // TODO: Try resolving an infix function with the signature:
+            // TODO: Currently we are resolving infix function where the switch argument and case condition has to have the same type
+            //       but it should also be possible to compare cases by different types it there is a matching infix function '=='
             // `infix func == (lhs: $switch.argument.type, rhs: $switch.case.type) -> Bool`
+
+            ASTScopeRef globalScope = ASTContextGetGlobalScope(context);
+            StringRef name          = StringCreate(AllocatorGetSystemDefault(), "==");
+            ArrayRef parameterTypes = ArrayCreateEmpty(AllocatorGetSystemDefault(), sizeof(ASTTypeRef), 2);
+            ArrayAppendElement(parameterTypes, &statement->condition->type);
+            ArrayAppendElement(parameterTypes, &statement->condition->type);
+            ASTFunctionDeclarationRef comparator = ASTScopeLookupInfixFunction(
+                globalScope, name, parameterTypes, (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindBool));
+            if (comparator) {
+                statement->comparator = comparator;
+            } else {
+                ReportError("'case' condition is not comparable with 'switch' argument");
+            }
+
+            ArrayDestroy(parameterTypes);
+            StringDestroy(name);
         }
 
         _PerformNameResolutionForNode(context, (ASTNodeRef)statement->body);
