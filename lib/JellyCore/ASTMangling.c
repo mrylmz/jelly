@@ -18,22 +18,26 @@ void PerformNameMangling(ASTContextRef context, ASTModuleDeclarationRef module) 
         ASTSourceUnitRef sourceUnit = (ASTSourceUnitRef)ASTArrayGetElementAtIndex(module->sourceUnits, sourceUnitIndex);
         for (Index index = 0; index < ASTArrayGetElementCount(sourceUnit->declarations); index++) {
             ASTNodeRef child = (ASTNodeRef)ASTArrayGetElementAtIndex(sourceUnit->declarations, index);
-            if (child->tag == ASTTagEnumerationDeclaration) {
-                _MangleEnumerationDeclarationName((ASTEnumerationDeclarationRef)child);
-            }
-
-            if (child->tag == ASTTagFunctionDeclaration) {
-                _MangleFunctionDeclarationName((ASTFunctionDeclarationRef)child);
-            }
-
-            if (child->tag == ASTTagStructureDeclaration) {
-                _MangleStructureDeclarationName((ASTStructureDeclarationRef)child);
-            }
-
-            if (child->tag == ASTTagValueDeclaration) {
-                _MangleValueDeclarationName((ASTValueDeclarationRef)child);
-            }
+            PerformNameManglingForDeclaration(context, (ASTDeclarationRef)child);
         }
+    }
+}
+
+void PerformNameManglingForDeclaration(ASTContextRef context, ASTDeclarationRef declaration) {
+    if (declaration->base.tag == ASTTagEnumerationDeclaration) {
+        _MangleEnumerationDeclarationName((ASTEnumerationDeclarationRef)declaration);
+    }
+
+    if (declaration->base.tag == ASTTagFunctionDeclaration) {
+        _MangleFunctionDeclarationName((ASTFunctionDeclarationRef)declaration);
+    }
+
+    if (declaration->base.tag == ASTTagStructureDeclaration) {
+        _MangleStructureDeclarationName((ASTStructureDeclarationRef)declaration);
+    }
+
+    if (declaration->base.tag == ASTTagValueDeclaration) {
+        _MangleValueDeclarationName((ASTValueDeclarationRef)declaration);
     }
 }
 

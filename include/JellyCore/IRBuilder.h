@@ -9,7 +9,7 @@ JELLY_EXTERN_C_BEGIN
 typedef struct _IRBuilder *IRBuilderRef;
 typedef struct _IRModule *IRModuleRef;
 
-IRBuilderRef IRBuilderCreate(AllocatorRef allocator, StringRef buildDirectory);
+IRBuilderRef IRBuilderCreate(AllocatorRef allocator, ASTContextRef context, StringRef buildDirectory);
 
 void IRBuilderDestroy(IRBuilderRef builder);
 

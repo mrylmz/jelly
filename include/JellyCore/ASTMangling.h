@@ -8,6 +8,7 @@
 JELLY_EXTERN_C_BEGIN
 
 void PerformNameMangling(ASTContextRef context, ASTModuleDeclarationRef module);
+void PerformNameManglingForDeclaration(ASTContextRef context, ASTDeclarationRef declaration);
 
 JELLY_EXTERN_C_END
 

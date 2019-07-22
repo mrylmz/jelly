@@ -113,6 +113,8 @@ ASTScopeRef ASTContextCreateScope(ASTContextRef context, SourceRange location, A
 
 ASTBuiltinTypeRef ASTContextGetBuiltinType(ASTContextRef context, ASTBuiltinTypeKind kind);
 
+ASTStructureTypeRef ASTContextGetStringType(ASTContextRef context);
+
 JELLY_EXTERN_C_END
 
 #endif

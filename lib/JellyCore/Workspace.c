@@ -237,7 +237,7 @@ void *_WorkspaceProcess(void *context) {
         return NULL;
     }
 
-    IRBuilderRef builder = IRBuilderCreate(workspace->allocator, workspace->buildDirectory);
+    IRBuilderRef builder = IRBuilderCreate(workspace->allocator, workspace->context, workspace->buildDirectory);
     IRModuleRef module   = IRBuilderBuild(builder, ASTContextGetModule(workspace->context));
 
     if ((workspace->options & WorkspaceOptionsDumpIR) > 0) {

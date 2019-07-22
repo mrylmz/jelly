@@ -151,6 +151,13 @@ static inline Bool _ResolveDeclarationsOfTypeAndSubstituteType(ASTContextRef con
             currentScope = ASTScopeGetNextParentForLookup(currentScope);
         }
 
+        // TODO: @Cleanup This hack is used as a workaround for now and should be removed after adding Module compilation support, which
+        // will allow to implicity import the builtin stdlib soon...
+        if (StringIsEqualToCString(opaque->name, "String")) {
+            *type = (ASTTypeRef)ASTContextGetStringType(context);
+            return true;
+        }
+
         *type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
         ReportError("Use of unresolved type");
         return false;
@@ -761,7 +768,7 @@ static inline void _PerformNameResolutionForExpression(ASTContextRef context, AS
         } else if (constant->kind == ASTConstantKindFloat) {
             constant->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindFloat);
         } else if (constant->kind == ASTConstantKindString) {
-            ReportCritical("String literals are not supported at the moment!");
+            constant->base.type = (ASTTypeRef)ASTContextGetStringType(context);
         } else {
             JELLY_UNREACHABLE("Unknown kind given for ASTConstantExpression in Typer!");
         }

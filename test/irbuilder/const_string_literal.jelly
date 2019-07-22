@@ -1,0 +1,5 @@
+// run: -dump-ir
+
+var name: String = "Hello World"
+
+func main() -> Void {}

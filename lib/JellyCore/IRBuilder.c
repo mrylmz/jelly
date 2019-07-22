@@ -1,3 +1,4 @@
+#include "JellyCore/ASTContext.h"
 #include "JellyCore/Allocator.h"
 #include "JellyCore/Diagnostic.h"
 #include "JellyCore/IRBuilder.h"
@@ -11,6 +12,7 @@
 // TODO: Rename this to LLVMBackend
 struct _IRBuilder {
     AllocatorRef allocator;
+    ASTContextRef astContext;
     StringRef buildDirectory;
     LLVMContextRef context;
     LLVMBuilderRef builder;
@@ -39,6 +41,7 @@ static inline void _IRBuilderBuildLoopStatement(IRBuilderRef builder, LLVMValueR
 static inline void _IRBuilderBuildSwitchStatement(IRBuilderRef builder, LLVMValueRef function, ASTSwitchStatementRef statement);
 static inline void _IRBuilderBuildControlStatement(IRBuilderRef builder, LLVMValueRef function, ASTControlStatementRef statement);
 static inline void _IRBuilderBuildExpression(IRBuilderRef builder, LLVMValueRef function, ASTExpressionRef expression);
+static inline void _IRBuilderBuildConstantExpression(IRBuilderRef builder, ASTConstantExpressionRef constant);
 
 static inline LLVMValueRef _IRBuilderBuildBinaryExpression(IRBuilderRef builder, LLVMValueRef function, ASTFunctionDeclarationRef callee,
                                                            LLVMValueRef *arguments);
@@ -50,9 +53,10 @@ static inline LLVMTypeRef _IRBuilderGetIRType(IRBuilderRef builder, ASTTypeRef t
 static inline LLVMValueRef _IRBuilderBuildIntrinsic(IRBuilderRef builder, LLVMValueRef function, StringRef intrinsic,
                                                     LLVMValueRef *arguments, unsigned argumentCount, LLVMTypeRef resultType);
 
-IRBuilderRef IRBuilderCreate(AllocatorRef allocator, StringRef buildDirectory) {
+IRBuilderRef IRBuilderCreate(AllocatorRef allocator, ASTContextRef context, StringRef buildDirectory) {
     IRBuilderRef builder          = (IRBuilderRef)AllocatorAllocate(allocator, sizeof(struct _IRBuilder));
     builder->allocator            = allocator;
+    builder->astContext           = context;
     builder->buildDirectory       = StringCreateCopy(allocator, buildDirectory);
     builder->context              = LLVMGetGlobalContext();
     builder->builder              = LLVMCreateBuilderInContext(builder->context);
@@ -326,6 +330,9 @@ static inline void _IRBuilderBuildGlobalVariable(IRBuilderRef builder, ASTValueD
         // TODO: Check if initializer is constant, if so set initializer of global else emit initialization of value into program entry
         // point, this will also require the creation of a global value initialization dependency graphs which would track cyclic
         // initializations in global scope and also be helpful for topological sorting of initialization instructions
+        assert(declaration->initializer->base.tag == ASTTagConstantExpression);
+        _IRBuilderBuildConstantExpression(builder, (ASTConstantExpressionRef)declaration->initializer);
+        LLVMSetInitializer(value, declaration->initializer->base.irValue);
     } else {
         ArrayAppendElement(builder->uninitializedGlobals, &declaration);
     }
@@ -856,42 +863,56 @@ static inline void _IRBuilderBuildExpression(IRBuilderRef builder, LLVMValueRef 
         return;
     }
 
-    case ASTTagConstantExpression: {
-        ASTConstantExpressionRef constant = (ASTConstantExpressionRef)expression;
-        LLVMTypeRef type                  = _IRBuilderGetIRType(builder, constant->base.type);
-        switch (constant->kind) {
-        case ASTConstantKindNil:
-            constant->base.base.irValue = LLVMConstNull(type);
-            break;
-
-        case ASTConstantKindBool:
-            constant->base.base.irValue = LLVMConstInt(type, constant->boolValue ? 1 : 0, false);
-            break;
-
-        case ASTConstantKindInt:
-            constant->base.base.irValue = LLVMConstInt(type, constant->intValue, false);
-            break;
-
-        case ASTConstantKindFloat:
-            constant->base.base.irValue = LLVMConstReal(type, constant->floatValue);
-            break;
-
-        case ASTConstantKindString:
-            ReportCritical("String literals are currently not supported!");
-            break;
-
-        default:
-            JELLY_UNREACHABLE("Invalid kind given for ASTConstantExpression!");
-            break;
-        }
-        return;
-    }
+    case ASTTagConstantExpression:
+        return _IRBuilderBuildConstantExpression(builder, (ASTConstantExpressionRef)expression);
 
     default:
         break;
     }
 
     JELLY_UNREACHABLE("Invalid tag given for ASTExpression!");
+}
+
+static inline void _IRBuilderBuildConstantExpression(IRBuilderRef builder, ASTConstantExpressionRef constant) {
+    LLVMTypeRef type = _IRBuilderGetIRType(builder, constant->base.type);
+    switch (constant->kind) {
+    case ASTConstantKindNil:
+        constant->base.base.irValue = LLVMConstNull(type);
+        break;
+
+    case ASTConstantKindBool:
+        constant->base.base.irValue = LLVMConstInt(type, constant->boolValue ? 1 : 0, false);
+        break;
+
+    case ASTConstantKindInt:
+        constant->base.base.irValue = LLVMConstInt(type, constant->intValue, false);
+        break;
+
+    case ASTConstantKindFloat:
+        constant->base.base.irValue = LLVMConstReal(type, constant->floatValue);
+        break;
+
+    case ASTConstantKindString: {
+        LLVMValueRef buffer    = LLVMConstStringInContext(builder->context, StringGetCharacters(constant->stringValue),
+                                                       StringGetLength(constant->stringValue), false);
+        LLVMValueRef bufferVar = LLVMAddGlobal(builder->module->module,
+                                               LLVMArrayType(LLVMInt8Type(), StringGetLength(constant->stringValue) + 1), "");
+        LLVMSetInitializer(bufferVar, buffer);
+        LLVMSetGlobalConstant(bufferVar, true);
+
+        LLVMValueRef indices[]      = {LLVMConstInt(LLVMInt32Type(), 0, false), LLVMConstInt(LLVMInt32Type(), 0, false)};
+        LLVMValueRef bufferPtr      = LLVMConstGEP(bufferVar, indices, 2);
+        LLVMValueRef stringValues[] = {bufferPtr, LLVMConstInt(LLVMInt64Type(), StringGetLength(constant->stringValue), true)};
+        LLVMTypeRef stringType      = _IRBuilderGetIRType(builder, (ASTTypeRef)ASTContextGetStringType(builder->astContext));
+        LLVMValueRef initializer    = LLVMConstNamedStruct(stringType, stringValues, 2);
+        constant->base.base.irValue = initializer;
+        break;
+    }
+
+    default:
+        JELLY_UNREACHABLE("Invalid kind given for ASTConstantExpression!");
+        break;
+    }
 }
 
 static inline LLVMValueRef _IRBuilderBuildBinaryExpression(IRBuilderRef builder, LLVMValueRef function, ASTFunctionDeclarationRef callee,
@@ -1029,8 +1050,24 @@ static inline LLVMTypeRef _IRBuilderGetIRType(IRBuilderRef builder, ASTTypeRef t
 
     case ASTTagStructureType: {
         ASTStructureTypeRef structureType = (ASTStructureTypeRef)type;
-        assert(structureType->declaration->base.base.irType);
-        llvmType = (LLVMTypeRef)structureType->declaration->base.base.irType;
+        if (structureType->declaration->base.base.irType) {
+            llvmType = (LLVMTypeRef)structureType->declaration->base.base.irType;
+        } else {
+            llvmType = LLVMStructCreateNamed(builder->context, StringGetCharacters(structureType->declaration->base.mangledName));
+
+            ArrayRef temporaryTypes = ArrayCreateEmpty(builder->allocator, sizeof(LLVMTypeRef),
+                                                       ASTArrayGetElementCount(structureType->declaration->values));
+            for (Index index = 0; index < ASTArrayGetElementCount(structureType->declaration->values); index++) {
+                ASTValueDeclarationRef value = (ASTValueDeclarationRef)ASTArrayGetElementAtIndex(structureType->declaration->values, index);
+                LLVMTypeRef valueType        = _IRBuilderGetIRType(builder, value->base.type);
+                assert(valueType);
+                value->base.base.irType = valueType;
+                ArrayAppendElement(temporaryTypes, &valueType);
+            }
+            LLVMStructSetBody(llvmType, (LLVMTypeRef *)ArrayGetMemoryPointer(temporaryTypes), ArrayGetElementCount(temporaryTypes), false);
+            structureType->declaration->base.base.irType = llvmType;
+            ArrayDestroy(temporaryTypes);
+        }
         break;
     }
 

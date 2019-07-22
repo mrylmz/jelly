@@ -1,4 +1,5 @@
 #include "JellyCore/ASTContext.h"
+#include "JellyCore/ASTMangling.h"
 #include "JellyCore/ASTNodes.h"
 #include "JellyCore/ASTScope.h"
 #include "JellyCore/BumpAllocator.h"
@@ -12,6 +13,7 @@ struct _ASTContext {
 
     ASTModuleDeclarationRef builtinModule;
     ASTBuiltinTypeRef builtinTypes[AST_BUILTIN_TYPE_KIND_COUNT];
+    ASTStructureTypeRef stringType;
 };
 
 ASTNodeRef _ASTContextCreateNode(ASTContextRef context, ASTTag tag, SourceRange location, ASTScopeRef scope);
@@ -579,6 +581,10 @@ ASTBuiltinTypeRef ASTContextGetBuiltinType(ASTContextRef context, ASTBuiltinType
     return context->builtinTypes[kind];
 }
 
+ASTStructureTypeRef ASTContextGetStringType(ASTContextRef context) {
+    return context->stringType;
+}
+
 ASTNodeRef _ASTContextCreateNode(ASTContextRef context, ASTTag tag, SourceRange location, ASTScopeRef scope) {
     ASTNodeRef node = ArrayAppendUninitializedElement(context->nodes[tag]);
     node->tag       = tag;
@@ -620,6 +626,29 @@ void _ASTContextInitBuiltinTypes(ASTContextRef context) {
         structure->base.type                 = (ASTTypeRef)context->builtinTypes[index];
         ASTScopeInsertDeclaration(globalScope, (ASTDeclarationRef)structure);
     }
+
+    StringRef stringName        = StringCreate(context->allocator, "String");
+    ASTScopeRef stringScope     = ASTContextCreateScope(context, SourceRangeNull(), NULL, globalScope, ASTScopeKindStructure);
+    ASTTypeRef stringBufferType = (ASTTypeRef)ASTContextCreatePointerType(
+        context, SourceRangeNull(), stringScope, (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindUInt8));
+    StringRef stringBufferName          = StringCreate(context->allocator, "buffer");
+    ASTValueDeclarationRef stringBuffer = ASTContextCreateValueDeclaration(context, SourceRangeNull(), stringScope, ASTValueKindVariable,
+                                                                           stringBufferName, stringBufferType, NULL);
+    ASTTypeRef stringCountType          = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindInt);
+    StringRef stringCountName           = StringCreate(context->allocator, "count");
+    ASTValueDeclarationRef stringCount  = ASTContextCreateValueDeclaration(context, SourceRangeNull(), stringScope, ASTValueKindVariable,
+                                                                          stringCountName, stringCountType, NULL);
+    ArrayRef stringValues               = ArrayCreateEmpty(context->allocator, sizeof(ASTValueDeclarationRef), 2);
+    ArrayAppendElement(stringValues, &stringBuffer);
+    ArrayAppendElement(stringValues, &stringCount);
+    ASTStructureDeclarationRef stringDeclaration = ASTContextCreateStructureDeclaration(context, SourceRangeNull(), globalScope, stringName,
+                                                                                        stringValues);
+    PerformNameManglingForDeclaration(context, (ASTDeclarationRef)stringDeclaration);
+    context->stringType = ASTContextCreateStructureType(context, SourceRangeNull(), globalScope, stringDeclaration);
+    ArrayDestroy(stringValues);
+    StringDestroy(stringCountName);
+    StringDestroy(stringBufferName);
+    StringDestroy(stringName);
 }
 
 void _ASTContextInitBuiltinFunctions(ASTContextRef context) {
