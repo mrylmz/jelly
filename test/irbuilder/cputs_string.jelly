@@ -1,0 +1,5 @@
+#foreign func puts(str: UInt8*) -> Int32 "puts"
+
+func main() -> Void {
+    puts("Hello Jelly!".buffer)
+}

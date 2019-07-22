@@ -45,6 +45,7 @@ static inline ASTCallExpressionRef _ParserParseCallExpression(ParserRef parser, 
 static inline ASTConstantExpressionRef _ParserParseConstantExpression(ParserRef parser);
 static inline ASTEnumerationDeclarationRef _ParserParseEnumerationDeclaration(ParserRef parser);
 static inline ASTFunctionDeclarationRef _ParserParseFunctionDeclaration(ParserRef parser);
+static inline ASTFunctionDeclarationRef _ParserParseForeignFunctionDeclaration(ParserRef parser);
 static inline ASTFunctionDeclarationRef _ParserParsePrefixFunctionDeclaration(ParserRef parser);
 static inline ASTFunctionDeclarationRef _ParserParseInfixFunctionDeclaration(ParserRef parser);
 static inline ASTStructureDeclarationRef _ParserParseStructureDeclaration(ParserRef parser);
@@ -1066,6 +1067,87 @@ static inline ASTFunctionDeclarationRef _ParserParseFunctionDeclaration(ParserRe
     }
 }
 
+/// grammar: foreign-func-declaration := "prefix" "func" identifier "(" [ parameter { "," parameter } ] ")" "->" type-identifier
+static inline ASTFunctionDeclarationRef _ParserParseForeignFunctionDeclaration(ParserRef parser) {
+    SourceRange location = parser->token.location;
+
+    if (!_ParserConsumeToken(parser, TokenKindDirectiveForeign)) {
+        return NULL;
+    }
+
+    if (!_ParserConsumeToken(parser, TokenKindKeywordFunc)) {
+        return NULL;
+    }
+
+    StringRef name = _ParserConsumeIdentifier(parser);
+    if (!name) {
+        ReportError("Expected name of 'func'");
+        return NULL;
+    }
+
+    if (!_ParserConsumeToken(parser, TokenKindLeftParenthesis)) {
+        ReportError("Expected parameter list after name of 'func'");
+        return NULL;
+    }
+
+    // TODO: @ScopeLocation The location of scope will not be correct it has to encapsulate the associated node!
+    ASTScopeRef funcScope = _ParserPushScope(parser, parser->token.location, NULL, ASTScopeKindFunction);
+    ArrayRef parameters   = ArrayCreateEmpty(parser->tempAllocator, sizeof(ASTNodeRef), 8);
+
+    if (!_ParserIsToken(parser, TokenKindRightParenthesis)) {
+        while (true) {
+            ASTValueDeclarationRef parameter = _ParserParseParameterDeclaration(parser);
+            if (!parameter) {
+                return NULL;
+            }
+
+            assert(parameter->kind == ASTValueKindParameter);
+
+            ArrayAppendElement(parameters, &parameter);
+
+            if (_ParserIsToken(parser, TokenKindRightParenthesis)) {
+                break;
+            }
+
+            if (!_ParserConsumeToken(parser, TokenKindComma)) {
+                ReportError("Expected ',' or ')' in parameter list of 'func'");
+                return NULL;
+            }
+        }
+    }
+
+    if (!_ParserConsumeToken(parser, TokenKindRightParenthesis)) {
+        ReportError("Expected ')' after parameter list of 'func'");
+        return NULL;
+    }
+
+    if (!_ParserConsumeToken(parser, TokenKindArrow)) {
+        ReportError("Expected '->' after parameter list of 'func'");
+        return NULL;
+    }
+
+    ASTTypeRef returnType = _ParserParseType(parser);
+    if (!returnType) {
+        ReportError("Expected type for function result");
+        return NULL;
+    }
+
+    ASTConstantExpressionRef foreign = _ParserParseConstantExpression(parser);
+    if (!foreign || foreign->kind != ASTConstantKindString) {
+        ReportError("Expected string literal after signature of foreign function declaration");
+        return NULL;
+    }
+
+    _ParserPopScope(parser);
+
+    location.end                       = parser->token.location.start;
+    ASTFunctionDeclarationRef function = ASTContextCreateForeignFunctionDeclaration(
+        parser->context, location, parser->currentScope, ASTFixityNone, name, parameters, returnType, foreign->stringValue);
+    function->innerScope = funcScope;
+    funcScope->node      = (ASTNodeRef)function;
+    return function;
+}
+
 /// grammar: prefix-func-declaration := "prefix" "func" unary-operator "(" [ parameter { "," parameter } ] ")" "->" type-identifier block
 static inline ASTFunctionDeclarationRef _ParserParsePrefixFunctionDeclaration(ParserRef parser) {
     SourceRange location = parser->token.location;
@@ -1604,6 +1686,10 @@ static inline ASTNodeRef _ParserParseTopLevelNode(ParserRef parser) {
 
     if (_ParserIsToken(parser, TokenKindDirectiveLoad)) {
         return (ASTNodeRef)_ParserParseDirective(parser);
+    }
+
+    if (_ParserIsToken(parser, TokenKindDirectiveForeign)) {
+        return (ASTNodeRef)_ParserParseForeignFunctionDeclaration(parser);
     }
 
     if (_ParserIsToken(parser, TokenKindKeywordEnum)) {

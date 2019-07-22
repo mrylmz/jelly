@@ -866,6 +866,10 @@ static inline void _PrintTokenKindDescription(TokenKind kind) {
             printf("%s", "#intrinsic");
             break;
 
+        case TokenKindDirectiveForeign:
+            printf("%s", "#foreign");
+            break;
+
         case TokenKindLiteralString:
             printf("%s", "STRING");
             break;
