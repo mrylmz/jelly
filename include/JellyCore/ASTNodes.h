@@ -18,6 +18,7 @@ enum _ASTTag {
     ASTTagLinkedList,
     ASTTagArray,
     ASTTagLoadDirective,
+    ASTTagLinkDirective,
     ASTTagBlock,
     ASTTagIfStatement,
     ASTTagLoopStatement,
@@ -62,6 +63,7 @@ enum _ASTFlags {
     ASTFlagsIsValidated                = 1 << 3,
     ASTFlagsBlockHasTerminator         = 1 << 4,
     ASTFlagsIsValuePointer             = 1 << 5,
+    ASTFlagsIsConstantEvaluable        = 1 << 6,
 };
 typedef enum _ASTFlags ASTFlags;
 
@@ -82,6 +84,7 @@ typedef struct _ASTNode *ASTTypeRef;
 typedef struct _ASTSourceUnit *ASTSourceUnitRef;
 typedef struct _ASTLinkedList *ASTLinkedListRef;
 typedef struct _ASTLoadDirective *ASTLoadDirectiveRef;
+typedef struct _ASTLinkDirective *ASTLinkDirectiveRef;
 typedef struct _ASTBlock *ASTBlockRef;
 typedef struct _ASTIfStatement *ASTIfStatementRef;
 typedef struct _ASTLoopStatement *ASTLoopStatementRef;
@@ -154,6 +157,12 @@ struct _ASTLoadDirective {
     struct _ASTNode base;
 
     ASTConstantExpressionRef filePath;
+};
+
+struct _ASTLinkDirective {
+    struct _ASTNode base;
+
+    StringRef library;
 };
 
 struct _ASTBlock {
@@ -356,6 +365,7 @@ struct _ASTConstantExpression {
     struct _ASTExpression base;
 
     ASTConstantKind kind;
+    Int8 minimumBitWidth;
     union {
         Bool boolValue;
         UInt64 intValue;
@@ -382,6 +392,7 @@ struct _ASTModuleDeclaration {
     // TODO: Move scope to ASTSourceUnitRef after resolving @SourceUnitTree
     ASTScopeRef scope;
     ASTArrayRef importedModules;
+    ASTArrayRef linkDirectives;
 
     StringRef entryPointName;
     ASTFunctionDeclarationRef entryPoint;

@@ -268,6 +268,16 @@ Bool ASTTypeIsEqual(ASTTypeRef lhs, ASTTypeRef rhs) {
         ASTBuiltinTypeRef lhsBuiltin = (ASTBuiltinTypeRef)lhs;
         ASTBuiltinTypeRef rhsBuiltin = (ASTBuiltinTypeRef)rhs;
 
+        if ((lhsBuiltin->kind == ASTBuiltinTypeKindInt || lhsBuiltin->kind == ASTBuiltinTypeKindInt64) &&
+            (rhsBuiltin->kind == ASTBuiltinTypeKindInt || rhsBuiltin->kind == ASTBuiltinTypeKindInt64)) {
+            return true;
+        }
+
+        if ((lhsBuiltin->kind == ASTBuiltinTypeKindUInt || lhsBuiltin->kind == ASTBuiltinTypeKindUInt64) &&
+            (rhsBuiltin->kind == ASTBuiltinTypeKindUInt || rhsBuiltin->kind == ASTBuiltinTypeKindUInt64)) {
+            return true;
+        }
+
         return lhsBuiltin->kind == rhsBuiltin->kind;
     }
 

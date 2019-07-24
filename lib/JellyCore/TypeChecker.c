@@ -123,7 +123,7 @@ static inline void _TypeCheckerValidateSourceUnit(TypeCheckerRef typeChecker, AS
 }
 
 static inline void _TypeCheckerValidateTopLevelNode(TypeCheckerRef typeChecker, ASTContextRef context, ASTNodeRef node) {
-    if (node->tag == ASTTagLoadDirective) {
+    if (node->tag == ASTTagLoadDirective || node->tag == ASTTagLinkDirective) {
         return;
     }
 
@@ -183,12 +183,12 @@ static inline void _TypeCheckerValidateEnumerationDeclaration(TypeCheckerRef typ
         }
 
         if (!ASTTypeIsEqual(element->base.type, element->initializer->type)) {
-            ReportError("Element initializer has mismatching type");
+            ReportErrorFormat("Initializer of element '%s' has mismatching type", StringGetCharacters(element->base.name));
             continue;
         }
 
         if (element->initializer->base.tag != ASTTagConstantExpression) {
-            ReportError("Element initializer has to be a constant value");
+            ReportErrorFormat("Initializer of element '%s' has to be a constant value", StringGetCharacters(element->base.name));
             continue;
         }
 
@@ -589,7 +589,13 @@ static inline void _TypeCheckerValidateExpression(TypeCheckerRef typeChecker, AS
         assert(assignment->variable->type);
         assert(assignment->expression->type);
         if (!_ASTTypeIsEqualOrError(assignment->variable->type, assignment->expression->type)) {
-            ReportError("Assignment expression has mismatching type");
+            Bool isNilAssignment = assignment->variable->type->tag == ASTTagPointerType &&
+                                   (assignment->expression->base.tag == ASTTagConstantExpression) &&
+                                   ((ASTConstantExpressionRef)assignment->expression)->kind == ASTConstantKindNil;
+
+            if (!isNilAssignment) {
+                ReportError("Assignment expression has mismatching type");
+            }
         }
 
         // TODO: If operation is a compound assignment then check if that operation is available for the given variable and expression type
@@ -624,7 +630,8 @@ static inline void _TypeCheckerValidateExpression(TypeCheckerRef typeChecker, AS
                         if (!_ASTTypeIsEqualOrError(argument->type, parameterType)) {
                             if (functionType->declaration) {
                                 ASTValueDeclarationRef parameter = ASTArrayGetElementAtIndex(functionType->declaration->parameters, index);
-                                ReportErrorFormat("Mismatching type for parameter '%s'", StringGetCharacters(parameter->base.name));
+                                ReportErrorFormat("Mismatching type for parameter '%s' in '%s'", StringGetCharacters(parameter->base.name),
+                                                  StringGetCharacters(functionType->declaration->base.name));
                             } else {
                                 ReportErrorFormat("Mismatching type for parameter at position '%zu'", index);
                             }
@@ -904,7 +911,8 @@ static inline Bool _ASTExpressionIsLValue(ASTExpressionRef expression) {
 
         if (identifier->resolvedDeclaration->base.tag == ASTTagValueDeclaration) {
             ASTValueDeclarationRef value = (ASTValueDeclarationRef)identifier->resolvedDeclaration;
-            if (value->kind == ASTValueKindVariable) {
+            if (value->kind == ASTValueKindVariable ||
+                (value->kind == ASTValueKindParameter && value->base.type->tag == ASTTagPointerType)) {
                 return true;
             }
         }

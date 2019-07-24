@@ -576,6 +576,8 @@ static inline TokenKind _LexerLexDirective(LexerRef lexer) {
 
     if (SourceRangeIsEqual(range, "load")) {
         kind = TokenKindDirectiveLoad;
+    } else if (SourceRangeIsEqual(range, "_link")) {
+        kind = TokenKindDirectiveLink;
     } else if (SourceRangeIsEqual(range, "intrinsic")) {
         kind = TokenKindDirectiveIntrinsic;
     } else if (SourceRangeIsEqual(range, "foreign")) {

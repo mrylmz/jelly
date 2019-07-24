@@ -29,7 +29,7 @@ static inline ASTUnaryOperator _ParserConsumeUnaryOperator(ParserRef parser);
 static inline ASTBinaryOperator _ParserConsumeBinaryOperator(ParserRef parser);
 static inline ASTPostfixOperator _ParserConsumePostfixOperatorHead(ParserRef parser);
 static inline Bool _ParserConsumePostfixOperatorTail(ParserRef parser, ASTPostfixOperator postfix);
-static inline ASTLoadDirectiveRef _ParserParseDirective(ParserRef parser);
+static inline ASTNodeRef _ParserParseDirective(ParserRef parser);
 static inline ASTBlockRef _ParserParseBlock(ParserRef parser);
 static inline ASTIfStatementRef _ParserParseIfStatement(ParserRef parser);
 static inline ASTLoopStatementRef _ParserParseLoopStatement(ParserRef parser);
@@ -98,7 +98,11 @@ ASTSourceUnitRef ParserParseSourceUnit(ParserRef parser, StringRef filePath, Str
             ReportError("Consecutive statements on a line are not allowed");
         }
 
-        ArrayAppendElement(declarations, &declaration);
+        if (declaration->tag == ASTTagLinkDirective) {
+            ASTArrayAppendElement(module->linkDirectives, declaration);
+        } else {
+            ArrayAppendElement(declarations, &declaration);
+        }
     }
 
     location.end                = parser->token.location.start;
@@ -261,9 +265,10 @@ static inline Bool _ParserConsumePostfixOperatorTail(ParserRef parser, ASTPostfi
     }
 }
 
-/// grammar: directive      := load-directive
+/// grammar: directive      := load-directive | link-directive
 /// grammar: load-directive := "#load" string-literal
-static inline ASTLoadDirectiveRef _ParserParseDirective(ParserRef parser) {
+/// grammar: link-directive := "#_link" string-literal
+static inline ASTNodeRef _ParserParseDirective(ParserRef parser) {
     SourceRange location = parser->token.location;
 
     if (_ParserConsumeToken(parser, TokenKindDirectiveLoad)) {
@@ -281,7 +286,20 @@ static inline ASTLoadDirectiveRef _ParserParseDirective(ParserRef parser) {
         }
 
         location.end = parser->token.location.start;
-        return ASTContextCreateLoadDirective(parser->context, location, parser->currentScope, filePath);
+        return (ASTNodeRef)ASTContextCreateLoadDirective(parser->context, location, parser->currentScope, filePath);
+    }
+
+    if (_ParserConsumeToken(parser, TokenKindDirectiveLink)) {
+        ASTConstantExpressionRef filePath = _ParserParseConstantExpression(parser);
+        if (!filePath || filePath->kind != ASTConstantKindString) {
+            ReportError("Expected string literal after `#_link` directive");
+            return NULL;
+        }
+
+        assert(filePath->kind == ASTConstantKindString);
+
+        location.end = parser->token.location.start;
+        return (ASTNodeRef)ASTContextCreateLinkDirective(parser->context, location, parser->currentScope, filePath->stringValue);
     }
 
     ReportError("Unknown compiler directive");
@@ -788,7 +806,9 @@ static inline ASTExpressionRef _ParserParseExpression(ParserRef parser, ASTOpera
                                                                               memberName);
         } else if (postfix == ASTPostfixOperatorCall) {
             result = (ASTExpressionRef)_ParserParseCallExpression(parser, result);
-            assert(result);
+            if (!result) {
+                return NULL;
+            }
         } else {
             return NULL;
         }
@@ -1684,7 +1704,7 @@ static inline ASTNodeRef _ParserParseTopLevelNode(ParserRef parser) {
         return NULL;
     }
 
-    if (_ParserIsToken(parser, TokenKindDirectiveLoad)) {
+    if (_ParserIsToken(parser, TokenKindDirectiveLoad) || _ParserIsToken(parser, TokenKindDirectiveLink)) {
         return (ASTNodeRef)_ParserParseDirective(parser);
     }
 

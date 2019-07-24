@@ -3,7 +3,7 @@
 
 // TODO: Embed lld into project instead of calling system!
 
-void LDLinkerLink(AllocatorRef allocator, ArrayRef objectFiles, StringRef targetPath, LDLinkerTargetType targetType,
+void LDLinkerLink(AllocatorRef allocator, ArrayRef objectFiles, ArrayRef linkLibraries, StringRef targetPath, LDLinkerTargetType targetType,
                   StringRef architecture) {
     StringRef command = StringCreate(allocator, "ld");
     for (Index index = 0; index < ArrayGetElementCount(objectFiles); index++) {
@@ -32,6 +32,14 @@ void LDLinkerLink(AllocatorRef allocator, ArrayRef objectFiles, StringRef target
 
     if (targetPath) {
         StringAppendFormat(command, " -o %s", StringGetCharacters(targetPath));
+    }
+
+    for (Index index = 0; index < ArrayGetElementCount(linkLibraries); index++) {
+        StringRef linkLibrary = *((StringRef *)ArrayGetElementAtIndex(linkLibraries, index));
+        StringAppendFormat(command, " %s", "-l");
+
+        // TODO: The linkLibrary string should be validated and escaped for security!!!
+        StringAppendString(command, linkLibrary);
     }
 
     // dynamic main executables must link with libSystem.dylib for inferred architecture x86_64

@@ -159,7 +159,7 @@ static inline Bool _ResolveDeclarationsOfTypeAndSubstituteType(ASTContextRef con
         }
 
         *type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
-        ReportError("Use of unresolved type");
+        ReportErrorFormat("Use of unresolved type '%s'", StringGetCharacters(opaque->name));
         return false;
     }
 
@@ -216,6 +216,7 @@ static inline void _PerformNameResolutionForEnumerationBody(ASTContextRef contex
         }
 
         if (element->initializer) {
+            element->initializer->expectedType = element->base.type;
             _PerformNameResolutionForExpression(context, element->initializer);
         }
     }
@@ -421,6 +422,7 @@ static inline void _PerformNameResolutionForExpression(ASTContextRef context, AS
 
     if (expression->base.tag == ASTTagUnaryExpression) {
         ASTUnaryExpressionRef unary = (ASTUnaryExpressionRef)expression;
+        // TODO: Allow candidate types for builtin integer types!
         _PerformNameResolutionForExpression(context, unary->arguments[0]);
 
         ASTScopeRef globalScope                       = ASTContextGetGlobalScope(context);
@@ -462,7 +464,7 @@ static inline void _PerformNameResolutionForExpression(ASTContextRef context, AS
         }
 
         if (!matchingDeclaration) {
-            ReportError("Use of unresolved prefix function");
+            ReportErrorFormat("Use of unresolved prefix function '%s'", StringGetCharacters(operatorName));
             unary->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
         } else {
             unary->opFunction = (ASTFunctionDeclarationRef)matchingDeclaration;
@@ -477,6 +479,14 @@ static inline void _PerformNameResolutionForExpression(ASTContextRef context, AS
         ASTBinaryExpressionRef binary = (ASTBinaryExpressionRef)expression;
         _PerformNameResolutionForExpression(context, binary->arguments[0]);
         _PerformNameResolutionForExpression(context, binary->arguments[1]);
+
+        if ((binary->arguments[0]->type->tag == ASTTagBuiltinType &&
+             ((ASTBuiltinTypeRef)binary->arguments[0]->type)->kind == ASTBuiltinTypeKindError) ||
+            (binary->arguments[1]->type->tag == ASTTagBuiltinType &&
+             ((ASTBuiltinTypeRef)binary->arguments[1]->type)->kind == ASTBuiltinTypeKindError)) {
+            binary->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
+            return;
+        }
 
         ASTScopeRef globalScope                       = ASTContextGetGlobalScope(context);
         StringRef operatorName                        = ASTGetInfixOperatorName(AllocatorGetSystemDefault(), binary->op);
@@ -517,12 +527,17 @@ static inline void _PerformNameResolutionForExpression(ASTContextRef context, AS
                 }
             }
 
-            assert(!matchingDeclaration && "Candidate declarations is currently not supported for binary expressions!");
+            if (matchingDeclaration) {
+                ReportError("Candidate declarations is currently not supported for binary expressions!");
+                binary->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
+                return;
+            }
+
             matchingDeclaration = function;
         }
 
         if (!matchingDeclaration) {
-            ReportError("Use of unresolved infix function");
+            ReportErrorFormat("Use of unresolved infix function '%s'", StringGetCharacters(operatorName));
             binary->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
         } else {
             binary->opFunction = (ASTFunctionDeclarationRef)matchingDeclaration;
@@ -530,8 +545,6 @@ static inline void _PerformNameResolutionForExpression(ASTContextRef context, AS
         }
 
         StringDestroy(operatorName);
-
-        binary->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
         return;
     }
 
@@ -552,7 +565,7 @@ static inline void _PerformNameResolutionForExpression(ASTContextRef context, AS
                     identifier->resolvedDeclaration = declaration;
                 } else {
                     identifier->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
-                    ReportError("Use of unresolved identifier");
+                    ReportErrorFormat("Use of unresolved identifier '%s'", StringGetCharacters(identifier->name));
                 }
             } else {
                 ASTScopeRef globalScope      = ASTContextGetGlobalScope(context);
@@ -578,10 +591,11 @@ static inline void _PerformNameResolutionForExpression(ASTContextRef context, AS
                     // TODO: If count of candidateDeclarations is greater than 1, then continue matching candidates in outer expression or
                     // report ambigous use of identifier error
                     identifier->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
-                    ReportError("Use of unresolved identifier");
+                    ReportErrorFormat("Use of unresolved identifier '%s'", StringGetCharacters(identifier->name));
                 }
             }
         }
+
         return;
     }
 
@@ -612,7 +626,7 @@ static inline void _PerformNameResolutionForExpression(ASTContextRef context, AS
 
             if (memberAccess->memberIndex < 0) {
                 memberAccess->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
-                ReportError("Use of undeclared member");
+                ReportErrorFormat("Use of undeclared member '%s'", StringGetCharacters(memberAccess->memberName));
             }
         } else {
             memberAccess->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
@@ -722,6 +736,25 @@ static inline void _PerformNameResolutionForExpression(ASTContextRef context, AS
                 if (matchingDeclaration) {
                     identifier->resolvedDeclaration = matchingDeclaration;
                     identifier->base.type           = identifier->resolvedDeclaration->type;
+
+                    // TODO: @Hack Remove this soon we are re-resolving the arguments after resolving a good matching declaration here...
+                    //    ...this problem should be handled by assigning candidate types to arguments and performing resolution based on
+                    //    candidate types
+                    if (matchingDeclaration->base.tag == ASTTagFunctionDeclaration ||
+                        matchingDeclaration->base.tag == ASTTagForeignFunctionDeclaration ||
+                        matchingDeclaration->base.tag == ASTTagIntrinsicFunctionDeclaration) {
+                        ASTFunctionDeclarationRef function = (ASTFunctionDeclarationRef)matchingDeclaration;
+                        Index maxArgumentCount             = MIN(ASTArrayGetElementCount(call->arguments),
+                                                     ASTArrayGetElementCount(function->parameters));
+                        for (Index index = 0; index < maxArgumentCount; index++) {
+                            ASTValueDeclarationRef parameter = (ASTValueDeclarationRef)ASTArrayGetElementAtIndex(function->parameters,
+                                                                                                                 index);
+
+                            ASTExpressionRef argument = (ASTExpressionRef)ASTArrayGetElementAtIndex(call->arguments, index);
+                            argument->expectedType    = parameter->base.type;
+                            _PerformNameResolutionForExpression(context, argument);
+                        }
+                    }
                 } else {
                     ReportErrorFormat("Use of unresolved identifier '%s'", StringGetCharacters(identifier->name));
                     identifier->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
@@ -757,14 +790,59 @@ static inline void _PerformNameResolutionForExpression(ASTContextRef context, AS
 
     if (expression->base.tag == ASTTagConstantExpression) {
         ASTConstantExpressionRef constant = (ASTConstantExpressionRef)expression;
+        constant->base.base.flags |= ASTFlagsIsConstantEvaluable;
+
         if (constant->kind == ASTConstantKindNil) {
-            constant->base.type = (ASTTypeRef)ASTContextCreatePointerType(
-                context, SourceRangeNull(), constant->base.base.scope,
-                (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindVoid));
+            if (constant->base.expectedType && constant->base.expectedType->tag == ASTTagPointerType) {
+                constant->base.type = constant->base.expectedType;
+            } else {
+                constant->base.type = (ASTTypeRef)ASTContextCreatePointerType(
+                    context, SourceRangeNull(), constant->base.base.scope,
+                    (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindVoid));
+            }
         } else if (constant->kind == ASTConstantKindBool) {
             constant->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindBool);
         } else if (constant->kind == ASTConstantKindInt) {
-            constant->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindInt);
+            if (constant->base.expectedType && constant->base.expectedType->tag == ASTTagBuiltinType) {
+                ASTBuiltinTypeRef expectedType = (ASTBuiltinTypeRef)constant->base.expectedType;
+                if ((expectedType->kind == ASTBuiltinTypeKindUInt || expectedType->kind == ASTBuiltinTypeKindUInt64) &&
+                    0 <= constant->minimumBitWidth && constant->minimumBitWidth <= 64) {
+                    constant->base.type = constant->base.expectedType;
+                } else if ((expectedType->kind == ASTBuiltinTypeKindInt || expectedType->kind == ASTBuiltinTypeKindInt64) &&
+                           0 <= constant->minimumBitWidth && constant->minimumBitWidth < 64) {
+                    constant->base.type = constant->base.expectedType;
+                } else if ((expectedType->kind == ASTBuiltinTypeKindUInt32 && 0 <= constant->minimumBitWidth &&
+                            constant->minimumBitWidth <= 32)) {
+                    constant->base.type = constant->base.expectedType;
+                } else if ((expectedType->kind == ASTBuiltinTypeKindInt32 && 0 <= constant->minimumBitWidth &&
+                            constant->minimumBitWidth <= 31)) {
+                    constant->base.type = constant->base.expectedType;
+                } else if ((expectedType->kind == ASTBuiltinTypeKindUInt16 && 0 <= constant->minimumBitWidth &&
+                            constant->minimumBitWidth <= 16)) {
+                    constant->base.type = constant->base.expectedType;
+                } else if ((expectedType->kind == ASTBuiltinTypeKindInt16 && 0 <= constant->minimumBitWidth &&
+                            constant->minimumBitWidth <= 15)) {
+                    constant->base.type = constant->base.expectedType;
+                } else if ((expectedType->kind == ASTBuiltinTypeKindUInt8 && 0 <= constant->minimumBitWidth &&
+                            constant->minimumBitWidth <= 8)) {
+                    constant->base.type = constant->base.expectedType;
+                } else if ((expectedType->kind == ASTBuiltinTypeKindInt8 && 0 <= constant->minimumBitWidth &&
+                            constant->minimumBitWidth <= 7)) {
+                    constant->base.type = constant->base.expectedType;
+                } else {
+                    if (constant->minimumBitWidth < 64) {
+                        constant->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindInt64);
+                    } else {
+                        constant->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindUInt64);
+                    }
+                }
+            } else {
+                if (constant->minimumBitWidth < 64) {
+                    constant->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindInt64);
+                } else {
+                    constant->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindUInt64);
+                }
+            }
         } else if (constant->kind == ASTConstantKindFloat) {
             constant->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindFloat);
         } else if (constant->kind == ASTConstantKindString) {

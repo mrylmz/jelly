@@ -36,6 +36,7 @@ ASTContextRef ASTContextCreate(AllocatorRef allocator, StringRef moduleName) {
     context->nodes[ASTTagLinkedList]             = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTLinkedList), 1024);
     context->nodes[ASTTagArray]                  = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTArray), 2048);
     context->nodes[ASTTagLoadDirective]          = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTLoadDirective), 1024);
+    context->nodes[ASTTagLinkDirective]          = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTLinkDirective), 1024);
     context->nodes[ASTTagBlock]                  = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTBlock), 1024);
     context->nodes[ASTTagIfStatement]            = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTIfStatement), 1024);
     context->nodes[ASTTagLoopStatement]          = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTLoopStatement), 1024);
@@ -122,6 +123,14 @@ ASTLoadDirectiveRef ASTContextCreateLoadDirective(ASTContextRef context, SourceR
 
     ASTLoadDirectiveRef node = (ASTLoadDirectiveRef)_ASTContextCreateNode(context, ASTTagLoadDirective, location, scope);
     node->filePath           = filePath;
+    return node;
+}
+
+ASTLinkDirectiveRef ASTContextCreateLinkDirective(ASTContextRef context, SourceRange location, ASTScopeRef scope, StringRef library) {
+    assert(library);
+
+    ASTLinkDirectiveRef node = (ASTLinkDirectiveRef)_ASTContextCreateNode(context, ASTTagLinkDirective, location, scope);
+    node->library            = StringCreateCopy(context->allocator, library);
     return node;
 }
 
@@ -305,6 +314,7 @@ ASTCallExpressionRef ASTContextCreateCallExpression(ASTContextRef context, Sourc
 ASTConstantExpressionRef ASTContextCreateConstantNilExpression(ASTContextRef context, SourceRange location, ASTScopeRef scope) {
     ASTConstantExpressionRef node = (ASTConstantExpressionRef)_ASTContextCreateNode(context, ASTTagConstantExpression, location, scope);
     node->kind                    = ASTConstantKindNil;
+    node->minimumBitWidth         = -1;
     node->base.type               = NULL;
     node->base.expectedType       = NULL;
     return node;
@@ -314,6 +324,7 @@ ASTConstantExpressionRef ASTContextCreateConstantBoolExpression(ASTContextRef co
                                                                 Bool value) {
     ASTConstantExpressionRef node = (ASTConstantExpressionRef)_ASTContextCreateNode(context, ASTTagConstantExpression, location, scope);
     node->kind                    = ASTConstantKindBool;
+    node->minimumBitWidth         = 1;
     node->boolValue               = value;
     node->base.type               = NULL;
     node->base.expectedType       = NULL;
@@ -327,6 +338,15 @@ ASTConstantExpressionRef ASTContextCreateConstantIntExpression(ASTContextRef con
     node->intValue                = value;
     node->base.type               = NULL;
     node->base.expectedType       = NULL;
+
+    node->minimumBitWidth = 0;
+    UInt64 intValue       = value;
+    while (intValue > 0) {
+        node->minimumBitWidth += 1;
+        intValue >>= 1;
+    }
+    node->minimumBitWidth = MAX(node->minimumBitWidth, 1);
+
     return node;
 }
 
@@ -334,6 +354,7 @@ ASTConstantExpressionRef ASTContextCreateConstantFloatExpression(ASTContextRef c
                                                                  Float64 value) {
     ASTConstantExpressionRef node = (ASTConstantExpressionRef)_ASTContextCreateNode(context, ASTTagConstantExpression, location, scope);
     node->kind                    = ASTConstantKindFloat;
+    node->minimumBitWidth         = -1;
     node->floatValue              = value;
     node->base.type               = NULL;
     node->base.expectedType       = NULL;
@@ -361,6 +382,7 @@ ASTModuleDeclarationRef ASTContextCreateModuleDeclaration(ASTContextRef context,
     node->scope                  = ASTContextCreateScope(context, location, (ASTNodeRef)node, scope, ASTScopeKindGlobal);
     node->sourceUnits            = ASTContextCreateArray(context, location, scope);
     node->importedModules        = ASTContextCreateArray(context, location, scope);
+    node->linkDirectives         = ASTContextCreateArray(context, location, scope);
     node->entryPointName         = StringCreate(context->allocator, "main");
     node->entryPoint             = NULL;
     if (sourceUnits) {

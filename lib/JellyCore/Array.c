@@ -172,7 +172,7 @@ bool ArrayIsEqual(ArrayRef lhs, ArrayRef rhs) {
 }
 
 void _ArrayReserveCapacity(ArrayRef array, Index capacity) {
-    Index newCapacity = array->capacity;
+    Index newCapacity = MAX(array->capacity, 1);
     while (newCapacity < capacity) {
         newCapacity *= 2;
     }

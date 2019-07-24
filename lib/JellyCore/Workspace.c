@@ -268,7 +268,16 @@ void *_WorkspaceProcess(void *context) {
     StringRef targetPath = StringCreateCopy(workspace->allocator, workspace->buildDirectory);
     StringAppendFormat(targetPath, "/program");
 
-    LDLinkerLink(workspace->allocator, objectFiles, targetPath, LDLinkerTargetTypeExecutable, NULL);
+    ArrayRef linkLibraries       = ArrayCreateEmpty(workspace->allocator, sizeof(StringRef), 0);
+    ASTArrayIteratorRef iterator = ASTArrayGetIterator(ASTContextGetModule(workspace->context)->linkDirectives);
+    while (iterator) {
+        ASTLinkDirectiveRef link = (ASTLinkDirectiveRef)ASTArrayIteratorGetElement(iterator);
+        ArrayAppendElement(linkLibraries, &link->library);
+
+        iterator = ASTArrayIteratorNext(iterator);
+    }
+
+    LDLinkerLink(workspace->allocator, objectFiles, linkLibraries, targetPath, LDLinkerTargetTypeExecutable, NULL);
 
     StringDestroy(targetPath);
     ArrayDestroy(objectFiles);
