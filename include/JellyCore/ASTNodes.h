@@ -34,6 +34,8 @@ enum _ASTTag {
     ASTTagAssignmentExpression,
     ASTTagCallExpression,
     ASTTagConstantExpression,
+    ASTTagSizeOfExpression,
+    ASTTagTypeOperationExpression,
     ASTTagModuleDeclaration,
     ASTTagEnumerationDeclaration,
     ASTTagFunctionDeclaration,
@@ -41,6 +43,7 @@ enum _ASTTag {
     ASTTagIntrinsicFunctionDeclaration,
     ASTTagStructureDeclaration,
     ASTTagValueDeclaration,
+    ASTTagTypeAliasDeclaration,
     ASTTagOpaqueType,
     ASTTagPointerType,
     ASTTagArrayType,
@@ -64,6 +67,7 @@ enum _ASTFlags {
     ASTFlagsBlockHasTerminator         = 1 << 4,
     ASTFlagsIsValuePointer             = 1 << 5,
     ASTFlagsIsConstantEvaluable        = 1 << 6,
+    ASTFlagsIsPointerArithmetic        = 1 << 7,
 };
 typedef enum _ASTFlags ASTFlags;
 
@@ -86,6 +90,7 @@ typedef struct _ASTLinkedList *ASTLinkedListRef;
 typedef struct _ASTLoadDirective *ASTLoadDirectiveRef;
 typedef struct _ASTLinkDirective *ASTLinkDirectiveRef;
 typedef struct _ASTBlock *ASTBlockRef;
+typedef struct _ASTTypeAliasDeclaration *ASTTypeAliasDeclarationRef;
 typedef struct _ASTIfStatement *ASTIfStatementRef;
 typedef struct _ASTLoopStatement *ASTLoopStatementRef;
 typedef struct _ASTCaseStatement *ASTCaseStatementRef;
@@ -100,6 +105,8 @@ typedef struct _ASTMemberAccessExpression *ASTMemberAccessExpressionRef;
 typedef struct _ASTAssignmentExpression *ASTAssignmentExpressionRef;
 typedef struct _ASTCallExpression *ASTCallExpressionRef;
 typedef struct _ASTConstantExpression *ASTConstantExpressionRef;
+typedef struct _ASTSizeOfExpression *ASTSizeOfExpressionRef;
+typedef struct _ASTTypeOperationExpression *ASTTypeOperationExpressionRef;
 typedef struct _ASTModuleDeclaration *ASTModuleDeclarationRef;
 typedef struct _ASTEnumerationDeclaration *ASTEnumerationDeclarationRef;
 typedef struct _ASTFunctionDeclaration *ASTFunctionDeclarationRef;
@@ -282,6 +289,7 @@ enum _ASTBinaryOperator {
     ASTBinaryOperatorBitwiseXor,
     ASTBinaryOperatorTypeCheck,
     ASTBinaryOperatorTypeCast,
+    ASTBinaryOperatorTypeBitcast,
     ASTBinaryOperatorLessThan,
     ASTBinaryOperatorLessThanEqual,
     ASTBinaryOperatorGreaterThan,
@@ -374,6 +382,27 @@ struct _ASTConstantExpression {
     };
 };
 
+struct _ASTSizeOfExpression {
+    struct _ASTExpression base;
+
+    ASTTypeRef sizeType;
+};
+
+enum _ASTTypeOperation {
+    ASTTypeOperationTypeCheck,
+    ASTTypeOperationTypeCast,
+    ASTTypeOperationTypeBitcast,
+};
+typedef enum _ASTTypeOperation ASTTypeOperation;
+
+struct _ASTTypeOperationExpression {
+    struct _ASTExpression base;
+
+    ASTTypeOperation op;
+    ASTExpressionRef expression;
+    ASTTypeRef argumentType;
+};
+
 struct _ASTDeclaration {
     struct _ASTNode base;
 
@@ -444,6 +473,10 @@ struct _ASTValueDeclaration {
 
     ASTValueKind kind;
     ASTExpressionRef initializer;
+};
+
+struct _ASTTypeAliasDeclaration {
+    struct _ASTDeclaration base;
 };
 
 struct _ASTOpaqueType {

@@ -22,6 +22,10 @@ StringRef ASTGetInfixOperatorName(AllocatorRef allocator, ASTBinaryOperator op);
 
 Bool ASTTypeIsEqual(ASTTypeRef lhs, ASTTypeRef rhs);
 
+Bool ASTTypeIsInteger(ASTTypeRef type);
+
+Bool ASTTypeIsVoid(ASTTypeRef type);
+
 JELLY_EXTERN_C_END
 
 #endif

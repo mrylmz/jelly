@@ -42,7 +42,9 @@ void LDLinkerLink(AllocatorRef allocator, ArrayRef objectFiles, ArrayRef linkLib
         StringAppendString(command, linkLibrary);
     }
 
+    // TODO: macOS min version is missing
     // dynamic main executables must link with libSystem.dylib for inferred architecture x86_64
+    // See: https://stackoverflow.com/questions/52830484/nasm-cant-link-object-file-with-ld-on-macos-mojave
     StringAppendFormat(command, " %s", "-lSystem");
 
     Int status = system(StringGetCharacters(command));

@@ -73,6 +73,11 @@ void PerformNameResolution(ASTContextRef context, ASTModuleDeclarationRef module
                     _PerformNameResolutionForExpression(context, value->initializer);
                 }
             }
+
+            if (child->tag == ASTTagTypeAliasDeclaration) {
+                ASTTypeAliasDeclarationRef alias = (ASTTypeAliasDeclarationRef)child;
+                _ResolveDeclarationsOfTypeAndSubstituteType(context, alias->base.base.scope, &alias->base.type);
+            }
         }
     }
 
@@ -92,6 +97,15 @@ void PerformNameResolution(ASTContextRef context, ASTModuleDeclarationRef module
 static inline void _AddSourceUnitRecordDeclarationsToScope(ASTContextRef context, ASTSourceUnitRef sourceUnit) {
     for (Index index = 0; index < ASTArrayGetElementCount(sourceUnit->declarations); index++) {
         ASTNodeRef child = (ASTNodeRef)ASTArrayGetElementAtIndex(sourceUnit->declarations, index);
+        if (child->tag == ASTTagTypeAliasDeclaration) {
+            ASTTypeAliasDeclarationRef alias = (ASTTypeAliasDeclarationRef)child;
+            if (ASTScopeLookupDeclarationByName(child->scope, alias->base.name) == NULL) {
+                ASTArrayAppendElement(child->scope->declarations, alias);
+            } else {
+                ReportError("Invalid redeclaration of identifier");
+            }
+        }
+
         if (child->tag == ASTTagEnumerationDeclaration || child->tag == ASTTagStructureDeclaration) {
             ASTDeclarationRef declaration = (ASTDeclarationRef)child;
             if (ASTScopeLookupDeclarationByName(child->scope, declaration->name) == NULL) {
@@ -135,6 +149,7 @@ static inline Bool _ResolveDeclarationsOfTypeAndSubstituteType(ASTContextRef con
     case ASTTagOpaqueType: {
         ASTOpaqueTypeRef opaque = (ASTOpaqueTypeRef)(*type);
         if (opaque->declaration) {
+            assert(opaque->declaration->type->tag != ASTTagOpaqueType);
             *type = opaque->declaration->type;
             return true;
         }
@@ -144,7 +159,8 @@ static inline Bool _ResolveDeclarationsOfTypeAndSubstituteType(ASTContextRef con
             ASTDeclarationRef declaration = ASTScopeLookupDeclarationByName(currentScope, opaque->name);
             if (declaration) {
                 opaque->declaration = declaration;
-                *type               = declaration->type;
+                assert(opaque->declaration->type->tag != ASTTagOpaqueType);
+                *type = opaque->declaration->type;
                 return true;
             }
 
@@ -488,6 +504,21 @@ static inline void _PerformNameResolutionForExpression(ASTContextRef context, AS
             return;
         }
 
+        // TODO: Disallow creation of infix functions for the cases which are implicitly handled by the compiler!
+        if ((binary->op == ASTBinaryOperatorAdd || binary->op == ASTBinaryOperatorSubtract) &&
+            binary->arguments[0]->type->tag == ASTTagPointerType && ASTTypeIsInteger(binary->arguments[1]->type)) {
+            ASTPointerTypeRef pointerType = (ASTPointerTypeRef)binary->arguments[0]->type;
+            if (ASTTypeIsVoid(pointerType->pointeeType)) {
+                binary->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
+                ReportError("Cannot perform arithmetic operations on a 'Void' pointer");
+                return;
+            }
+
+            binary->base.base.flags |= ASTFlagsIsPointerArithmetic;
+            binary->base.type = binary->arguments[0]->type;
+            return;
+        }
+
         ASTScopeRef globalScope                       = ASTContextGetGlobalScope(context);
         StringRef operatorName                        = ASTGetInfixOperatorName(AllocatorGetSystemDefault(), binary->op);
         ASTFunctionDeclarationRef matchingDeclaration = NULL;
@@ -601,6 +632,8 @@ static inline void _PerformNameResolutionForExpression(ASTContextRef context, AS
 
     if (expression->base.tag == ASTTagMemberAccessExpression) {
         ASTMemberAccessExpressionRef memberAccess = (ASTMemberAccessExpressionRef)expression;
+        memberAccess->pointerDepth                = 0;
+
         _PerformNameResolutionForExpression(context, memberAccess->argument);
 
         assert(memberAccess->argument->type);
@@ -844,7 +877,16 @@ static inline void _PerformNameResolutionForExpression(ASTContextRef context, AS
                 }
             }
         } else if (constant->kind == ASTConstantKindFloat) {
-            constant->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindFloat);
+            if (constant->base.expectedType && constant->base.expectedType->tag == ASTTagBuiltinType) {
+                ASTBuiltinTypeRef expectedType = (ASTBuiltinTypeRef)constant->base.expectedType;
+                if (expectedType->kind == ASTBuiltinTypeKindFloat32) {
+                    constant->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindFloat32);
+                } else {
+                    constant->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindFloat64);
+                }
+            } else {
+                constant->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindFloat64);
+            }
         } else if (constant->kind == ASTConstantKindString) {
             constant->base.type = (ASTTypeRef)ASTContextGetStringType(context);
         } else {
@@ -852,6 +894,29 @@ static inline void _PerformNameResolutionForExpression(ASTContextRef context, AS
         }
 
         return;
+    }
+
+    if (expression->base.tag == ASTTagSizeOfExpression) {
+        ASTSizeOfExpressionRef sizeOf = (ASTSizeOfExpressionRef)expression;
+        _ResolveDeclarationsOfTypeAndSubstituteType(context, sizeOf->base.base.scope, &sizeOf->sizeType);
+        sizeOf->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindUInt64);
+        return;
+    }
+
+    if (expression->base.tag == ASTTagTypeOperationExpression) {
+        ASTTypeOperationExpressionRef typeExpression = (ASTTypeOperationExpressionRef)expression;
+        _PerformNameResolutionForNode(context, (ASTNodeRef)typeExpression->expression);
+        _ResolveDeclarationsOfTypeAndSubstituteType(context, typeExpression->base.base.scope, &typeExpression->argumentType);
+        switch (typeExpression->op) {
+        case ASTTypeOperationTypeCheck:
+            ReportCritical("Type checking is currently not supported!");
+            return;
+
+        case ASTTypeOperationTypeCast:
+        case ASTTypeOperationTypeBitcast:
+            typeExpression->base.type = typeExpression->argumentType;
+            return;
+        }
     }
 
     JELLY_UNREACHABLE("Invalid tag given for ASTExpression!");

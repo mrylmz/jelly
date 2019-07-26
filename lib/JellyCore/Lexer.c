@@ -576,7 +576,7 @@ static inline TokenKind _LexerLexDirective(LexerRef lexer) {
 
     if (SourceRangeIsEqual(range, "load")) {
         kind = TokenKindDirectiveLoad;
-    } else if (SourceRangeIsEqual(range, "_link")) {
+    } else if (SourceRangeIsEqual(range, "link")) {
         kind = TokenKindDirectiveLink;
     } else if (SourceRangeIsEqual(range, "intrinsic")) {
         kind = TokenKindDirectiveIntrinsic;
@@ -665,7 +665,14 @@ static inline TokenKind _LexerLexIdentifierOrKeyword(LexerRef lexer) {
     if (SourceRangeIsEqual(range, "is")) {
         kind = TokenKindKeywordIs;
     } else if (SourceRangeIsEqual(range, "as")) {
-        kind = TokenKindKeywordAs;
+        if (*lexer->state.cursor == '!') {
+            lexer->state.cursor += 1;
+            lexer->state.column += 1;
+            range.end = lexer->state.cursor;
+            kind      = TokenKindKeywordAsExclamationMark;
+        } else {
+            kind = TokenKindKeywordAs;
+        }
     } else if (SourceRangeIsEqual(range, "if")) {
         kind = TokenKindKeywordIf;
     } else if (SourceRangeIsEqual(range, "else")) {
@@ -704,6 +711,10 @@ static inline TokenKind _LexerLexIdentifierOrKeyword(LexerRef lexer) {
         kind = TokenKindKeywordStruct;
     } else if (SourceRangeIsEqual(range, "var")) {
         kind = TokenKindKeywordVar;
+    } else if (SourceRangeIsEqual(range, "typealias")) {
+        kind = TokenKindKeywordTypeAlias;
+    } else if (SourceRangeIsEqual(range, "sizeof")) {
+        kind = TokenKindKeywordSizeOf;
     } else if (SourceRangeIsEqual(range, "Void")) {
         kind = TokenKindKeywordVoid;
     } else if (SourceRangeIsEqual(range, "Bool")) {

@@ -50,6 +50,7 @@ static inline ASTFunctionDeclarationRef _ParserParsePrefixFunctionDeclaration(Pa
 static inline ASTFunctionDeclarationRef _ParserParseInfixFunctionDeclaration(ParserRef parser);
 static inline ASTStructureDeclarationRef _ParserParseStructureDeclaration(ParserRef parser);
 static inline ASTValueDeclarationRef _ParserParseVariableDeclaration(ParserRef parser);
+static inline ASTTypeAliasDeclarationRef _ParserParseTypeAliasDeclaration(ParserRef parser);
 static inline ASTValueDeclarationRef _ParserParseEnumerationElementDeclaration(ParserRef parser);
 static inline ASTValueDeclarationRef _ParserParseParameterDeclaration(ParserRef parser);
 static inline ASTTypeRef _ParserParseType(ParserRef parser);
@@ -198,6 +199,8 @@ static inline ASTBinaryOperator _ParserConsumeBinaryOperator(ParserRef parser) {
         return ASTBinaryOperatorTypeCheck;
     } else if (_ParserConsumeToken(parser, TokenKindKeywordAs)) {
         return ASTBinaryOperatorTypeCast;
+    } else if (_ParserConsumeToken(parser, TokenKindKeywordAsExclamationMark)) {
+        return ASTBinaryOperatorTypeBitcast;
     } else if (_ParserConsumeToken(parser, TokenKindLessThan)) {
         return ASTBinaryOperatorLessThan;
     } else if (_ParserConsumeToken(parser, TokenKindLessThanEqualsSign)) {
@@ -267,7 +270,7 @@ static inline Bool _ParserConsumePostfixOperatorTail(ParserRef parser, ASTPostfi
 
 /// grammar: directive      := load-directive | link-directive
 /// grammar: load-directive := "#load" string-literal
-/// grammar: link-directive := "#_link" string-literal
+/// grammar: link-directive := "#link" string-literal
 static inline ASTNodeRef _ParserParseDirective(ParserRef parser) {
     SourceRange location = parser->token.location;
 
@@ -292,7 +295,7 @@ static inline ASTNodeRef _ParserParseDirective(ParserRef parser) {
     if (_ParserConsumeToken(parser, TokenKindDirectiveLink)) {
         ASTConstantExpressionRef filePath = _ParserParseConstantExpression(parser);
         if (!filePath || filePath->kind != ASTConstantKindString) {
-            ReportError("Expected string literal after `#_link` directive");
+            ReportError("Expected string literal after `#link` directive");
             return NULL;
         }
 
@@ -655,11 +658,14 @@ static inline ASTNodeRef _ParserParseStatement(ParserRef parser) {
     return (ASTNodeRef)expression;
 }
 
-/// grammar: atom-expression       := group-expression | literal-expression | identifier-expression
+/// grammar: atom-expression       := group-expression | literal-expression | identifier-expression | sizeof-expression
 /// grammar: group-expression      := "(" expression ")"
 /// grammar: literal-expression    := literal
 /// grammar: identifier-expression := identifier
+/// grammar: sizeof-expression      := "sizeof" "(" type ")"
 static inline ASTExpressionRef _ParserParseAtomExpression(ParserRef parser) {
+    SourceRange location = parser->token.location;
+
     if (_ParserConsumeToken(parser, TokenKindLeftParenthesis)) {
         ASTExpressionRef expression = _ParserParseExpression(parser, 0, true);
         if (!expression) {
@@ -677,6 +683,24 @@ static inline ASTExpressionRef _ParserParseAtomExpression(ParserRef parser) {
         _ParserIsToken(parser, TokenKindKeywordFalse) || _ParserIsToken(parser, TokenKindLiteralInt) ||
         _ParserIsToken(parser, TokenKindLiteralFloat) || _ParserIsToken(parser, TokenKindLiteralString)) {
         return (ASTExpressionRef)_ParserParseConstantExpression(parser);
+    }
+
+    if (_ParserConsumeToken(parser, TokenKindKeywordSizeOf)) {
+        if (!_ParserConsumeToken(parser, TokenKindLeftParenthesis)) {
+            return NULL;
+        }
+
+        ASTTypeRef sizeType = _ParserParseType(parser);
+        if (!sizeType) {
+            return NULL;
+        }
+
+        if (!_ParserConsumeToken(parser, TokenKindRightParenthesis)) {
+            return NULL;
+        }
+
+        location.end = parser->token.location.start;
+        return (ASTExpressionRef)ASTContextCreateSizeOfExpression(parser->context, location, parser->currentScope, sizeType);
     }
 
     return (ASTExpressionRef)_ParserParseIdentifierExpression(parser);
@@ -781,19 +805,49 @@ static inline ASTExpressionRef _ParserParseExpression(ParserRef parser, ASTOpera
                 nextPrecedence = ASTGetOperatorPrecedenceBefore(nextPrecedence);
             }
 
-            ASTExpressionRef right = _ParserParseExpression(parser, nextPrecedence, silentDiagnostics);
-            if (!right) {
-                return NULL;
-            }
+            if (binary == ASTBinaryOperatorTypeCheck || binary == ASTBinaryOperatorTypeCast || binary == ASTBinaryOperatorTypeBitcast) {
+                ASTTypeRef expressionType = _ParserParseType(parser);
+                if (!expressionType) {
+                    return NULL;
+                }
 
-            location.end = parser->token.location.start;
-            if (ASTBinaryOperatorIsAssignment(binary)) {
-                result = (ASTExpressionRef)ASTContextCreateAssignmentExpression(parser->context, location, parser->currentScope, binary,
-                                                                                result, right);
+                ASTTypeOperation op;
+                switch (binary) {
+                case ASTBinaryOperatorTypeCast:
+                    op = ASTTypeOperationTypeCast;
+                    break;
+
+                case ASTBinaryOperatorTypeBitcast:
+                    op = ASTTypeOperationTypeBitcast;
+                    break;
+
+                case ASTBinaryOperatorTypeCheck:
+                    op = ASTTypeOperationTypeCheck;
+                    break;
+
+                default:
+                    JELLY_UNREACHABLE("Invalid binary operation given!");
+                    return NULL;
+                }
+
+                location.end = parser->token.location.start;
+                result = (ASTExpressionRef)ASTContextCreateTypeOperationExpression(parser->context, location, parser->currentScope, op,
+                                                                                   result, expressionType);
             } else {
-                ASTExpressionRef arguments[2] = {result, right};
-                result = (ASTExpressionRef)ASTContextCreateBinaryExpression(parser->context, location, parser->currentScope, binary,
-                                                                            arguments);
+                ASTExpressionRef right = _ParserParseExpression(parser, nextPrecedence, silentDiagnostics);
+                if (!right) {
+                    return NULL;
+                }
+
+                location.end = parser->token.location.start;
+                if (ASTBinaryOperatorIsAssignment(binary)) {
+                    result = (ASTExpressionRef)ASTContextCreateAssignmentExpression(parser->context, location, parser->currentScope, binary,
+                                                                                    result, right);
+                } else {
+                    ASTExpressionRef arguments[2] = {result, right};
+                    result = (ASTExpressionRef)ASTContextCreateBinaryExpression(parser->context, location, parser->currentScope, binary,
+                                                                                arguments);
+                }
             }
         } else if (postfix == ASTPostfixOperatorSelector) {
             StringRef memberName = _ParserConsumeIdentifier(parser);
@@ -1482,6 +1536,36 @@ static inline ASTValueDeclarationRef _ParserParseVariableDeclaration(ParserRef p
     return ASTContextCreateValueDeclaration(parser->context, location, parser->currentScope, ASTValueKindVariable, name, type, initializer);
 }
 
+/// grammar: type-alias := "typealias" identifier = type
+static inline ASTTypeAliasDeclarationRef _ParserParseTypeAliasDeclaration(ParserRef parser) {
+    SourceRange location = parser->token.location;
+
+    if (!_ParserConsumeToken(parser, TokenKindKeywordTypeAlias)) {
+        ReportError("Expected keyword 'typealias' at start of type alias!");
+        return NULL;
+    }
+
+    StringRef name = _ParserConsumeIdentifier(parser);
+    if (!name) {
+        ReportError("Expected identifier of 'typealias'");
+        return NULL;
+    }
+
+    if (!_ParserConsumeToken(parser, TokenKindEqualsSign)) {
+        ReportError("Expected '=' after identifier of 'typealias'");
+        return NULL;
+    }
+
+    ASTTypeRef type = _ParserParseType(parser);
+    if (!type) {
+        ReportError("Expected type of 'typealias'");
+        return NULL;
+    }
+
+    location.end = parser->token.location.start;
+    return ASTContextCreateTypeAliasDeclaration(parser->context, location, parser->currentScope, name, type);
+}
+
 /// grammar: enumeration-element-declaration := "case" identifier [ "=" expression ]
 static inline ASTValueDeclarationRef _ParserParseEnumerationElementDeclaration(ParserRef parser) {
     SourceRange location = parser->token.location;
@@ -1635,6 +1719,7 @@ static inline ASTTypeRef _ParserParseType(ParserRef parser) {
         location.end = parser->token.location.start;
         result = (ASTTypeRef)ASTContextCreateFunctionType(parser->context, location, parser->currentScope, parameterTypes, resultType);
         result = (ASTTypeRef)ASTContextCreatePointerType(parser->context, location, parser->currentScope, result);
+        ArrayDestroy(parameterTypes);
         // Early returning here because trailing '*' or '[]' is ambigous with resultType and will be parsed into it...
         // ..so it is impossible to create an array type of function pointer or an pointer type of function pointer in the grammar.
         // If there will be a requirement for this kind of expressivity in the grammar then adding something like alias types will help
@@ -1740,6 +1825,10 @@ static inline ASTNodeRef _ParserParseTopLevelNode(ParserRef parser) {
 
         assert(value->kind == ASTValueKindVariable);
         return (ASTNodeRef)value;
+    }
+
+    if (_ParserIsToken(parser, TokenKindKeywordTypeAlias)) {
+        return (ASTNodeRef)_ParserParseTypeAliasDeclaration(parser);
     }
 
     ReportError("Expected top level node!");

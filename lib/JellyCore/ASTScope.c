@@ -472,7 +472,6 @@ static inline void _PrintType(FILE *target, ASTTypeRef type) {
 
     case ASTTagFunctionType: {
         ASTFunctionTypeRef func = (ASTFunctionTypeRef)type;
-        assert(func->declaration);
         _PrintCString(target, "func (");
         ASTArrayIteratorRef iterator = ASTArrayGetIterator(func->parameterTypes);
         while (iterator) {

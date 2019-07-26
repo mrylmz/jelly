@@ -68,6 +68,14 @@ ASTConstantExpressionRef ASTContextCreateConstantFloatExpression(ASTContextRef c
                                                                  Float64 value);
 ASTConstantExpressionRef ASTContextCreateConstantStringExpression(ASTContextRef context, SourceRange location, ASTScopeRef scope,
                                                                   StringRef value);
+
+ASTSizeOfExpressionRef ASTContextCreateSizeOfExpression(ASTContextRef context, SourceRange location, ASTScopeRef scope,
+                                                        ASTTypeRef sizeType);
+
+ASTTypeOperationExpressionRef ASTContextCreateTypeOperationExpression(ASTContextRef context, SourceRange location, ASTScopeRef scope,
+                                                                      ASTTypeOperation op, ASTExpressionRef expression,
+                                                                      ASTTypeRef expressionType);
+
 ASTModuleDeclarationRef ASTContextCreateModuleDeclaration(ASTContextRef context, SourceRange location, ASTScopeRef scope,
                                                           StringRef moduleName, ArrayRef sourceUnits, ArrayRef importedModules);
 
@@ -91,6 +99,9 @@ ASTStructureDeclarationRef ASTContextCreateStructureDeclaration(ASTContextRef co
 
 ASTValueDeclarationRef ASTContextCreateValueDeclaration(ASTContextRef context, SourceRange location, ASTScopeRef scope, ASTValueKind kind,
                                                         StringRef name, ASTTypeRef type, ASTExpressionRef initializer);
+
+ASTTypeAliasDeclarationRef ASTContextCreateTypeAliasDeclaration(ASTContextRef context, SourceRange location, ASTScopeRef scope,
+                                                                StringRef name, ASTTypeRef type);
 
 ASTOpaqueTypeRef ASTContextCreateOpaqueType(ASTContextRef context, SourceRange location, ASTScopeRef scope, StringRef name);
 

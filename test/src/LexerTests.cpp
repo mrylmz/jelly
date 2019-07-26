@@ -722,6 +722,10 @@ static inline void _PrintTokenKindDescription(TokenKind kind) {
             printf("%s", "as");
             break;
 
+        case TokenKindKeywordAsExclamationMark:
+            printf("%s", "as!");
+            break;
+
         case TokenKindKeywordIf:
             printf("%s", "if");
             break;
@@ -798,6 +802,14 @@ static inline void _PrintTokenKindDescription(TokenKind kind) {
             printf("%s", "var");
             break;
 
+        case TokenKindKeywordTypeAlias:
+            printf("%s", "typealias");
+            break;
+
+        case TokenKindKeywordSizeOf:
+            printf("%s", "sizeof");
+            break;
+
         case TokenKindKeywordVoid:
             printf("%s", "Void");
             break;
@@ -860,6 +872,10 @@ static inline void _PrintTokenKindDescription(TokenKind kind) {
 
         case TokenKindDirectiveLoad:
             printf("%s", "#load");
+            break;
+
+        case TokenKindDirectiveLink:
+            printf("%s", "#link");
             break;
 
         case TokenKindDirectiveIntrinsic:

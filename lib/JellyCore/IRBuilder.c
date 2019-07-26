@@ -54,6 +54,8 @@ static inline LLVMTypeRef _IRBuilderGetIRType(IRBuilderRef builder, ASTTypeRef t
 static inline LLVMValueRef _IRBuilderBuildIntrinsic(IRBuilderRef builder, LLVMValueRef function, StringRef intrinsic,
                                                     LLVMValueRef *arguments, unsigned argumentCount, LLVMTypeRef resultType);
 
+LLVMValueRef _IRBuilderGetConstantSizeOfType(IRBuilderRef builder, ASTTypeRef type);
+
 IRBuilderRef IRBuilderCreate(AllocatorRef allocator, ASTContextRef context, StringRef buildDirectory) {
     IRBuilderRef builder          = (IRBuilderRef)AllocatorAllocate(allocator, sizeof(struct _IRBuilder));
     builder->allocator            = allocator;
@@ -139,6 +141,9 @@ IRModuleRef IRBuilderBuild(IRBuilderRef builder, ASTModuleDeclarationRef module)
                 continue;
 
             case ASTTagValueDeclaration:
+                continue;
+
+            case ASTTagTypeAliasDeclaration:
                 continue;
 
             default:
@@ -759,6 +764,17 @@ static inline void _IRBuilderBuildExpression(IRBuilderRef builder, LLVMValueRef 
 
     case ASTTagBinaryExpression: {
         ASTBinaryExpressionRef binary = (ASTBinaryExpressionRef)expression;
+
+        if (binary->base.base.flags & ASTFlagsIsPointerArithmetic) {
+            _IRBuilderBuildExpression(builder, function, binary->arguments[0]);
+            _IRBuilderBuildExpression(builder, function, binary->arguments[1]);
+
+            LLVMValueRef pointer      = _IRBuilderLoadExpression(builder, function, binary->arguments[0]);
+            LLVMValueRef indices[]    = {_IRBuilderLoadExpression(builder, function, binary->arguments[1])};
+            binary->base.base.irValue = LLVMBuildGEP(builder->builder, pointer, indices, 1, "");
+            return;
+        }
+
         assert(binary->opFunction);
 
         // Infix functions are currently not added to the declarations of the module and are just contained inside the global scope, so we
@@ -835,7 +851,7 @@ static inline void _IRBuilderBuildExpression(IRBuilderRef builder, LLVMValueRef 
             LLVMBuildStore(builder->builder, _IRBuilderLoadExpression(builder, function, memberAccess->argument), pointer);
         }
 
-        Index pointerDepth = memberAccess->pointerDepth;
+        Int pointerDepth = memberAccess->pointerDepth;
         while (pointerDepth > 0) {
             pointer = LLVMBuildLoad(builder->builder, pointer, "");
             pointerDepth -= 1;
@@ -894,7 +910,37 @@ static inline void _IRBuilderBuildExpression(IRBuilderRef builder, LLVMValueRef 
     }
 
     case ASTTagConstantExpression:
-        return _IRBuilderBuildConstantExpression(builder, (ASTConstantExpressionRef)expression);
+        return _IRBuilderBuildConstantExpression(builder, expression);
+
+    case ASTTagSizeOfExpression: {
+        ASTSizeOfExpressionRef sizeOf = (ASTSizeOfExpressionRef)expression;
+        sizeOf->base.base.irValue     = _IRBuilderGetConstantSizeOfType(builder, sizeOf->sizeType);
+        return;
+    }
+
+    case ASTTagTypeOperationExpression: {
+        ASTTypeOperationExpressionRef typeExpression = (ASTTypeOperationExpressionRef)expression;
+        _IRBuilderBuildExpression(builder, function, typeExpression->expression);
+
+        switch (typeExpression->op) {
+        case ASTTypeOperationTypeCheck:
+            ReportCritical("Type check operation is currently not supported!");
+            return;
+
+        case ASTTypeOperationTypeCast:
+            ReportCritical("Type cast operation is currently not supported!");
+            return;
+
+        case ASTTypeOperationTypeBitcast: {
+            LLVMValueRef value                = _IRBuilderLoadExpression(builder, function, typeExpression->expression);
+            LLVMTypeRef targetType            = _IRBuilderGetIRType(builder, typeExpression->argumentType);
+            typeExpression->base.base.irValue = LLVMBuildBitCast(builder->builder, value, targetType, "");
+            return;
+        }
+        }
+
+        return;
+    }
 
     default:
         break;
@@ -1516,4 +1562,8 @@ static inline LLVMValueRef _IRBuilderBuildIntrinsic(IRBuilderRef builder, LLVMVa
 
     ReportError("Use of unknown intrinsic");
     return LLVMGetUndef(resultType);
+}
+
+LLVMValueRef _IRBuilderGetConstantSizeOfType(IRBuilderRef builder, ASTTypeRef type) {
+    return LLVMSizeOf(_IRBuilderGetIRType(builder, type));
 }

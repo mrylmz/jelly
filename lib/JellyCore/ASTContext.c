@@ -32,29 +32,32 @@ ASTContextRef ASTContextCreate(AllocatorRef allocator, StringRef moduleName) {
     context->allocator         = bumpAllocator;
     // TODO: @Bug Reallocation of dynamic arrays causes invalidation of all pointers do not store the source of truth in arrays!
     //            We can just allocate nodes dynamically without holding a reference to them because the BumpAllocator will be freed once...
-    context->nodes[ASTTagSourceUnit]             = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTSourceUnit), 1024);
-    context->nodes[ASTTagLinkedList]             = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTLinkedList), 1024);
-    context->nodes[ASTTagArray]                  = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTArray), 2048);
-    context->nodes[ASTTagLoadDirective]          = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTLoadDirective), 1024);
-    context->nodes[ASTTagLinkDirective]          = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTLinkDirective), 1024);
-    context->nodes[ASTTagBlock]                  = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTBlock), 1024);
-    context->nodes[ASTTagIfStatement]            = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTIfStatement), 1024);
-    context->nodes[ASTTagLoopStatement]          = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTLoopStatement), 1024);
-    context->nodes[ASTTagCaseStatement]          = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTCaseStatement), 1024);
-    context->nodes[ASTTagSwitchStatement]        = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTSwitchStatement), 1024);
-    context->nodes[ASTTagControlStatement]       = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTControlStatement), 1024);
-    context->nodes[ASTTagReferenceExpression]    = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTReferenceExpression), 1024);
-    context->nodes[ASTTagDereferenceExpression]  = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTDereferenceExpression), 1024);
-    context->nodes[ASTTagUnaryExpression]        = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTUnaryExpression), 1024);
-    context->nodes[ASTTagBinaryExpression]       = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTBinaryExpression), 1024);
-    context->nodes[ASTTagIdentifierExpression]   = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTIdentifierExpression), 1024);
-    context->nodes[ASTTagMemberAccessExpression] = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTMemberAccessExpression), 1024);
-    context->nodes[ASTTagAssignmentExpression]   = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTAssignmentExpression), 1024);
-    context->nodes[ASTTagCallExpression]         = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTCallExpression), 1024);
-    context->nodes[ASTTagConstantExpression]     = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTConstantExpression), 1024);
-    context->nodes[ASTTagModuleDeclaration]      = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTModuleDeclaration), 1024);
-    context->nodes[ASTTagEnumerationDeclaration] = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTEnumerationDeclaration), 1024);
-    context->nodes[ASTTagFunctionDeclaration]    = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTFunctionDeclaration), 1024);
+    context->nodes[ASTTagSourceUnit]              = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTSourceUnit), 1024);
+    context->nodes[ASTTagLinkedList]              = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTLinkedList), 1024);
+    context->nodes[ASTTagArray]                   = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTArray), 2048);
+    context->nodes[ASTTagLoadDirective]           = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTLoadDirective), 1024);
+    context->nodes[ASTTagLinkDirective]           = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTLinkDirective), 1024);
+    context->nodes[ASTTagBlock]                   = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTBlock), 1024);
+    context->nodes[ASTTagTypeAliasDeclaration]    = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTTypeAliasDeclaration), 1024);
+    context->nodes[ASTTagIfStatement]             = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTIfStatement), 1024);
+    context->nodes[ASTTagLoopStatement]           = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTLoopStatement), 1024);
+    context->nodes[ASTTagCaseStatement]           = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTCaseStatement), 1024);
+    context->nodes[ASTTagSwitchStatement]         = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTSwitchStatement), 1024);
+    context->nodes[ASTTagControlStatement]        = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTControlStatement), 1024);
+    context->nodes[ASTTagReferenceExpression]     = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTReferenceExpression), 1024);
+    context->nodes[ASTTagDereferenceExpression]   = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTDereferenceExpression), 1024);
+    context->nodes[ASTTagUnaryExpression]         = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTUnaryExpression), 1024);
+    context->nodes[ASTTagBinaryExpression]        = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTBinaryExpression), 1024);
+    context->nodes[ASTTagIdentifierExpression]    = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTIdentifierExpression), 1024);
+    context->nodes[ASTTagMemberAccessExpression]  = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTMemberAccessExpression), 1024);
+    context->nodes[ASTTagAssignmentExpression]    = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTAssignmentExpression), 1024);
+    context->nodes[ASTTagCallExpression]          = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTCallExpression), 1024);
+    context->nodes[ASTTagConstantExpression]      = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTConstantExpression), 1024);
+    context->nodes[ASTTagSizeOfExpression]        = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTSizeOfExpression), 1024);
+    context->nodes[ASTTagTypeOperationExpression] = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTTypeOperationExpression), 1024);
+    context->nodes[ASTTagModuleDeclaration]       = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTModuleDeclaration), 1024);
+    context->nodes[ASTTagEnumerationDeclaration]  = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTEnumerationDeclaration), 1024);
+    context->nodes[ASTTagFunctionDeclaration]     = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTFunctionDeclaration), 1024);
     context->nodes[ASTTagForeignFunctionDeclaration]   = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTFunctionDeclaration), 1024);
     context->nodes[ASTTagIntrinsicFunctionDeclaration] = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTFunctionDeclaration), 1024);
     context->nodes[ASTTagStructureDeclaration] = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTStructureDeclaration), 1024);
@@ -373,6 +376,28 @@ ASTConstantExpressionRef ASTContextCreateConstantStringExpression(ASTContextRef 
     return node;
 }
 
+ASTSizeOfExpressionRef ASTContextCreateSizeOfExpression(ASTContextRef context, SourceRange location, ASTScopeRef scope,
+                                                        ASTTypeRef sizeType) {
+    ASTSizeOfExpressionRef node = (ASTSizeOfExpressionRef)_ASTContextCreateNode(context, ASTTagSizeOfExpression, location, scope);
+    node->sizeType              = sizeType;
+    node->base.type             = NULL;
+    node->base.expectedType     = NULL;
+    return node;
+}
+
+ASTTypeOperationExpressionRef ASTContextCreateTypeOperationExpression(ASTContextRef context, SourceRange location, ASTScopeRef scope,
+                                                                      ASTTypeOperation op, ASTExpressionRef expression,
+                                                                      ASTTypeRef expressionType) {
+    ASTTypeOperationExpressionRef node = (ASTTypeOperationExpressionRef)_ASTContextCreateNode(context, ASTTagTypeOperationExpression,
+                                                                                              location, scope);
+    node->op                           = op;
+    node->expression                   = expression;
+    node->argumentType               = expressionType;
+    node->base.type                    = NULL;
+    node->base.expectedType            = NULL;
+    return node;
+}
+
 ASTModuleDeclarationRef ASTContextCreateModuleDeclaration(ASTContextRef context, SourceRange location, ASTScopeRef scope, StringRef name,
                                                           ArrayRef sourceUnits, ArrayRef importedModules) {
     ASTModuleDeclarationRef node = (ASTModuleDeclarationRef)_ASTContextCreateNode(context, ASTTagModuleDeclaration, location, scope);
@@ -505,6 +530,16 @@ ASTValueDeclarationRef ASTContextCreateValueDeclaration(ASTContextRef context, S
     node->kind                  = kind;
     node->base.type             = type;
     node->initializer           = initializer;
+    return node;
+}
+
+ASTTypeAliasDeclarationRef ASTContextCreateTypeAliasDeclaration(ASTContextRef context, SourceRange location, ASTScopeRef scope,
+                                                                StringRef name, ASTTypeRef type) {
+    ASTTypeAliasDeclarationRef node = (ASTTypeAliasDeclarationRef)_ASTContextCreateNode(context, ASTTagTypeAliasDeclaration, location,
+                                                                                        scope);
+    node->base.name                 = StringCreateCopy(context->allocator, name);
+    node->base.mangledName          = NULL;
+    node->base.type                 = type;
     return node;
 }
 

@@ -123,7 +123,7 @@ static inline void _TypeCheckerValidateSourceUnit(TypeCheckerRef typeChecker, AS
 }
 
 static inline void _TypeCheckerValidateTopLevelNode(TypeCheckerRef typeChecker, ASTContextRef context, ASTNodeRef node) {
-    if (node->tag == ASTTagLoadDirective || node->tag == ASTTagLinkDirective) {
+    if (node->tag == ASTTagLoadDirective || node->tag == ASTTagLinkDirective || node->tag == ASTTagTypeAliasDeclaration) {
         return;
     }
 
@@ -550,30 +550,45 @@ static inline void _TypeCheckerValidateExpression(TypeCheckerRef typeChecker, AS
 
     switch (expression->base.tag) {
     case ASTTagReferenceExpression: {
+        ASTReferenceExpressionRef reference = (ASTReferenceExpressionRef)expression;
+        _TypeCheckerValidateExpression(typeChecker, context, reference->argument);
+
         // TODO: Validate expression
         break;
     }
 
     case ASTTagDereferenceExpression: {
+        ASTDereferenceExpressionRef dereference = (ASTDereferenceExpressionRef)expression;
+        _TypeCheckerValidateExpression(typeChecker, context, dereference->argument);
+
         // TODO: Validate expression
         break;
     }
 
     case ASTTagUnaryExpression: {
+        ASTUnaryExpressionRef unary = (ASTUnaryExpressionRef)expression;
+        _TypeCheckerValidateExpression(typeChecker, context, unary->arguments[0]);
+
         // TODO: Validate expression
         break;
     }
 
     case ASTTagBinaryExpression: {
+        ASTBinaryExpressionRef binary = (ASTBinaryExpressionRef)expression;
+        _TypeCheckerValidateExpression(typeChecker, context, binary->arguments[0]);
+        _TypeCheckerValidateExpression(typeChecker, context, binary->arguments[1]);
+
         // TODO: Validate expression
         break;
     }
 
     case ASTTagIdentifierExpression: {
+        // TODO: Validate expression
         break;
     }
 
     case ASTTagMemberAccessExpression: {
+        // TODO: Validate expression
         break;
     }
 
@@ -657,6 +672,36 @@ static inline void _TypeCheckerValidateExpression(TypeCheckerRef typeChecker, AS
         break;
     }
 
+    case ASTTagSizeOfExpression: {
+        // TODO: Check if given type is a valid type for size calculation!
+        break;
+    }
+
+    case ASTTagTypeOperationExpression: {
+        // TODO: Check if type operation is valid and supported by the backend!
+        //
+        // LLVM API Documentation:
+        // The ‘bitcast’ instruction takes a value to cast, which must be a non-aggregate first class value, and a type to cast it to, which
+        // must also be a non-aggregate first class type. The bit sizes of value and the destination type, ty2, must be identical. If the
+        // source type is a pointer, the destination type must also be a pointer of the same size. This instruction supports bitwise
+        // conversion of vectors to integers and to vectors of other types (as long as they have the same size).
+        //
+        // NOTE:
+        // Pointer to non pointer and non pointer to pointer should still be allowed here, that will be handled by the backend...
+        ASTTypeOperationExpressionRef typeExpression = (ASTTypeOperationExpressionRef)expression;
+        _TypeCheckerValidateExpression(typeChecker, context, typeExpression->expression);
+
+        // NOTE: We will limit this operation to only pointer types for now and can eventually add support for other types if it makes
+        //       sense...
+        if (typeExpression->expression->type->tag != ASTTagPointerType || typeExpression->argumentType->tag != ASTTagPointerType) {
+            ReportError("Bitcast operation only accepts pointer types at the moment");
+            typeExpression->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
+            return;
+        }
+
+        break;
+    }
+
     default:
         JELLY_UNREACHABLE("Invalid tag given for ASTExpression");
         break;
@@ -666,14 +711,17 @@ static inline void _TypeCheckerValidateExpression(TypeCheckerRef typeChecker, AS
 static inline void _TypeCheckerValidateBlock(TypeCheckerRef typeChecker, ASTContextRef context, ASTBlockRef block) {
     _GuardValidateOnce(block);
 
-    for (Index index = 0; index < ASTArrayGetElementCount(block->statements); index++) {
-        ASTNodeRef statement = ASTArrayGetElementAtIndex(block->statements, index);
+    ASTArrayIteratorRef iterator = ASTArrayGetIterator(block->statements);
+    while (iterator) {
+        ASTNodeRef statement = (ASTNodeRef)ASTArrayIteratorGetElement(iterator);
         _TypeCheckerValidateStatement(typeChecker, context, statement);
 
         // Every control statement is a terminator
         if (statement->tag == ASTTagControlStatement) {
             block->base.flags |= ASTFlagsBlockHasTerminator;
         }
+
+        iterator = ASTArrayIteratorNext(iterator);
     }
 }
 

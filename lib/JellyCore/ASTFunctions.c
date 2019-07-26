@@ -22,6 +22,7 @@ ASTOperatorPrecedence ASTGetBinaryOperatorPrecedence(ASTBinaryOperator binary) {
 
     case ASTBinaryOperatorTypeCheck:
     case ASTBinaryOperatorTypeCast:
+    case ASTBinaryOperatorTypeBitcast:
         return 500;
 
     case ASTBinaryOperatorLessThan:
@@ -106,6 +107,7 @@ ASTOperatorAssociativity ASTGetBinaryOperatorAssociativity(ASTBinaryOperator bin
     case ASTBinaryOperatorBitwiseXor:
     case ASTBinaryOperatorTypeCheck:
     case ASTBinaryOperatorTypeCast:
+    case ASTBinaryOperatorTypeBitcast:
         return ASTOperatorAssociativityLeft;
 
     case ASTBinaryOperatorLessThan:
@@ -339,6 +341,11 @@ Bool ASTTypeIsEqual(ASTTypeRef lhs, ASTTypeRef rhs) {
 static inline Bool _ASTOpaqueTypeIsEqual(ASTOpaqueTypeRef opaque, ASTTypeRef other) {
     assert(opaque->declaration);
 
+    if (opaque->declaration->base.tag == ASTTagTypeAliasDeclaration) {
+        assert((ASTTypeRef)opaque != opaque->declaration->type);
+        return ASTTypeIsEqual(opaque->declaration->type, other);
+    }
+
     switch (other->tag) {
     case ASTTagOpaqueType: {
         ASTOpaqueTypeRef otherOpaque = (ASTOpaqueTypeRef)other;
@@ -370,4 +377,37 @@ static inline Bool _ASTOpaqueTypeIsEqual(ASTOpaqueTypeRef opaque, ASTTypeRef oth
     default:
         return false;
     }
+}
+
+Bool ASTTypeIsInteger(ASTTypeRef type) {
+    if (type->tag != ASTTagBuiltinType) {
+        return false;
+    }
+
+    ASTBuiltinTypeRef builtin = (ASTBuiltinTypeRef)type;
+    switch (builtin->kind) {
+    case ASTBuiltinTypeKindInt8:
+    case ASTBuiltinTypeKindInt16:
+    case ASTBuiltinTypeKindInt32:
+    case ASTBuiltinTypeKindInt64:
+    case ASTBuiltinTypeKindInt:
+    case ASTBuiltinTypeKindUInt8:
+    case ASTBuiltinTypeKindUInt16:
+    case ASTBuiltinTypeKindUInt32:
+    case ASTBuiltinTypeKindUInt64:
+    case ASTBuiltinTypeKindUInt:
+        return true;
+
+    default:
+        return false;
+    }
+}
+
+Bool ASTTypeIsVoid(ASTTypeRef type) {
+    if (type->tag != ASTTagBuiltinType) {
+        return false;
+    }
+
+    ASTBuiltinTypeRef builtin = (ASTBuiltinTypeRef)type;
+    return builtin->kind == ASTBuiltinTypeKindVoid;
 }
