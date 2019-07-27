@@ -1,6 +1,7 @@
 #include "JellyCore/ASTDumper.h"
 #include "JellyCore/ASTMangling.h"
 #include "JellyCore/ASTScope.h"
+#include "JellyCore/ASTSubstitution.h"
 #include "JellyCore/Diagnostic.h"
 #include "JellyCore/IRBuilder.h"
 #include "JellyCore/LDLinker.h"
@@ -203,7 +204,9 @@ void *_WorkspaceProcess(void *context) {
         return NULL;
     }
 
-    // Name resolution phase
+    ASTPerformSubstitution(workspace->context, ASTTagUnaryExpression, &ASTUnaryExpressionUnification);
+    ASTPerformSubstitution(workspace->context, ASTTagBinaryExpression, &ASTBinaryExpressionUnification);
+    ASTApplySubstitution(workspace->context, ASTContextGetModule(workspace->context));
     PerformNameResolution(workspace->context, ASTContextGetModule(workspace->context));
 
     if ((workspace->options & WorkspaceOptionsDumpScope) > 0) {

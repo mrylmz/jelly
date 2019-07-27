@@ -1,4 +1,5 @@
 #include "JellyCore/ASTContext.h"
+#include "JellyCore/ASTFunctions.h"
 #include "JellyCore/ASTMangling.h"
 #include "JellyCore/ASTNodes.h"
 #include "JellyCore/ASTScope.h"
@@ -86,6 +87,10 @@ ASTScopeRef ASTContextGetGlobalScope(ASTContextRef context) {
 
 ASTModuleDeclarationRef ASTContextGetModule(ASTContextRef context) {
     return context->module;
+}
+
+ArrayRef ASTContextGetAllNodes(ASTContextRef context, ASTTag tag) {
+    return context->nodes[tag];
 }
 
 void ASTModuleAddSourceUnit(ASTContextRef context, ASTModuleDeclarationRef module, ASTSourceUnitRef sourceUnit) {
@@ -304,13 +309,48 @@ ASTCallExpressionRef ASTContextCreateCallExpression(ASTContextRef context, Sourc
     assert(callee);
 
     ASTCallExpressionRef node = (ASTCallExpressionRef)_ASTContextCreateNode(context, ASTTagCallExpression, location, scope);
+    node->fixity              = ASTFixityNone;
     node->callee              = callee;
     node->arguments           = ASTContextCreateArray(context, location, scope);
+    node->op.unary            = ASTUnaryOperatorUnknown;
     node->base.type           = NULL;
     node->base.expectedType   = NULL;
     if (arguments) {
         ASTArrayAppendArray(node->arguments, arguments);
     }
+    return node;
+}
+
+ASTCallExpressionRef ASTContextCreateUnaryCallExpression(ASTContextRef context, SourceRange location, ASTScopeRef scope,
+                                                         ASTUnaryOperator op, ASTExpressionRef arguments[1]) {
+    assert(op != ASTUnaryOperatorUnknown);
+
+    StringRef name            = ASTGetPrefixOperatorName(context->allocator, op);
+    ASTCallExpressionRef node = (ASTCallExpressionRef)_ASTContextCreateNode(context, ASTTagCallExpression, location, scope);
+    node->fixity              = ASTFixityPrefix;
+    node->callee              = (ASTExpressionRef)ASTContextCreateIdentifierExpression(context, location, scope, name);
+    node->arguments           = ASTContextCreateArray(context, location, scope);
+    node->op.unary            = op;
+    node->base.type           = NULL;
+    node->base.expectedType   = NULL;
+    ASTArrayAppendElement(node->arguments, arguments[0]);
+    return node;
+}
+
+ASTCallExpressionRef ASTContextCreateBinaryCallExpression(ASTContextRef context, SourceRange location, ASTScopeRef scope,
+                                                          ASTBinaryOperator op, ASTExpressionRef arguments[2]) {
+    assert(op != ASTUnaryOperatorUnknown);
+
+    StringRef name            = ASTGetInfixOperatorName(context->allocator, op);
+    ASTCallExpressionRef node = (ASTCallExpressionRef)_ASTContextCreateNode(context, ASTTagCallExpression, location, scope);
+    node->fixity              = ASTFixityInfix;
+    node->callee              = (ASTExpressionRef)ASTContextCreateIdentifierExpression(context, location, scope, name);
+    node->arguments           = ASTContextCreateArray(context, location, scope);
+    node->op.binary           = op;
+    node->base.type           = NULL;
+    node->base.expectedType   = NULL;
+    ASTArrayAppendElement(node->arguments, arguments[0]);
+    ASTArrayAppendElement(node->arguments, arguments[1]);
     return node;
 }
 
@@ -392,7 +432,7 @@ ASTTypeOperationExpressionRef ASTContextCreateTypeOperationExpression(ASTContext
                                                                                               location, scope);
     node->op                           = op;
     node->expression                   = expression;
-    node->argumentType               = expressionType;
+    node->argumentType                 = expressionType;
     node->base.type                    = NULL;
     node->base.expectedType            = NULL;
     return node;
@@ -643,13 +683,15 @@ ASTStructureTypeRef ASTContextGetStringType(ASTContextRef context) {
 }
 
 ASTNodeRef _ASTContextCreateNode(ASTContextRef context, ASTTag tag, SourceRange location, ASTScopeRef scope) {
-    ASTNodeRef node = ArrayAppendUninitializedElement(context->nodes[tag]);
-    node->tag       = tag;
-    node->flags     = ASTFlagsNone;
-    node->location  = location;
-    node->scope     = scope;
-    node->irValue   = NULL;
-    node->irType    = NULL;
+    ASTNodeRef node  = ArrayAppendUninitializedElement(context->nodes[tag]);
+    node->tag        = tag;
+    node->flags      = ASTFlagsNone;
+    node->location   = location;
+    node->scope      = scope;
+    node->substitute = NULL;
+    node->primary    = NULL;
+    node->irValue    = NULL;
+    node->irType     = NULL;
     return node;
 }
 

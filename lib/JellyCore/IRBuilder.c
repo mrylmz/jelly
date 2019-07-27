@@ -723,102 +723,6 @@ static inline void _IRBuilderBuildExpression(IRBuilderRef builder, LLVMValueRef 
         return;
     }
 
-    case ASTTagUnaryExpression: {
-        ASTUnaryExpressionRef unary = (ASTUnaryExpressionRef)expression;
-        assert(unary->opFunction);
-
-        // Prefix functions are currently not added to the declarations of the module and are just contained inside the global scope, so we
-        // will force the IR generation of the function here for now...
-        // TODO: Remove this after finishing implementation for foreign and prefix infix functions
-        if (!unary->opFunction->base.base.irType) {
-            assert(ASTArrayGetElementCount(unary->opFunction->parameters) == 1);
-            ASTValueDeclarationRef parameter    = (ASTValueDeclarationRef)ASTArrayGetElementAtIndex(unary->opFunction->parameters, 0);
-            LLVMTypeRef parameterTypes[]        = {_IRBuilderGetIRType(builder, parameter->base.type)};
-            unary->opFunction->base.base.irType = LLVMFunctionType(_IRBuilderGetIRType(builder, unary->opFunction->returnType),
-                                                                   parameterTypes, 1, false);
-        }
-
-        if (unary->opFunction->base.base.tag == ASTTagFunctionDeclaration) {
-            _IRBuilderBuildFunctionBody(builder, unary->opFunction);
-            _IRBuilderBuildExpression(builder, function, unary->arguments[0]);
-            LLVMValueRef arguments[] = {_IRBuilderLoadExpression(builder, function, unary->arguments[0])};
-            LLVMValueRef opFunction  = (LLVMValueRef)unary->opFunction->base.base.irValue;
-            unary->base.base.irValue = LLVMBuildCall(builder->builder, opFunction, arguments, 1, "");
-        } else if (unary->opFunction->base.base.tag == ASTTagForeignFunctionDeclaration) {
-            _IRBuilderBuildForeignFunctionSignature(builder, unary->opFunction);
-            _IRBuilderBuildExpression(builder, function, unary->arguments[0]);
-            LLVMValueRef arguments[] = {_IRBuilderLoadExpression(builder, function, unary->arguments[0])};
-            LLVMValueRef opFunction  = (LLVMValueRef)unary->opFunction->base.base.irValue;
-            unary->base.base.irValue = LLVMBuildCall(builder->builder, opFunction, arguments, 1, "");
-        } else if (unary->opFunction->base.base.tag == ASTTagIntrinsicFunctionDeclaration) {
-            _IRBuilderBuildExpression(builder, function, unary->arguments[0]);
-            LLVMValueRef arguments[] = {_IRBuilderLoadExpression(builder, function, unary->arguments[0])};
-            unary->base.base.irValue = _IRBuilderBuildIntrinsic(builder, function, unary->opFunction->intrinsicName, arguments, 1,
-                                                                (LLVMTypeRef)unary->opFunction->returnType->irType);
-        } else {
-            JELLY_UNREACHABLE("Invalid tag given for ASTFunctionDeclaration!");
-        }
-
-        return;
-    }
-
-    case ASTTagBinaryExpression: {
-        ASTBinaryExpressionRef binary = (ASTBinaryExpressionRef)expression;
-
-        if (binary->base.base.flags & ASTFlagsIsPointerArithmetic) {
-            _IRBuilderBuildExpression(builder, function, binary->arguments[0]);
-            _IRBuilderBuildExpression(builder, function, binary->arguments[1]);
-
-            LLVMValueRef pointer      = _IRBuilderLoadExpression(builder, function, binary->arguments[0]);
-            LLVMValueRef indices[]    = {_IRBuilderLoadExpression(builder, function, binary->arguments[1])};
-            binary->base.base.irValue = LLVMBuildGEP(builder->builder, pointer, indices, 1, "");
-            return;
-        }
-
-        assert(binary->opFunction);
-
-        // Infix functions are currently not added to the declarations of the module and are just contained inside the global scope, so we
-        // will force the IR generation of the function here for now...
-        if (!binary->opFunction->base.base.irType) {
-            assert(ASTArrayGetElementCount(binary->opFunction->parameters) == 2);
-            ASTValueDeclarationRef lhsParameter  = (ASTValueDeclarationRef)ASTArrayGetElementAtIndex(binary->opFunction->parameters, 0);
-            ASTValueDeclarationRef rhsParameter  = (ASTValueDeclarationRef)ASTArrayGetElementAtIndex(binary->opFunction->parameters, 1);
-            LLVMTypeRef parameterTypes[]         = {_IRBuilderGetIRType(builder, lhsParameter->base.type),
-                                            _IRBuilderGetIRType(builder, rhsParameter->base.type)};
-            binary->opFunction->base.base.irType = LLVMFunctionType(_IRBuilderGetIRType(builder, binary->opFunction->returnType),
-                                                                    parameterTypes, 2, false);
-        }
-
-        if (binary->opFunction->base.base.tag == ASTTagFunctionDeclaration) {
-            _IRBuilderBuildFunctionBody(builder, binary->opFunction);
-            _IRBuilderBuildExpression(builder, function, binary->arguments[0]);
-            _IRBuilderBuildExpression(builder, function, binary->arguments[1]);
-            LLVMValueRef opFunction   = (LLVMValueRef)binary->opFunction->base.base.irValue;
-            LLVMValueRef arguments[]  = {_IRBuilderLoadExpression(builder, function, binary->arguments[0]),
-                                        _IRBuilderLoadExpression(builder, function, binary->arguments[1])};
-            binary->base.base.irValue = LLVMBuildCall(builder->builder, opFunction, arguments, 2, "");
-        } else if (binary->opFunction->base.base.tag == ASTTagForeignFunctionDeclaration) {
-            _IRBuilderBuildForeignFunctionSignature(builder, binary->opFunction);
-            _IRBuilderBuildExpression(builder, function, binary->arguments[0]);
-            _IRBuilderBuildExpression(builder, function, binary->arguments[1]);
-            LLVMValueRef opFunction   = (LLVMValueRef)binary->opFunction->base.base.irValue;
-            LLVMValueRef arguments[]  = {_IRBuilderLoadExpression(builder, function, binary->arguments[0]),
-                                        _IRBuilderLoadExpression(builder, function, binary->arguments[1])};
-            binary->base.base.irValue = LLVMBuildCall(builder->builder, opFunction, arguments, 2, "");
-        } else if (binary->opFunction->base.base.tag == ASTTagIntrinsicFunctionDeclaration) {
-            _IRBuilderBuildExpression(builder, function, binary->arguments[0]);
-            _IRBuilderBuildExpression(builder, function, binary->arguments[1]);
-            LLVMValueRef arguments[]  = {_IRBuilderLoadExpression(builder, function, binary->arguments[0]),
-                                        _IRBuilderLoadExpression(builder, function, binary->arguments[1])};
-            binary->base.base.irValue = _IRBuilderBuildIntrinsic(builder, function, binary->opFunction->intrinsicName, arguments, 2,
-                                                                 (LLVMTypeRef)binary->opFunction->returnType->irType);
-        } else {
-            JELLY_UNREACHABLE("Invalid tag given for ASTFunctionDeclaration!");
-        }
-
-        return;
-    }
-
     case ASTTagIdentifierExpression: {
         ASTIdentifierExpressionRef identifier = (ASTIdentifierExpressionRef)expression;
         assert(identifier->resolvedDeclaration && identifier->resolvedDeclaration->base.irValue);
@@ -880,32 +784,85 @@ static inline void _IRBuilderBuildExpression(IRBuilderRef builder, LLVMValueRef 
         assert(call->callee->type->tag == ASTTagFunctionType ||
                (call->callee->type->tag == ASTTagPointerType &&
                 ((ASTPointerTypeRef)call->callee->type)->pointeeType->tag == ASTTagFunctionType));
-        _IRBuilderBuildExpression(builder, function, call->callee);
 
-        ArrayRef arguments = ArrayCreateEmpty(builder->allocator, sizeof(LLVMValueRef), ASTArrayGetElementCount(call->arguments));
-        for (Index index = 0; index < ASTArrayGetElementCount(call->arguments); index++) {
-            ASTExpressionRef argument = (ASTExpressionRef)ASTArrayGetElementAtIndex(call->arguments, index);
-            _IRBuilderBuildExpression(builder, function, argument);
-            LLVMValueRef argumentValue = _IRBuilderLoadExpression(builder, function, argument);
-            ArrayAppendElement(arguments, &argumentValue);
+        // Prefix and infix functions are currently not added to the declarations of the module and are just contained inside the global
+        // scope, so we will force the IR generation of the function here for now...
+        // TODO: Remove this after finishing implementation for foreign and prefix infix functions
+        if (!call->callee->type->irType) {
+            _IRBuilderGetIRType(builder, call->callee->type);
         }
 
+        if (call->base.base.flags & ASTFlagsIsPointerArithmetic) {
+            assert(ASTArrayGetElementCount(call->arguments) == 2);
+            ASTExpressionRef arguments[] = {ASTArrayGetElementAtIndex(call->arguments, 0), ASTArrayGetElementAtIndex(call->arguments, 1)};
+            _IRBuilderBuildExpression(builder, function, arguments[0]);
+            _IRBuilderBuildExpression(builder, function, arguments[1]);
+            LLVMValueRef pointer    = _IRBuilderLoadExpression(builder, function, arguments[0]);
+            LLVMValueRef indices[]  = {_IRBuilderLoadExpression(builder, function, arguments[1])};
+            call->base.base.irValue = LLVMBuildGEP(builder->builder, pointer, indices, 1, "");
+            return;
+        }
+
+        ASTFunctionDeclarationRef declaration = NULL;
         if (call->callee->type->tag == ASTTagPointerType) {
             ASTPointerTypeRef pointerType   = (ASTPointerTypeRef)call->callee->type;
             ASTFunctionTypeRef functionType = (ASTFunctionTypeRef)pointerType->pointeeType;
             assert(functionType->resultType->irType);
             call->base.base.irType = functionType->resultType->irType;
+            declaration            = functionType->declaration;
         } else {
             ASTFunctionTypeRef functionType = (ASTFunctionTypeRef)call->callee->type;
             assert(functionType->resultType->irType);
             call->base.base.irType = functionType->resultType->irType;
+            declaration            = functionType->declaration;
         }
 
-        call->base.base.irValue = (LLVMValueRef)LLVMBuildCall(builder->builder, (LLVMValueRef)call->callee->base.irValue,
-                                                              (LLVMValueRef *)ArrayGetMemoryPointer(arguments),
-                                                              ArrayGetElementCount(arguments), "");
+        if (!declaration || declaration->base.base.tag == ASTTagFunctionDeclaration) {
+            _IRBuilderBuildExpression(builder, function, call->callee);
 
-        ArrayDestroy(arguments);
+            ArrayRef arguments = ArrayCreateEmpty(builder->allocator, sizeof(LLVMValueRef), ASTArrayGetElementCount(call->arguments));
+            for (Index index = 0; index < ASTArrayGetElementCount(call->arguments); index++) {
+                ASTExpressionRef argument = (ASTExpressionRef)ASTArrayGetElementAtIndex(call->arguments, index);
+                _IRBuilderBuildExpression(builder, function, argument);
+                LLVMValueRef argumentValue = _IRBuilderLoadExpression(builder, function, argument);
+                ArrayAppendElement(arguments, &argumentValue);
+            }
+
+            call->base.base.irValue = (LLVMValueRef)LLVMBuildCall(builder->builder, (LLVMValueRef)call->callee->base.irValue,
+                                                                  (LLVMValueRef *)ArrayGetMemoryPointer(arguments),
+                                                                  ArrayGetElementCount(arguments), "");
+
+            ArrayDestroy(arguments);
+        } else if (declaration->base.base.tag == ASTTagForeignFunctionDeclaration) {
+            _IRBuilderBuildForeignFunctionSignature(builder, declaration);
+
+            ArrayRef arguments = ArrayCreateEmpty(builder->allocator, sizeof(LLVMValueRef), ASTArrayGetElementCount(call->arguments));
+            for (Index index = 0; index < ASTArrayGetElementCount(call->arguments); index++) {
+                ASTExpressionRef argument = (ASTExpressionRef)ASTArrayGetElementAtIndex(call->arguments, index);
+                _IRBuilderBuildExpression(builder, function, argument);
+                LLVMValueRef argumentValue = _IRBuilderLoadExpression(builder, function, argument);
+                ArrayAppendElement(arguments, &argumentValue);
+            }
+
+            call->base.base.irValue = LLVMBuildCall(builder->builder, (LLVMValueRef)declaration->base.base.irValue,
+                                                    (LLVMValueRef *)ArrayGetMemoryPointer(arguments), ArrayGetElementCount(arguments), "");
+        } else if (declaration->base.base.tag == ASTTagIntrinsicFunctionDeclaration) {
+            ArrayRef arguments = ArrayCreateEmpty(builder->allocator, sizeof(LLVMValueRef), ASTArrayGetElementCount(call->arguments));
+            for (Index index = 0; index < ASTArrayGetElementCount(call->arguments); index++) {
+                ASTExpressionRef argument = (ASTExpressionRef)ASTArrayGetElementAtIndex(call->arguments, index);
+                _IRBuilderBuildExpression(builder, function, argument);
+                LLVMValueRef argumentValue = _IRBuilderLoadExpression(builder, function, argument);
+                ArrayAppendElement(arguments, &argumentValue);
+            }
+
+            call->base.base.irValue = _IRBuilderBuildIntrinsic(
+                builder, function, declaration->intrinsicName, (LLVMValueRef *)ArrayGetMemoryPointer(arguments),
+                ArrayGetElementCount(arguments), (LLVMTypeRef)declaration->returnType->irType);
+
+        } else {
+            JELLY_UNREACHABLE("Invalid tag given for ASTFunctionDeclaration!");
+        }
+
         return;
     }
 

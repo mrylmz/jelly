@@ -41,6 +41,8 @@ ASTArrayIteratorRef ASTArrayIteratorNext(ASTArrayIteratorRef iterator);
 
 void *ASTArrayIteratorGetElement(ASTArrayIteratorRef iterator);
 
+void ASTArrayIteratorSetElement(ASTArrayIteratorRef iterator, void *element);
+
 void *ASTArrayIteratorGetElementPointer(ASTArrayIteratorRef iterator);
 
 JELLY_EXTERN_C_END

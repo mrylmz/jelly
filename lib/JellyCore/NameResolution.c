@@ -9,6 +9,7 @@ enum _CandidateFunctionMatchKind {
     CandidateFunctionMatchKindNone,
     CandidateFunctionMatchKindName,
     CandidateFunctionMatchKindParameterCount,
+    CandidateFunctionMatchKindParameterTypesWithConversion,
     CandidateFunctionMatchKindParameterTypes,
     CandidateFunctionMatchKindExpectedType,
 };
@@ -436,149 +437,6 @@ static inline void _PerformNameResolutionForExpression(ASTContextRef context, AS
         return;
     }
 
-    if (expression->base.tag == ASTTagUnaryExpression) {
-        ASTUnaryExpressionRef unary = (ASTUnaryExpressionRef)expression;
-        // TODO: Allow candidate types for builtin integer types!
-        _PerformNameResolutionForExpression(context, unary->arguments[0]);
-
-        ASTScopeRef globalScope                       = ASTContextGetGlobalScope(context);
-        StringRef operatorName                        = ASTGetPrefixOperatorName(AllocatorGetSystemDefault(), unary->op);
-        ASTFunctionDeclarationRef matchingDeclaration = NULL;
-        for (Index index = 0; index < ASTArrayGetElementCount(globalScope->declarations); index++) {
-            ASTDeclarationRef declaration = (ASTDeclarationRef)ASTArrayGetElementAtIndex(globalScope->declarations, index);
-            if (declaration->base.tag != ASTTagFunctionDeclaration && declaration->base.tag != ASTTagForeignFunctionDeclaration &&
-                declaration->base.tag != ASTTagIntrinsicFunctionDeclaration) {
-                continue;
-            }
-
-            ASTFunctionDeclarationRef function = (ASTFunctionDeclarationRef)declaration;
-            if (function->fixity != ASTFixityPrefix) {
-                continue;
-            }
-
-            if (ASTArrayGetElementCount(function->parameters) != 1) {
-                continue;
-            }
-
-            if (!StringIsEqual(function->base.name, operatorName)) {
-                continue;
-            }
-
-            ASTValueDeclarationRef parameter = ASTArrayGetElementAtIndex(function->parameters, 0);
-            if (!ASTTypeIsEqual(parameter->base.type, unary->arguments[0]->type)) {
-                continue;
-            }
-
-            if (unary->base.expectedType) {
-                if (!ASTTypeIsEqual(unary->base.expectedType, function->returnType)) {
-                    continue;
-                }
-            }
-
-            assert(!matchingDeclaration && "Candidate declarations is currently not supported for unary expressions!");
-            matchingDeclaration = function;
-        }
-
-        if (!matchingDeclaration) {
-            ReportErrorFormat("Use of unresolved prefix function '%s'", StringGetCharacters(operatorName));
-            unary->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
-        } else {
-            unary->opFunction = (ASTFunctionDeclarationRef)matchingDeclaration;
-            unary->base.type  = unary->opFunction->returnType;
-        }
-
-        StringDestroy(operatorName);
-        return;
-    }
-
-    if (expression->base.tag == ASTTagBinaryExpression) {
-        ASTBinaryExpressionRef binary = (ASTBinaryExpressionRef)expression;
-        _PerformNameResolutionForExpression(context, binary->arguments[0]);
-        _PerformNameResolutionForExpression(context, binary->arguments[1]);
-
-        if ((binary->arguments[0]->type->tag == ASTTagBuiltinType &&
-             ((ASTBuiltinTypeRef)binary->arguments[0]->type)->kind == ASTBuiltinTypeKindError) ||
-            (binary->arguments[1]->type->tag == ASTTagBuiltinType &&
-             ((ASTBuiltinTypeRef)binary->arguments[1]->type)->kind == ASTBuiltinTypeKindError)) {
-            binary->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
-            return;
-        }
-
-        // TODO: Disallow creation of infix functions for the cases which are implicitly handled by the compiler!
-        if ((binary->op == ASTBinaryOperatorAdd || binary->op == ASTBinaryOperatorSubtract) &&
-            binary->arguments[0]->type->tag == ASTTagPointerType && ASTTypeIsInteger(binary->arguments[1]->type)) {
-            ASTPointerTypeRef pointerType = (ASTPointerTypeRef)binary->arguments[0]->type;
-            if (ASTTypeIsVoid(pointerType->pointeeType)) {
-                binary->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
-                ReportError("Cannot perform arithmetic operations on a 'Void' pointer");
-                return;
-            }
-
-            binary->base.base.flags |= ASTFlagsIsPointerArithmetic;
-            binary->base.type = binary->arguments[0]->type;
-            return;
-        }
-
-        ASTScopeRef globalScope                       = ASTContextGetGlobalScope(context);
-        StringRef operatorName                        = ASTGetInfixOperatorName(AllocatorGetSystemDefault(), binary->op);
-        ASTFunctionDeclarationRef matchingDeclaration = NULL;
-        for (Index index = 0; index < ASTArrayGetElementCount(globalScope->declarations); index++) {
-            ASTDeclarationRef declaration = (ASTDeclarationRef)ASTArrayGetElementAtIndex(globalScope->declarations, index);
-            if (declaration->base.tag != ASTTagFunctionDeclaration && declaration->base.tag != ASTTagForeignFunctionDeclaration &&
-                declaration->base.tag != ASTTagIntrinsicFunctionDeclaration) {
-                continue;
-            }
-
-            ASTFunctionDeclarationRef function = (ASTFunctionDeclarationRef)declaration;
-            if (function->fixity != ASTFixityInfix) {
-                continue;
-            }
-
-            if (ASTArrayGetElementCount(function->parameters) != 2) {
-                continue;
-            }
-
-            if (!StringIsEqual(function->base.name, operatorName)) {
-                continue;
-            }
-
-            ASTValueDeclarationRef lhsParameter = ASTArrayGetElementAtIndex(function->parameters, 0);
-            if (!ASTTypeIsEqual(lhsParameter->base.type, binary->arguments[0]->type)) {
-                continue;
-            }
-
-            ASTValueDeclarationRef rhsParameter = ASTArrayGetElementAtIndex(function->parameters, 1);
-            if (!ASTTypeIsEqual(rhsParameter->base.type, binary->arguments[1]->type)) {
-                continue;
-            }
-
-            if (binary->base.expectedType) {
-                if (!ASTTypeIsEqual(binary->base.expectedType, function->returnType)) {
-                    continue;
-                }
-            }
-
-            if (matchingDeclaration) {
-                ReportError("Candidate declarations is currently not supported for binary expressions!");
-                binary->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
-                return;
-            }
-
-            matchingDeclaration = function;
-        }
-
-        if (!matchingDeclaration) {
-            ReportErrorFormat("Use of unresolved infix function '%s'", StringGetCharacters(operatorName));
-            binary->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
-        } else {
-            binary->opFunction = (ASTFunctionDeclarationRef)matchingDeclaration;
-            binary->base.type  = binary->opFunction->returnType;
-        }
-
-        StringDestroy(operatorName);
-        return;
-    }
-
     if (expression->base.tag == ASTTagIdentifierExpression) {
         ASTIdentifierExpressionRef identifier = (ASTIdentifierExpressionRef)expression;
         ASTDeclarationRef declaration         = ASTScopeLookupDeclarationInHierarchyByName(expression->base.scope, identifier->name);
@@ -685,6 +543,30 @@ static inline void _PerformNameResolutionForExpression(ASTContextRef context, AS
             _PerformNameResolutionForExpression(context, argument);
         }
 
+        // TODO: Disallow creation of infix functions for the cases which are implicitly handled by the compiler!
+        if (call->fixity == ASTFixityInfix && (call->op.binary == ASTBinaryOperatorAdd || call->op.binary == ASTBinaryOperatorSubtract)) {
+            assert(ASTArrayGetElementCount(call->arguments) == 2);
+            ASTExpressionRef arguments[] = {ASTArrayGetElementAtIndex(call->arguments, 0), ASTArrayGetElementAtIndex(call->arguments, 1)};
+            if (arguments[0]->type->tag == ASTTagPointerType && ASTTypeIsInteger(arguments[1]->type)) {
+                ASTPointerTypeRef pointerType = (ASTPointerTypeRef)arguments[0]->type;
+                if (ASTTypeIsVoid(pointerType->pointeeType)) {
+                    call->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
+                    ReportError("Cannot perform arithmetic operations on a 'Void' pointer");
+                    return;
+                }
+
+                call->base.base.flags |= ASTFlagsIsPointerArithmetic;
+                call->base.type         = arguments[0]->type;
+                ArrayRef parameterTypes = ArrayCreateEmpty(AllocatorGetSystemDefault(), sizeof(ASTTypeRef), 2);
+                ArrayAppendElement(parameterTypes, &arguments[0]->type);
+                ArrayAppendElement(parameterTypes, &arguments[1]->type);
+                call->callee->type = (ASTTypeRef)ASTContextCreateFunctionType(context, call->callee->base.location,
+                                                                              call->callee->base.scope, parameterTypes, arguments[0]->type);
+                ArrayDestroy(parameterTypes);
+                return;
+            }
+        }
+
         if (call->callee->base.tag == ASTTagIdentifierExpression) {
             ASTIdentifierExpressionRef identifier = (ASTIdentifierExpressionRef)call->callee;
             ASTDeclarationRef declaration = ASTScopeLookupDeclarationInHierarchyByName(identifier->base.base.scope, identifier->name);
@@ -693,6 +575,7 @@ static inline void _PerformNameResolutionForExpression(ASTContextRef context, AS
                 ASTArrayAppendElement(identifier->candidateDeclarations, declaration);
             }
 
+            // TODO: Add lossless convertible type matching!
             ASTScopeRef globalScope               = ASTContextGetGlobalScope(context);
             ASTDeclarationRef matchingDeclaration = NULL;
             CandidateFunctionMatchKind matchKind  = CandidateFunctionMatchKindNone;
@@ -701,6 +584,11 @@ static inline void _PerformNameResolutionForExpression(ASTContextRef context, AS
                 ASTDeclarationRef declaration = (ASTDeclarationRef)ASTArrayGetElementAtIndex(globalScope->declarations, index);
                 if (declaration->base.tag != ASTTagFunctionDeclaration && declaration->base.tag != ASTTagForeignFunctionDeclaration &&
                     declaration->base.tag != ASTTagIntrinsicFunctionDeclaration) {
+                    continue;
+                }
+
+                ASTFunctionDeclarationRef function = (ASTFunctionDeclarationRef)declaration;
+                if (function->fixity != call->fixity) {
                     continue;
                 }
 
@@ -713,7 +601,6 @@ static inline void _PerformNameResolutionForExpression(ASTContextRef context, AS
                     matchKind           = CandidateFunctionMatchKindName;
                 }
 
-                ASTFunctionDeclarationRef function = (ASTFunctionDeclarationRef)declaration;
                 Index minParameterCheckCount = MIN(ASTArrayGetElementCount(function->parameters), ASTArrayGetElementCount(call->arguments));
                 Index hasCorrectArgumentCount = ASTArrayGetElementCount(function->parameters) == ASTArrayGetElementCount(call->arguments);
 

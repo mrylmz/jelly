@@ -126,6 +126,8 @@ struct _ASTNode {
     ASTFlags flags;
     SourceRange location;
     ASTScopeRef scope;
+    ASTNodeRef substitute;
+    ASTNodeRef primary;
 
     IRRef irValue;
     IRRef irType;
@@ -353,11 +355,24 @@ struct _ASTAssignmentExpression {
     ASTExpressionRef expression;
 };
 
+enum _ASTFixity {
+    ASTFixityNone,
+    ASTFixityPrefix,
+    ASTFixityInfix,
+    ASTFixityPostfix,
+};
+typedef enum _ASTFixity ASTFixity;
+
 struct _ASTCallExpression {
     struct _ASTExpression base;
 
+    ASTFixity fixity;
     ASTExpressionRef callee;
     ASTArrayRef arguments;
+    union {
+        ASTUnaryOperator unary;
+        ASTBinaryOperator binary;
+    } op;
 };
 
 enum _ASTConstantKind {
@@ -433,14 +448,6 @@ struct _ASTEnumerationDeclaration {
     ASTArrayRef elements;
     ASTScopeRef innerScope;
 };
-
-enum _ASTFixity {
-    ASTFixityNone,
-    ASTFixityPrefix,
-    ASTFixityInfix,
-    ASTFixityPostfix,
-};
-typedef enum _ASTFixity ASTFixity;
 
 struct _ASTFunctionDeclaration {
     struct _ASTDeclaration base;

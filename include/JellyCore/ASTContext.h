@@ -17,6 +17,8 @@ ASTScopeRef ASTContextGetGlobalScope(ASTContextRef context);
 
 ASTModuleDeclarationRef ASTContextGetModule(ASTContextRef context);
 
+ArrayRef ASTContextGetAllNodes(ASTContextRef context, ASTTag tag);
+
 void ASTModuleAddSourceUnit(ASTContextRef context, ASTModuleDeclarationRef module, ASTSourceUnitRef sourceUnit);
 
 ASTSourceUnitRef ASTContextCreateSourceUnit(ASTContextRef context, SourceRange location, ASTScopeRef scope, StringRef filePath,
@@ -60,6 +62,10 @@ ASTAssignmentExpressionRef ASTContextCreateAssignmentExpression(ASTContextRef co
                                                                 ASTExpressionRef expression);
 ASTCallExpressionRef ASTContextCreateCallExpression(ASTContextRef context, SourceRange location, ASTScopeRef scope, ASTExpressionRef callee,
                                                     ArrayRef arguments);
+ASTCallExpressionRef ASTContextCreateUnaryCallExpression(ASTContextRef context, SourceRange location, ASTScopeRef scope,
+                                                         ASTUnaryOperator op, ASTExpressionRef arguments[1]);
+ASTCallExpressionRef ASTContextCreateBinaryCallExpression(ASTContextRef context, SourceRange location, ASTScopeRef scope,
+                                                          ASTBinaryOperator op, ASTExpressionRef arguments[2]);
 ASTConstantExpressionRef ASTContextCreateConstantNilExpression(ASTContextRef context, SourceRange location, ASTScopeRef scope);
 ASTConstantExpressionRef ASTContextCreateConstantBoolExpression(ASTContextRef context, SourceRange location, ASTScopeRef scope, Bool value);
 ASTConstantExpressionRef ASTContextCreateConstantIntExpression(ASTContextRef context, SourceRange location, ASTScopeRef scope,
