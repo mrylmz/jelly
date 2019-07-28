@@ -403,6 +403,62 @@ Bool ASTTypeIsInteger(ASTTypeRef type) {
     }
 }
 
+Int ASTIntegerTypeGetBitwidth(ASTTypeRef type) {
+    if (type->tag != ASTTagBuiltinType) {
+        return -1;
+    }
+
+    ASTBuiltinTypeRef builtin = (ASTBuiltinTypeRef)type;
+    switch (builtin->kind) {
+    case ASTBuiltinTypeKindInt8:
+    case ASTBuiltinTypeKindUInt8:
+        return 8;
+
+    case ASTBuiltinTypeKindInt16:
+    case ASTBuiltinTypeKindUInt16:
+        return 16;
+
+    case ASTBuiltinTypeKindInt32:
+    case ASTBuiltinTypeKindUInt32:
+        return 32;
+
+    case ASTBuiltinTypeKindInt64:
+    case ASTBuiltinTypeKindInt:
+    case ASTBuiltinTypeKindUInt64:
+    case ASTBuiltinTypeKindUInt:
+        return 64;
+
+    default:
+        return -1;
+    }
+}
+
+Int ASTIntegerTypeIsSigned(ASTTypeRef type) {
+    if (type->tag != ASTTagBuiltinType) {
+        return -1;
+    }
+
+    ASTBuiltinTypeRef builtin = (ASTBuiltinTypeRef)type;
+    switch (builtin->kind) {
+    case ASTBuiltinTypeKindInt8:
+    case ASTBuiltinTypeKindInt16:
+    case ASTBuiltinTypeKindInt32:
+    case ASTBuiltinTypeKindInt64:
+    case ASTBuiltinTypeKindInt:
+        return true;
+
+    case ASTBuiltinTypeKindUInt8:
+    case ASTBuiltinTypeKindUInt16:
+    case ASTBuiltinTypeKindUInt32:
+    case ASTBuiltinTypeKindUInt64:
+    case ASTBuiltinTypeKindUInt:
+        return false;
+
+    default:
+        return false;
+    }
+}
+
 Bool ASTTypeIsVoid(ASTTypeRef type) {
     if (type->tag != ASTTagBuiltinType) {
         return false;
@@ -410,4 +466,29 @@ Bool ASTTypeIsVoid(ASTTypeRef type) {
 
     ASTBuiltinTypeRef builtin = (ASTBuiltinTypeRef)type;
     return builtin->kind == ASTBuiltinTypeKindVoid;
+}
+
+Bool ASTTypeIsLosslessConvertible(ASTTypeRef type, ASTTypeRef targetType) {
+    if (!ASTTypeIsInteger(type) || !ASTTypeIsInteger(targetType)) {
+        return false;
+    }
+
+    Int lhsBitwidth = ASTIntegerTypeGetBitwidth(type);
+    Bool lhsSigned  = ASTIntegerTypeIsSigned(type);
+    Int rhsBitwidth = ASTIntegerTypeGetBitwidth(targetType);
+    Bool rhsSigned  = ASTIntegerTypeIsSigned(targetType);
+
+    if (!lhsSigned) {
+        if (rhsSigned) {
+            return lhsBitwidth < rhsBitwidth;
+        }
+
+        if (!rhsSigned) {
+            return lhsBitwidth <= rhsBitwidth;
+        }
+    } else if (rhsSigned) {
+        return lhsBitwidth <= rhsBitwidth;
+    }
+
+    return false;
 }

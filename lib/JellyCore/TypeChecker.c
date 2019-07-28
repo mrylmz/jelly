@@ -642,7 +642,8 @@ static inline void _TypeCheckerValidateExpression(TypeCheckerRef typeChecker, AS
                         ASTExpressionRef argument = (ASTExpressionRef)ASTArrayIteratorGetElement(argumentIterator);
                         ASTTypeRef parameterType  = (ASTTypeRef)ASTArrayIteratorGetElement(parameterIterator);
 
-                        if (!_ASTTypeIsEqualOrError(argument->type, parameterType)) {
+                        if (!_ASTTypeIsEqualOrError(argument->type, parameterType) &&
+                            !ASTTypeIsLosslessConvertible(argument->type, parameterType)) {
                             if (functionType->declaration) {
                                 ASTValueDeclarationRef parameter = ASTArrayGetElementAtIndex(functionType->declaration->parameters, index);
                                 ReportErrorFormat("Mismatching type for parameter '%s' in '%s'", StringGetCharacters(parameter->base.name),

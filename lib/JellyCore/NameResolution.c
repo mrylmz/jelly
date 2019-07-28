@@ -9,9 +9,8 @@ enum _CandidateFunctionMatchKind {
     CandidateFunctionMatchKindNone,
     CandidateFunctionMatchKindName,
     CandidateFunctionMatchKindParameterCount,
-    CandidateFunctionMatchKindParameterTypesWithConversion,
-    CandidateFunctionMatchKindParameterTypes,
     CandidateFunctionMatchKindExpectedType,
+    CandidateFunctionMatchKindParameterTypes,
 };
 typedef enum _CandidateFunctionMatchKind CandidateFunctionMatchKind;
 
@@ -404,6 +403,10 @@ static inline void _PerformNameResolutionForNode(ASTContextRef context, ASTNodeR
     }
 }
 
+static inline Bool _IsNodeEqual(const void *elementLeft, const void *elementRight) {
+    return elementLeft == elementRight;
+}
+
 static inline void _PerformNameResolutionForExpression(ASTContextRef context, ASTExpressionRef expression) {
     if (expression->base.tag == ASTTagReferenceExpression) {
         ASTReferenceExpressionRef reference = (ASTReferenceExpressionRef)expression;
@@ -569,17 +572,17 @@ static inline void _PerformNameResolutionForExpression(ASTContextRef context, AS
 
         if (call->callee->base.tag == ASTTagIdentifierExpression) {
             ASTIdentifierExpressionRef identifier = (ASTIdentifierExpressionRef)call->callee;
-            ASTDeclarationRef declaration = ASTScopeLookupDeclarationInHierarchyByName(identifier->base.base.scope, identifier->name);
-            if (declaration && declaration->type->tag == ASTTagPointerType &&
-                ((ASTPointerTypeRef)declaration->type)->pointeeType->tag == ASTTagFunctionType) {
-                ASTArrayAppendElement(identifier->candidateDeclarations, declaration);
-            }
+            //            ASTDeclarationRef declaration = ASTScopeLookupDeclarationInHierarchyByName(identifier->base.base.scope,
+            //            identifier->name); if (declaration && declaration->type->tag == ASTTagPointerType &&
+            //                ((ASTPointerTypeRef)declaration->type)->pointeeType->tag == ASTTagFunctionType) {
+            //                ASTArrayAppendElement(identifier->candidateDeclarations, declaration);
+            //            }
 
-            // TODO: Add lossless convertible type matching!
-            ASTScopeRef globalScope               = ASTContextGetGlobalScope(context);
-            ASTDeclarationRef matchingDeclaration = NULL;
-            CandidateFunctionMatchKind matchKind  = CandidateFunctionMatchKindNone;
-            Index matchingParameterTypeCount      = 0;
+            ASTScopeRef globalScope                = ASTContextGetGlobalScope(context);
+            ASTDeclarationRef matchingDeclaration  = NULL;
+            CandidateFunctionMatchKind matchKind   = CandidateFunctionMatchKindNone;
+            Index matchingParameterTypeCount       = 0;
+            Index matchingParameterTypeConversions = UINTMAX_MAX;
             for (Index index = 0; index < ASTArrayGetElementCount(globalScope->declarations); index++) {
                 ASTDeclarationRef declaration = (ASTDeclarationRef)ASTArrayGetElementAtIndex(globalScope->declarations, index);
                 if (declaration->base.tag != ASTTagFunctionDeclaration && declaration->base.tag != ASTTagForeignFunctionDeclaration &&
@@ -596,6 +599,13 @@ static inline void _PerformNameResolutionForExpression(ASTContextRef context, AS
                     continue;
                 }
 
+                // TODO: For some reasons are the predefined operators visited twice, that should be impossible but we will fix it for now
+                // by only storing distinct declarations into candidateDeclarations. It could be that the builtin functions are not inserted
+                // correctly to the context
+                if (ASTArrayContainsElement(identifier->candidateDeclarations, &_IsNodeEqual, declaration)) {
+                    continue;
+                }
+
                 if (matchKind < CandidateFunctionMatchKindName) {
                     matchingDeclaration = declaration;
                     matchKind           = CandidateFunctionMatchKindName;
@@ -609,19 +619,16 @@ static inline void _PerformNameResolutionForExpression(ASTContextRef context, AS
                     matchKind           = CandidateFunctionMatchKindParameterCount;
                 }
 
-                if (call->base.expectedType) {
-                    if (!ASTTypeIsEqual(call->base.expectedType, function->returnType)) {
-                        continue;
-                    }
-
+                if (call->base.expectedType && ASTTypeIsEqual(call->base.expectedType, function->returnType)) {
                     if (matchKind < CandidateFunctionMatchKindExpectedType) {
                         matchingDeclaration = declaration;
                         matchKind           = CandidateFunctionMatchKindExpectedType;
                     }
                 }
 
-                Bool hasMatchingParameterTypes          = true;
-                Index currentMatchingParameterTypeCount = 0;
+                Bool hasMatchingParameterTypes                = true;
+                Index currentMatchingParameterTypeCount       = 0;
+                Index currentMatchingParameterTypeConversions = 0;
                 for (Index parameterIndex = 0; parameterIndex < minParameterCheckCount; parameterIndex++) {
                     ASTValueDeclarationRef parameter = (ASTValueDeclarationRef)ASTArrayGetElementAtIndex(function->parameters,
                                                                                                          parameterIndex);
@@ -630,20 +637,26 @@ static inline void _PerformNameResolutionForExpression(ASTContextRef context, AS
                     assert(parameter->base.type);
                     assert(argument->type);
 
-                    if (ASTTypeIsEqual(parameter->base.type, argument->type)) {
+                    if (ASTTypeIsEqual(argument->type, parameter->base.type)) {
                         currentMatchingParameterTypeCount += 1;
+                    } else if (ASTTypeIsLosslessConvertible(argument->type, parameter->base.type)) {
+                        currentMatchingParameterTypeCount += 1;
+                        currentMatchingParameterTypeConversions += 1;
                     } else {
                         hasMatchingParameterTypes = false;
                     }
                 }
 
-                if (hasMatchingParameterTypes && hasCorrectArgumentCount) {
+                if (hasMatchingParameterTypes && hasCorrectArgumentCount && currentMatchingParameterTypeConversions == 0) {
                     ASTArrayAppendElement(identifier->candidateDeclarations, declaration);
                 } else if (matchKind <= CandidateFunctionMatchKindParameterTypes &&
-                           matchingParameterTypeCount < currentMatchingParameterTypeCount) {
-                    matchingDeclaration        = declaration;
-                    matchKind                  = CandidateFunctionMatchKindParameterTypes;
-                    matchingParameterTypeCount = currentMatchingParameterTypeCount;
+                           ((matchingParameterTypeCount < currentMatchingParameterTypeCount) ||
+                            ((matchingParameterTypeCount == currentMatchingParameterTypeCount) &&
+                             matchingParameterTypeConversions > currentMatchingParameterTypeConversions))) {
+                    matchingDeclaration              = declaration;
+                    matchKind                        = CandidateFunctionMatchKindParameterTypes;
+                    matchingParameterTypeCount       = currentMatchingParameterTypeCount;
+                    matchingParameterTypeConversions = currentMatchingParameterTypeConversions;
                 }
             }
 
@@ -688,6 +701,7 @@ static inline void _PerformNameResolutionForExpression(ASTContextRef context, AS
         }
 
         assert(call->callee->type);
+        _ResolveDeclarationsOfTypeAndSubstituteType(context, call->callee->base.scope, &call->callee->type);
 
         if (call->callee->type->tag == ASTTagFunctionType) {
             ASTFunctionTypeRef functionType = (ASTFunctionTypeRef)call->callee->type;
@@ -757,8 +771,12 @@ static inline void _PerformNameResolutionForExpression(ASTContextRef context, AS
                     }
                 }
             } else {
-                if (constant->minimumBitWidth < 64) {
-                    constant->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindInt64);
+                if (constant->minimumBitWidth <= 8) {
+                    constant->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindUInt8);
+                } else if (constant->minimumBitWidth <= 16) {
+                    constant->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindUInt16);
+                } else if (constant->minimumBitWidth <= 32) {
+                    constant->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindUInt32);
                 } else {
                     constant->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindUInt64);
                 }

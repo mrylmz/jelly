@@ -1,4 +1,5 @@
 #include "JellyCore/ASTContext.h"
+#include "JellyCore/ASTFunctions.h"
 #include "JellyCore/Allocator.h"
 #include "JellyCore/Diagnostic.h"
 #include "JellyCore/IRBuilder.h"
@@ -55,6 +56,9 @@ static inline LLVMValueRef _IRBuilderBuildIntrinsic(IRBuilderRef builder, LLVMVa
                                                     LLVMValueRef *arguments, unsigned argumentCount, LLVMTypeRef resultType);
 
 LLVMValueRef _IRBuilderGetConstantSizeOfType(IRBuilderRef builder, ASTTypeRef type);
+
+LLVMValueRef _IRBuilderLosslessConvertValue(IRBuilderRef builder, LLVMValueRef function, LLVMValueRef value, ASTTypeRef valueType,
+                                            ASTTypeRef targetType);
 
 IRBuilderRef IRBuilderCreate(AllocatorRef allocator, ASTContextRef context, StringRef buildDirectory) {
     IRBuilderRef builder          = (IRBuilderRef)AllocatorAllocate(allocator, sizeof(struct _IRBuilder));
@@ -398,6 +402,11 @@ static inline void _IRBuilderBuildFunctionBody(IRBuilderRef builder, ASTFunction
     for (Index index = 0; index < ASTArrayGetElementCount(declaration->body->statements); index++) {
         ASTNodeRef statement = (ASTNodeRef)ASTArrayGetElementAtIndex(declaration->body->statements, index);
         _IRBuilderBuildStatement(builder, function, statement);
+
+        if (statement->flags & ASTFlagsStatementIsAlwaysReturning) {
+            LLVMBuildUnreachable(builder->builder);
+            return;
+        }
     }
 
     if (!(declaration->body->base.flags & ASTFlagsStatementIsAlwaysReturning)) {
@@ -822,9 +831,11 @@ static inline void _IRBuilderBuildExpression(IRBuilderRef builder, LLVMValueRef 
 
             ArrayRef arguments = ArrayCreateEmpty(builder->allocator, sizeof(LLVMValueRef), ASTArrayGetElementCount(call->arguments));
             for (Index index = 0; index < ASTArrayGetElementCount(call->arguments); index++) {
-                ASTExpressionRef argument = (ASTExpressionRef)ASTArrayGetElementAtIndex(call->arguments, index);
+                ASTExpressionRef argument        = (ASTExpressionRef)ASTArrayGetElementAtIndex(call->arguments, index);
+                ASTValueDeclarationRef parameter = (ASTValueDeclarationRef)ASTArrayGetElementAtIndex(declaration->parameters, index);
                 _IRBuilderBuildExpression(builder, function, argument);
                 LLVMValueRef argumentValue = _IRBuilderLoadExpression(builder, function, argument);
+                argumentValue = _IRBuilderLosslessConvertValue(builder, function, argumentValue, argument->type, parameter->base.type);
                 ArrayAppendElement(arguments, &argumentValue);
             }
 
@@ -838,9 +849,11 @@ static inline void _IRBuilderBuildExpression(IRBuilderRef builder, LLVMValueRef 
 
             ArrayRef arguments = ArrayCreateEmpty(builder->allocator, sizeof(LLVMValueRef), ASTArrayGetElementCount(call->arguments));
             for (Index index = 0; index < ASTArrayGetElementCount(call->arguments); index++) {
-                ASTExpressionRef argument = (ASTExpressionRef)ASTArrayGetElementAtIndex(call->arguments, index);
+                ASTExpressionRef argument        = (ASTExpressionRef)ASTArrayGetElementAtIndex(call->arguments, index);
+                ASTValueDeclarationRef parameter = (ASTValueDeclarationRef)ASTArrayGetElementAtIndex(declaration->parameters, index);
                 _IRBuilderBuildExpression(builder, function, argument);
                 LLVMValueRef argumentValue = _IRBuilderLoadExpression(builder, function, argument);
+                argumentValue = _IRBuilderLosslessConvertValue(builder, function, argumentValue, argument->type, parameter->base.type);
                 ArrayAppendElement(arguments, &argumentValue);
             }
 
@@ -849,9 +862,11 @@ static inline void _IRBuilderBuildExpression(IRBuilderRef builder, LLVMValueRef 
         } else if (declaration->base.base.tag == ASTTagIntrinsicFunctionDeclaration) {
             ArrayRef arguments = ArrayCreateEmpty(builder->allocator, sizeof(LLVMValueRef), ASTArrayGetElementCount(call->arguments));
             for (Index index = 0; index < ASTArrayGetElementCount(call->arguments); index++) {
-                ASTExpressionRef argument = (ASTExpressionRef)ASTArrayGetElementAtIndex(call->arguments, index);
+                ASTExpressionRef argument        = (ASTExpressionRef)ASTArrayGetElementAtIndex(call->arguments, index);
+                ASTValueDeclarationRef parameter = (ASTValueDeclarationRef)ASTArrayGetElementAtIndex(declaration->parameters, index);
                 _IRBuilderBuildExpression(builder, function, argument);
                 LLVMValueRef argumentValue = _IRBuilderLoadExpression(builder, function, argument);
+                argumentValue = _IRBuilderLosslessConvertValue(builder, function, argumentValue, argument->type, parameter->base.type);
                 ArrayAppendElement(arguments, &argumentValue);
             }
 
@@ -1523,4 +1538,36 @@ static inline LLVMValueRef _IRBuilderBuildIntrinsic(IRBuilderRef builder, LLVMVa
 
 LLVMValueRef _IRBuilderGetConstantSizeOfType(IRBuilderRef builder, ASTTypeRef type) {
     return LLVMSizeOf(_IRBuilderGetIRType(builder, type));
+}
+
+LLVMValueRef _IRBuilderLosslessConvertValue(IRBuilderRef builder, LLVMValueRef function, LLVMValueRef value, ASTTypeRef valueType,
+                                            ASTTypeRef targetType) {
+    if (ASTTypeIsEqual(valueType, targetType)) {
+        return value;
+    }
+
+    assert(ASTTypeIsLosslessConvertible(valueType, targetType));
+
+    if (!ASTTypeIsInteger(valueType) || !ASTTypeIsInteger(targetType)) {
+        return value;
+    }
+
+    Int lhsBitwidth = ASTIntegerTypeGetBitwidth(valueType);
+    Bool lhsSigned  = ASTIntegerTypeIsSigned(valueType);
+    Int rhsBitwidth = ASTIntegerTypeGetBitwidth(targetType);
+    Bool rhsSigned  = ASTIntegerTypeIsSigned(targetType);
+
+    if (!lhsSigned) {
+        if (rhsSigned && lhsBitwidth < rhsBitwidth) {
+            return LLVMBuildSExtOrBitCast(builder->builder, value, _IRBuilderGetIRType(builder, targetType), "");
+        }
+
+        if (!rhsSigned && lhsBitwidth <= rhsBitwidth) {
+            return LLVMBuildZExtOrBitCast(builder->builder, value, _IRBuilderGetIRType(builder, targetType), "");
+        }
+    } else if (rhsSigned && lhsBitwidth <= rhsBitwidth) {
+        return LLVMBuildSExtOrBitCast(builder->builder, value, _IRBuilderGetIRType(builder, targetType), "");
+    }
+
+    return value;
 }

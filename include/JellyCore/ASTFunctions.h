@@ -24,7 +24,11 @@ Bool ASTTypeIsEqual(ASTTypeRef lhs, ASTTypeRef rhs);
 
 Bool ASTTypeIsInteger(ASTTypeRef type);
 
+Int ASTIntegerTypeGetBitwidth(ASTTypeRef type);
+Int ASTIntegerTypeIsSigned(ASTTypeRef type);
+
 Bool ASTTypeIsVoid(ASTTypeRef type);
+Bool ASTTypeIsLosslessConvertible(ASTTypeRef type, ASTTypeRef targetType);
 
 JELLY_EXTERN_C_END
 
