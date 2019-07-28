@@ -360,6 +360,7 @@ ASTConstantExpressionRef ASTContextCreateConstantNilExpression(ASTContextRef con
     node->minimumBitWidth         = -1;
     node->base.type               = NULL;
     node->base.expectedType       = NULL;
+    node->base.base.flags |= ASTFlagsIsConstantEvaluable;
     return node;
 }
 
@@ -371,6 +372,7 @@ ASTConstantExpressionRef ASTContextCreateConstantBoolExpression(ASTContextRef co
     node->boolValue               = value;
     node->base.type               = NULL;
     node->base.expectedType       = NULL;
+    node->base.base.flags |= ASTFlagsIsConstantEvaluable;
     return node;
 }
 
@@ -381,6 +383,7 @@ ASTConstantExpressionRef ASTContextCreateConstantIntExpression(ASTContextRef con
     node->intValue                = value;
     node->base.type               = NULL;
     node->base.expectedType       = NULL;
+    node->base.base.flags |= ASTFlagsIsConstantEvaluable;
 
     node->minimumBitWidth = 0;
     UInt64 intValue       = value;
@@ -401,6 +404,7 @@ ASTConstantExpressionRef ASTContextCreateConstantFloatExpression(ASTContextRef c
     node->floatValue              = value;
     node->base.type               = NULL;
     node->base.expectedType       = NULL;
+    node->base.base.flags |= ASTFlagsIsConstantEvaluable;
     return node;
 }
 
@@ -413,6 +417,7 @@ ASTConstantExpressionRef ASTContextCreateConstantStringExpression(ASTContextRef 
     node->stringValue             = StringCreateCopy(context->allocator, value);
     node->base.type               = NULL;
     node->base.expectedType       = NULL;
+    node->base.base.flags |= ASTFlagsIsConstantEvaluable;
     return node;
 }
 
@@ -422,6 +427,7 @@ ASTSizeOfExpressionRef ASTContextCreateSizeOfExpression(ASTContextRef context, S
     node->sizeType              = sizeType;
     node->base.type             = NULL;
     node->base.expectedType     = NULL;
+    node->base.base.flags |= ASTFlagsIsConstantEvaluable;
     return node;
 }
 

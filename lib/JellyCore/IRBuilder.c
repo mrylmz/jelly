@@ -32,6 +32,7 @@ static inline void _IRBuilderBuildEntryPoint(IRBuilderRef builder, ASTModuleDecl
 static inline void _IRBuilderBuildTypes(IRBuilderRef builder, ASTModuleDeclarationRef module);
 static inline void _IRBuilderBuildGlobalVariables(IRBuilderRef builder, ASTModuleDeclarationRef module);
 static inline void _IRBuilderBuildGlobalVariable(IRBuilderRef builder, ASTValueDeclarationRef declaration);
+static inline void _IRBuilderBuildEnumerationElements(IRBuilderRef builder, ASTEnumerationDeclarationRef declaration);
 static inline void _IRBuilderBuildFunctionSignature(IRBuilderRef builder, ASTFunctionDeclarationRef declaration);
 static inline void _IRBuilderBuildFunctionBody(IRBuilderRef builder, ASTFunctionDeclarationRef declaration);
 static inline void _IRBuilderBuildForeignFunctionSignature(IRBuilderRef builder, ASTFunctionDeclarationRef declaration);
@@ -129,7 +130,8 @@ IRModuleRef IRBuilderBuild(IRBuilderRef builder, ASTModuleDeclarationRef module)
                 continue;
 
             case ASTTagEnumerationDeclaration:
-                continue;
+                _IRBuilderBuildEnumerationElements(builder, (ASTEnumerationDeclarationRef)child);
+                break;
 
             case ASTTagFunctionDeclaration:
                 _IRBuilderBuildFunctionBody(builder, (ASTFunctionDeclarationRef)child);
@@ -369,6 +371,19 @@ static inline void _IRBuilderBuildGlobalVariable(IRBuilderRef builder, ASTValueD
 
     declaration->base.base.irValue = value;
     declaration->base.base.flags |= ASTFlagsIsValuePointer;
+}
+
+static inline void _IRBuilderBuildEnumerationElements(IRBuilderRef builder, ASTEnumerationDeclarationRef declaration) {
+    ASTArrayIteratorRef iterator = ASTArrayGetIterator(declaration->elements);
+    while (iterator) {
+        ASTValueDeclarationRef value = ASTArrayIteratorGetElement(iterator);
+        assert(value->initializer && value->base.mangledName);
+
+        value->base.base.irType = _IRBuilderGetIRType(builder, value->base.type);
+        _IRBuilderBuildGlobalVariable(builder, value);
+
+        iterator = ASTArrayIteratorNext(iterator);
+    }
 }
 
 static inline void _IRBuilderBuildFunctionSignature(IRBuilderRef builder, ASTFunctionDeclarationRef declaration) {
@@ -636,9 +651,6 @@ static inline void _IRBuilderBuildSwitchStatement(IRBuilderRef builder, LLVMValu
     }
 
     LLVMPositionBuilder(builder->builder, endBB, NULL);
-    if (statement->base.flags & ASTFlagsStatementIsAlwaysReturning) {
-        LLVMBuildUnreachable(builder->builder);
-    }
 }
 
 static inline void _IRBuilderBuildControlStatement(IRBuilderRef builder, LLVMValueRef function, ASTControlStatementRef statement) {

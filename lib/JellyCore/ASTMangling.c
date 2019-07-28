@@ -6,6 +6,7 @@
 // TODO: Allocate mangled names inside of AST as uniqued identifiers to avoid memory leaks and reduce memory footprint
 
 static inline void _MangleEnumerationDeclarationName(ASTEnumerationDeclarationRef declaration);
+static inline void _MangleEnumerationElementName(ASTEnumerationDeclarationRef declaration, ASTValueDeclarationRef element);
 static inline void _MangleFunctionDeclarationName(ASTFunctionDeclarationRef declaration);
 static inline void _MangleStructureDeclarationName(ASTStructureDeclarationRef declaration);
 static inline void _MangleValueDeclarationName(ASTValueDeclarationRef declaration);
@@ -26,6 +27,12 @@ void PerformNameMangling(ASTContextRef context, ASTModuleDeclarationRef module) 
 void PerformNameManglingForDeclaration(ASTContextRef context, ASTDeclarationRef declaration) {
     if (declaration->base.tag == ASTTagEnumerationDeclaration) {
         _MangleEnumerationDeclarationName((ASTEnumerationDeclarationRef)declaration);
+        ASTArrayIteratorRef iterator = ASTArrayGetIterator(((ASTEnumerationDeclarationRef)declaration)->elements);
+        while (iterator) {
+            ASTValueDeclarationRef element = (ASTValueDeclarationRef)ASTArrayIteratorGetElement(iterator);
+            _MangleEnumerationElementName((ASTEnumerationDeclarationRef)declaration, element);
+            iterator = ASTArrayIteratorNext(iterator);
+        }
     }
 
     if (declaration->base.tag == ASTTagFunctionDeclaration) {
@@ -47,6 +54,17 @@ static inline void _MangleEnumerationDeclarationName(ASTEnumerationDeclarationRe
     StringRef mangledName = StringCreate(AllocatorGetSystemDefault(), "$E");
     _StringAppendMangledIdentifier(mangledName, declaration->base.name);
     declaration->base.mangledName = mangledName;
+}
+
+static inline void _MangleEnumerationElementName(ASTEnumerationDeclarationRef declaration, ASTValueDeclarationRef element) {
+    assert(declaration->base.mangledName);
+    assert(!element->base.mangledName);
+
+    StringRef mangledName = StringCreate(AllocatorGetSystemDefault(), StringGetCharacters(declaration->base.mangledName));
+    StringAppend(mangledName, "_M");
+    StringAppendFormat(mangledName, "%zu", StringGetLength(element->base.name));
+    StringAppendString(mangledName, element->base.name);
+    element->base.mangledName = mangledName;
 }
 
 static inline void _MangleFunctionDeclarationName(ASTFunctionDeclarationRef declaration) {

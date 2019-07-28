@@ -572,11 +572,11 @@ static inline void _PerformNameResolutionForExpression(ASTContextRef context, AS
 
         if (call->callee->base.tag == ASTTagIdentifierExpression) {
             ASTIdentifierExpressionRef identifier = (ASTIdentifierExpressionRef)call->callee;
-            //            ASTDeclarationRef declaration = ASTScopeLookupDeclarationInHierarchyByName(identifier->base.base.scope,
-            //            identifier->name); if (declaration && declaration->type->tag == ASTTagPointerType &&
-            //                ((ASTPointerTypeRef)declaration->type)->pointeeType->tag == ASTTagFunctionType) {
-            //                ASTArrayAppendElement(identifier->candidateDeclarations, declaration);
-            //            }
+            ASTDeclarationRef declaration = ASTScopeLookupDeclarationInHierarchyByName(identifier->base.base.scope, identifier->name);
+            if (declaration && declaration->type->tag == ASTTagPointerType &&
+                ((ASTPointerTypeRef)declaration->type)->pointeeType->tag == ASTTagFunctionType) {
+                ASTArrayAppendElement(identifier->candidateDeclarations, declaration);
+            }
 
             ASTScopeRef globalScope                = ASTContextGetGlobalScope(context);
             ASTDeclarationRef matchingDeclaration  = NULL;
@@ -647,6 +647,8 @@ static inline void _PerformNameResolutionForExpression(ASTContextRef context, AS
                     }
                 }
 
+                // TODO: Converted types should also be added to candidateDeclarations and should be filtered by best matches, if there are
+                //       more than one solutions after the post checking pass, then a declaration will be ambiguous!
                 if (hasMatchingParameterTypes && hasCorrectArgumentCount && currentMatchingParameterTypeConversions == 0) {
                     ASTArrayAppendElement(identifier->candidateDeclarations, declaration);
                 } else if (matchKind <= CandidateFunctionMatchKindParameterTypes &&
@@ -693,7 +695,7 @@ static inline void _PerformNameResolutionForExpression(ASTContextRef context, AS
                     identifier->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
                 }
             } else {
-                ReportError("Ambigous use of identifier");
+                ReportError("Ambiguous use of identifier");
                 identifier->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
             }
         } else {
