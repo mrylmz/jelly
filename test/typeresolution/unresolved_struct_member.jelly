@@ -1,5 +1,5 @@
 struct Invalid {
-    var unknown: Unknown // expect-error: Use of unresolved type
+    var unknown: Unknown // expect-error: Use of unresolved type 'Unknown'
 }
 
 func main() -> Void {}

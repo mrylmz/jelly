@@ -1,7 +1,7 @@
 // run: -type-check
 
 struct D {
-    var a: UndeclaredType // expect-error: Use of unresolved type
+    var a: UndeclaredType // expect-error: Use of unresolved type 'UndeclaredType'
 }
 
 func main() -> Void {}

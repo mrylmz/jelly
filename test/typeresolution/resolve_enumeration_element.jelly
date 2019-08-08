@@ -1,0 +1,16 @@
+// run: -dump-ir
+
+enum EntityTag {
+    case player
+}
+
+struct Entity {}
+
+func makeEntity(tag: EntityTag) -> Entity* {
+    switch tag {
+    case player:
+        return nil
+    }
+}
+
+func main() -> Void {}

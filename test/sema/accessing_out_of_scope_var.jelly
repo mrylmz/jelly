@@ -2,7 +2,7 @@
 
 func myFunc(condition: Bool) -> Int {
     if condition {
-        return x // expect-error: Use of unresolved identifier
+        return x // expect-error: Use of unresolved identifier 'x'
     } 
 
     var x: Int = 0

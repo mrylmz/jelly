@@ -1,0 +1,6 @@
+func ambiguous(x: Int) -> Int { return 0 }
+func ambiguous(x: Int) -> Void {}
+
+func main() -> Void {
+    ambiguous(0) // expect-error: Ambiguous use of identifier
+}
