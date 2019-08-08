@@ -75,6 +75,7 @@ enum _TokenKind {
     TokenKindKeywordInfix,
     TokenKindKeywordStruct,
     TokenKindKeywordVar,
+    TokenKindKeywordInit,
     TokenKindKeywordTypeAlias,
     TokenKindKeywordSizeOf,
     TokenKindKeywordVoid,

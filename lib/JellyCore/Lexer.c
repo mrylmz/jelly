@@ -711,6 +711,8 @@ static inline TokenKind _LexerLexIdentifierOrKeyword(LexerRef lexer) {
         kind = TokenKindKeywordStruct;
     } else if (SourceRangeIsEqual(range, "var")) {
         kind = TokenKindKeywordVar;
+    } else if (SourceRangeIsEqual(range, "init")) {
+        kind = TokenKindKeywordInit;
     } else if (SourceRangeIsEqual(range, "typealias")) {
         kind = TokenKindKeywordTypeAlias;
     } else if (SourceRangeIsEqual(range, "sizeof")) {

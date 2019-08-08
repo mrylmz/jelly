@@ -786,6 +786,10 @@ static inline void _PrintTokenKindDescription(TokenKind kind) {
             printf("%s", "func");
             break;
 
+        case TokenKindKeywordInit:
+            printf("%s", "init");
+            break;
+
         case TokenKindKeywordPrefix:
             printf("%s", "prefix");
             break;

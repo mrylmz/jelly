@@ -1,0 +1,19 @@
+// run: -dump-ir
+
+struct Point {
+    var x: Float
+    var y: Float
+    var z: Float
+
+    init() {}
+    init(x: Float) {}
+    init(x: Int) {}
+    init(x: Float, y: Float) {}
+    init(x: Int, y: Float) {}
+    init(x: Float, y: Float, z: Float) {}
+    init(x: Float, y: Float, z: Int) {}
+    init(x: Float, y: Int, z: Int) {}
+    init(x: Int, y: Int, z: Int) {}
+}
+
+func main() -> Void {}

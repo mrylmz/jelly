@@ -61,16 +61,17 @@ ASTContextRef ASTContextCreate(AllocatorRef allocator, StringRef moduleName) {
     context->nodes[ASTTagFunctionDeclaration]     = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTFunctionDeclaration), 1024);
     context->nodes[ASTTagForeignFunctionDeclaration]   = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTFunctionDeclaration), 1024);
     context->nodes[ASTTagIntrinsicFunctionDeclaration] = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTFunctionDeclaration), 1024);
-    context->nodes[ASTTagStructureDeclaration] = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTStructureDeclaration), 1024);
-    context->nodes[ASTTagValueDeclaration]     = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTValueDeclaration), 1024);
-    context->nodes[ASTTagOpaqueType]           = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTOpaqueType), 1024);
-    context->nodes[ASTTagPointerType]          = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTPointerType), 1024);
-    context->nodes[ASTTagArrayType]            = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTArrayType), 1024);
-    context->nodes[ASTTagBuiltinType]          = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTBuiltinType), 1024);
-    context->nodes[ASTTagEnumerationType]      = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTEnumerationType), 1024);
-    context->nodes[ASTTagFunctionType]         = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTFunctionType), 1024);
-    context->nodes[ASTTagStructureType]        = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTStructureType), 1024);
-    context->nodes[ASTTagScope]                = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTScope), 1024);
+    context->nodes[ASTTagStructureDeclaration]   = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTStructureDeclaration), 1024);
+    context->nodes[ASTTagInitializerDeclaration] = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTInitializerDeclaration), 1024);
+    context->nodes[ASTTagValueDeclaration]       = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTValueDeclaration), 1024);
+    context->nodes[ASTTagOpaqueType]             = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTOpaqueType), 1024);
+    context->nodes[ASTTagPointerType]            = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTPointerType), 1024);
+    context->nodes[ASTTagArrayType]              = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTArrayType), 1024);
+    context->nodes[ASTTagBuiltinType]            = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTBuiltinType), 1024);
+    context->nodes[ASTTagEnumerationType]        = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTEnumerationType), 1024);
+    context->nodes[ASTTagFunctionType]           = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTFunctionType), 1024);
+    context->nodes[ASTTagStructureType]          = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTStructureType), 1024);
+    context->nodes[ASTTagScope]                  = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTScope), 1024);
     context->module = ASTContextCreateModuleDeclaration(context, SourceRangeNull(), NULL, moduleName, NULL, NULL);
     _ASTContextInitBuiltinTypes(context);
     _ASTContextInitBuiltinFunctions(context);
@@ -549,7 +550,7 @@ ASTFunctionDeclarationRef ASTContextCreateIntrinsicFunctionDeclaration(ASTContex
 }
 
 ASTStructureDeclarationRef ASTContextCreateStructureDeclaration(ASTContextRef context, SourceRange location, ASTScopeRef scope,
-                                                                StringRef name, ArrayRef values) {
+                                                                StringRef name, ArrayRef values, ArrayRef initializers) {
     assert(name);
 
     ASTStructureDeclarationRef node = (ASTStructureDeclarationRef)_ASTContextCreateNode(context, ASTTagStructureDeclaration, location,
@@ -557,11 +558,33 @@ ASTStructureDeclarationRef ASTContextCreateStructureDeclaration(ASTContextRef co
     node->base.name                 = StringCreateCopy(context->allocator, name);
     node->base.mangledName          = NULL;
     node->values                    = ASTContextCreateArray(context, location, scope);
+    node->initializers              = ASTContextCreateArray(context, location, scope);
     node->innerScope                = NULL;
     if (values) {
         ASTArrayAppendArray(node->values, values);
     }
+
+    if (initializers) {
+        ASTArrayAppendArray(node->initializers, initializers);
+    }
+
     node->base.type = (ASTTypeRef)ASTContextCreateStructureType(context, location, scope, node);
+    return node;
+}
+
+ASTInitializerDeclarationRef ASTContextCreateInitializerDeclaration(ASTContextRef context, SourceRange location, ASTScopeRef scope,
+                                                                    ArrayRef parameters, ASTBlockRef body) {
+    ASTInitializerDeclarationRef node = (ASTInitializerDeclarationRef)_ASTContextCreateNode(context, ASTTagInitializerDeclaration, location,
+                                                                                            scope);
+    node->base.name                   = StringCreate(context->allocator, "init");
+    node->base.mangledName            = NULL;
+    node->parameters                  = ASTContextCreateArray(context, location, scope);
+    node->body                        = body;
+    node->irImplicitSelfValue         = NULL;
+    if (parameters) {
+        ASTArrayAppendArray(node->parameters, parameters);
+    }
+    node->base.type = NULL;
     return node;
 }
 
@@ -725,7 +748,8 @@ void _ASTContextInitBuiltinTypes(ASTContextRef context) {
         name                         = StringCreate(context->allocator, builtinTypeNames[index]);
         context->builtinTypes[index] = _ASTContextCreateBuiltinType(context, SourceRangeNull(), globalScope, (ASTBuiltinTypeKind)index);
         // TODO: May replace structure declaration with some builtin declaration?
-        ASTStructureDeclarationRef structure = ASTContextCreateStructureDeclaration(context, SourceRangeNull(), globalScope, name, NULL);
+        ASTStructureDeclarationRef structure = ASTContextCreateStructureDeclaration(context, SourceRangeNull(), globalScope, name, NULL,
+                                                                                    NULL);
         structure->innerScope                = ASTContextCreateScope(context, SourceRangeNull(), (ASTNodeRef)structure, globalScope,
                                                       ASTScopeKindStructure);
         structure->base.type                 = (ASTTypeRef)context->builtinTypes[index];
@@ -747,7 +771,7 @@ void _ASTContextInitBuiltinTypes(ASTContextRef context) {
     ArrayAppendElement(stringValues, &stringBuffer);
     ArrayAppendElement(stringValues, &stringCount);
     ASTStructureDeclarationRef stringDeclaration = ASTContextCreateStructureDeclaration(context, SourceRangeNull(), globalScope, stringName,
-                                                                                        stringValues);
+                                                                                        stringValues, NULL);
     PerformNameManglingForDeclaration(context, (ASTDeclarationRef)stringDeclaration);
     context->stringType = ASTContextCreateStructureType(context, SourceRangeNull(), globalScope, stringDeclaration);
     ArrayDestroy(stringValues);

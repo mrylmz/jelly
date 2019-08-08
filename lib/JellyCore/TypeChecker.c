@@ -12,6 +12,7 @@
 
 // TODO: Add validation for types like expecting a constant expression for the size of an array type
 // TODO: Emit warning for unreachable code which will be determined by preceding nodes with the flag ASTFlagsBlockHasTerminator
+// TODO: Add validation for structure initializer declarations
 
 struct _TypeChecker {
     AllocatorRef allocator;

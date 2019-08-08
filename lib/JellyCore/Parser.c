@@ -49,6 +49,7 @@ static inline ASTFunctionDeclarationRef _ParserParseForeignFunctionDeclaration(P
 static inline ASTFunctionDeclarationRef _ParserParsePrefixFunctionDeclaration(ParserRef parser);
 static inline ASTFunctionDeclarationRef _ParserParseInfixFunctionDeclaration(ParserRef parser);
 static inline ASTStructureDeclarationRef _ParserParseStructureDeclaration(ParserRef parser);
+static inline ASTInitializerDeclarationRef _ParserParseInitializerDeclaration(ParserRef parser);
 static inline ASTValueDeclarationRef _ParserParseVariableDeclaration(ParserRef parser);
 static inline ASTTypeAliasDeclarationRef _ParserParseTypeAliasDeclaration(ParserRef parser);
 static inline ASTValueDeclarationRef _ParserParseEnumerationElementDeclaration(ParserRef parser);
@@ -1046,7 +1047,8 @@ static inline ASTEnumerationDeclarationRef _ParserParseEnumerationDeclaration(Pa
     return enumeration;
 }
 
-/// grammar: func-declaration := "func" identifier "(" [ parameter { "," parameter } ] ")" "->" type-identifier block
+/// grammar: func-declaration := "func" identifier "(" [ parameter-declaration { "," parameter-declaration } ] ")" "->" type-identifier
+/// block
 static inline ASTFunctionDeclarationRef _ParserParseFunctionDeclaration(ParserRef parser) {
     SourceRange location = parser->token.location;
 
@@ -1456,22 +1458,36 @@ static inline ASTStructureDeclarationRef _ParserParseStructureDeclaration(Parser
     // TODO: @ScopeLocation The location of scope will not be correct it has to encapsulate the associated node!
     ASTScopeRef structScope = _ParserPushScope(parser, parser->token.location, NULL, ASTScopeKindStructure);
     ArrayRef values         = ArrayCreateEmpty(parser->tempAllocator, sizeof(ASTNodeRef), 8);
+    ArrayRef initializers   = ArrayCreateEmpty(parser->tempAllocator, sizeof(ASTNodeRef), 8);
 
     if (!_ParserIsToken(parser, TokenKindRightCurlyBracket)) {
         while (true) {
-            SourceRange leadingTrivia    = parser->token.leadingTrivia;
-            ASTValueDeclarationRef value = _ParserParseVariableDeclaration(parser);
-            if (!value) {
+            SourceRange leadingTrivia = parser->token.leadingTrivia;
+
+            if (_ParserIsToken(parser, TokenKindKeywordVar)) {
+                ASTValueDeclarationRef value = _ParserParseVariableDeclaration(parser);
+                if (!value) {
+                    return NULL;
+                }
+                assert(value->kind == ASTValueKindVariable);
+
+                ArrayAppendElement(values, &value);
+            } else if (_ParserIsToken(parser, TokenKindKeywordInit)) {
+                ASTInitializerDeclarationRef initializer = _ParserParseInitializerDeclaration(parser);
+                if (!initializer) {
+                    return NULL;
+                }
+
+                ArrayAppendElement(initializers, &initializer);
+            } else {
+                ReportError("Expected 'var' or 'init' in structure body");
                 return NULL;
             }
 
-            assert(value->kind == ASTValueKindVariable);
-
-            if (ArrayGetElementCount(values) > 0 && !_SourceRangeContainsLineBreakCharacter(leadingTrivia)) {
+            if ((ArrayGetElementCount(values) > 0 || ArrayGetElementCount(initializers)) &&
+                !_SourceRangeContainsLineBreakCharacter(leadingTrivia)) {
                 ReportError("Consecutive statements on a line are not allowed");
             }
-
-            ArrayAppendElement(values, &value);
 
             if (_ParserIsToken(parser, TokenKindRightCurlyBracket)) {
                 break;
@@ -1487,9 +1503,63 @@ static inline ASTStructureDeclarationRef _ParserParseStructureDeclaration(Parser
 
     location.end                           = parser->token.location.start;
     ASTStructureDeclarationRef declaration = ASTContextCreateStructureDeclaration(parser->context, location, parser->currentScope, name,
-                                                                                  values);
+                                                                                  values, initializers);
     declaration->innerScope                = structScope;
     structScope->node                      = (ASTNodeRef)declaration;
+    return declaration;
+}
+
+/// grammar: initializer-declaration := "init" "(" [ parameter-declaration { "," parameter-declaration } ] ")" block
+static inline ASTInitializerDeclarationRef _ParserParseInitializerDeclaration(ParserRef parser) {
+    SourceRange location = parser->token.location;
+
+    if (!_ParserConsumeToken(parser, TokenKindKeywordInit)) {
+        return NULL;
+    }
+
+    if (!_ParserConsumeToken(parser, TokenKindLeftParenthesis)) {
+        return NULL;
+    }
+
+    ASTScopeRef initScope = _ParserPushScope(parser, location, NULL, ASTScopeKindInitializer);
+    ArrayRef parameters   = ArrayCreateEmpty(parser->tempAllocator, sizeof(ASTNodeRef), 8);
+    if (!_ParserIsToken(parser, TokenKindRightParenthesis)) {
+        while (true) {
+            ASTValueDeclarationRef parameter = _ParserParseParameterDeclaration(parser);
+            if (!parameter) {
+                return NULL;
+            }
+
+            assert(parameter->kind == ASTValueKindParameter);
+
+            ArrayAppendElement(parameters, &parameter);
+
+            if (_ParserIsToken(parser, TokenKindRightParenthesis)) {
+                break;
+            }
+
+            if (!_ParserConsumeToken(parser, TokenKindComma)) {
+                ReportError("Expected ',' or ')' in parameter list of 'init'");
+                return NULL;
+            }
+        }
+    }
+
+    if (!_ParserConsumeToken(parser, TokenKindRightParenthesis)) {
+        return NULL;
+    }
+
+    ASTBlockRef body = _ParserParseBlock(parser);
+    if (!body) {
+        return NULL;
+    }
+
+    _ParserPopScope(parser);
+
+    location.end                             = parser->token.location.start;
+    ASTInitializerDeclarationRef declaration = ASTContextCreateInitializerDeclaration(parser->context, location, parser->currentScope,
+                                                                                      parameters, body);
+    initScope->node                          = (ASTNodeRef)declaration;
     return declaration;
 }
 

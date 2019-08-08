@@ -1,0 +1,33 @@
+ModuleDeclaration
+  SourceUnit
+    @filePath = 'struct_initializers.jelly'
+    StructureDeclaration
+      @name = 'Point'
+      VariableDeclaration
+        @name = 'x'
+        BuiltinType
+          @name = 'Float'
+      VariableDeclaration
+        @name = 'y'
+        BuiltinType
+          @name = 'Float'
+      VariableDeclaration
+        @name = 'z'
+        BuiltinType
+          @name = 'Float'
+      InitializerDeclaration
+        Block
+      InitializerDeclaration
+        ParameterDeclaration
+          @name = 'x'
+          BuiltinType
+            @name = 'Float'
+        ParameterDeclaration
+          @name = 'y'
+          BuiltinType
+            @name = 'Float'
+        ParameterDeclaration
+          @name = 'z'
+          BuiltinType
+            @name = 'Float'
+        Block

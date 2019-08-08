@@ -10,6 +10,7 @@ static inline void _MangleEnumerationElementName(ASTEnumerationDeclarationRef de
 static inline void _MangleFunctionDeclarationName(ASTFunctionDeclarationRef declaration);
 static inline void _MangleStructureDeclarationName(ASTStructureDeclarationRef declaration);
 static inline void _MangleValueDeclarationName(ASTValueDeclarationRef declaration);
+static inline void _MangleInitializerDeclarationName(ASTStructureDeclarationRef structure, ASTInitializerDeclarationRef initializer);
 
 static inline void _StringAppendMangledIdentifier(StringRef string, StringRef identifier);
 static inline void _StringAppendMangledTypeName(StringRef string, ASTTypeRef type);
@@ -41,6 +42,13 @@ void PerformNameManglingForDeclaration(ASTContextRef context, ASTDeclarationRef 
 
     if (declaration->base.tag == ASTTagStructureDeclaration) {
         _MangleStructureDeclarationName((ASTStructureDeclarationRef)declaration);
+
+        ASTArrayIteratorRef iterator = ASTArrayGetIterator(((ASTStructureDeclarationRef)declaration)->initializers);
+        while (iterator) {
+            ASTInitializerDeclarationRef initializer = (ASTInitializerDeclarationRef)ASTArrayIteratorGetElement(iterator);
+            _MangleInitializerDeclarationName((ASTStructureDeclarationRef)declaration, initializer);
+            iterator = ASTArrayIteratorNext(iterator);
+        }
     }
 
     if (declaration->base.tag == ASTTagValueDeclaration) {
@@ -97,6 +105,22 @@ static inline void _MangleValueDeclarationName(ASTValueDeclarationRef declaratio
     StringRef mangledName = StringCreate(AllocatorGetSystemDefault(), "$V");
     _StringAppendMangledIdentifier(mangledName, declaration->base.name);
     declaration->base.mangledName = mangledName;
+}
+
+static inline void _MangleInitializerDeclarationName(ASTStructureDeclarationRef structure, ASTInitializerDeclarationRef initializer) {
+    assert(!initializer->base.mangledName);
+
+    StringRef mangledName = StringCreate(AllocatorGetSystemDefault(), "$I");
+    _StringAppendMangledIdentifier(mangledName, structure->base.name);
+    StringAppend(mangledName, "4init");
+
+    StringAppendFormat(mangledName, "%zu", ASTArrayGetElementCount(initializer->parameters));
+    for (Index index = 0; index < ASTArrayGetElementCount(initializer->parameters); index++) {
+        ASTValueDeclarationRef value = (ASTValueDeclarationRef)ASTArrayGetElementAtIndex(initializer->parameters, index);
+        _StringAppendMangledTypeName(mangledName, value->base.type);
+    }
+
+    initializer->base.mangledName = mangledName;
 }
 
 static inline void _StringAppendMangledIdentifier(StringRef string, StringRef identifier) {

@@ -263,6 +263,47 @@ ASTFunctionDeclarationRef ASTScopeLookupInfixFunction(ASTScopeRef scope, StringR
     return NULL;
 }
 
+ASTInitializerDeclarationRef ASTScopeLookupInitializerDeclarationByParameters(ASTScopeRef scope, ASTArrayRef parameters) {
+    ASTArrayIteratorRef iterator = ASTArrayGetIterator(scope->declarations);
+    while (iterator) {
+        ASTDeclarationRef declaration = (ASTDeclarationRef)ASTArrayIteratorGetElement(iterator);
+        if (declaration->base.tag != ASTTagInitializerDeclaration) {
+            iterator = ASTArrayIteratorNext(iterator);
+            continue;
+        }
+
+        ASTInitializerDeclarationRef initializer = (ASTInitializerDeclarationRef)declaration;
+        if (ASTArrayGetElementCount(initializer->parameters) != ASTArrayGetElementCount(parameters)) {
+            iterator = ASTArrayIteratorNext(iterator);
+            continue;
+        }
+
+        Bool hasSameParameters          = true;
+        ASTArrayIteratorRef lhsIterator = ASTArrayGetIterator(initializer->parameters);
+        ASTArrayIteratorRef rhsIterator = ASTArrayGetIterator(parameters);
+        while (lhsIterator && rhsIterator) {
+            ASTValueDeclarationRef lhsParameter = (ASTValueDeclarationRef)ASTArrayIteratorGetElement(lhsIterator);
+            ASTValueDeclarationRef rhsParameter = (ASTValueDeclarationRef)ASTArrayIteratorGetElement(rhsIterator);
+
+            if (!ASTTypeIsEqual(lhsParameter->base.type, rhsParameter->base.type)) {
+                hasSameParameters = false;
+                break;
+            }
+
+            lhsIterator = ASTArrayIteratorNext(lhsIterator);
+            rhsIterator = ASTArrayIteratorNext(rhsIterator);
+        }
+
+        if (hasSameParameters) {
+            return initializer;
+        }
+
+        iterator = ASTArrayIteratorNext(iterator);
+    }
+
+    return NULL;
+}
+
 ASTDeclarationRef ASTScopeLookupDeclarationInHierarchyByName(ASTScopeRef scope, StringRef name) {
     ASTScopeRef currentScope = scope;
     while (currentScope) {
@@ -292,6 +333,12 @@ ASTScopeRef ASTScopeGetNextParentForLookup(ASTScopeRef scope) {
         case ASTScopeKindFunction:
         case ASTScopeKindStructure:
             if (parent->kind == ASTScopeKindGlobal) {
+                return parent;
+            }
+            break;
+
+        case ASTScopeKindInitializer:
+            if (parent->kind == ASTScopeKindGlobal || parent->kind == ASTScopeKindStructure) {
                 return parent;
             }
             break;
@@ -373,11 +420,11 @@ static inline void _PrintScopeKind(FILE *target, ASTScopeKind kind) {
     case ASTScopeKindFunction:
         return _PrintCString(target, "[Function]");
 
+    case ASTScopeKindInitializer:
+        return _PrintCString(target, "[Init]");
+
     case ASTScopeKindStructure:
         return _PrintCString(target, "[Structure]");
-
-    default:
-        break;
     }
 
     JELLY_UNREACHABLE("Unknown kind given for ASTScopeKind!");

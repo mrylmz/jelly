@@ -15,6 +15,7 @@ enum _CandidateFunctionMatchKind {
 typedef enum _CandidateFunctionMatchKind CandidateFunctionMatchKind;
 
 static inline void _AddSourceUnitRecordDeclarationsToScope(ASTContextRef context, ASTSourceUnitRef sourceUnit);
+static inline Bool _ResolveDeclarationsOfInitializerDeclaration(ASTContextRef context, ASTInitializerDeclarationRef initializer);
 static inline Bool _ResolveDeclarationsOfFunctionSignature(ASTContextRef context, ASTFunctionDeclarationRef function);
 static inline Bool _ResolveDeclarationsOfTypeAndSubstituteType(ASTContextRef context, ASTScopeRef scope, ASTTypeRef *type);
 static inline void _PerformNameResolutionForEnumerationBody(ASTContextRef context, ASTEnumerationDeclarationRef enumeration);
@@ -43,6 +44,24 @@ void PerformNameResolution(ASTContextRef context, ASTModuleDeclarationRef module
                     } else {
                         ReportError("Invalid redeclaration of identifier");
                     }
+                }
+            }
+
+            if (child->tag == ASTTagStructureDeclaration) {
+                ASTStructureDeclarationRef structure = (ASTStructureDeclarationRef)child;
+                ASTArrayIteratorRef iterator         = ASTArrayGetIterator(structure->initializers);
+                while (iterator) {
+                    ASTInitializerDeclarationRef initializer = (ASTInitializerDeclarationRef)ASTArrayIteratorGetElement(iterator);
+                    if (_ResolveDeclarationsOfInitializerDeclaration(context, initializer)) {
+                        if (ASTScopeLookupInitializerDeclarationByParameters(child->scope, initializer->parameters) == NULL) {
+
+                            ASTArrayAppendElement(child->scope->declarations, (ASTDeclarationRef)initializer);
+                        } else {
+                            ReportError("Invalid redeclaration of initializer");
+                        }
+                    }
+
+                    iterator = ASTArrayIteratorNext(iterator);
                 }
             }
         }
@@ -126,6 +145,18 @@ static inline void _AddSourceUnitRecordDeclarationsToScope(ASTContextRef context
             }
         }
     }
+}
+
+static inline Bool _ResolveDeclarationsOfInitializerDeclaration(ASTContextRef context, ASTInitializerDeclarationRef initializer) {
+    Bool success = true;
+    for (Index index = 0; index < ASTArrayGetElementCount(initializer->parameters); index++) {
+        ASTValueDeclarationRef value = (ASTValueDeclarationRef)ASTArrayGetElementAtIndex(initializer->parameters, index);
+        if (!_ResolveDeclarationsOfTypeAndSubstituteType(context, initializer->base.base.scope, &value->base.type)) {
+            success = false;
+        }
+    }
+
+    return success;
 }
 
 static inline Bool _ResolveDeclarationsOfFunctionSignature(ASTContextRef context, ASTFunctionDeclarationRef function) {
@@ -765,6 +796,11 @@ static inline void _PerformNameResolutionForExpression(ASTContextRef context, AS
                 } else if ((expectedType->kind == ASTBuiltinTypeKindInt8 && 0 <= constant->minimumBitWidth &&
                             constant->minimumBitWidth <= 7)) {
                     constant->base.type = constant->base.expectedType;
+                } else if (expectedType->kind == ASTBuiltinTypeKindFloat32 || expectedType->kind == ASTBuiltinTypeKindFloat64 ||
+                           expectedType->kind == ASTBuiltinTypeKindFloat) {
+                    constant->kind       = ASTConstantKindFloat;
+                    constant->floatValue = (Float64)constant->intValue;
+                    constant->base.type  = constant->base.expectedType;
                 } else {
                     if (constant->minimumBitWidth < 64) {
                         constant->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindInt64);

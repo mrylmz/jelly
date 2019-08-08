@@ -101,7 +101,10 @@ ASTFunctionDeclarationRef ASTContextCreateIntrinsicFunctionDeclaration(ASTContex
                                                                        ASTTypeRef returnType, StringRef intrinsicName);
 
 ASTStructureDeclarationRef ASTContextCreateStructureDeclaration(ASTContextRef context, SourceRange location, ASTScopeRef scope,
-                                                                StringRef name, ArrayRef values);
+                                                                StringRef name, ArrayRef values, ArrayRef initializers);
+
+ASTInitializerDeclarationRef ASTContextCreateInitializerDeclaration(ASTContextRef context, SourceRange location, ASTScopeRef scope,
+                                                                    ArrayRef parameters, ASTBlockRef body);
 
 ASTValueDeclarationRef ASTContextCreateValueDeclaration(ASTContextRef context, SourceRange location, ASTScopeRef scope, ASTValueKind kind,
                                                         StringRef name, ASTTypeRef type, ASTExpressionRef initializer);

@@ -1,0 +1,9 @@
+struct Point {
+    var x: Float
+    var y: Float
+    var z: Float
+
+    init() {}
+
+    init(x: Float, y: Float, z: Float) {}
+}

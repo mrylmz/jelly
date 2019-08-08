@@ -27,6 +27,7 @@ struct _IRModule {
 };
 
 // TODO: Add correct implementation for enumeration type and cases
+// TODO: Remove initializers from backend and apply ast substitutions!
 
 static inline void _IRBuilderBuildEntryPoint(IRBuilderRef builder, ASTModuleDeclarationRef module);
 static inline void _IRBuilderBuildTypes(IRBuilderRef builder, ASTModuleDeclarationRef module);
@@ -36,6 +37,9 @@ static inline void _IRBuilderBuildEnumerationElements(IRBuilderRef builder, ASTE
 static inline void _IRBuilderBuildFunctionSignature(IRBuilderRef builder, ASTFunctionDeclarationRef declaration);
 static inline void _IRBuilderBuildFunctionBody(IRBuilderRef builder, ASTFunctionDeclarationRef declaration);
 static inline void _IRBuilderBuildForeignFunctionSignature(IRBuilderRef builder, ASTFunctionDeclarationRef declaration);
+static inline void _IRBuilderBuildInitializerSignature(IRBuilderRef builder, ASTInitializerDeclarationRef declaration);
+static inline void _IRBuilderBuildInitializerBody(IRBuilderRef builder, ASTStructureDeclarationRef structure,
+                                                  ASTInitializerDeclarationRef declaration);
 static inline void _IRBuilderBuildLocalVariable(IRBuilderRef builder, LLVMValueRef function, ASTValueDeclarationRef declaration);
 static inline void _IRBuilderBuildBlock(IRBuilderRef builder, LLVMValueRef function, ASTBlockRef block);
 static inline void _IRBuilderBuildStatement(IRBuilderRef builder, LLVMValueRef function, ASTNodeRef node);
@@ -114,6 +118,16 @@ IRModuleRef IRBuilderBuild(IRBuilderRef builder, ASTModuleDeclarationRef module)
             if (child->tag == ASTTagForeignFunctionDeclaration) {
                 _IRBuilderBuildForeignFunctionSignature(builder, (ASTFunctionDeclarationRef)child);
             }
+
+            if (child->tag == ASTTagStructureDeclaration) {
+                ASTStructureDeclarationRef structure = (ASTStructureDeclarationRef)child;
+                ASTArrayIteratorRef iterator         = ASTArrayGetIterator(structure->initializers);
+                while (iterator) {
+                    ASTInitializerDeclarationRef initializer = (ASTInitializerDeclarationRef)ASTArrayIteratorGetElement(iterator);
+                    _IRBuilderBuildInitializerSignature(builder, initializer);
+                    iterator = ASTArrayIteratorNext(iterator);
+                }
+            }
         }
     }
 
@@ -143,8 +157,16 @@ IRModuleRef IRBuilderBuild(IRBuilderRef builder, ASTModuleDeclarationRef module)
             case ASTTagIntrinsicFunctionDeclaration:
                 continue;
 
-            case ASTTagStructureDeclaration:
-                continue;
+            case ASTTagStructureDeclaration: {
+                ASTStructureDeclarationRef structure = (ASTStructureDeclarationRef)child;
+                ASTArrayIteratorRef iterator         = ASTArrayGetIterator(structure->initializers);
+                while (iterator) {
+                    ASTInitializerDeclarationRef initializer = (ASTInitializerDeclarationRef)ASTArrayIteratorGetElement(iterator);
+                    _IRBuilderBuildInitializerBody(builder, structure, initializer);
+                    iterator = ASTArrayIteratorNext(iterator);
+                }
+                break;
+            }
 
             case ASTTagValueDeclaration:
                 continue;
@@ -315,8 +337,8 @@ static inline void _IRBuilderBuildTypes(IRBuilderRef builder, ASTModuleDeclarati
 
             if (child->tag == ASTTagStructureDeclaration) {
                 ASTStructureDeclarationRef declaration = (ASTStructureDeclarationRef)child;
-                LLVMTypeRef type                       = (LLVMTypeRef)declaration->base.base.irType;
-                assert(type);
+                LLVMTypeRef structureType              = (LLVMTypeRef)declaration->base.base.irType;
+                assert(structureType);
 
                 for (Index index = 0; index < ASTArrayGetElementCount(declaration->values); index++) {
                     ASTValueDeclarationRef value = (ASTValueDeclarationRef)ASTArrayGetElementAtIndex(declaration->values, index);
@@ -325,7 +347,30 @@ static inline void _IRBuilderBuildTypes(IRBuilderRef builder, ASTModuleDeclarati
                     value->base.base.irType = valueType;
                     ArrayAppendElement(temporaryTypes, &valueType);
                 }
-                LLVMStructSetBody(type, (LLVMTypeRef *)ArrayGetMemoryPointer(temporaryTypes), ArrayGetElementCount(temporaryTypes), false);
+                LLVMStructSetBody(structureType, (LLVMTypeRef *)ArrayGetMemoryPointer(temporaryTypes), ArrayGetElementCount(temporaryTypes),
+                                  false);
+
+                ASTArrayIteratorRef iterator = ASTArrayGetIterator(declaration->initializers);
+                while (iterator) {
+                    ASTInitializerDeclarationRef initializer = (ASTInitializerDeclarationRef)ASTArrayIteratorGetElement(iterator);
+                    ArrayRemoveAllElements(temporaryTypes, true);
+
+                    LLVMTypeRef implicitSelfType = LLVMPointerType(structureType, 0);
+                    ArrayAppendElement(temporaryTypes, &implicitSelfType);
+
+                    for (Index index = 0; index < ASTArrayGetElementCount(initializer->parameters); index++) {
+                        ASTValueDeclarationRef parameter = (ASTValueDeclarationRef)ASTArrayGetElementAtIndex(initializer->parameters,
+                                                                                                             index);
+                        LLVMTypeRef parameterType        = _IRBuilderGetIRType(builder, parameter->base.type);
+                        assert(parameterType);
+                        parameter->base.base.irType = parameterType;
+                        ArrayAppendElement(temporaryTypes, &parameterType);
+                    }
+
+                    initializer->base.base.irType = LLVMFunctionType(structureType, (LLVMTypeRef *)ArrayGetMemoryPointer(temporaryTypes),
+                                                                     ArrayGetElementCount(temporaryTypes), false);
+                    iterator                      = ASTArrayIteratorNext(iterator);
+                }
             }
 
             if (child->tag == ASTTagValueDeclaration) {
@@ -449,6 +494,45 @@ static inline void _IRBuilderBuildForeignFunctionSignature(IRBuilderRef builder,
     // We are using the C calling convention for all foreign function declarations for now because we do not allow to specify the
     // calling convention in the AST
     LLVMSetFunctionCallConv(function, LLVMCCallConv);
+}
+
+static inline void _IRBuilderBuildInitializerSignature(IRBuilderRef builder, ASTInitializerDeclarationRef declaration) {
+    if (declaration->base.base.irValue) {
+        return;
+    }
+
+    assert(declaration->base.base.irType);
+
+    declaration->base.base.irValue = LLVMAddFunction(builder->module->module, StringGetCharacters(declaration->base.mangledName),
+                                                     (LLVMTypeRef)declaration->base.base.irType);
+}
+
+static inline void _IRBuilderBuildInitializerBody(IRBuilderRef builder, ASTStructureDeclarationRef structure,
+                                                  ASTInitializerDeclarationRef declaration) {
+    LLVMValueRef function = (LLVMValueRef)declaration->base.base.irValue;
+
+    declaration->irImplicitSelfValue = LLVMGetParam(function, 0);
+    for (Index index = 0; index < ASTArrayGetElementCount(declaration->parameters); index++) {
+        ASTValueDeclarationRef parameter = (ASTValueDeclarationRef)ASTArrayGetElementAtIndex(declaration->parameters, index);
+        parameter->base.base.irValue     = LLVMGetParam(function, index + 1);
+    }
+
+    LLVMBasicBlockRef entry = LLVMAppendBasicBlock(function, "entry");
+    LLVMPositionBuilder(builder->builder, entry, NULL);
+
+    for (Index index = 0; index < ASTArrayGetElementCount(declaration->body->statements); index++) {
+        ASTNodeRef statement = (ASTNodeRef)ASTArrayGetElementAtIndex(declaration->body->statements, index);
+        _IRBuilderBuildStatement(builder, function, statement);
+
+        if (statement->flags & ASTFlagsStatementIsAlwaysReturning) {
+            LLVMBuildUnreachable(builder->builder);
+            return;
+        }
+    }
+
+    if (!(declaration->body->base.flags & ASTFlagsStatementIsAlwaysReturning)) {
+        LLVMBuildRetVoid(builder->builder);
+    }
 }
 
 static inline void _IRBuilderBuildLocalVariable(IRBuilderRef builder, LLVMValueRef function, ASTValueDeclarationRef declaration) {

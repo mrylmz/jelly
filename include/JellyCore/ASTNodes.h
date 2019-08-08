@@ -42,6 +42,7 @@ enum _ASTTag {
     ASTTagForeignFunctionDeclaration,
     ASTTagIntrinsicFunctionDeclaration,
     ASTTagStructureDeclaration,
+    ASTTagInitializerDeclaration,
     ASTTagValueDeclaration,
     ASTTagTypeAliasDeclaration,
     ASTTagOpaqueType,
@@ -111,6 +112,7 @@ typedef struct _ASTModuleDeclaration *ASTModuleDeclarationRef;
 typedef struct _ASTEnumerationDeclaration *ASTEnumerationDeclarationRef;
 typedef struct _ASTFunctionDeclaration *ASTFunctionDeclarationRef;
 typedef struct _ASTStructureDeclaration *ASTStructureDeclarationRef;
+typedef struct _ASTInitializerDeclaration *ASTInitializerDeclarationRef;
 typedef struct _ASTValueDeclaration *ASTValueDeclarationRef;
 typedef struct _ASTOpaqueType *ASTOpaqueTypeRef;
 typedef struct _ASTPointerType *ASTPointerTypeRef;
@@ -465,7 +467,17 @@ struct _ASTStructureDeclaration {
     struct _ASTDeclaration base;
 
     ASTArrayRef values;
+    ASTArrayRef initializers;
     ASTScopeRef innerScope;
+};
+
+struct _ASTInitializerDeclaration {
+    struct _ASTDeclaration base;
+
+    ASTArrayRef parameters;
+    ASTBlockRef body;
+
+    IRRef irImplicitSelfValue;
 };
 
 enum _ASTValueKind {
@@ -562,6 +574,7 @@ enum _ASTScopeKind {
     ASTScopeKindSwitch,
     ASTScopeKindEnumeration,
     ASTScopeKindFunction,
+    ASTScopeKindInitializer,
     ASTScopeKindStructure,
 };
 typedef enum _ASTScopeKind ASTScopeKind;

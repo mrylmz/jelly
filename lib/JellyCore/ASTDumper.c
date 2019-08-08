@@ -231,10 +231,18 @@ void ASTDumperDump(ASTDumperRef dumper, ASTNodeRef node) {
         return;
     }
 
+    case ASTTagInitializerDeclaration: {
+        ASTInitializerDeclarationRef init = (ASTInitializerDeclarationRef)node;
+        _ASTDumperDumpChildrenArray(dumper, init->parameters);
+        _ASTDumperDumpChild(dumper, (ASTNodeRef)init->body);
+        return;
+    }
+
     case ASTTagStructureDeclaration: {
         ASTStructureDeclarationRef structure = (ASTStructureDeclarationRef)node;
         _ASTDumperPrintProperty(dumper, "name", StringGetCharacters(structure->base.name));
         _ASTDumperDumpChildrenArray(dumper, structure->values);
+        _ASTDumperDumpChildrenArray(dumper, structure->initializers);
         return;
     }
 
@@ -293,7 +301,6 @@ void ASTDumperDump(ASTDumperRef dumper, ASTNodeRef node) {
 
     default:
         JELLY_UNREACHABLE("Invalid tag given for ASTNode in ASTDumper!");
-        return;
     }
 }
 
@@ -417,6 +424,9 @@ static inline void _ASTDumperPrintTag(ASTDumperRef dumper, ASTNodeRef node) {
 
     case ASTTagFunctionDeclaration:
         return _ASTDumperPrintCString(dumper, "FunctionDeclaration");
+
+    case ASTTagInitializerDeclaration:
+        return _ASTDumperPrintCString(dumper, "InitializerDeclaration");
 
     case ASTTagStructureDeclaration:
         return _ASTDumperPrintCString(dumper, "StructureDeclaration");
