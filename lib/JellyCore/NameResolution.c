@@ -53,8 +53,7 @@ void PerformNameResolution(ASTContextRef context, ASTModuleDeclarationRef module
                 while (iterator) {
                     ASTInitializerDeclarationRef initializer = (ASTInitializerDeclarationRef)ASTArrayIteratorGetElement(iterator);
                     if (_ResolveDeclarationsOfInitializerDeclaration(context, initializer)) {
-                        if (ASTScopeLookupInitializerDeclarationByParameters(child->scope, initializer->parameters) == NULL) {
-
+                        if (ASTScopeLookupInitializerDeclarationByParameters(structure->innerScope, initializer->parameters) == NULL) {
                             ASTArrayAppendElement(child->scope->declarations, (ASTDeclarationRef)initializer);
                         } else {
                             ReportError("Invalid redeclaration of initializer");
@@ -108,6 +107,16 @@ void PerformNameResolution(ASTContextRef context, ASTModuleDeclarationRef module
                 ASTFunctionDeclarationRef function = (ASTFunctionDeclarationRef)child;
                 _PerformNameResolutionForFunctionBody(context, function);
                 continue;
+            }
+
+            if (child->tag == ASTTagStructureDeclaration) {
+                ASTStructureDeclarationRef structure = (ASTStructureDeclarationRef)child;
+                ASTArrayIteratorRef iterator = ASTArrayGetIterator(structure->initializers);
+                while (iterator) {
+                    ASTInitializerDeclarationRef initializer = (ASTInitializerDeclarationRef)ASTArrayIteratorGetElement(iterator);
+                    _PerformNameResolutionForNode(context, (ASTNodeRef)initializer->body);
+                    iterator = ASTArrayIteratorNext(iterator);
+                }
             }
         }
     }
@@ -469,7 +478,6 @@ static inline void _PerformNameResolutionForNode(ASTContextRef context, ASTNodeR
                                                                          ASTValueKindVariable, implicitSelfName, structure->base.type,
                                                                          NULL);
             ASTArrayInsertElementAtIndex(initializer->body->statements, 0, initializer->implicitSelf);
-            _PerformNameResolutionForNode(context, (ASTNodeRef)initializer->body);
             StringDestroy(implicitSelfName);
         } else {
             ReportError("Initializer can only be declared in a structure!");
