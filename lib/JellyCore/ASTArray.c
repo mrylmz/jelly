@@ -74,10 +74,11 @@ void ASTArrayInsertElementAtIndex(ASTArrayRef array, Index index, void *element)
         }
     }
 
-    ASTLinkedListRef next = list->next;
-    list->next            = ASTContextCreateLinkedList(array->context, array->base.location, array->base.scope);
-    list->next->node      = element;
-    list->next->next      = next;
+    ASTLinkedListRef next = ASTContextCreateLinkedList(array->context, array->base.location, array->base.scope);
+    next->node            = list->node;
+    next->next            = list->next;
+    list->node            = element;
+    list->next            = next;
     array->elementCount += 1;
 }
 
