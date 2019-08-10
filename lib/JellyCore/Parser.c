@@ -1559,6 +1559,7 @@ static inline ASTInitializerDeclarationRef _ParserParseInitializerDeclaration(Pa
     location.end                             = parser->token.location.start;
     ASTInitializerDeclarationRef declaration = ASTContextCreateInitializerDeclaration(parser->context, location, parser->currentScope,
                                                                                       parameters, body);
+    declaration->innerScope                  = initScope;
     initScope->node                          = (ASTNodeRef)declaration;
     return declaration;
 }

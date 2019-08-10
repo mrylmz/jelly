@@ -298,6 +298,13 @@ static inline void _PerformNameResolutionForStructureBody(ASTContextRef context,
             }
         }
     }
+
+    ASTArrayIteratorRef iterator = ASTArrayGetIterator(structure->initializers);
+    while (iterator) {
+        ASTInitializerDeclarationRef initializer = (ASTInitializerDeclarationRef)ASTArrayIteratorGetElement(iterator);
+        _PerformNameResolutionForNode(context, (ASTNodeRef)initializer);
+        iterator = ASTArrayIteratorNext(iterator);
+    }
 }
 
 static inline void _PerformNameResolutionForNode(ASTContextRef context, ASTNodeRef node) {
@@ -424,6 +431,49 @@ static inline void _PerformNameResolutionForNode(ASTContextRef context, ASTNodeR
         if (value->initializer) {
             value->initializer->expectedType = value->base.type;
             _PerformNameResolutionForExpression(context, value->initializer);
+        }
+        break;
+    }
+
+    case ASTTagInitializerDeclaration: {
+        ASTInitializerDeclarationRef initializer = (ASTInitializerDeclarationRef)node;
+        ASTScopeRef scope                        = (ASTScopeRef)initializer->base.base.scope;
+        if (scope->kind == ASTScopeKindStructure) {
+            assert(scope->node);
+            ASTStructureDeclarationRef structure = (ASTStructureDeclarationRef)scope->node;
+            assert(structure->base.type);
+
+            ArrayRef parameterTypes               = ArrayCreateEmpty(AllocatorGetSystemDefault(), sizeof(ASTTypeRef),
+                                                       ASTArrayGetElementCount(initializer->parameters));
+            ASTArrayIteratorRef parameterIterator = ASTArrayGetIterator(initializer->parameters);
+            while (parameterIterator) {
+                ASTValueDeclarationRef parameter = (ASTValueDeclarationRef)ASTArrayIteratorGetElement(parameterIterator);
+                assert(parameter->base.type);
+                ArrayAppendElement(parameterTypes, &parameter->base.type);
+
+                if (ASTScopeLookupDeclarationByName(initializer->innerScope, parameter->base.name) == NULL) {
+                    ASTArrayAppendElement(initializer->innerScope->declarations, parameter);
+                } else {
+                    ReportError("Invalid redeclaration of identifier");
+                }
+
+                parameterIterator = ASTArrayIteratorNext(parameterIterator);
+            }
+
+            initializer->base.type = (ASTTypeRef)ASTContextCreateFunctionType(
+                context, initializer->base.base.location, initializer->base.base.scope, parameterTypes, structure->base.type);
+            ArrayDestroy(parameterTypes);
+
+            StringRef implicitSelfName = StringCreate(AllocatorGetSystemDefault(), "self");
+            initializer->implicitSelf  = ASTContextCreateValueDeclaration(context, initializer->base.base.location, initializer->innerScope,
+                                                                         ASTValueKindVariable, implicitSelfName, structure->base.type,
+                                                                         NULL);
+            ASTArrayInsertElementAtIndex(initializer->body->statements, 0, initializer->implicitSelf);
+            _PerformNameResolutionForNode(context, (ASTNodeRef)initializer->body);
+            StringDestroy(implicitSelfName);
+        } else {
+            ReportError("Initializer can only be declared in a structure!");
+            initializer->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
         }
         break;
     }
@@ -614,82 +664,154 @@ static inline void _PerformNameResolutionForExpression(ASTContextRef context, AS
             CandidateFunctionMatchKind matchKind   = CandidateFunctionMatchKindNone;
             Index matchingParameterTypeCount       = 0;
             Index matchingParameterTypeConversions = UINTMAX_MAX;
-            for (Index index = 0; index < ASTArrayGetElementCount(globalScope->declarations); index++) {
-                ASTDeclarationRef declaration = (ASTDeclarationRef)ASTArrayGetElementAtIndex(globalScope->declarations, index);
-                if (declaration->base.tag != ASTTagFunctionDeclaration && declaration->base.tag != ASTTagForeignFunctionDeclaration &&
-                    declaration->base.tag != ASTTagIntrinsicFunctionDeclaration) {
-                    continue;
+
+            ASTDeclarationRef lookup = ASTScopeLookupDeclarationByName(globalScope, identifier->name);
+            if (lookup && lookup->base.tag == ASTTagStructureDeclaration && call->fixity == ASTFixityNone) {
+                ASTStructureDeclarationRef structure    = (ASTStructureDeclarationRef)lookup;
+                ASTArrayIteratorRef initializerIterator = ASTArrayGetIterator(structure->initializers);
+                while (initializerIterator) {
+                    ASTInitializerDeclarationRef initializer = (ASTInitializerDeclarationRef)ASTArrayIteratorGetElement(
+                        initializerIterator);
+                    if (matchKind < CandidateFunctionMatchKindName) {
+                        matchingDeclaration = (ASTDeclarationRef)initializer;
+                        matchKind           = CandidateFunctionMatchKindName;
+                    }
+
+                    Index minParameterCheckCount  = MIN(ASTArrayGetElementCount(initializer->parameters),
+                                                       ASTArrayGetElementCount(call->arguments));
+                    Index hasCorrectArgumentCount = ASTArrayGetElementCount(initializer->parameters) ==
+                                                    ASTArrayGetElementCount(call->arguments);
+
+                    if (matchKind < CandidateFunctionMatchKindParameterCount && hasCorrectArgumentCount) {
+                        matchingDeclaration = (ASTDeclarationRef)initializer;
+                        matchKind           = CandidateFunctionMatchKindParameterCount;
+                    }
+
+                    assert(structure->base.type);
+                    if (call->base.expectedType && ASTTypeIsEqual(call->base.expectedType, structure->base.type)) {
+                        if (matchKind < CandidateFunctionMatchKindExpectedType) {
+                            matchingDeclaration = (ASTDeclarationRef)initializer;
+                            matchKind           = CandidateFunctionMatchKindExpectedType;
+                        }
+                    }
+
+                    Bool hasMatchingParameterTypes                = true;
+                    Index currentMatchingParameterTypeCount       = 0;
+                    Index currentMatchingParameterTypeConversions = 0;
+                    for (Index parameterIndex = 0; parameterIndex < minParameterCheckCount; parameterIndex++) {
+                        ASTValueDeclarationRef parameter = (ASTValueDeclarationRef)ASTArrayGetElementAtIndex(initializer->parameters,
+                                                                                                             parameterIndex);
+                        ASTExpressionRef argument        = (ASTExpressionRef)ASTArrayGetElementAtIndex(call->arguments, parameterIndex);
+
+                        assert(parameter->base.type);
+                        assert(argument->type);
+
+                        if (ASTTypeIsEqual(argument->type, parameter->base.type)) {
+                            currentMatchingParameterTypeCount += 1;
+                        } else if (ASTTypeIsLosslessConvertible(argument->type, parameter->base.type)) {
+                            currentMatchingParameterTypeCount += 1;
+                            currentMatchingParameterTypeConversions += 1;
+                        } else {
+                            hasMatchingParameterTypes = false;
+                        }
+                    }
+
+                    // TODO: Converted types should also be added to candidateDeclarations and should be filtered by best matches, if there
+                    //       are more than one solutions after the post checking pass, then a declaration will be ambiguous!
+                    if (hasMatchingParameterTypes && hasCorrectArgumentCount && currentMatchingParameterTypeConversions == 0) {
+                        ASTArrayAppendElement(identifier->candidateDeclarations, (ASTDeclarationRef)initializer);
+                    } else if (matchKind <= CandidateFunctionMatchKindParameterTypes &&
+                               ((matchingParameterTypeCount < currentMatchingParameterTypeCount) ||
+                                ((matchingParameterTypeCount == currentMatchingParameterTypeCount) &&
+                                 matchingParameterTypeConversions > currentMatchingParameterTypeConversions))) {
+                        matchingDeclaration              = (ASTDeclarationRef)initializer;
+                        matchKind                        = CandidateFunctionMatchKindParameterTypes;
+                        matchingParameterTypeCount       = currentMatchingParameterTypeCount;
+                        matchingParameterTypeConversions = currentMatchingParameterTypeConversions;
+                    }
+
+                    initializerIterator = ASTArrayIteratorNext(initializerIterator);
                 }
+            } else {
+                for (Index index = 0; index < ASTArrayGetElementCount(globalScope->declarations); index++) {
+                    ASTDeclarationRef declaration = (ASTDeclarationRef)ASTArrayGetElementAtIndex(globalScope->declarations, index);
+                    if (declaration->base.tag != ASTTagFunctionDeclaration && declaration->base.tag != ASTTagForeignFunctionDeclaration &&
+                        declaration->base.tag != ASTTagIntrinsicFunctionDeclaration) {
+                        continue;
+                    }
 
-                ASTFunctionDeclarationRef function = (ASTFunctionDeclarationRef)declaration;
-                if (function->fixity != call->fixity) {
-                    continue;
-                }
+                    ASTFunctionDeclarationRef function = (ASTFunctionDeclarationRef)declaration;
+                    if (function->fixity != call->fixity) {
+                        continue;
+                    }
 
-                if (!StringIsEqual(declaration->name, identifier->name)) {
-                    continue;
-                }
+                    if (!StringIsEqual(declaration->name, identifier->name)) {
+                        continue;
+                    }
 
-                // TODO: For some reasons are the predefined operators visited twice, that should be impossible but we will fix it for now
-                // by only storing distinct declarations into candidateDeclarations. It could be that the builtin functions are not inserted
-                // correctly to the context
-                if (ASTArrayContainsElement(identifier->candidateDeclarations, &_IsNodeEqual, declaration)) {
-                    continue;
-                }
+                    // TODO: For some reasons are the predefined operators visited twice, that should be impossible but we will fix it for
+                    //       now by only storing distinct declarations into candidateDeclarations. It could be that the builtin functions
+                    //       are not inserted correctly to the context
+                    if (ASTArrayContainsElement(identifier->candidateDeclarations, &_IsNodeEqual, declaration)) {
+                        continue;
+                    }
 
-                if (matchKind < CandidateFunctionMatchKindName) {
-                    matchingDeclaration = declaration;
-                    matchKind           = CandidateFunctionMatchKindName;
-                }
-
-                Index minParameterCheckCount = MIN(ASTArrayGetElementCount(function->parameters), ASTArrayGetElementCount(call->arguments));
-                Index hasCorrectArgumentCount = ASTArrayGetElementCount(function->parameters) == ASTArrayGetElementCount(call->arguments);
-
-                if (matchKind < CandidateFunctionMatchKindParameterCount && hasCorrectArgumentCount) {
-                    matchingDeclaration = declaration;
-                    matchKind           = CandidateFunctionMatchKindParameterCount;
-                }
-
-                if (call->base.expectedType && ASTTypeIsEqual(call->base.expectedType, function->returnType)) {
-                    if (matchKind < CandidateFunctionMatchKindExpectedType) {
+                    if (matchKind < CandidateFunctionMatchKindName) {
                         matchingDeclaration = declaration;
-                        matchKind           = CandidateFunctionMatchKindExpectedType;
+                        matchKind           = CandidateFunctionMatchKindName;
                     }
-                }
 
-                Bool hasMatchingParameterTypes                = true;
-                Index currentMatchingParameterTypeCount       = 0;
-                Index currentMatchingParameterTypeConversions = 0;
-                for (Index parameterIndex = 0; parameterIndex < minParameterCheckCount; parameterIndex++) {
-                    ASTValueDeclarationRef parameter = (ASTValueDeclarationRef)ASTArrayGetElementAtIndex(function->parameters,
-                                                                                                         parameterIndex);
-                    ASTExpressionRef argument        = (ASTExpressionRef)ASTArrayGetElementAtIndex(call->arguments, parameterIndex);
+                    Index minParameterCheckCount  = MIN(ASTArrayGetElementCount(function->parameters),
+                                                       ASTArrayGetElementCount(call->arguments));
+                    Index hasCorrectArgumentCount = ASTArrayGetElementCount(function->parameters) ==
+                                                    ASTArrayGetElementCount(call->arguments);
 
-                    assert(parameter->base.type);
-                    assert(argument->type);
-
-                    if (ASTTypeIsEqual(argument->type, parameter->base.type)) {
-                        currentMatchingParameterTypeCount += 1;
-                    } else if (ASTTypeIsLosslessConvertible(argument->type, parameter->base.type)) {
-                        currentMatchingParameterTypeCount += 1;
-                        currentMatchingParameterTypeConversions += 1;
-                    } else {
-                        hasMatchingParameterTypes = false;
+                    if (matchKind < CandidateFunctionMatchKindParameterCount && hasCorrectArgumentCount) {
+                        matchingDeclaration = declaration;
+                        matchKind           = CandidateFunctionMatchKindParameterCount;
                     }
-                }
 
-                // TODO: Converted types should also be added to candidateDeclarations and should be filtered by best matches, if there are
-                //       more than one solutions after the post checking pass, then a declaration will be ambiguous!
-                if (hasMatchingParameterTypes && hasCorrectArgumentCount && currentMatchingParameterTypeConversions == 0) {
-                    ASTArrayAppendElement(identifier->candidateDeclarations, declaration);
-                } else if (matchKind <= CandidateFunctionMatchKindParameterTypes &&
-                           ((matchingParameterTypeCount < currentMatchingParameterTypeCount) ||
-                            ((matchingParameterTypeCount == currentMatchingParameterTypeCount) &&
-                             matchingParameterTypeConversions > currentMatchingParameterTypeConversions))) {
-                    matchingDeclaration              = declaration;
-                    matchKind                        = CandidateFunctionMatchKindParameterTypes;
-                    matchingParameterTypeCount       = currentMatchingParameterTypeCount;
-                    matchingParameterTypeConversions = currentMatchingParameterTypeConversions;
+                    if (call->base.expectedType && ASTTypeIsEqual(call->base.expectedType, function->returnType)) {
+                        if (matchKind < CandidateFunctionMatchKindExpectedType) {
+                            matchingDeclaration = declaration;
+                            matchKind           = CandidateFunctionMatchKindExpectedType;
+                        }
+                    }
+
+                    Bool hasMatchingParameterTypes                = true;
+                    Index currentMatchingParameterTypeCount       = 0;
+                    Index currentMatchingParameterTypeConversions = 0;
+                    for (Index parameterIndex = 0; parameterIndex < minParameterCheckCount; parameterIndex++) {
+                        ASTValueDeclarationRef parameter = (ASTValueDeclarationRef)ASTArrayGetElementAtIndex(function->parameters,
+                                                                                                             parameterIndex);
+                        ASTExpressionRef argument        = (ASTExpressionRef)ASTArrayGetElementAtIndex(call->arguments, parameterIndex);
+
+                        assert(parameter->base.type);
+                        assert(argument->type);
+
+                        if (ASTTypeIsEqual(argument->type, parameter->base.type)) {
+                            currentMatchingParameterTypeCount += 1;
+                        } else if (ASTTypeIsLosslessConvertible(argument->type, parameter->base.type)) {
+                            currentMatchingParameterTypeCount += 1;
+                            currentMatchingParameterTypeConversions += 1;
+                        } else {
+                            hasMatchingParameterTypes = false;
+                        }
+                    }
+
+                    // TODO: Converted types should also be added to candidateDeclarations and should be filtered by best matches, if there
+                    //       are more than one solutions after the post checking pass, then a declaration will be ambiguous!
+                    if (hasMatchingParameterTypes && hasCorrectArgumentCount && currentMatchingParameterTypeConversions == 0) {
+                        ASTArrayAppendElement(identifier->candidateDeclarations, declaration);
+                    } else if (matchKind <= CandidateFunctionMatchKindParameterTypes &&
+                               ((matchingParameterTypeCount < currentMatchingParameterTypeCount) ||
+                                ((matchingParameterTypeCount == currentMatchingParameterTypeCount) &&
+                                 matchingParameterTypeConversions > currentMatchingParameterTypeConversions))) {
+                        matchingDeclaration              = declaration;
+                        matchKind                        = CandidateFunctionMatchKindParameterTypes;
+                        matchingParameterTypeCount       = currentMatchingParameterTypeCount;
+                        matchingParameterTypeConversions = currentMatchingParameterTypeConversions;
+                    }
                 }
             }
 
@@ -728,6 +850,10 @@ static inline void _PerformNameResolutionForExpression(ASTContextRef context, AS
             } else {
                 ReportError("Ambiguous use of identifier");
                 identifier->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
+            }
+
+            if (identifier->resolvedDeclaration && identifier->resolvedDeclaration->base.tag == ASTTagInitializerDeclaration) {
+                call->base.base.flags |= ASTFlagsCallIsInitialization;
             }
         } else {
             _PerformNameResolutionForExpression(context, call->callee);

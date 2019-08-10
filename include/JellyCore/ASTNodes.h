@@ -69,6 +69,7 @@ enum _ASTFlags {
     ASTFlagsIsValuePointer             = 1 << 5,
     ASTFlagsIsConstantEvaluable        = 1 << 6,
     ASTFlagsIsPointerArithmetic        = 1 << 7,
+    ASTFlagsCallIsInitialization       = 1 << 8,
 };
 typedef enum _ASTFlags ASTFlags;
 
@@ -477,7 +478,8 @@ struct _ASTInitializerDeclaration {
     ASTArrayRef parameters;
     ASTBlockRef body;
 
-    IRRef irImplicitSelfValue;
+    ASTScopeRef innerScope;
+    ASTValueDeclarationRef implicitSelf;
 };
 
 enum _ASTValueKind {

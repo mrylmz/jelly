@@ -1,0 +1,12 @@
+enum MyEnum {
+    case A
+    case B
+}
+
+func equals(lhs: MyEnum, rhs: MyEnum) -> Bool {
+    if lhs == A, rhs == A || lhs == B && rhs == B { // expect-error: ?
+        return true
+    }
+
+    return false
+}

@@ -580,7 +580,8 @@ ASTInitializerDeclarationRef ASTContextCreateInitializerDeclaration(ASTContextRe
     node->base.mangledName            = NULL;
     node->parameters                  = ASTContextCreateArray(context, location, scope);
     node->body                        = body;
-    node->irImplicitSelfValue         = NULL;
+    node->innerScope                  = NULL;
+    node->implicitSelf                = NULL;
     if (parameters) {
         ASTArrayAppendArray(node->parameters, parameters);
     }

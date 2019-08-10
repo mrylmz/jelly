@@ -1,0 +1,65 @@
+ModuleDeclaration
+  SourceUnit
+    @filePath = 'invalid_binary_operation_in_comma_separated_condition.jelly'
+    EnumerationDeclaration
+      @name = 'MyEnum'
+      EnumerationElementDeclaration
+        @name = 'A'
+        BuiltinType
+          @name = 'Int'
+      EnumerationElementDeclaration
+        @name = 'B'
+        BuiltinType
+          @name = 'Int'
+    FunctionDeclaration
+      @name = 'equals'
+      ParameterDeclaration
+        @name = 'lhs'
+        OpaqueType
+          @name = 'MyEnum'
+      ParameterDeclaration
+        @name = 'rhs'
+        OpaqueType
+          @name = 'MyEnum'
+      BuiltinType
+        @name = 'Bool'
+      Block
+        IfStatement
+          BinaryExpression
+            @operator = '&&'
+            BinaryExpression
+              @operator = '=='
+              IdentifierExpression
+                @identifier = 'lhs'
+              IdentifierExpression
+                @identifier = 'A'
+            BinaryExpression
+              @operator = '||'
+              BinaryExpression
+                @operator = '=='
+                IdentifierExpression
+                  @identifier = 'rhs'
+                IdentifierExpression
+                  @identifier = 'A'
+              BinaryExpression
+                @operator = '&&'
+                BinaryExpression
+                  @operator = '=='
+                  IdentifierExpression
+                    @identifier = 'lhs'
+                  IdentifierExpression
+                    @identifier = 'B'
+                BinaryExpression
+                  @operator = '=='
+                  IdentifierExpression
+                    @identifier = 'rhs'
+                  IdentifierExpression
+                    @identifier = 'B'
+          Block
+            ReturnStatement
+              BoolLiteral
+                @value = 'true'
+          Block
+        ReturnStatement
+          BoolLiteral
+            @value = 'false'

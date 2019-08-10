@@ -1,0 +1,13 @@
+// run: -dump-ir
+
+struct Person {
+    var age: Int
+
+    init(age: Int) {
+        self.age = age
+    }
+}
+
+func main() -> Void {
+    var person: Person = Person(23)
+}

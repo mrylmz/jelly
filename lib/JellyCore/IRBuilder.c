@@ -355,9 +355,6 @@ static inline void _IRBuilderBuildTypes(IRBuilderRef builder, ASTModuleDeclarati
                     ASTInitializerDeclarationRef initializer = (ASTInitializerDeclarationRef)ASTArrayIteratorGetElement(iterator);
                     ArrayRemoveAllElements(temporaryTypes, true);
 
-                    LLVMTypeRef implicitSelfType = LLVMPointerType(structureType, 0);
-                    ArrayAppendElement(temporaryTypes, &implicitSelfType);
-
                     for (Index index = 0; index < ASTArrayGetElementCount(initializer->parameters); index++) {
                         ASTValueDeclarationRef parameter = (ASTValueDeclarationRef)ASTArrayGetElementAtIndex(initializer->parameters,
                                                                                                              index);
@@ -510,11 +507,9 @@ static inline void _IRBuilderBuildInitializerSignature(IRBuilderRef builder, AST
 static inline void _IRBuilderBuildInitializerBody(IRBuilderRef builder, ASTStructureDeclarationRef structure,
                                                   ASTInitializerDeclarationRef declaration) {
     LLVMValueRef function = (LLVMValueRef)declaration->base.base.irValue;
-
-    declaration->irImplicitSelfValue = LLVMGetParam(function, 0);
     for (Index index = 0; index < ASTArrayGetElementCount(declaration->parameters); index++) {
         ASTValueDeclarationRef parameter = (ASTValueDeclarationRef)ASTArrayGetElementAtIndex(declaration->parameters, index);
-        parameter->base.base.irValue     = LLVMGetParam(function, index + 1);
+        parameter->base.base.irValue     = LLVMGetParam(function, index);
     }
 
     LLVMBasicBlockRef entry = LLVMAppendBasicBlock(function, "entry");
@@ -531,7 +526,8 @@ static inline void _IRBuilderBuildInitializerBody(IRBuilderRef builder, ASTStruc
     }
 
     if (!(declaration->body->base.flags & ASTFlagsStatementIsAlwaysReturning)) {
-        LLVMBuildRetVoid(builder->builder);
+        assert(declaration->implicitSelf->base.base.irValue);
+        LLVMBuildRet(builder->builder, LLVMBuildLoad(builder->builder, (LLVMValueRef)declaration->implicitSelf->base.base.irValue, ""));
     }
 }
 
@@ -895,6 +891,30 @@ static inline void _IRBuilderBuildExpression(IRBuilderRef builder, LLVMValueRef 
         // TODO: Remove this after finishing implementation for foreign and prefix infix functions
         if (!call->callee->type->irType) {
             _IRBuilderGetIRType(builder, call->callee->type);
+        }
+
+        if (call->base.base.flags & ASTFlagsCallIsInitialization) {
+            assert(call->callee->base.tag == ASTTagIdentifierExpression);
+            ASTIdentifierExpressionRef identifier = (ASTIdentifierExpressionRef)call->callee;
+            assert(identifier->resolvedDeclaration && identifier->resolvedDeclaration->base.tag == ASTTagInitializerDeclaration);
+            ASTInitializerDeclarationRef initializer = (ASTInitializerDeclarationRef)identifier->resolvedDeclaration;
+
+            ArrayRef arguments = ArrayCreateEmpty(builder->allocator, sizeof(LLVMValueRef), ASTArrayGetElementCount(call->arguments));
+            for (Index index = 0; index < ASTArrayGetElementCount(call->arguments); index++) {
+                ASTExpressionRef argument        = (ASTExpressionRef)ASTArrayGetElementAtIndex(call->arguments, index);
+                ASTValueDeclarationRef parameter = (ASTValueDeclarationRef)ASTArrayGetElementAtIndex(initializer->parameters, index);
+                _IRBuilderBuildExpression(builder, function, argument);
+                LLVMValueRef argumentValue = _IRBuilderLoadExpression(builder, function, argument);
+                argumentValue = _IRBuilderLosslessConvertValue(builder, function, argumentValue, argument->type, parameter->base.type);
+                ArrayAppendElement(arguments, &argumentValue);
+            }
+
+            call->base.base.irValue = (LLVMValueRef)LLVMBuildCall(builder->builder, (LLVMValueRef)initializer->base.base.irValue,
+                                                                  (LLVMValueRef *)ArrayGetMemoryPointer(arguments),
+                                                                  ArrayGetElementCount(arguments), "");
+
+            ArrayDestroy(arguments);
+            return;
         }
 
         if (call->base.base.flags & ASTFlagsIsPointerArithmetic) {
