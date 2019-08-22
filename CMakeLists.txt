@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.11.1)
 
 project(jelly
-        VERSION 0.0.0
+        VERSION 0.1.0
         LANGUAGES C)
 
 if (APPLE)
