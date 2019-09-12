@@ -269,9 +269,10 @@ static inline Bool _ParserConsumePostfixOperatorTail(ParserRef parser, ASTPostfi
     }
 }
 
-/// grammar: directive      := load-directive | link-directive
-/// grammar: load-directive := "#load" string-literal
-/// grammar: link-directive := "#link" string-literal
+/// grammar: directive        := load-directive | link-directive | import-directive
+/// grammar: load-directive   := "#load" string-literal
+/// grammar: link-directive   := "#link" string-literal
+/// grammar: import-directive := "#import" string-literal
 static inline ASTNodeRef _ParserParseDirective(ParserRef parser) {
     SourceRange location = parser->token.location;
 
@@ -304,6 +305,19 @@ static inline ASTNodeRef _ParserParseDirective(ParserRef parser) {
 
         location.end = parser->token.location.start;
         return (ASTNodeRef)ASTContextCreateLinkDirective(parser->context, location, parser->currentScope, filePath->stringValue);
+    }
+
+    if (_ParserConsumeToken(parser, TokenKindDirectiveImport)) {
+        ASTConstantExpressionRef filePath = _ParserParseConstantExpression(parser);
+        if (!filePath || filePath->kind != ASTConstantKindString) {
+            ReportError("Expected string literal after `#import` directive");
+            return NULL;
+        }
+
+        assert(filePath->kind == ASTConstantKindString);
+
+        location.end = parser->token.location.start;
+        return (ASTNodeRef)ASTContextCreateImportDirective(parser->context, location, parser->currentScope, filePath->stringValue);
     }
 
     ReportError("Unknown compiler directive");
@@ -1860,7 +1874,8 @@ static inline ASTNodeRef _ParserParseTopLevelNode(ParserRef parser) {
         return NULL;
     }
 
-    if (_ParserIsToken(parser, TokenKindDirectiveLoad) || _ParserIsToken(parser, TokenKindDirectiveLink)) {
+    if (_ParserIsToken(parser, TokenKindDirectiveLoad) || _ParserIsToken(parser, TokenKindDirectiveLink) ||
+        _ParserIsToken(parser, TokenKindDirectiveImport)) {
         return (ASTNodeRef)_ParserParseDirective(parser);
     }
 

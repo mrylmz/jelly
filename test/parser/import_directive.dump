@@ -1,0 +1,5 @@
+ModuleDeclaration
+  SourceUnit
+    @filePath = 'import_directive.jelly'
+    ImportDirective
+      @modulePath = 'test_module/my_module.jelly'

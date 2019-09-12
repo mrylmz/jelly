@@ -50,6 +50,12 @@ void ASTDumperDump(ASTDumperRef dumper, ASTNodeRef node) {
         return;
     }
 
+    case ASTTagImportDirective: {
+        ASTImportDirectiveRef import = (ASTImportDirectiveRef)node;
+        _ASTDumperPrintProperty(dumper, "modulePath", StringGetCharacters(import->modulePath));
+        return;
+    }
+
     case ASTTagBlock: {
         ASTBlockRef block = (ASTBlockRef)node;
         _ASTDumperDumpChildrenArray(dumper, block->statements);
@@ -332,6 +338,9 @@ static inline void _ASTDumperPrintTag(ASTDumperRef dumper, ASTNodeRef node) {
 
     case ASTTagLoadDirective:
         return _ASTDumperPrintCString(dumper, "LoadDirective");
+
+    case ASTTagImportDirective:
+        return _ASTDumperPrintCString(dumper, "ImportDirective");
 
     case ASTTagBlock:
         return _ASTDumperPrintCString(dumper, "Block");
