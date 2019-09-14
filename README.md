@@ -86,10 +86,6 @@ prefix-operator  := '!' | '~' | '+' | '-'
 expression        := binary-expression | primary-expression
 binary-expression := primary-expression infix-operator expression
 
-identifier := identifier-head { identifier-tail }
-identifier-head := "a" ... "z" | "A" ... "Z" | "_"
-identifier-tail := identifier-head | "0" ... "9"
-
 call-expression := expression "(" [ expression { "," expression } ] ")"
 
 constant-expression := nil-literal | bool-literal | numeric-literal | string-literal
