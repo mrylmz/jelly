@@ -57,6 +57,7 @@ static inline ASTValueDeclarationRef _ParserParseParameterDeclaration(ParserRef 
 static inline ASTTypeRef _ParserParseType(ParserRef parser);
 static inline ASTExpressionRef _ParserParseConditionList(ParserRef parser);
 static inline ASTNodeRef _ParserParseTopLevelNode(ParserRef parser);
+static inline ASTNodeRef _ParserParseTopLevelInterfaceNode(ParserRef parser);
 
 static inline ASTScopeRef _ParserPushScope(ParserRef parser, SourceRange location, ASTNodeRef node, ASTScopeKind kind);
 static inline void _ParserPopScope(ParserRef parser);
@@ -91,8 +92,8 @@ ASTSourceUnitRef ParserParseSourceUnit(ParserRef parser, StringRef filePath, Str
     ArrayRef declarations = ArrayCreateEmpty(parser->tempAllocator, sizeof(ASTNodeRef), 8);
     while (true) {
         SourceRange leadingTrivia = parser->token.leadingTrivia;
-        ASTNodeRef declaration    = _ParserParseTopLevelNode(parser);
-        if (!declaration) {
+        ASTNodeRef topLevelNode   = _ParserParseTopLevelNode(parser);
+        if (!topLevelNode) {
             break;
         }
 
@@ -100,10 +101,10 @@ ASTSourceUnitRef ParserParseSourceUnit(ParserRef parser, StringRef filePath, Str
             ReportError("Consecutive statements on a line are not allowed");
         }
 
-        if (declaration->tag == ASTTagLinkDirective) {
-            ASTArrayAppendElement(module->linkDirectives, declaration);
+        if (topLevelNode->tag == ASTTagLinkDirective) {
+            ASTArrayAppendElement(module->linkDirectives, topLevelNode);
         } else {
-            ArrayAppendElement(declarations, &declaration);
+            ArrayAppendElement(declarations, &topLevelNode);
         }
     }
 
@@ -111,6 +112,104 @@ ASTSourceUnitRef ParserParseSourceUnit(ParserRef parser, StringRef filePath, Str
     ASTSourceUnitRef sourceUnit = ASTContextCreateSourceUnit(parser->context, location, parser->currentScope, filePath, declarations);
     ASTModuleAddSourceUnit(parser->context, module, sourceUnit);
     return sourceUnit;
+}
+
+ASTSourceUnitRef ParserParseModuleSourceUnit(ParserRef parser, ASTModuleDeclarationRef module, StringRef filePath, StringRef source) {
+    parser->lexer = LexerCreate(parser->allocator, source);
+    LexerNextToken(parser->lexer, &parser->token);
+
+    SourceRange location  = parser->token.location;
+    ArrayRef declarations = ArrayCreateEmpty(parser->tempAllocator, sizeof(ASTNodeRef), 8);
+    while (true) {
+        SourceRange leadingTrivia = parser->token.leadingTrivia;
+        ASTNodeRef topLevelNode   = _ParserParseTopLevelInterfaceNode(parser);
+        if (!topLevelNode) {
+            break;
+        }
+
+        if (ArrayGetElementCount(declarations) > 0 && !_SourceRangeContainsLineBreakCharacter(leadingTrivia)) {
+            ReportError("Consecutive statements on a line are not allowed");
+        }
+
+        if (topLevelNode->tag == ASTTagLinkDirective) {
+            ASTArrayAppendElement(module->linkDirectives, topLevelNode);
+        } else {
+            ArrayAppendElement(declarations, &topLevelNode);
+        }
+    }
+
+    location.end                = parser->token.location.start;
+    ASTSourceUnitRef sourceUnit = ASTContextCreateSourceUnit(parser->context, location, parser->currentScope, filePath, declarations);
+    ASTModuleAddSourceUnit(parser->context, module, sourceUnit);
+    return sourceUnit;
+}
+
+// grammar: module-declaration := "module" identifier "{" [ { directive } ] "}"
+ASTModuleDeclarationRef ParserParseModuleDeclaration(ParserRef parser, StringRef filePath, StringRef source) {
+    parser->lexer = LexerCreate(parser->allocator, source);
+    LexerNextToken(parser->lexer, &parser->token);
+
+    if (!_ParserConsumeToken(parser, TokenKindKeywordModule)) {
+        ReportError("Expected keyword 'module' in imported interface");
+        return NULL;
+    }
+
+    StringRef moduleName = _ParserConsumeIdentifier(parser);
+    if (!moduleName) {
+        ReportError("Expected identifier for module declaration");
+        return NULL;
+    }
+
+    if (!_ParserConsumeToken(parser, TokenKindLeftCurlyBracket)) {
+        ReportError("Expected '{' after module declaration");
+        return NULL;
+    }
+
+    SourceRange location    = parser->token.location;
+    ArrayRef linkDirectives = ArrayCreateEmpty(parser->tempAllocator, sizeof(ASTNodeRef), 8);
+    ArrayRef directives     = ArrayCreateEmpty(parser->tempAllocator, sizeof(ASTNodeRef), 8);
+    while (!_ParserIsToken(parser, TokenKindRightCurlyBracket)) {
+        SourceRange leadingTrivia = parser->token.leadingTrivia;
+
+        if (!_ParserIsToken(parser, TokenKindDirectiveLoad) && !_ParserIsToken(parser, TokenKindDirectiveLink)) {
+            ReportError("Expected '#load' or '#link' directive in module");
+            return NULL;
+        }
+
+        ASTNodeRef directive = _ParserParseDirective(parser);
+        if (!directive) {
+            return NULL;
+        }
+
+        if (ArrayGetElementCount(directives) > 0 && !_SourceRangeContainsLineBreakCharacter(leadingTrivia)) {
+            ReportError("Consecutive statements on a line are not allowed");
+        }
+
+        // TODO: Check where all directives have to be stored...
+        if (directive->tag == ASTTagLinkDirective) {
+            ArrayAppendElement(linkDirectives, &directive);
+        } else {
+            ArrayAppendElement(directives, &directive);
+        }
+    }
+
+    if (!_ParserConsumeToken(parser, TokenKindRightCurlyBracket)) {
+        ReportError("Expected '}' at end of module declaration");
+        return NULL;
+    }
+
+    if (!_ParserIsToken(parser, TokenKindEndOfFile)) {
+        ReportError("Expected end of file after module declaration");
+        return NULL;
+    }
+
+    location.end                   = parser->token.location.start;
+    ASTModuleDeclarationRef module = ASTContextCreateModuleDeclaration(parser->context, location, parser->currentScope, moduleName, NULL,
+                                                                       NULL);
+    ASTArrayAppendArray(module->linkDirectives, linkDirectives);
+    ASTSourceUnitRef sourceUnit = ASTContextCreateSourceUnit(parser->context, location, parser->currentScope, filePath, directives);
+    ASTModuleAddSourceUnit(parser->context, module, sourceUnit);
+    return module;
 }
 
 static inline Bool _StringIsValidFilePath(StringRef string) {
@@ -1868,7 +1967,7 @@ static inline ASTExpressionRef _ParserParseConditionList(ParserRef parser) {
     return condition;
 }
 
-/// grammar: top-level-node := load-declaration | enum-declaration | func-declaration | struct-declaration | variable-declaration
+/// grammar: top-level-node := directive | enum-declaration | func-declaration | struct-declaration | variable-declaration | type-alias
 static inline ASTNodeRef _ParserParseTopLevelNode(ParserRef parser) {
     if (parser->token.kind == TokenKindEndOfFile) {
         return NULL;
@@ -1918,6 +2017,47 @@ static inline ASTNodeRef _ParserParseTopLevelNode(ParserRef parser) {
     }
 
     ReportError("Expected top level node!");
+    return NULL;
+}
+
+// grammar: top-level-interface-node := load-directive | link-directive | enum-declaration | foreing-func-declaration | struct-declaration |
+// variable-declaration | type-alias
+static inline ASTNodeRef _ParserParseTopLevelInterfaceNode(ParserRef parser) {
+    if (parser->token.kind == TokenKindEndOfFile) {
+        return NULL;
+    }
+
+    if (_ParserIsToken(parser, TokenKindDirectiveLoad) || _ParserIsToken(parser, TokenKindDirectiveLink)) {
+        return (ASTNodeRef)_ParserParseDirective(parser);
+    }
+
+    if (_ParserIsToken(parser, TokenKindDirectiveForeign)) {
+        return (ASTNodeRef)_ParserParseForeignFunctionDeclaration(parser);
+    }
+
+    if (_ParserIsToken(parser, TokenKindKeywordEnum)) {
+        return (ASTNodeRef)_ParserParseEnumerationDeclaration(parser);
+    }
+
+    if (_ParserIsToken(parser, TokenKindKeywordStruct)) {
+        return (ASTNodeRef)_ParserParseStructureDeclaration(parser);
+    }
+
+    if (_ParserIsToken(parser, TokenKindKeywordVar)) {
+        ASTValueDeclarationRef value = _ParserParseVariableDeclaration(parser);
+        if (!value) {
+            return NULL;
+        }
+
+        assert(value->kind == ASTValueKindVariable);
+        return (ASTNodeRef)value;
+    }
+
+    if (_ParserIsToken(parser, TokenKindKeywordTypeAlias)) {
+        return (ASTNodeRef)_ParserParseTypeAliasDeclaration(parser);
+    }
+
+    ReportError("Expected top level interface node!");
     return NULL;
 }
 

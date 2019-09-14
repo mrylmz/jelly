@@ -1,0 +1,6 @@
+struct Point {
+    var x: Int
+    var y: Int
+}
+
+#foreign func myLocation() -> Point "myLocation"

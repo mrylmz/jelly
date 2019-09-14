@@ -749,6 +749,8 @@ static inline TokenKind _LexerLexIdentifierOrKeyword(LexerRef lexer) {
         kind = TokenKindKeywordFloat64;
     } else if (SourceRangeIsEqual(range, "Float")) {
         kind = TokenKindKeywordFloat;
+    } else if (SourceRangeIsEqual(range, "module")) {
+        kind = TokenKindKeywordModule;
     } else {
         kind = TokenKindIdentifier;
     }

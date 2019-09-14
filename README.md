@@ -92,6 +92,8 @@ constant-expression := nil-literal | bool-literal | numeric-literal | string-lit
 nil-literal         := "nil"
 bool-literal        := "true" | "false"
 
+module-declaration := "module" identifier "{" [ { load-directive | link-directive } ] "}"
+
 enum-declaration := "enum" identifier "{" [ enum-element { line-break enum-element } ] "}"
 
 func-declaration := "func" identifier "(" [ parameter-declaration { "," parameter-declaration } ] ")" "->" type-identifier block
@@ -124,5 +126,6 @@ pointer-type             := type "*"
 array-type               := type "[" [ expression ] "]"
 function-pointer-type    := "(" [ type { "," type } ] ")" "->" type
 
-top-level-node := load-declaration | enum-declaration | func-declaration | struct-declaration | variable-declaration
+top-level-node := directive | enum-declaration | func-declaration | struct-declaration | variable-declaration
+top-level-interface-node := load-directive | link-directive | enum-declaration | foreing-func-declaration | struct-declaration | variable-declaration | type-alias
 ```

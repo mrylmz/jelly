@@ -874,6 +874,10 @@ static inline void _PrintTokenKindDescription(TokenKind kind) {
             printf("%s", "Float");
             break;
 
+        case TokenKindKeywordModule:
+            printf("%s", "module");
+            break;
+
         case TokenKindDirectiveLoad:
             printf("%s", "#load");
             break;

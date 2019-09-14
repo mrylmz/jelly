@@ -1,0 +1,1 @@
+#foreign func min(lhs: Int, rhs: Int) -> Int "min"

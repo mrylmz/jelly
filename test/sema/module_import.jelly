@@ -1,0 +1,5 @@
+// run: -type-check
+
+#import "test_module/TestModule.jelly"
+
+func main() -> Void {}

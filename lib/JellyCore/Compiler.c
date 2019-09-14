@@ -10,6 +10,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+// TODO: @ModuleSupport Add compilation support of modules
+
 Int CompilerRun(ArrayRef arguments) {
     Int32 argc  = ArrayGetElementCount(arguments);
     Char **argv = AllocatorAllocate(AllocatorGetSystemDefault(), sizeof(Char *) * argc);

@@ -93,6 +93,7 @@ enum _TokenKind {
     TokenKindKeywordFloat32,
     TokenKindKeywordFloat64,
     TokenKindKeywordFloat,
+    TokenKindKeywordModule,
     TokenKindDirectiveLoad,
     TokenKindDirectiveLink,
     TokenKindDirectiveIntrinsic,

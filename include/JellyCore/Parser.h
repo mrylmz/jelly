@@ -14,6 +14,8 @@ ParserRef ParserCreate(AllocatorRef allocator, ASTContextRef context);
 void ParserDestroy(ParserRef parser);
 
 ASTSourceUnitRef ParserParseSourceUnit(ParserRef parser, StringRef filePath, StringRef source);
+ASTSourceUnitRef ParserParseModuleSourceUnit(ParserRef parser, ASTModuleDeclarationRef module, StringRef filePath, StringRef source);
+ASTModuleDeclarationRef ParserParseModuleDeclaration(ParserRef parser, StringRef filePath, StringRef source);
 
 JELLY_EXTERN_C_END
 

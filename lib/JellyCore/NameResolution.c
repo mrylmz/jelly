@@ -3,6 +3,7 @@
 #include "JellyCore/Diagnostic.h"
 #include "JellyCore/NameResolution.h"
 
+// TODO: @ModuleSupport Add name resolution support for imported modules
 // TODO: @Bug Type all enumeration elements with the enumeration type and replace it with lowered int type in the backend
 
 enum _CandidateFunctionMatchKind {
@@ -111,7 +112,7 @@ void PerformNameResolution(ASTContextRef context, ASTModuleDeclarationRef module
 
             if (child->tag == ASTTagStructureDeclaration) {
                 ASTStructureDeclarationRef structure = (ASTStructureDeclarationRef)child;
-                ASTArrayIteratorRef iterator = ASTArrayGetIterator(structure->initializers);
+                ASTArrayIteratorRef iterator         = ASTArrayGetIterator(structure->initializers);
                 while (iterator) {
                     ASTInitializerDeclarationRef initializer = (ASTInitializerDeclarationRef)ASTArrayIteratorGetElement(iterator);
                     _PerformNameResolutionForNode(context, (ASTNodeRef)initializer->body);

@@ -1,5 +1,6 @@
-module MyModule {
+module TestModule {
     #load "sourceFile0.jelly"
+    #load "sourceFile1.jelly"
     #link "library1"
     #link "library2"
 }

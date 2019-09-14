@@ -141,6 +141,7 @@ IRModuleRef IRBuilderBuild(IRBuilderRef builder, ASTModuleDeclarationRef module)
 
             switch (child->tag) {
             case ASTTagLoadDirective:
+            case ASTTagImportDirective:
                 continue;
 
             case ASTTagEnumerationDeclaration:

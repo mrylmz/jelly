@@ -124,7 +124,8 @@ static inline void _TypeCheckerValidateSourceUnit(TypeCheckerRef typeChecker, AS
 }
 
 static inline void _TypeCheckerValidateTopLevelNode(TypeCheckerRef typeChecker, ASTContextRef context, ASTNodeRef node) {
-    if (node->tag == ASTTagLoadDirective || node->tag == ASTTagLinkDirective || node->tag == ASTTagTypeAliasDeclaration) {
+    if (node->tag == ASTTagLoadDirective || node->tag == ASTTagLinkDirective || node->tag == ASTTagImportDirective ||
+        node->tag == ASTTagTypeAliasDeclaration) {
         return;
     }
 
