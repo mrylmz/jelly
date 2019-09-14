@@ -1,7 +1,7 @@
 // run: -type-check
 
 struct A {
-    func myFunc() -> Void {} // expect-error: Expected keyword 'var' or 'init' in structure body
+    func myFunc() -> Void {} // expect-error: Expected 'var' or 'init' in structure body
 }
 
 func main() -> Void {}
