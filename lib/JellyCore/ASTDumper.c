@@ -50,6 +50,12 @@ void ASTDumperDump(ASTDumperRef dumper, ASTNodeRef node) {
         return;
     }
 
+    case ASTTagImportDirective: {
+        ASTImportDirectiveRef import = (ASTImportDirectiveRef)node;
+        _ASTDumperPrintProperty(dumper, "modulePath", StringGetCharacters(import->modulePath));
+        return;
+    }
+
     case ASTTagBlock: {
         ASTBlockRef block = (ASTBlockRef)node;
         _ASTDumperDumpChildrenArray(dumper, block->statements);
@@ -219,11 +225,16 @@ void ASTDumperDump(ASTDumperRef dumper, ASTNodeRef node) {
         return;
     }
 
+    case ASTTagForeignFunctionDeclaration:
     case ASTTagFunctionDeclaration: {
         ASTFunctionDeclarationRef func = (ASTFunctionDeclarationRef)node;
         _ASTDumperPrintProperty(dumper, "name", StringGetCharacters(func->base.name));
         _ASTDumperDumpChildrenArray(dumper, func->parameters);
         _ASTDumperDumpChild(dumper, func->returnType);
+
+        if (func->base.base.tag == ASTTagForeignFunctionDeclaration) {
+            _ASTDumperPrintProperty(dumper, "foreignName", StringGetCharacters(func->foreignName));
+        }
 
         if (func->body) {
             _ASTDumperDumpChild(dumper, (ASTNodeRef)func->body);
@@ -333,6 +344,9 @@ static inline void _ASTDumperPrintTag(ASTDumperRef dumper, ASTNodeRef node) {
     case ASTTagLoadDirective:
         return _ASTDumperPrintCString(dumper, "LoadDirective");
 
+    case ASTTagImportDirective:
+        return _ASTDumperPrintCString(dumper, "ImportDirective");
+
     case ASTTagBlock:
         return _ASTDumperPrintCString(dumper, "Block");
 
@@ -421,6 +435,9 @@ static inline void _ASTDumperPrintTag(ASTDumperRef dumper, ASTNodeRef node) {
 
     case ASTTagEnumerationDeclaration:
         return _ASTDumperPrintCString(dumper, "EnumerationDeclaration");
+
+    case ASTTagForeignFunctionDeclaration:
+        return _ASTDumperPrintCString(dumper, "ForeignFunctionDeclaration");
 
     case ASTTagFunctionDeclaration:
         return _ASTDumperPrintCString(dumper, "FunctionDeclaration");

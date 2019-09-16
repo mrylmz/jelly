@@ -1,0 +1,2 @@
+#import "test_module/my_module.jelly"
+#import "test_module/my_same_module.jelly" // expect-error: Module 'MyModule' cannot be imported twice

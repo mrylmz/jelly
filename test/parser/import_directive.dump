@@ -1,0 +1,41 @@
+ModuleDeclaration
+  ModuleDeclaration
+    SourceUnit
+      @filePath = 'test_module/my_module.jelly'
+      LoadDirective
+        @sourceFilePath = 'sourceFile0.jelly'
+    SourceUnit
+      @filePath = 'test_module/sourceFile0.jelly'
+      LoadDirective
+        @sourceFilePath = 'sourceFile1.jelly'
+      ForeignFunctionDeclaration
+        @name = 'myForeignFunc'
+        BuiltinType
+          @name = 'Void'
+        @foreignName = 'myForeignFunc'
+    SourceUnit
+      @filePath = 'test_module/sourceFile1.jelly'
+      StructureDeclaration
+        @name = 'Point'
+        VariableDeclaration
+          @name = 'x'
+          BuiltinType
+            @name = 'Int'
+        VariableDeclaration
+          @name = 'y'
+          BuiltinType
+            @name = 'Int'
+      ForeignFunctionDeclaration
+        @name = 'myLocation'
+        OpaqueType
+          @name = 'Point'
+        @foreignName = 'myLocation'
+  ModuleDeclaration
+    SourceUnit
+      @filePath = 'test_module/my_same_module.jelly'
+  SourceUnit
+    @filePath = 'import_directive.jelly'
+    ImportDirective
+      @modulePath = 'test_module/my_module.jelly'
+    ImportDirective
+      @modulePath = 'test_module/my_same_module.jelly'

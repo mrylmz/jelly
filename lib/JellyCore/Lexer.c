@@ -582,6 +582,8 @@ static inline TokenKind _LexerLexDirective(LexerRef lexer) {
         kind = TokenKindDirectiveIntrinsic;
     } else if (SourceRangeIsEqual(range, "foreign")) {
         kind = TokenKindDirectiveForeign;
+    } else if (SourceRangeIsEqual(range, "import")) {
+        kind = TokenKindDirectiveImport;
     }
 
     return kind;
@@ -747,6 +749,8 @@ static inline TokenKind _LexerLexIdentifierOrKeyword(LexerRef lexer) {
         kind = TokenKindKeywordFloat64;
     } else if (SourceRangeIsEqual(range, "Float")) {
         kind = TokenKindKeywordFloat;
+    } else if (SourceRangeIsEqual(range, "module")) {
+        kind = TokenKindKeywordModule;
     } else {
         kind = TokenKindIdentifier;
     }

@@ -1,0 +1,5 @@
+module MyModule {
+    #load "sourceFile0.jelly"
+    #link "library1"
+    #link "library2"
+}

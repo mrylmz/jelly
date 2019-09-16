@@ -43,9 +43,10 @@ identifier      := identifier-head { identifier-tail }
 identifier-head := "a" ... "z" | "A" ... "Z" | "_"
 identifier-tail := identifier-head | "0" ... "9"
 
-directive      := load-directive | link-directive
-load-directive := "#load" string-literal
-link-directive := "#link" string-literal
+directive        := load-directive | link-directive | import-directive
+load-directive   := "#load" string-literal
+link-directive   := "#link" string-literal
+import-directive := "#import" string-literal
 
 block := '{' { statement } '}'
 
@@ -85,15 +86,13 @@ prefix-operator  := '!' | '~' | '+' | '-'
 expression        := binary-expression | primary-expression
 binary-expression := primary-expression infix-operator expression
 
-identifier := identifier-head { identifier-tail }
-identifier-head := "a" ... "z" | "A" ... "Z" | "_"
-identifier-tail := identifier-head | "0" ... "9"
-
 call-expression := expression "(" [ expression { "," expression } ] ")"
 
 constant-expression := nil-literal | bool-literal | numeric-literal | string-literal
 nil-literal         := "nil"
 bool-literal        := "true" | "false"
+
+module-declaration := "module" identifier "{" [ { load-directive | link-directive } ] "}"
 
 enum-declaration := "enum" identifier "{" [ enum-element { line-break enum-element } ] "}"
 
@@ -127,5 +126,6 @@ pointer-type             := type "*"
 array-type               := type "[" [ expression ] "]"
 function-pointer-type    := "(" [ type { "," type } ] ")" "->" type
 
-top-level-node := load-declaration | enum-declaration | func-declaration | struct-declaration | variable-declaration
+top-level-node := directive | enum-declaration | func-declaration | struct-declaration | variable-declaration
+top-level-interface-node := load-directive | link-directive | enum-declaration | foreing-func-declaration | struct-declaration | variable-declaration | type-alias
 ```

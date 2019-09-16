@@ -1,0 +1,3 @@
+#load "sourceFile1.jelly"
+
+#foreign func myForeignFunc() -> Void "myForeignFunc"

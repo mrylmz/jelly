@@ -38,6 +38,7 @@ ASTContextRef ASTContextCreate(AllocatorRef allocator, StringRef moduleName) {
     context->nodes[ASTTagArray]                   = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTArray), 2048);
     context->nodes[ASTTagLoadDirective]           = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTLoadDirective), 1024);
     context->nodes[ASTTagLinkDirective]           = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTLinkDirective), 1024);
+    context->nodes[ASTTagImportDirective]         = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTImportDirective), 1024);
     context->nodes[ASTTagBlock]                   = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTBlock), 1024);
     context->nodes[ASTTagTypeAliasDeclaration]    = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTTypeAliasDeclaration), 1024);
     context->nodes[ASTTagIfStatement]             = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTIfStatement), 1024);
@@ -140,6 +141,15 @@ ASTLinkDirectiveRef ASTContextCreateLinkDirective(ASTContextRef context, SourceR
 
     ASTLinkDirectiveRef node = (ASTLinkDirectiveRef)_ASTContextCreateNode(context, ASTTagLinkDirective, location, scope);
     node->library            = StringCreateCopy(context->allocator, library);
+    return node;
+}
+
+ASTImportDirectiveRef ASTContextCreateImportDirective(ASTContextRef context, SourceRange location, ASTScopeRef scope,
+                                                      StringRef modulePath) {
+    assert(modulePath);
+
+    ASTImportDirectiveRef node = (ASTImportDirectiveRef)_ASTContextCreateNode(context, ASTTagImportDirective, location, scope);
+    node->modulePath           = StringCreateCopy(context->allocator, modulePath);
     return node;
 }
 

@@ -20,9 +20,12 @@ struct _Workspace {
     StringRef workingDirectory;
     StringRef buildDirectory;
     ArrayRef sourceFilePaths;
+    ArrayRef moduleFilePaths;
     ASTContextRef context;
     ParserRef parser;
     QueueRef parseQueue;
+    QueueRef parseInterfaceQueue;
+    QueueRef importQueue;
 
     WorkspaceOptions options;
     FILE *dumpASTOutput;
@@ -38,24 +41,29 @@ struct _Workspace {
 Bool _ArrayContainsString(const void *lhs, const void *rhs);
 
 void _WorkspacePerformLoads(WorkspaceRef workspace, ASTSourceUnitRef sourceUnit);
+void _WorkspacePerformInterfaceLoads(WorkspaceRef workspace, ASTModuleDeclarationRef module, ASTSourceUnitRef sourceUnit);
+void _WorkspacePerformImports(WorkspaceRef workspace, ASTModuleDeclarationRef module, ASTSourceUnitRef sourceUnit);
 void _WorkspaceParse(void *argument, void *context);
 void *_WorkspaceProcess(void *context);
 
 WorkspaceRef WorkspaceCreate(AllocatorRef allocator, StringRef workingDirectory, StringRef buildDirectory, StringRef moduleName,
                              WorkspaceOptions options) {
-    WorkspaceRef workspace      = AllocatorAllocate(allocator, sizeof(struct _Workspace));
-    workspace->allocator        = allocator;
-    workspace->workingDirectory = StringCreateCopy(allocator, workingDirectory);
-    workspace->buildDirectory   = StringCreateCopy(allocator, buildDirectory);
-    workspace->sourceFilePaths  = ArrayCreateEmpty(allocator, sizeof(StringRef *), 8);
-    workspace->context          = ASTContextCreate(allocator, moduleName);
-    workspace->parser           = ParserCreate(allocator, workspace->context);
-    workspace->parseQueue       = QueueCreate(allocator);
-    workspace->options          = options;
-    workspace->dumpASTOutput    = stdout;
-    workspace->dumpScopeOutput  = stdout;
-    workspace->running          = false;
-    workspace->waiting          = false;
+    WorkspaceRef workspace         = AllocatorAllocate(allocator, sizeof(struct _Workspace));
+    workspace->allocator           = allocator;
+    workspace->workingDirectory    = StringCreateCopy(allocator, workingDirectory);
+    workspace->buildDirectory      = StringCreateCopy(allocator, buildDirectory);
+    workspace->sourceFilePaths     = ArrayCreateEmpty(allocator, sizeof(StringRef *), 8);
+    workspace->moduleFilePaths     = ArrayCreateEmpty(allocator, sizeof(StringRef *), 8);
+    workspace->context             = ASTContextCreate(allocator, moduleName);
+    workspace->parser              = ParserCreate(allocator, workspace->context);
+    workspace->parseQueue          = QueueCreate(allocator);
+    workspace->parseInterfaceQueue = QueueCreate(allocator);
+    workspace->importQueue         = QueueCreate(allocator);
+    workspace->options             = options;
+    workspace->dumpASTOutput       = stdout;
+    workspace->dumpScopeOutput     = stdout;
+    workspace->running             = false;
+    workspace->waiting             = false;
     return workspace;
 }
 
@@ -65,6 +73,8 @@ void WorkspaceDestroy(WorkspaceRef workspace) {
     }
 
     ArrayDestroy(workspace->sourceFilePaths);
+    QueueDestroy(workspace->importQueue);
+    QueueDestroy(workspace->parseInterfaceQueue);
     QueueDestroy(workspace->parseQueue);
     ParserDestroy(workspace->parser);
     ASTContextDestroy(workspace->context);
@@ -161,31 +171,168 @@ void _WorkspacePerformLoads(WorkspaceRef workspace, ASTSourceUnitRef sourceUnit)
     }
 }
 
+void _WorkspacePerformInterfaceLoads(WorkspaceRef workspace, ASTModuleDeclarationRef module, ASTSourceUnitRef sourceUnit) {
+    ASTArrayIteratorRef iterator = ASTArrayGetIterator(sourceUnit->declarations);
+    while (iterator) {
+        ASTNodeRef node = (ASTNodeRef)ASTArrayIteratorGetElement(iterator);
+        if (node->tag == ASTTagLoadDirective) {
+            ASTLoadDirectiveRef load = (ASTLoadDirectiveRef)node;
+            assert(load->filePath->kind == ASTConstantKindString);
+            StringRef filePath         = load->filePath->stringValue;
+            StringRef relativeFilePath = StringCreateCopyUntilLastOccurenceOf(workspace->allocator, sourceUnit->filePath, '/');
+            if (StringGetLength(relativeFilePath) > 0) {
+                StringAppend(relativeFilePath, "/");
+            }
+            StringAppendString(relativeFilePath, filePath);
+
+            StringRef absoluteFilePath = StringCreateCopy(workspace->allocator, workspace->workingDirectory);
+            if (StringGetLength(absoluteFilePath) > 0) {
+                StringAppend(absoluteFilePath, "/");
+            }
+            StringAppendString(absoluteFilePath, relativeFilePath);
+
+            if (ArrayContainsElement(workspace->sourceFilePaths, &_ArrayContainsString, &absoluteFilePath)) {
+                ReportErrorFormat("Cannot load source file at path '%s' twice", StringGetCharacters(filePath));
+                StringDestroy(relativeFilePath);
+                StringDestroy(absoluteFilePath);
+            } else {
+                ArrayAppendElement(workspace->sourceFilePaths, &absoluteFilePath);
+                pthread_mutex_lock(&workspace->mutex);
+                QueueEnqueue(workspace->parseInterfaceQueue, module);
+                QueueEnqueue(workspace->parseInterfaceQueue, relativeFilePath);
+                pthread_mutex_unlock(&workspace->mutex);
+            }
+        }
+
+        iterator = ASTArrayIteratorNext(iterator);
+    }
+}
+
+void _WorkspacePerformImports(WorkspaceRef workspace, ASTModuleDeclarationRef module, ASTSourceUnitRef sourceUnit) {
+    ASTArrayIteratorRef iterator = ASTArrayGetIterator(sourceUnit->declarations);
+    while (iterator) {
+        ASTNodeRef node = (ASTNodeRef)ASTArrayIteratorGetElement(iterator);
+        if (node->tag == ASTTagImportDirective) {
+            ASTImportDirectiveRef import = (ASTImportDirectiveRef)node;
+            StringRef relativeFilePath   = StringCreateCopyUntilLastOccurenceOf(workspace->allocator, sourceUnit->filePath, '/');
+            if (StringGetLength(relativeFilePath) > 0) {
+                StringAppend(relativeFilePath, "/");
+            }
+            StringAppendString(relativeFilePath, import->modulePath);
+
+            StringRef absoluteFilePath = StringCreateCopy(workspace->allocator, workspace->workingDirectory);
+            if (StringGetLength(absoluteFilePath) > 0) {
+                StringAppend(absoluteFilePath, "/");
+            }
+            StringAppendString(absoluteFilePath, relativeFilePath);
+
+            if (ArrayContainsElement(workspace->moduleFilePaths, &_ArrayContainsString, &absoluteFilePath)) {
+                ReportErrorFormat("Cannot import module file at path '%s' twice", StringGetCharacters(import->modulePath));
+                StringDestroy(relativeFilePath);
+                StringDestroy(absoluteFilePath);
+            } else {
+                ArrayAppendElement(workspace->moduleFilePaths, &absoluteFilePath);
+                pthread_mutex_lock(&workspace->mutex);
+                QueueEnqueue(workspace->importQueue, module);
+                QueueEnqueue(workspace->importQueue, relativeFilePath);
+                pthread_mutex_unlock(&workspace->mutex);
+            }
+        }
+
+        iterator = ASTArrayIteratorNext(iterator);
+    }
+}
+
 void *_WorkspaceProcess(void *context) {
     WorkspaceRef workspace = (WorkspaceRef)context;
 
-    // Parse phase
+    // Parse / Import phase
     while (true) {
         pthread_mutex_lock(&workspace->mutex);
-        StringRef filePath = QueueDequeue(workspace->parseQueue);
+        StringRef parseFilePath = QueueDequeue(workspace->parseQueue);
         pthread_mutex_unlock(&workspace->mutex);
 
-        if (filePath) {
+        if (parseFilePath) {
             StringRef absoluteFilePath = StringCreateCopy(workspace->allocator, workspace->workingDirectory);
             StringAppend(absoluteFilePath, "/");
-            StringAppendString(absoluteFilePath, filePath);
+            StringAppendString(absoluteFilePath, parseFilePath);
             StringRef source = StringCreateFromFile(workspace->allocator, StringGetCharacters(absoluteFilePath));
             if (source) {
-                ASTSourceUnitRef sourceUnit = ParserParseSourceUnit(workspace->parser, filePath, source);
+                ASTSourceUnitRef sourceUnit = ParserParseSourceUnit(workspace->parser, parseFilePath, source);
                 StringDestroy(source);
                 _WorkspacePerformLoads(workspace, sourceUnit);
+                _WorkspacePerformImports(workspace, ASTContextGetModule(workspace->context), sourceUnit);
             } else {
-                ReportErrorFormat("File not found: '%s'", StringGetCharacters(filePath));
+                ReportErrorFormat("File not found: '%s'", StringGetCharacters(parseFilePath));
             }
 
             StringDestroy(absoluteFilePath);
-            StringDestroy(filePath);
-        } else {
+            StringDestroy(parseFilePath);
+        }
+
+        pthread_mutex_lock(&workspace->mutex);
+        ASTModuleDeclarationRef module = QueueDequeue(workspace->importQueue);
+        StringRef importFilePath       = QueueDequeue(workspace->importQueue);
+        pthread_mutex_unlock(&workspace->mutex);
+
+        if (importFilePath) {
+            StringRef absoluteFilePath = StringCreateCopy(workspace->allocator, workspace->workingDirectory);
+            StringAppend(absoluteFilePath, "/");
+            StringAppendString(absoluteFilePath, importFilePath);
+            StringRef source = StringCreateFromFile(workspace->allocator, StringGetCharacters(absoluteFilePath));
+            if (source) {
+                ArrayRef modules  = ASTContextGetAllNodes(workspace->context, ASTTagModuleDeclaration);
+                Index moduleCount = ArrayGetElementCount(modules);
+
+                ASTModuleDeclarationRef importedModule = ParserParseModuleDeclaration(workspace->parser, importFilePath, source);
+                StringDestroy(source);
+
+                if (importedModule) {
+                    assert(ASTArrayGetElementCount(importedModule->sourceUnits) == 1);
+                    ASTSourceUnitRef sourceUnit = ASTArrayGetElementAtIndex(importedModule->sourceUnits, 0);
+                    _WorkspacePerformInterfaceLoads(workspace, importedModule, sourceUnit);
+
+                    ASTArrayAppendElement(module->importedModules, importedModule);
+
+                    for (Index index = 0; index < moduleCount; index++) {
+                        ASTModuleDeclarationRef loadedModule = (ASTModuleDeclarationRef)ArrayGetElementAtIndex(modules, index);
+                        if (StringIsEqual(importedModule->base.name, loadedModule->base.name)) {
+                            ReportErrorFormat("Module '%s' cannot be imported twice", StringGetCharacters(importedModule->base.name));
+                        }
+                    }
+                }
+            } else {
+                ReportErrorFormat("File not found: '%s'", StringGetCharacters(importFilePath));
+            }
+
+            StringDestroy(absoluteFilePath);
+            StringDestroy(importFilePath);
+        }
+
+        pthread_mutex_lock(&workspace->mutex);
+        ASTModuleDeclarationRef importedModule = QueueDequeue(workspace->parseInterfaceQueue);
+        StringRef parseInterfaceFilePath       = QueueDequeue(workspace->parseInterfaceQueue);
+        pthread_mutex_unlock(&workspace->mutex);
+
+        if (importedModule && parseInterfaceFilePath) {
+            StringRef absoluteFilePath = StringCreateCopy(workspace->allocator, workspace->workingDirectory);
+            StringAppend(absoluteFilePath, "/");
+            StringAppendString(absoluteFilePath, parseInterfaceFilePath);
+            StringRef source = StringCreateFromFile(workspace->allocator, StringGetCharacters(absoluteFilePath));
+            if (source) {
+                ASTSourceUnitRef sourceUnit = ParserParseModuleSourceUnit(workspace->parser, importedModule, parseInterfaceFilePath,
+                                                                          source);
+                StringDestroy(source);
+                _WorkspacePerformInterfaceLoads(workspace, importedModule, sourceUnit);
+            } else {
+                ReportErrorFormat("File not found: '%s'", StringGetCharacters(parseInterfaceFilePath));
+            }
+
+            StringDestroy(absoluteFilePath);
+            StringDestroy(parseInterfaceFilePath);
+        }
+
+        if (!parseFilePath && !importFilePath && !parseInterfaceFilePath) {
             break;
         }
     }
