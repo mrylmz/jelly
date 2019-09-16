@@ -31,7 +31,8 @@ ASTArrayRef ASTContextCreateArray(ASTContextRef context, SourceRange location, A
 ASTLoadDirectiveRef ASTContextCreateLoadDirective(ASTContextRef context, SourceRange location, ASTScopeRef scope,
                                                   ASTConstantExpressionRef filePath);
 
-ASTLinkDirectiveRef ASTContextCreateLinkDirective(ASTContextRef context, SourceRange location, ASTScopeRef scope, StringRef library);
+ASTLinkDirectiveRef ASTContextCreateLinkDirective(ASTContextRef context, SourceRange location, ASTScopeRef scope, Bool isFramework,
+                                                  StringRef library);
 
 ASTImportDirectiveRef ASTContextCreateImportDirective(ASTContextRef context, SourceRange location, ASTScopeRef scope, StringRef modulePath);
 

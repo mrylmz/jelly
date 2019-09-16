@@ -394,6 +394,20 @@ static inline ASTNodeRef _ParserParseDirective(ParserRef parser) {
     }
 
     if (_ParserConsumeToken(parser, TokenKindDirectiveLink)) {
+        Bool isFramework = false;
+
+        if (_ParserIsToken(parser, TokenKindIdentifier)) {
+            StringRef identifier = _ParserConsumeIdentifier(parser);
+            assert(identifier);
+
+            if (StringIsEqualToCString(identifier, "framework")) {
+                isFramework = true;
+            } else {
+                ReportErrorFormat("Expected keyword 'framework' or string-literal found identifier '%s'", StringGetCharacters(identifier));
+                return NULL;
+            }
+        }
+
         ASTConstantExpressionRef filePath = _ParserParseConstantExpression(parser);
         if (!filePath || filePath->kind != ASTConstantKindString) {
             ReportError("Expected string literal after `#link` directive");
@@ -403,7 +417,8 @@ static inline ASTNodeRef _ParserParseDirective(ParserRef parser) {
         assert(filePath->kind == ASTConstantKindString);
 
         location.end = parser->token.location.start;
-        return (ASTNodeRef)ASTContextCreateLinkDirective(parser->context, location, parser->currentScope, filePath->stringValue);
+        return (ASTNodeRef)ASTContextCreateLinkDirective(parser->context, location, parser->currentScope, isFramework,
+                                                         filePath->stringValue);
     }
 
     if (_ParserConsumeToken(parser, TokenKindDirectiveImport)) {

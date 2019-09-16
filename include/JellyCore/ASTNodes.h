@@ -176,6 +176,7 @@ struct _ASTLoadDirective {
 struct _ASTLinkDirective {
     struct _ASTNode base;
 
+    Bool isFramework;
     StringRef library;
 };
 
