@@ -752,8 +752,10 @@ static inline void _CheckCyclicStorageInStructureDeclaration(ASTContextRef conte
                 }
             }
 
+            Index valueIndex = ArrayGetElementCount(parents);
             ArrayAppendElement(parents, &valueType->declaration);
             _CheckCyclicStorageInStructureDeclaration(context, valueType->declaration, parents);
+            ArrayRemoveElementAtIndex(parents, valueIndex);
         }
     }
 }

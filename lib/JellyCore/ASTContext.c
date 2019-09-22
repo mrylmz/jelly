@@ -136,10 +136,12 @@ ASTLoadDirectiveRef ASTContextCreateLoadDirective(ASTContextRef context, SourceR
     return node;
 }
 
-ASTLinkDirectiveRef ASTContextCreateLinkDirective(ASTContextRef context, SourceRange location, ASTScopeRef scope, StringRef library) {
+ASTLinkDirectiveRef ASTContextCreateLinkDirective(ASTContextRef context, SourceRange location, ASTScopeRef scope, Bool isFramework,
+                                                  StringRef library) {
     assert(library);
 
     ASTLinkDirectiveRef node = (ASTLinkDirectiveRef)_ASTContextCreateNode(context, ASTTagLinkDirective, location, scope);
+    node->isFramework        = isFramework;
     node->library            = StringCreateCopy(context->allocator, library);
     return node;
 }

@@ -3,8 +3,8 @@
 
 // TODO: Embed lld into project instead of calling system!
 
-void LDLinkerLink(AllocatorRef allocator, ArrayRef objectFiles, ArrayRef linkLibraries, StringRef targetPath, LDLinkerTargetType targetType,
-                  StringRef architecture) {
+void LDLinkerLink(AllocatorRef allocator, ArrayRef objectFiles, ArrayRef linkLibraries, ArrayRef linkFrameworks, StringRef targetPath,
+                  LDLinkerTargetType targetType, StringRef architecture) {
     StringRef command = StringCreate(allocator, "ld");
     for (Index index = 0; index < ArrayGetElementCount(objectFiles); index++) {
         StringRef objectFile = *((StringRef *)ArrayGetElementAtIndex(objectFiles, index));
@@ -40,6 +40,13 @@ void LDLinkerLink(AllocatorRef allocator, ArrayRef objectFiles, ArrayRef linkLib
 
         // TODO: The linkLibrary string should be validated and escaped for security!!!
         StringAppendString(command, linkLibrary);
+    }
+
+    for (Index index = 0; index < ArrayGetElementCount(linkFrameworks); index++) {
+        StringRef linkFramework = *((StringRef *)ArrayGetElementAtIndex(linkFrameworks, index));
+
+        // TODO: The linkFramework string should be validated and escaped for security!!!
+        StringAppendFormat(command, " -framework %s", StringGetCharacters(linkFramework));
     }
 
     // TODO: macOS min version is missing

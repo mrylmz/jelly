@@ -16,8 +16,8 @@ enum _LDLinkerTargetType {
 };
 typedef enum _LDLinkerTargetType LDLinkerTargetType;
 
-void LDLinkerLink(AllocatorRef allocator, ArrayRef objectFiles, ArrayRef linkLibraries, StringRef targetPath, LDLinkerTargetType targetType,
-                  StringRef architecture);
+void LDLinkerLink(AllocatorRef allocator, ArrayRef objectFiles, ArrayRef linkLibraries, ArrayRef linkFrameworks, StringRef targetPath,
+                  LDLinkerTargetType targetType, StringRef architecture);
 
 JELLY_EXTERN_C_END
 
