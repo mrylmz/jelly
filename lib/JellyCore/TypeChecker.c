@@ -481,7 +481,8 @@ static inline void _TypeCheckerValidateStatement(TypeCheckerRef typeChecker, AST
                     resultType = control->result->type;
                 }
 
-                if (!_ASTTypeIsEqualOrError(resultType, function->returnType)) {
+                if (!_ASTTypeIsEqualOrError(resultType, function->returnType) &&
+                    !ASTTypeIsImplicitlyConvertible(resultType, function->returnType)) {
                     ReportError("Type mismatch in return statement");
                 }
             } else {
@@ -645,7 +646,7 @@ static inline void _TypeCheckerValidateExpression(TypeCheckerRef typeChecker, AS
                         ASTTypeRef parameterType  = (ASTTypeRef)ASTArrayIteratorGetElement(parameterIterator);
 
                         if (!_ASTTypeIsEqualOrError(argument->type, parameterType) &&
-                            !ASTTypeIsLosslessConvertible(argument->type, parameterType)) {
+                            !ASTTypeIsImplicitlyConvertible(argument->type, parameterType)) {
                             if (functionType->declaration) {
                                 ASTValueDeclarationRef parameter = ASTArrayGetElementAtIndex(functionType->declaration->parameters, index);
                                 ReportErrorFormat("Mismatching type for parameter '%s' in '%s'", StringGetCharacters(parameter->base.name),
