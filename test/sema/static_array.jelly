@@ -1,0 +1,12 @@
+// run: -type-check
+
+var myGlobalValue: Int = 128
+
+struct MyType {
+    var buffer0: UInt8[myGlobalValue] // expect-error: Only literal expressions are allowed for the size of an Array
+    var buffer1: Float[1.0] // expect-error: Only integer literals are allowed for the size of an Array
+    var buffer2: MyType[2] // expect-error: Struct cannot store a variable of same type recursively
+    var buffer3: Int[1024]
+}
+
+func main() -> Void {}

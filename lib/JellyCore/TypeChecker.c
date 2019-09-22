@@ -59,6 +59,8 @@ void TypeCheckerDestroy(TypeCheckerRef typeChecker) {
 void TypeCheckerValidateModule(TypeCheckerRef typeChecker, ASTContextRef context, ASTModuleDeclarationRef module) {
     _GuardValidateOnce(module);
 
+    _TypeCheckerValidateStaticArrayTypesInContext(typeChecker, context);
+
     for (Index index = 0; index < ASTArrayGetElementCount(module->sourceUnits); index++) {
         ASTSourceUnitRef sourceUnit = (ASTSourceUnitRef)ASTArrayGetElementAtIndex(module->sourceUnits, index);
         _TypeCheckerValidateSourceUnit(typeChecker, context, sourceUnit);
@@ -109,8 +111,6 @@ void TypeCheckerValidateModule(TypeCheckerRef typeChecker, ASTContextRef context
             break;
         }
     }
-
-    _TypeCheckerValidateStaticArrayTypesInContext(typeChecker, context);
 
     if (!hasError && !module->entryPoint) {
         ReportError("No entry point specified for module");
@@ -762,8 +762,14 @@ static inline void _CheckCyclicStorageInStructureDeclaration(ASTContextRef conte
         assert(value->kind == ASTValueKindVariable);
         assert(value->base.type && value->base.type->tag != ASTTagOpaqueType);
 
-        if (value->base.type->tag == ASTTagStructureType) {
-            ASTStructureTypeRef valueType = (ASTStructureTypeRef)value->base.type;
+        ASTTypeRef elementType = value->base.type;
+        while (elementType->tag == ASTTagArrayType) {
+            ASTArrayTypeRef arrayType = (ASTArrayTypeRef)elementType;
+            elementType               = arrayType->elementType;
+        }
+
+        if (elementType->tag == ASTTagStructureType) {
+            ASTStructureTypeRef valueType = (ASTStructureTypeRef)elementType;
             assert(valueType->declaration);
 
             for (Index parentIndex = 0; parentIndex < ArrayGetElementCount(parents); parentIndex++) {
