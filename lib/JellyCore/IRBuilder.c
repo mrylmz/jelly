@@ -785,8 +785,8 @@ static inline void _IRBuilderBuildControlStatement(IRBuilderRef builder, LLVMVal
 
             assert(statement->enclosingNode && statement->enclosingNode->tag == ASTTagFunctionDeclaration);
             ASTFunctionDeclarationRef func = (ASTFunctionDeclarationRef)statement->enclosingNode;
-            ASTTypeRef targetType    = func->returnType;
-            LLVMValueRef resultValue = _IRBuilderLoadExpression(builder, function, statement->result);
+            ASTTypeRef targetType          = func->returnType;
+            LLVMValueRef resultValue       = _IRBuilderLoadExpression(builder, function, statement->result);
             resultValue = _IRBuilderImplicitlyConvertValue(builder, function, resultValue, statement->result->type, targetType);
             LLVMBuildRet(builder->builder, resultValue);
             return;
@@ -1145,7 +1145,13 @@ static inline LLVMTypeRef _IRBuilderGetIRType(IRBuilderRef builder, ASTTypeRef t
     }
 
     case ASTTagArrayType: {
-        ReportCritical("Array type is currently not supported!");
+        ASTArrayTypeRef arrayType = (ASTArrayTypeRef)type;
+        if (arrayType->base.flags & ASTFlagsArrayTypeIsStatic) {
+            llvmType = _IRBuilderGetIRType(builder, arrayType->elementType);
+            llvmType = LLVMArrayType(llvmType, arrayType->sizeValue);
+        } else {
+            ReportCritical("Dynamic Array type is currently not supported!");
+        }
         break;
     }
 

@@ -1,5 +1,6 @@
 #include "JellyCore/ASTFunctions.h"
 #include "JellyCore/ASTScope.h"
+#include "JellyCore/ASTSubstitution.h"
 #include "JellyCore/Diagnostic.h"
 #include "JellyCore/NameResolution.h"
 
@@ -609,6 +610,18 @@ static inline void _PerformNameResolutionForExpression(ASTContextRef context, AS
             }
 
             if (memberAccess->memberIndex < 0) {
+                memberAccess->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
+                ReportErrorFormat("Use of undeclared member '%s'", StringGetCharacters(memberAccess->memberName));
+            }
+        } else if (type->tag == ASTTagArrayType && ((ASTArrayTypeRef)type)->size) {
+            if (StringIsEqualToCString(memberAccess->memberName, "count")) {
+                assert(!memberAccess->base.base.substitute);
+
+                ASTExpressionRef count = ((ASTArrayTypeRef)type)->size;
+                memberAccess->base.base.substitute          = (ASTNodeRef)count;
+                memberAccess->base.base.substitute->primary = (ASTNodeRef)memberAccess;
+                _PerformNameResolutionForExpression(context, count);
+            } else {
                 memberAccess->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
                 ReportErrorFormat("Use of undeclared member '%s'", StringGetCharacters(memberAccess->memberName));
             }

@@ -354,7 +354,11 @@ void *_WorkspaceProcess(void *context) {
     ASTPerformSubstitution(workspace->context, ASTTagUnaryExpression, &ASTUnaryExpressionUnification);
     ASTPerformSubstitution(workspace->context, ASTTagBinaryExpression, &ASTBinaryExpressionUnification);
     ASTApplySubstitution(workspace->context, ASTContextGetModule(workspace->context));
+
     PerformNameResolution(workspace->context, ASTContextGetModule(workspace->context));
+
+    // Perform ASTApplySubstitution a second time to allow substitutions in name resolution phase...
+    ASTApplySubstitution(workspace->context, ASTContextGetModule(workspace->context));
 
     if ((workspace->options & WorkspaceOptionsDumpScope) > 0) {
         ASTScopeDump(ASTContextGetGlobalScope(workspace->context), workspace->dumpScopeOutput);

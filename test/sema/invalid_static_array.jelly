@@ -9,4 +9,8 @@ struct MyType {
     var buffer3: Int[1024]
 }
 
+func return_buffer_count(myType: MyType) -> UInt64 {
+    return myType.buffer3.count
+}
+
 func main() -> Void {}
