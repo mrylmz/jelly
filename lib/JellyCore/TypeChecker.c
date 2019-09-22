@@ -36,6 +36,7 @@ static inline void _TypeCheckerValidateStatement(TypeCheckerRef typeChecker, AST
 static inline void _TypeCheckerValidateSwitchStatement(TypeCheckerRef typeChecker, ASTContextRef context, ASTSwitchStatementRef statement);
 static inline void _TypeCheckerValidateExpression(TypeCheckerRef typeChecker, ASTContextRef context, ASTExpressionRef expression);
 static inline void _TypeCheckerValidateBlock(TypeCheckerRef typeChecker, ASTContextRef context, ASTBlockRef block);
+static inline void _TypeCheckerValidateStaticArrayTypesInContext(TypeCheckerRef typeChecker, ASTContextRef context);
 
 static inline void _CheckCyclicStorageInStructureDeclaration(ASTContextRef context, ASTStructureDeclarationRef declaration,
                                                              ArrayRef parents);
@@ -108,6 +109,8 @@ void TypeCheckerValidateModule(TypeCheckerRef typeChecker, ASTContextRef context
             break;
         }
     }
+
+    _TypeCheckerValidateStaticArrayTypesInContext(typeChecker, context);
 
     if (!hasError && !module->entryPoint) {
         ReportError("No entry point specified for module");
@@ -726,6 +729,26 @@ static inline void _TypeCheckerValidateBlock(TypeCheckerRef typeChecker, ASTCont
         }
 
         iterator = ASTArrayIteratorNext(iterator);
+    }
+}
+
+static inline void _TypeCheckerValidateStaticArrayTypesInContext(TypeCheckerRef typeChecker, ASTContextRef context) {
+    ArrayRef arrayTypes = ASTContextGetAllNodes(context, ASTTagArrayType);
+    for (Index index = 0; index < ArrayGetElementCount(arrayTypes); index++) {
+        ASTArrayTypeRef arrayType = (ASTArrayTypeRef)ArrayGetElementAtIndex(arrayTypes, index);
+        if (arrayType->size) {
+            if (arrayType->size->base.tag == ASTTagConstantExpression) {
+                ASTConstantExpressionRef constant = (ASTConstantExpressionRef)arrayType->size;
+                if (constant->kind == ASTConstantKindInt) {
+                    arrayType->base.flags |= ASTFlagsArrayTypeIsStatic;
+                    arrayType->sizeValue = constant->intValue;
+                } else {
+                    ReportError("Only integer literals are allowed for the size of an Array");
+                }
+            } else {
+                ReportError("Only literal expressions are allowed for the size of an Array");
+            }
+        }
     }
 }
 

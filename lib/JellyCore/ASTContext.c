@@ -649,6 +649,7 @@ ASTArrayTypeRef ASTContextCreateArrayType(ASTContextRef context, SourceRange loc
     ASTArrayTypeRef node = (ASTArrayTypeRef)_ASTContextCreateNode(context, ASTTagArrayType, location, scope);
     node->elementType    = elementType;
     node->size           = size;
+    node->sizeValue      = 0;
     return node;
 }
 

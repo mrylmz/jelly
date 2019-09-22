@@ -71,6 +71,7 @@ enum _ASTFlags {
     ASTFlagsIsConstantEvaluable        = 1 << 6,
     ASTFlagsIsPointerArithmetic        = 1 << 7,
     ASTFlagsCallIsInitialization       = 1 << 8,
+    ASTFlagsArrayTypeIsStatic          = 1 << 9,
 };
 typedef enum _ASTFlags ASTFlags;
 
@@ -527,6 +528,7 @@ struct _ASTArrayType {
 
     ASTTypeRef elementType;
     ASTExpressionRef size;
+    UInt64 sizeValue;
 };
 
 enum _ASTBuiltinTypeKind {
