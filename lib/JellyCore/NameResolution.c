@@ -717,7 +717,7 @@ static inline void _PerformNameResolutionForExpression(ASTContextRef context, AS
 
                         if (ASTTypeIsEqual(argument->type, parameter->base.type)) {
                             currentMatchingParameterTypeCount += 1;
-                        } else if (ASTTypeIsLosslessConvertible(argument->type, parameter->base.type)) {
+                        } else if (ASTTypeIsImplicitlyConvertible(argument->type, parameter->base.type)) {
                             currentMatchingParameterTypeCount += 1;
                             currentMatchingParameterTypeConversions += 1;
                         } else {
@@ -800,7 +800,7 @@ static inline void _PerformNameResolutionForExpression(ASTContextRef context, AS
 
                         if (ASTTypeIsEqual(argument->type, parameter->base.type)) {
                             currentMatchingParameterTypeCount += 1;
-                        } else if (ASTTypeIsLosslessConvertible(argument->type, parameter->base.type)) {
+                        } else if (ASTTypeIsImplicitlyConvertible(argument->type, parameter->base.type)) {
                             currentMatchingParameterTypeCount += 1;
                             currentMatchingParameterTypeConversions += 1;
                         } else {

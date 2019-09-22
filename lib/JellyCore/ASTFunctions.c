@@ -468,6 +468,42 @@ Bool ASTTypeIsVoid(ASTTypeRef type) {
     return builtin->kind == ASTBuiltinTypeKindVoid;
 }
 
+Bool ASTTypeIsFloatingPoint(ASTTypeRef type) {
+    if (type->tag != ASTTagBuiltinType) {
+        return false;
+    }
+
+    ASTBuiltinTypeRef builtin = (ASTBuiltinTypeRef)type;
+    switch (builtin->kind) {
+    case ASTBuiltinTypeKindFloat32:
+    case ASTBuiltinTypeKindFloat64:
+    case ASTBuiltinTypeKindFloat:
+        return true;
+
+    default:
+        return false;
+    }
+}
+
+Int ASTFloatingPointTypeGetBitwidth(ASTTypeRef type) {
+    if (type->tag != ASTTagBuiltinType) {
+        return -1;
+    }
+
+    ASTBuiltinTypeRef builtin = (ASTBuiltinTypeRef)type;
+    switch (builtin->kind) {
+    case ASTBuiltinTypeKindFloat32:
+        return 32;
+
+    case ASTBuiltinTypeKindFloat64:
+    case ASTBuiltinTypeKindFloat:
+        return 64;
+
+    default:
+        return -1;
+    }
+}
+
 Bool ASTTypeIsLosslessConvertible(ASTTypeRef type, ASTTypeRef targetType) {
     if (!ASTTypeIsInteger(type) || !ASTTypeIsInteger(targetType)) {
         return false;
@@ -488,6 +524,22 @@ Bool ASTTypeIsLosslessConvertible(ASTTypeRef type, ASTTypeRef targetType) {
         }
     } else if (rhsSigned) {
         return lhsBitwidth <= rhsBitwidth;
+    }
+
+    return false;
+}
+
+Bool ASTTypeIsImplicitlyConvertible(ASTTypeRef type, ASTTypeRef targetType) {
+    if (ASTTypeIsLosslessConvertible(type, targetType)) {
+        return true;
+    }
+
+    if (ASTTypeIsInteger(type) && ASTTypeIsFloatingPoint(targetType)) {
+        return true;
+    }
+
+    if (ASTTypeIsFloatingPoint(type) && ASTTypeIsFloatingPoint(targetType)) {
+        return true;
     }
 
     return false;

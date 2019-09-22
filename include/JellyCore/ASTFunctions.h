@@ -28,7 +28,13 @@ Int ASTIntegerTypeGetBitwidth(ASTTypeRef type);
 Int ASTIntegerTypeIsSigned(ASTTypeRef type);
 
 Bool ASTTypeIsVoid(ASTTypeRef type);
+
+Bool ASTTypeIsFloatingPoint(ASTTypeRef type);
+
+Int ASTFloatingPointTypeGetBitwidth(ASTTypeRef type);
+
 Bool ASTTypeIsLosslessConvertible(ASTTypeRef type, ASTTypeRef targetType);
+Bool ASTTypeIsImplicitlyConvertible(ASTTypeRef type, ASTTypeRef targetType);
 
 JELLY_EXTERN_C_END
 

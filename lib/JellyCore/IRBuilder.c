@@ -62,8 +62,8 @@ static inline LLVMValueRef _IRBuilderBuildIntrinsic(IRBuilderRef builder, LLVMVa
 
 LLVMValueRef _IRBuilderGetConstantSizeOfType(IRBuilderRef builder, ASTTypeRef type);
 
-LLVMValueRef _IRBuilderLosslessConvertValue(IRBuilderRef builder, LLVMValueRef function, LLVMValueRef value, ASTTypeRef valueType,
-                                            ASTTypeRef targetType);
+LLVMValueRef _IRBuilderImplicitlyConvertValue(IRBuilderRef builder, LLVMValueRef function, LLVMValueRef value, ASTTypeRef valueType,
+                                              ASTTypeRef targetType);
 
 IRBuilderRef IRBuilderCreate(AllocatorRef allocator, ASTContextRef context, StringRef buildDirectory) {
     IRBuilderRef builder          = (IRBuilderRef)AllocatorAllocate(allocator, sizeof(struct _IRBuilder));
@@ -783,7 +783,12 @@ static inline void _IRBuilderBuildControlStatement(IRBuilderRef builder, LLVMVal
                 return;
             }
 
-            LLVMBuildRet(builder->builder, _IRBuilderLoadExpression(builder, function, statement->result));
+            assert(statement->enclosingNode && statement->enclosingNode->tag == ASTTagFunctionDeclaration);
+            ASTFunctionDeclarationRef func = (ASTFunctionDeclarationRef)statement->enclosingNode;
+            ASTTypeRef targetType    = func->returnType;
+            LLVMValueRef resultValue = _IRBuilderLoadExpression(builder, function, statement->result);
+            resultValue = _IRBuilderImplicitlyConvertValue(builder, function, resultValue, statement->result->type, targetType);
+            LLVMBuildRet(builder->builder, resultValue);
             return;
         } else {
             LLVMBuildRetVoid(builder->builder);
@@ -906,7 +911,7 @@ static inline void _IRBuilderBuildExpression(IRBuilderRef builder, LLVMValueRef 
                 ASTValueDeclarationRef parameter = (ASTValueDeclarationRef)ASTArrayGetElementAtIndex(initializer->parameters, index);
                 _IRBuilderBuildExpression(builder, function, argument);
                 LLVMValueRef argumentValue = _IRBuilderLoadExpression(builder, function, argument);
-                argumentValue = _IRBuilderLosslessConvertValue(builder, function, argumentValue, argument->type, parameter->base.type);
+                argumentValue = _IRBuilderImplicitlyConvertValue(builder, function, argumentValue, argument->type, parameter->base.type);
                 ArrayAppendElement(arguments, &argumentValue);
             }
 
@@ -952,7 +957,7 @@ static inline void _IRBuilderBuildExpression(IRBuilderRef builder, LLVMValueRef 
                 ASTValueDeclarationRef parameter = (ASTValueDeclarationRef)ASTArrayGetElementAtIndex(declaration->parameters, index);
                 _IRBuilderBuildExpression(builder, function, argument);
                 LLVMValueRef argumentValue = _IRBuilderLoadExpression(builder, function, argument);
-                argumentValue = _IRBuilderLosslessConvertValue(builder, function, argumentValue, argument->type, parameter->base.type);
+                argumentValue = _IRBuilderImplicitlyConvertValue(builder, function, argumentValue, argument->type, parameter->base.type);
                 ArrayAppendElement(arguments, &argumentValue);
             }
 
@@ -970,7 +975,7 @@ static inline void _IRBuilderBuildExpression(IRBuilderRef builder, LLVMValueRef 
                 ASTValueDeclarationRef parameter = (ASTValueDeclarationRef)ASTArrayGetElementAtIndex(declaration->parameters, index);
                 _IRBuilderBuildExpression(builder, function, argument);
                 LLVMValueRef argumentValue = _IRBuilderLoadExpression(builder, function, argument);
-                argumentValue = _IRBuilderLosslessConvertValue(builder, function, argumentValue, argument->type, parameter->base.type);
+                argumentValue = _IRBuilderImplicitlyConvertValue(builder, function, argumentValue, argument->type, parameter->base.type);
                 ArrayAppendElement(arguments, &argumentValue);
             }
 
@@ -983,7 +988,7 @@ static inline void _IRBuilderBuildExpression(IRBuilderRef builder, LLVMValueRef 
                 ASTValueDeclarationRef parameter = (ASTValueDeclarationRef)ASTArrayGetElementAtIndex(declaration->parameters, index);
                 _IRBuilderBuildExpression(builder, function, argument);
                 LLVMValueRef argumentValue = _IRBuilderLoadExpression(builder, function, argument);
-                argumentValue = _IRBuilderLosslessConvertValue(builder, function, argumentValue, argument->type, parameter->base.type);
+                argumentValue = _IRBuilderImplicitlyConvertValue(builder, function, argumentValue, argument->type, parameter->base.type);
                 ArrayAppendElement(arguments, &argumentValue);
             }
 
@@ -1657,33 +1662,47 @@ LLVMValueRef _IRBuilderGetConstantSizeOfType(IRBuilderRef builder, ASTTypeRef ty
     return LLVMSizeOf(_IRBuilderGetIRType(builder, type));
 }
 
-LLVMValueRef _IRBuilderLosslessConvertValue(IRBuilderRef builder, LLVMValueRef function, LLVMValueRef value, ASTTypeRef valueType,
-                                            ASTTypeRef targetType) {
+LLVMValueRef _IRBuilderImplicitlyConvertValue(IRBuilderRef builder, LLVMValueRef function, LLVMValueRef value, ASTTypeRef valueType,
+                                              ASTTypeRef targetType) {
     if (ASTTypeIsEqual(valueType, targetType)) {
         return value;
     }
 
-    assert(ASTTypeIsLosslessConvertible(valueType, targetType));
+    assert(ASTTypeIsImplicitlyConvertible(valueType, targetType));
 
-    if (!ASTTypeIsInteger(valueType) || !ASTTypeIsInteger(targetType)) {
-        return value;
-    }
+    if (ASTTypeIsInteger(valueType) && ASTTypeIsInteger(targetType)) {
+        Int lhsBitwidth = ASTIntegerTypeGetBitwidth(valueType);
+        Bool lhsSigned  = ASTIntegerTypeIsSigned(valueType);
+        Int rhsBitwidth = ASTIntegerTypeGetBitwidth(targetType);
+        Bool rhsSigned  = ASTIntegerTypeIsSigned(targetType);
 
-    Int lhsBitwidth = ASTIntegerTypeGetBitwidth(valueType);
-    Bool lhsSigned  = ASTIntegerTypeIsSigned(valueType);
-    Int rhsBitwidth = ASTIntegerTypeGetBitwidth(targetType);
-    Bool rhsSigned  = ASTIntegerTypeIsSigned(targetType);
+        if (!lhsSigned) {
+            if (rhsSigned && lhsBitwidth < rhsBitwidth) {
+                return LLVMBuildSExtOrBitCast(builder->builder, value, _IRBuilderGetIRType(builder, targetType), "");
+            }
 
-    if (!lhsSigned) {
-        if (rhsSigned && lhsBitwidth < rhsBitwidth) {
+            if (!rhsSigned && lhsBitwidth <= rhsBitwidth) {
+                return LLVMBuildZExtOrBitCast(builder->builder, value, _IRBuilderGetIRType(builder, targetType), "");
+            }
+        } else if (rhsSigned && lhsBitwidth <= rhsBitwidth) {
             return LLVMBuildSExtOrBitCast(builder->builder, value, _IRBuilderGetIRType(builder, targetType), "");
         }
-
-        if (!rhsSigned && lhsBitwidth <= rhsBitwidth) {
-            return LLVMBuildZExtOrBitCast(builder->builder, value, _IRBuilderGetIRType(builder, targetType), "");
+    } else if (ASTTypeIsInteger(valueType) && ASTTypeIsFloatingPoint(targetType)) {
+        Bool lhsSigned = ASTIntegerTypeIsSigned(valueType);
+        if (lhsSigned) {
+            return LLVMBuildSIToFP(builder->builder, value, _IRBuilderGetIRType(builder, targetType), "");
+        } else {
+            return LLVMBuildUIToFP(builder->builder, value, _IRBuilderGetIRType(builder, targetType), "");
         }
-    } else if (rhsSigned && lhsBitwidth <= rhsBitwidth) {
-        return LLVMBuildSExtOrBitCast(builder->builder, value, _IRBuilderGetIRType(builder, targetType), "");
+    } else if (ASTTypeIsFloatingPoint(valueType) && ASTTypeIsFloatingPoint(targetType)) {
+        Int lhsBitwidth = ASTFloatingPointTypeGetBitwidth(valueType);
+        Int rhsBitwidth = ASTFloatingPointTypeGetBitwidth(targetType);
+
+        if (lhsBitwidth <= rhsBitwidth) {
+            return LLVMBuildFPExt(builder->builder, value, _IRBuilderGetIRType(builder, targetType), "");
+        } else {
+            return LLVMBuildFPTrunc(builder->builder, value, _IRBuilderGetIRType(builder, targetType), "");
+        }
     }
 
     return value;
