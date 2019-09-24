@@ -547,7 +547,7 @@ static inline void _IRBuilderBuildLocalVariable(IRBuilderRef builder, LLVMValueR
     LLVMTypeRef type   = (LLVMTypeRef)declaration->base.base.irType;
     LLVMValueRef value = LLVMBuildAlloca(builder->builder, type, StringGetCharacters(declaration->base.name));
     if (declaration->initializer) {
-        LLVMBuildStore(builder->builder, (LLVMValueRef)declaration->initializer->base.irValue, value);
+        LLVMBuildStore(builder->builder, _IRBuilderLoadExpression(builder, function, declaration->initializer), value);
     }
 
     declaration->base.base.irValue = value;
