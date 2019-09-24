@@ -36,6 +36,7 @@ enum _ASTTag {
     ASTTagCallExpression,
     ASTTagConstantExpression,
     ASTTagSizeOfExpression,
+    ASTTagSubscriptExpression,
     ASTTagTypeOperationExpression,
     ASTTagModuleDeclaration,
     ASTTagEnumerationDeclaration,
@@ -71,6 +72,7 @@ enum _ASTFlags {
     ASTFlagsIsConstantEvaluable        = 1 << 6,
     ASTFlagsIsPointerArithmetic        = 1 << 7,
     ASTFlagsCallIsInitialization       = 1 << 8,
+    ASTFlagsArrayTypeIsStatic          = 1 << 9,
 };
 typedef enum _ASTFlags ASTFlags;
 
@@ -110,6 +112,7 @@ typedef struct _ASTAssignmentExpression *ASTAssignmentExpressionRef;
 typedef struct _ASTCallExpression *ASTCallExpressionRef;
 typedef struct _ASTConstantExpression *ASTConstantExpressionRef;
 typedef struct _ASTSizeOfExpression *ASTSizeOfExpressionRef;
+typedef struct _ASTSubscriptExpression *ASTSubscriptExpressionRef;
 typedef struct _ASTTypeOperationExpression *ASTTypeOperationExpressionRef;
 typedef struct _ASTModuleDeclaration *ASTModuleDeclarationRef;
 typedef struct _ASTEnumerationDeclaration *ASTEnumerationDeclarationRef;
@@ -338,6 +341,7 @@ enum _ASTPostfixOperator {
     ASTPostfixOperatorUnknown,
     ASTPostfixOperatorSelector,
     ASTPostfixOperatorCall,
+    ASTPostfixOperatorSubscript,
 };
 typedef enum _ASTPostfixOperator ASTPostfixOperator;
 
@@ -413,6 +417,13 @@ struct _ASTSizeOfExpression {
     struct _ASTExpression base;
 
     ASTTypeRef sizeType;
+};
+
+struct _ASTSubscriptExpression {
+    struct _ASTExpression base;
+
+    ASTExpressionRef expression;
+    ASTArrayRef arguments;
 };
 
 enum _ASTTypeOperation {
@@ -527,6 +538,7 @@ struct _ASTArrayType {
 
     ASTTypeRef elementType;
     ASTExpressionRef size;
+    UInt64 sizeValue;
 };
 
 enum _ASTBuiltinTypeKind {

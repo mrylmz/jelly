@@ -349,6 +349,8 @@ static inline ASTPostfixOperator _ParserConsumePostfixOperatorHead(ParserRef par
         return ASTPostfixOperatorSelector;
     } else if (_ParserConsumeToken(parser, TokenKindLeftParenthesis)) {
         return ASTPostfixOperatorCall;
+    } else if (_ParserConsumeToken(parser, TokenKindLeftBracket)) {
+        return ASTPostfixOperatorSubscript;
     } else {
         return ASTPostfixOperatorUnknown;
     }
@@ -358,6 +360,9 @@ static inline Bool _ParserConsumePostfixOperatorTail(ParserRef parser, ASTPostfi
     switch (postfix) {
     case ASTPostfixOperatorCall:
         return _ParserConsumeToken(parser, TokenKindRightParenthesis);
+
+    case ASTPostfixOperatorSubscript:
+        return _ParserConsumeToken(parser, TokenKindRightBracket);
 
     case ASTPostfixOperatorUnknown:
     case ASTPostfixOperatorSelector:
@@ -992,6 +997,28 @@ static inline ASTExpressionRef _ParserParseExpression(ParserRef parser, ASTOpera
             if (!result) {
                 return NULL;
             }
+        } else if (postfix == ASTPostfixOperatorSubscript) {
+            ArrayRef arguments = ArrayCreateEmpty(parser->tempAllocator, sizeof(ASTExpressionRef), 8);
+            while (!_ParserIsToken(parser, TokenKindRightBracket)) {
+                ASTExpressionRef argument = _ParserParseExpression(parser, 0, silentDiagnostics);
+                if (!argument) {
+                    return NULL;
+                }
+
+                ArrayAppendElement(arguments, &argument);
+
+                if (!_ParserConsumeToken(parser, TokenKindComma)) {
+                    break;
+                }
+            }
+
+            if (!_ParserConsumePostfixOperatorTail(parser, postfix)) {
+                return NULL;
+            }
+
+            location.end = parser->token.location.start;
+            result       = (ASTExpressionRef)ASTContextCreateSubscriptExpression(parser->context, location, parser->currentScope, result,
+                                                                           arguments);
         } else {
             return NULL;
         }

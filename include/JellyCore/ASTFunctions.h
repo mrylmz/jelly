@@ -22,6 +22,8 @@ StringRef ASTGetInfixOperatorName(AllocatorRef allocator, ASTBinaryOperator op);
 
 Bool ASTTypeIsEqual(ASTTypeRef lhs, ASTTypeRef rhs);
 
+Bool ASTTypeIsError(ASTTypeRef type);
+
 Bool ASTTypeIsInteger(ASTTypeRef type);
 
 Int ASTIntegerTypeGetBitwidth(ASTTypeRef type);

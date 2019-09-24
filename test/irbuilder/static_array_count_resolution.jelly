@@ -1,0 +1,10 @@
+// run: -dump-ir
+
+func get_array_count(array: Int[10]) -> Int {
+    return array.count
+}
+
+func main() -> Void {
+    var array: Int[10]
+    get_array_count(array)
+}

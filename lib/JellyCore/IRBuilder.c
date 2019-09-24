@@ -547,7 +547,7 @@ static inline void _IRBuilderBuildLocalVariable(IRBuilderRef builder, LLVMValueR
     LLVMTypeRef type   = (LLVMTypeRef)declaration->base.base.irType;
     LLVMValueRef value = LLVMBuildAlloca(builder->builder, type, StringGetCharacters(declaration->base.name));
     if (declaration->initializer) {
-        LLVMBuildStore(builder->builder, (LLVMValueRef)declaration->initializer->base.irValue, value);
+        LLVMBuildStore(builder->builder, _IRBuilderLoadExpression(builder, function, declaration->initializer), value);
     }
 
     declaration->base.base.irValue = value;
@@ -785,8 +785,8 @@ static inline void _IRBuilderBuildControlStatement(IRBuilderRef builder, LLVMVal
 
             assert(statement->enclosingNode && statement->enclosingNode->tag == ASTTagFunctionDeclaration);
             ASTFunctionDeclarationRef func = (ASTFunctionDeclarationRef)statement->enclosingNode;
-            ASTTypeRef targetType    = func->returnType;
-            LLVMValueRef resultValue = _IRBuilderLoadExpression(builder, function, statement->result);
+            ASTTypeRef targetType          = func->returnType;
+            LLVMValueRef resultValue       = _IRBuilderLoadExpression(builder, function, statement->result);
             resultValue = _IRBuilderImplicitlyConvertValue(builder, function, resultValue, statement->result->type, targetType);
             LLVMBuildRet(builder->builder, resultValue);
             return;
@@ -1012,6 +1012,26 @@ static inline void _IRBuilderBuildExpression(IRBuilderRef builder, LLVMValueRef 
         return;
     }
 
+    case ASTTagSubscriptExpression: {
+        ASTSubscriptExpressionRef subscript = (ASTSubscriptExpressionRef)expression;
+        // NOTE: Subscript expressions are currently only allowed for static array types and are handled in the semantic phase
+        //       so we assume it only contains a single argument which is a constant of integer type...
+        assert(ASTArrayGetElementCount(subscript->arguments) == 1);
+
+        ASTExpressionRef argument = ASTArrayGetElementAtIndex(subscript->arguments, 0);
+        assert(ASTTypeIsInteger(argument->type));
+
+        _IRBuilderBuildExpression(builder, function, subscript->expression);
+        _IRBuilderBuildExpression(builder, function, argument);
+
+        LLVMValueRef pointer         = subscript->expression->base.irValue;
+        LLVMValueRef indices[]       = {LLVMConstInt((LLVMTypeRef)argument->type->irType, 0, false),
+                                  _IRBuilderLoadExpression(builder, function, argument)};
+        subscript->base.base.irValue = LLVMBuildInBoundsGEP(builder->builder, pointer, indices, 2, "");
+        subscript->base.base.flags |= ASTFlagsIsValuePointer;
+        return;
+    }
+
     case ASTTagTypeOperationExpression: {
         ASTTypeOperationExpressionRef typeExpression = (ASTTypeOperationExpressionRef)expression;
         _IRBuilderBuildExpression(builder, function, typeExpression->expression);
@@ -1145,7 +1165,13 @@ static inline LLVMTypeRef _IRBuilderGetIRType(IRBuilderRef builder, ASTTypeRef t
     }
 
     case ASTTagArrayType: {
-        ReportCritical("Array type is currently not supported!");
+        ASTArrayTypeRef arrayType = (ASTArrayTypeRef)type;
+        if (arrayType->base.flags & ASTFlagsArrayTypeIsStatic) {
+            llvmType = _IRBuilderGetIRType(builder, arrayType->elementType);
+            llvmType = LLVMArrayType(llvmType, arrayType->sizeValue);
+        } else {
+            ReportCritical("Dynamic Array type is currently not supported!");
+        }
         break;
     }
 

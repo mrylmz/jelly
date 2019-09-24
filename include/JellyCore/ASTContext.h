@@ -81,6 +81,9 @@ ASTConstantExpressionRef ASTContextCreateConstantStringExpression(ASTContextRef 
 ASTSizeOfExpressionRef ASTContextCreateSizeOfExpression(ASTContextRef context, SourceRange location, ASTScopeRef scope,
                                                         ASTTypeRef sizeType);
 
+ASTSubscriptExpressionRef ASTContextCreateSubscriptExpression(ASTContextRef context, SourceRange location, ASTScopeRef scope,
+                                                              ASTExpressionRef expression, ArrayRef arguments);
+
 ASTTypeOperationExpressionRef ASTContextCreateTypeOperationExpression(ASTContextRef context, SourceRange location, ASTScopeRef scope,
                                                                       ASTTypeOperation op, ASTExpressionRef expression,
                                                                       ASTTypeRef expressionType);

@@ -263,6 +263,21 @@ Bool ASTTypeIsEqual(ASTTypeRef lhs, ASTTypeRef rhs) {
         ASTArrayTypeRef lhsArray = (ASTArrayTypeRef)lhs;
         ASTArrayTypeRef rhsArray = (ASTArrayTypeRef)rhs;
 
+        // TODO: Move the size check to the semantic analysis for better error messages!
+        if ((lhsArray->size && !rhsArray->size) || (!lhsArray->size && rhsArray->size)) {
+            return false;
+        }
+
+        if (lhsArray->size && lhsArray->size->base.tag == ASTTagConstantExpression && rhsArray->size &&
+            rhsArray->size->base.tag == ASTTagConstantExpression) {
+            ASTConstantExpressionRef lhsSize = (ASTConstantExpressionRef)lhsArray->size;
+            ASTConstantExpressionRef rhsSize = (ASTConstantExpressionRef)rhsArray->size;
+
+            if (lhsSize->kind == ASTConstantKindInt && rhsSize->kind == ASTConstantKindInt && lhsSize->intValue != rhsSize->intValue) {
+                return false;
+            }
+        }
+
         return ASTTypeIsEqual(lhsArray->elementType, rhsArray->elementType);
     }
 
@@ -377,6 +392,17 @@ static inline Bool _ASTOpaqueTypeIsEqual(ASTOpaqueTypeRef opaque, ASTTypeRef oth
     default:
         return false;
     }
+}
+
+Bool ASTTypeIsError(ASTTypeRef type) {
+    assert(type);
+
+    if (type->tag == ASTTagBuiltinType) {
+        ASTBuiltinTypeRef builtin = (ASTBuiltinTypeRef)type;
+        return builtin->kind == ASTBuiltinTypeKindError;
+    }
+
+    return false;
 }
 
 Bool ASTTypeIsInteger(ASTTypeRef type) {

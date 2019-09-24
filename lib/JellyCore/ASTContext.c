@@ -56,6 +56,7 @@ ASTContextRef ASTContextCreate(AllocatorRef allocator, StringRef moduleName) {
     context->nodes[ASTTagCallExpression]          = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTCallExpression), 1024);
     context->nodes[ASTTagConstantExpression]      = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTConstantExpression), 1024);
     context->nodes[ASTTagSizeOfExpression]        = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTSizeOfExpression), 1024);
+    context->nodes[ASTTagSubscriptExpression]     = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTSubscriptExpression), 1024);
     context->nodes[ASTTagTypeOperationExpression] = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTTypeOperationExpression), 1024);
     context->nodes[ASTTagModuleDeclaration]       = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTModuleDeclaration), 1024);
     context->nodes[ASTTagEnumerationDeclaration]  = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTEnumerationDeclaration), 1024);
@@ -444,6 +445,17 @@ ASTSizeOfExpressionRef ASTContextCreateSizeOfExpression(ASTContextRef context, S
     return node;
 }
 
+ASTSubscriptExpressionRef ASTContextCreateSubscriptExpression(ASTContextRef context, SourceRange location, ASTScopeRef scope,
+                                                              ASTExpressionRef expression, ArrayRef arguments) {
+    ASTSubscriptExpressionRef node = (ASTSubscriptExpressionRef)_ASTContextCreateNode(context, ASTTagSubscriptExpression, location, scope);
+    node->expression               = expression;
+    node->arguments                = ASTContextCreateArray(context, location, scope);
+    if (arguments) {
+        ASTArrayAppendArray(node->arguments, arguments);
+    }
+    return node;
+}
+
 ASTTypeOperationExpressionRef ASTContextCreateTypeOperationExpression(ASTContextRef context, SourceRange location, ASTScopeRef scope,
                                                                       ASTTypeOperation op, ASTExpressionRef expression,
                                                                       ASTTypeRef expressionType) {
@@ -649,6 +661,7 @@ ASTArrayTypeRef ASTContextCreateArrayType(ASTContextRef context, SourceRange loc
     ASTArrayTypeRef node = (ASTArrayTypeRef)_ASTContextCreateNode(context, ASTTagArrayType, location, scope);
     node->elementType    = elementType;
     node->size           = size;
+    node->sizeValue      = 0;
     return node;
 }
 
