@@ -1012,6 +1012,26 @@ static inline void _IRBuilderBuildExpression(IRBuilderRef builder, LLVMValueRef 
         return;
     }
 
+    case ASTTagSubscriptExpression: {
+        ASTSubscriptExpressionRef subscript = (ASTSubscriptExpressionRef)expression;
+        // NOTE: Subscript expressions are currently only allowed for static array types and are handled in the semantic phase
+        //       so we assume it only contains a single argument which is a constant of integer type...
+        assert(ASTArrayGetElementCount(subscript->arguments) == 1);
+
+        ASTExpressionRef argument = ASTArrayGetElementAtIndex(subscript->arguments, 0);
+        assert(ASTTypeIsInteger(argument->type));
+
+        _IRBuilderBuildExpression(builder, function, subscript->expression);
+        _IRBuilderBuildExpression(builder, function, argument);
+
+        LLVMValueRef pointer         = subscript->expression->base.irValue;
+        LLVMValueRef indices[]       = {LLVMConstInt((LLVMTypeRef)argument->type->irType, 0, false),
+                                  _IRBuilderLoadExpression(builder, function, argument)};
+        subscript->base.base.irValue = LLVMBuildInBoundsGEP(builder->builder, pointer, indices, 2, "");
+        subscript->base.base.flags |= ASTFlagsIsValuePointer;
+        return;
+    }
+
     case ASTTagTypeOperationExpression: {
         ASTTypeOperationExpressionRef typeExpression = (ASTTypeOperationExpressionRef)expression;
         _IRBuilderBuildExpression(builder, function, typeExpression->expression);

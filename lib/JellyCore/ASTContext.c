@@ -56,6 +56,7 @@ ASTContextRef ASTContextCreate(AllocatorRef allocator, StringRef moduleName) {
     context->nodes[ASTTagCallExpression]          = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTCallExpression), 1024);
     context->nodes[ASTTagConstantExpression]      = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTConstantExpression), 1024);
     context->nodes[ASTTagSizeOfExpression]        = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTSizeOfExpression), 1024);
+    context->nodes[ASTTagSubscriptExpression]     = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTSubscriptExpression), 1024);
     context->nodes[ASTTagTypeOperationExpression] = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTTypeOperationExpression), 1024);
     context->nodes[ASTTagModuleDeclaration]       = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTModuleDeclaration), 1024);
     context->nodes[ASTTagEnumerationDeclaration]  = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTEnumerationDeclaration), 1024);
@@ -441,6 +442,17 @@ ASTSizeOfExpressionRef ASTContextCreateSizeOfExpression(ASTContextRef context, S
     node->base.type             = NULL;
     node->base.expectedType     = NULL;
     node->base.base.flags |= ASTFlagsIsConstantEvaluable;
+    return node;
+}
+
+ASTSubscriptExpressionRef ASTContextCreateSubscriptExpression(ASTContextRef context, SourceRange location, ASTScopeRef scope,
+                                                              ASTExpressionRef expression, ArrayRef arguments) {
+    ASTSubscriptExpressionRef node = (ASTSubscriptExpressionRef)_ASTContextCreateNode(context, ASTTagSubscriptExpression, location, scope);
+    node->expression               = expression;
+    node->arguments                = ASTContextCreateArray(context, location, scope);
+    if (arguments) {
+        ASTArrayAppendArray(node->arguments, arguments);
+    }
     return node;
 }
 

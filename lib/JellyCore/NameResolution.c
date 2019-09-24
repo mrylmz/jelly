@@ -617,7 +617,7 @@ static inline void _PerformNameResolutionForExpression(ASTContextRef context, AS
             if (StringIsEqualToCString(memberAccess->memberName, "count")) {
                 assert(!memberAccess->base.base.substitute);
 
-                ASTExpressionRef count = ((ASTArrayTypeRef)type)->size;
+                ASTExpressionRef count                      = ((ASTArrayTypeRef)type)->size;
                 memberAccess->base.base.substitute          = (ASTNodeRef)count;
                 memberAccess->base.base.substitute->primary = (ASTNodeRef)memberAccess;
                 _PerformNameResolutionForExpression(context, count);
@@ -991,6 +991,28 @@ static inline void _PerformNameResolutionForExpression(ASTContextRef context, AS
         ASTSizeOfExpressionRef sizeOf = (ASTSizeOfExpressionRef)expression;
         _ResolveDeclarationsOfTypeAndSubstituteType(context, sizeOf->base.base.scope, &sizeOf->sizeType);
         sizeOf->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindUInt64);
+        return;
+    }
+
+    if (expression->base.tag == ASTTagSubscriptExpression) {
+        ASTSubscriptExpressionRef subscript = (ASTSubscriptExpressionRef)expression;
+        _PerformNameResolutionForNode(context, (ASTNodeRef)subscript->expression);
+
+        ASTArrayIteratorRef iterator = ASTArrayGetIterator(subscript->arguments);
+        while (iterator) {
+            ASTExpressionRef argument = (ASTExpressionRef)ASTArrayIteratorGetElement(iterator);
+            _PerformNameResolutionForNode(context, (ASTNodeRef)argument);
+            iterator = ASTArrayIteratorNext(iterator);
+        }
+
+        if (subscript->expression->type->tag == ASTTagArrayType) {
+            ASTArrayTypeRef arrayType = (ASTArrayTypeRef)subscript->expression->type;
+            subscript->base.type      = arrayType->elementType;
+        } else if (!(subscript->expression->type->tag == ASTTagBuiltinType &&
+                     ((ASTBuiltinTypeRef)subscript->expression->type)->kind == ASTBuiltinTypeKindError)) {
+            ReportError("Subscript expressions are only supported for array types");
+            subscript->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
+        }
         return;
     }
 

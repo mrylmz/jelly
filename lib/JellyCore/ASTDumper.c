@@ -211,6 +211,13 @@ void ASTDumperDump(ASTDumperRef dumper, ASTNodeRef node) {
         return;
     }
 
+    case ASTTagSubscriptExpression: {
+        ASTSubscriptExpressionRef expression = (ASTSubscriptExpressionRef)node;
+        _ASTDumperDumpChild(dumper, (ASTNodeRef)expression->expression);
+        _ASTDumperDumpChildrenArray(dumper, expression->arguments);
+        return;
+    }
+
     case ASTTagModuleDeclaration: {
         ASTModuleDeclarationRef module = (ASTModuleDeclarationRef)node;
         _ASTDumperDumpChildrenArray(dumper, module->importedModules);
@@ -429,6 +436,9 @@ static inline void _ASTDumperPrintTag(ASTDumperRef dumper, ASTNodeRef node) {
         }
         break;
     }
+
+    case ASTTagSubscriptExpression:
+        return _ASTDumperPrintCString(dumper, "SubscriptExpression");
 
     case ASTTagModuleDeclaration:
         return _ASTDumperPrintCString(dumper, "ModuleDeclaration");

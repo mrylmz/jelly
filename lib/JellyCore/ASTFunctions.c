@@ -394,6 +394,17 @@ static inline Bool _ASTOpaqueTypeIsEqual(ASTOpaqueTypeRef opaque, ASTTypeRef oth
     }
 }
 
+Bool ASTTypeIsError(ASTTypeRef type) {
+    assert(type);
+
+    if (type->tag == ASTTagBuiltinType) {
+        ASTBuiltinTypeRef builtin = (ASTBuiltinTypeRef)type;
+        return builtin->kind == ASTBuiltinTypeKindError;
+    }
+
+    return false;
+}
+
 Bool ASTTypeIsInteger(ASTTypeRef type) {
     if (type->tag != ASTTagBuiltinType) {
         return false;

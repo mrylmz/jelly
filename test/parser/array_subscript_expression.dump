@@ -1,0 +1,24 @@
+ModuleDeclaration
+  SourceUnit
+    @filePath = 'array_subscript_expression.jelly'
+    FunctionDeclaration
+      @name = 'main'
+      BuiltinType
+        @name = 'Void'
+      Block
+        VariableDeclaration
+          @name = 'myArray'
+          ArrayType
+            BuiltinType
+              @name = 'Int'
+            IntLiteral
+              @value = '10'
+        VariableDeclaration
+          @name = 'myValue'
+          BuiltinType
+            @name = 'Int'
+          SubscriptExpression
+            IdentifierExpression
+              @identifier = 'myArray'
+            IntLiteral
+              @value = '3'

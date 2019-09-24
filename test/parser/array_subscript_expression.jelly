@@ -1,0 +1,4 @@
+func main() -> Void {
+    var myArray: Int[10]
+    var myValue: Int = myArray[3]
+}

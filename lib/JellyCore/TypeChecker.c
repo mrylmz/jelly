@@ -42,7 +42,6 @@ static inline void _CheckCyclicStorageInStructureDeclaration(ASTContextRef conte
                                                              ArrayRef parents);
 static inline void _CheckIsBlockAlwaysReturning(ASTBlockRef block);
 static inline void _CheckIsSwitchExhaustive(TypeCheckerRef typeChecker, ASTSwitchStatementRef statement);
-static inline Bool _ASTTypeIsError(ASTTypeRef type);
 static inline Bool _ASTTypeIsEqualOrError(ASTTypeRef lhs, ASTTypeRef rhs);
 static inline Bool _ASTExpressionIsLValue(ASTExpressionRef expression);
 
@@ -169,7 +168,7 @@ static inline void _TypeCheckerValidateEnumerationDeclaration(TypeCheckerRef typ
         ASTValueDeclarationRef element = (ASTValueDeclarationRef)ASTArrayGetElementAtIndex(declaration->elements, index);
         assert(element->kind == ASTValueKindEnumerationElement);
 
-        if (_ASTTypeIsError(element->base.type)) {
+        if (ASTTypeIsError(element->base.type)) {
             continue;
         }
 
@@ -182,7 +181,7 @@ static inline void _TypeCheckerValidateEnumerationDeclaration(TypeCheckerRef typ
 
         _TypeCheckerValidateExpression(typeChecker, context, element->initializer);
 
-        if (_ASTTypeIsError(element->initializer->type)) {
+        if (ASTTypeIsError(element->initializer->type)) {
             element->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
             continue;
         }
@@ -631,7 +630,7 @@ static inline void _TypeCheckerValidateExpression(TypeCheckerRef typeChecker, AS
             _TypeCheckerValidateExpression(typeChecker, context, argument);
         }
 
-        if (!_ASTTypeIsError(call->callee->type)) {
+        if (!ASTTypeIsError(call->callee->type)) {
             ASTTypeRef calleeType = call->callee->type;
             if (calleeType->tag == ASTTagPointerType) {
                 ASTPointerTypeRef pointerType = (ASTPointerTypeRef)calleeType;
@@ -681,6 +680,23 @@ static inline void _TypeCheckerValidateExpression(TypeCheckerRef typeChecker, AS
 
     case ASTTagSizeOfExpression: {
         // TODO: Check if given type is a valid type for size calculation!
+        break;
+    }
+
+    case ASTTagSubscriptExpression: {
+        ASTSubscriptExpressionRef subscript = (ASTSubscriptExpressionRef)expression;
+        if (ASTArrayGetElementCount(subscript->arguments) == 1) {
+            ASTExpressionRef argument = ASTArrayGetElementAtIndex(subscript->arguments, 0);
+            if (!ASTTypeIsError(argument->type) && !ASTTypeIsInteger(argument->type)) {
+                ReportError("Type mismatch in argument list of subscript expression");
+                subscript->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
+            }
+        } else {
+            ReportErrorFormat("Expected single argument for subscript expression found '%zu'",
+                              ASTArrayGetElementCount(subscript->arguments));
+            subscript->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
+        }
+
         break;
     }
 
@@ -956,19 +972,8 @@ static inline void _CheckIsSwitchExhaustive(TypeCheckerRef typeChecker, ASTSwitc
     }
 }
 
-static inline Bool _ASTTypeIsError(ASTTypeRef type) {
-    assert(type);
-
-    if (type->tag == ASTTagBuiltinType) {
-        ASTBuiltinTypeRef builtin = (ASTBuiltinTypeRef)type;
-        return builtin->kind == ASTBuiltinTypeKindError;
-    }
-
-    return false;
-}
-
 static inline Bool _ASTTypeIsEqualOrError(ASTTypeRef lhs, ASTTypeRef rhs) {
-    if (_ASTTypeIsError(lhs) || _ASTTypeIsError(rhs)) {
+    if (ASTTypeIsError(lhs) || ASTTypeIsError(rhs)) {
         return true;
     }
 
@@ -1006,6 +1011,15 @@ static inline Bool _ASTExpressionIsLValue(ASTExpressionRef expression) {
     case ASTTagMemberAccessExpression: {
         ASTMemberAccessExpressionRef memberAccess = (ASTMemberAccessExpressionRef)expression;
         if (_ASTExpressionIsLValue(memberAccess->argument)) {
+            return true;
+        }
+
+        return false;
+    }
+
+    case ASTTagSubscriptExpression: {
+        ASTSubscriptExpressionRef subscript = (ASTSubscriptExpressionRef)expression;
+        if (_ASTExpressionIsLValue(subscript->expression)) {
             return true;
         }
 

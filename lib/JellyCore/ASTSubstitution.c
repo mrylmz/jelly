@@ -177,6 +177,13 @@ static inline void _ASTApplySubstitution(ASTContextRef context, ASTNodeRef node)
         return;
     }
 
+    if (node->tag == ASTTagSubscriptExpression) {
+        ASTSubscriptExpressionRef expression = (ASTSubscriptExpressionRef)node;
+        _ASTApplySubstitutionInplace(context, expression->expression, ASTExpressionRef);
+        _ASTApplySubstitutionInplace(context, expression->arguments, ASTArrayRef);
+        return;
+    }
+
     if (node->tag == ASTTagTypeOperationExpression) {
         ASTTypeOperationExpressionRef expression = (ASTTypeOperationExpressionRef)node;
         _ASTApplySubstitutionInplace(context, expression->expression, ASTExpressionRef);
