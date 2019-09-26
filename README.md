@@ -1,4 +1,4 @@
-# Jelly
+# ![jelly-logo](jelly-logo.png)
 
 This project was created in my spare time based on my interest in compilers and on their functionality.
 
