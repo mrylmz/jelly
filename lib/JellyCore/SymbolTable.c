@@ -2,11 +2,22 @@
 #include "JellyCore/Dictionary.h"
 #include "JellyCore/SymbolTable.h"
 
-const Index kDefaultSymbolDictionaryCapacity = 65535;
-const Index kDefaultSymbolArrayCapacity      = 65535;
+const Index kDefaultSymbolDictionaryCapacity = 64;
+const Index kDefaultSymbolArrayCapacity      = 8;
+
+struct _SymbolEntry {
+    void *definition;
+    void *type;
+};
+typedef struct _SymbolEntry SymbolEntry;
 
 struct _Symbol {
     SymbolID id;
+    Bool isGroup;
+    union {
+        SymbolEntry entry;
+        ArrayRef entries;
+    };
 };
 
 struct _Scope {
@@ -15,6 +26,7 @@ struct _Scope {
     ScopeID parent;
     const Char *location;
     DictionaryRef symbols;
+    void *userdata;
 };
 typedef struct _Scope *ScopeRef;
 
@@ -39,6 +51,7 @@ SymbolTableRef SymbolTableCreate(AllocatorRef allocator) {
     globalScope->parent   = -1;
     globalScope->location = NULL;
     globalScope->symbols  = CStringDictionaryCreate(table->allocator, kDefaultSymbolDictionaryCapacity);
+    globalScope->userdata = NULL;
 
     return table;
 }
@@ -60,6 +73,7 @@ ScopeID SymbolTableInsertScope(SymbolTableRef table, ScopeKind kind, ScopeID par
     scope->parent   = parent;
     scope->location = location;
     scope->symbols  = CStringDictionaryCreate(table->allocator, kDefaultSymbolDictionaryCapacity);
+    scope->userdata = NULL;
     table->nextScopeID += 1;
     return scope->id;
 }
@@ -71,6 +85,20 @@ ScopeID SymbolTableGetScopeParent(SymbolTableRef table, ScopeID id) {
 
     ScopeRef scope = (ScopeRef)ArrayGetElementAtIndex(table->scopes, id);
     return scope->parent;
+}
+
+ScopeID SymbolTableGetScopeOrParentOfKinds(SymbolTableRef table, ScopeID id, ScopeKind kinds) {
+    if (id == kScopeNull) {
+        return kScopeNull;
+    }
+
+    assert(0 <= id && id < ArrayGetElementCount(table->scopes));
+    ScopeRef scope = (ScopeRef)ArrayGetElementAtIndex(table->scopes, id);
+    if ((scope->kind & kinds) > 0) {
+        return id;
+    }
+
+    return SymbolTableGetScopeOrParentOfKinds(table, scope->parent, kinds);
 }
 
 ScopeID SymbolTableGetEnclosingScopeParent(SymbolTableRef table, ScopeID id) {
@@ -113,28 +141,89 @@ ScopeID SymbolTableGetEnclosingScopeParent(SymbolTableRef table, ScopeID id) {
         }
     }
 
-    return NULL;
+    return scope->parent;
 }
 
-SymbolID SymbolTableInsertSymbol(SymbolTableRef table, ScopeID id, const Char *name) {
+ScopeID SymbolTableGetScopeOrEnclosingParentOfKinds(SymbolTableRef table, ScopeID id, ScopeKind kinds) {
+    assert(0 <= id && id < ArrayGetElementCount(table->scopes));
+
+    ScopeID parentID = id;
+    while (parentID != kScopeNull) {
+        ScopeRef parent = (ScopeRef)ArrayGetElementAtIndex(table->scopes, parentID);
+        if ((parent->kind & kinds) > 0) {
+            return parentID;
+        }
+
+        parentID = SymbolTableGetEnclosingScopeParent(table, parentID);
+    }
+
+    return kScopeNull;
+}
+
+ScopeKind SymbolTableGetScopeKind(SymbolTableRef table, ScopeID id) {
+    assert(0 <= id && id < ArrayGetElementCount(table->scopes));
+
+    ScopeRef scope = (ScopeRef)ArrayGetElementAtIndex(table->scopes, id);
+    return scope->kind;
+}
+
+void *SymbolTableGetScopeUserdata(SymbolTableRef table, ScopeID id) {
+    assert(0 <= id && id < ArrayGetElementCount(table->scopes));
+
+    ScopeRef scope = (ScopeRef)ArrayGetElementAtIndex(table->scopes, id);
+    return scope->userdata;
+}
+
+void SymbolTableSetScopeUserdata(SymbolTableRef table, ScopeID id, void *userdata) {
+    assert(0 <= id && id < ArrayGetElementCount(table->scopes));
+
+    ScopeRef scope  = (ScopeRef)ArrayGetElementAtIndex(table->scopes, id);
+    scope->userdata = userdata;
+}
+
+void SymbolTableGetScopeSymbols(SymbolTableRef table, ScopeID id, SymbolID **symbols, Index *count) {
+    assert(0 <= id && id < ArrayGetElementCount(table->scopes));
+
+    ScopeRef scope = (ScopeRef)ArrayGetElementAtIndex(table->scopes, id);
+    DictionaryGetAllValues(scope->symbols, (void **)symbols, count);
+}
+
+Bool SymbolTableIsSymbolGroup(SymbolTableRef table, SymbolID id) {
+    assert(0 <= id && id < ArrayGetElementCount(table->symbols));
+
+    SymbolRef symbol = (SymbolRef)ArrayGetElementAtIndex(table->symbols, id);
+    return symbol->isGroup;
+}
+
+SymbolID SymbolTableInsertSymbol(SymbolTableRef table, ScopeID id, StringRef name) {
     assert(SymbolTableLookupSymbol(table, id, name) == kSymbolNull);
 
     SymbolRef symbol = ArrayAppendUninitializedElement(table->symbols);
     memset(symbol, 0, sizeof(struct _Symbol));
-    symbol->id = id;
+    symbol->id = table->nextSymbolID;
+    table->nextSymbolID += 1;
 
     assert(0 <= id && id < ArrayGetElementCount(table->scopes));
     ScopeRef scope = ArrayGetElementAtIndex(table->scopes, id);
-    DictionaryInsert(scope->symbols, name, &symbol->id, sizeof(SymbolID));
+    DictionaryInsert(scope->symbols, StringGetCharacters(name), &symbol->id, sizeof(SymbolID));
 
-    return symbol;
+    return symbol->id;
 }
 
-SymbolID SymbolTableLookupSymbol(SymbolTableRef table, ScopeID id, const Char *name) {
+SymbolID SymbolTableInsertOrGetSymbol(SymbolTableRef table, ScopeID id, StringRef name) {
+    SymbolID symbolID = SymbolTableLookupSymbol(table, id, name);
+    if (symbolID != kSymbolNull) {
+        return symbolID;
+    }
+
+    return SymbolTableInsertSymbol(table, id, name);
+}
+
+SymbolID SymbolTableLookupSymbol(SymbolTableRef table, ScopeID id, StringRef name) {
     assert(0 <= id && id < ArrayGetElementCount(table->scopes));
     ScopeRef scope = ArrayGetElementAtIndex(table->scopes, id);
 
-    const void *ref = DictionaryLookup(scope->symbols, name);
+    const void *ref = DictionaryLookup(scope->symbols, StringGetCharacters(name));
     if (ref == NULL) {
         return kSymbolNull;
     }
@@ -142,7 +231,7 @@ SymbolID SymbolTableLookupSymbol(SymbolTableRef table, ScopeID id, const Char *n
     return *((SymbolID *)ref);
 }
 
-SymbolID SymbolTableLookupSymbolInHierarchy(SymbolTableRef table, ScopeID id, const Char *name) {
+SymbolID SymbolTableLookupSymbolInHierarchy(SymbolTableRef table, ScopeID id, StringRef name) {
     assert(0 <= id && id < ArrayGetElementCount(table->scopes));
 
     SymbolID nextID = id;
@@ -156,4 +245,115 @@ SymbolID SymbolTableLookupSymbolInHierarchy(SymbolTableRef table, ScopeID id, co
     }
 
     return kSymbolNull;
+}
+
+void *SymbolTableGetSymbolDefinition(SymbolTableRef table, SymbolID id) {
+    assert(0 <= id && id < ArrayGetElementCount(table->symbols));
+
+    SymbolRef symbol = (SymbolRef)ArrayGetElementAtIndex(table->symbols, id);
+    assert(!symbol->isGroup);
+    return symbol->entry.definition;
+}
+
+void SymbolTableSetSymbolDefinition(SymbolTableRef table, SymbolID id, void *definition) {
+    assert(0 <= id && id < ArrayGetElementCount(table->symbols));
+
+    SymbolRef symbol = (SymbolRef)ArrayGetElementAtIndex(table->symbols, id);
+    assert(!symbol->isGroup);
+    symbol->entry.definition = definition;
+}
+
+void *SymbolTableGetSymbolType(SymbolTableRef table, SymbolID id) {
+    assert(0 <= id && id < ArrayGetElementCount(table->symbols));
+
+    SymbolRef symbol = (SymbolRef)ArrayGetElementAtIndex(table->symbols, id);
+    assert(!symbol->isGroup);
+    return symbol->entry.type;
+}
+
+void SymbolTableSetSymbolType(SymbolTableRef table, SymbolID id, void *type) {
+    assert(0 <= id && id < ArrayGetElementCount(table->symbols));
+
+    SymbolRef symbol = (SymbolRef)ArrayGetElementAtIndex(table->symbols, id);
+    assert(!symbol->isGroup);
+    symbol->entry.type = type;
+}
+
+SymbolID SymbolTableInsertSymbolGroup(SymbolTableRef table, ScopeID id, StringRef name) {
+    SymbolID symbolID = SymbolTableInsertSymbol(table, id, name);
+    assert(symbolID != kSymbolNull);
+
+    SymbolRef symbol = (SymbolRef)ArrayGetElementAtIndex(table->symbols, symbolID);
+    symbol->isGroup  = true;
+    symbol->entries  = ArrayCreateEmpty(table->allocator, sizeof(SymbolEntry), 8);
+    return symbol->id;
+}
+
+SymbolID SymbolTableInsertOrGetSymbolGroup(SymbolTableRef table, ScopeID id, StringRef name) {
+    SymbolID symbolID = SymbolTableLookupSymbol(table, id, name);
+    if (symbolID != kSymbolNull) {
+        SymbolRef symbol = ArrayGetElementAtIndex(table->symbols, symbolID);
+        assert(symbol->isGroup);
+        return symbolID;
+    }
+
+    return SymbolTableInsertSymbolGroup(table, id, name);
+}
+
+Index SymbolTableGetSymbolGroupEntryCount(SymbolTableRef table, SymbolID id) {
+    assert(0 <= id && id < ArrayGetElementCount(table->symbols));
+
+    SymbolRef symbol = (SymbolRef)ArrayGetElementAtIndex(table->symbols, id);
+    assert(symbol->isGroup);
+    return ArrayGetElementCount(symbol->entries);
+}
+
+Index SymbolTableInsertSymbolGroupEntry(SymbolTableRef table, SymbolID id) {
+    assert(0 <= id && id < ArrayGetElementCount(table->symbols));
+
+    SymbolRef symbol = (SymbolRef)ArrayGetElementAtIndex(table->symbols, id);
+    assert(symbol->isGroup);
+    SymbolEntry *entry = ArrayAppendUninitializedElement(symbol->entries);
+    memset(entry, 0, sizeof(SymbolEntry));
+    return ArrayGetElementCount(symbol->entries) - 1;
+}
+
+void *SymbolTableGetSymbolGroupDefinition(SymbolTableRef table, SymbolID id, Index index) {
+    assert(0 <= id && id < ArrayGetElementCount(table->symbols));
+
+    SymbolRef symbol = (SymbolRef)ArrayGetElementAtIndex(table->symbols, id);
+    assert(symbol->isGroup);
+    assert(0 <= index && index < ArrayGetElementCount(symbol->entries));
+    SymbolEntry *entry = (SymbolEntry *)ArrayGetElementAtIndex(symbol->entries, index);
+    return entry->definition;
+}
+
+void SymbolTableSetSymbolGroupDefinition(SymbolTableRef table, SymbolID id, Index index, void *definition) {
+    assert(0 <= id && id < ArrayGetElementCount(table->symbols));
+
+    SymbolRef symbol = (SymbolRef)ArrayGetElementAtIndex(table->symbols, id);
+    assert(symbol->isGroup);
+    assert(0 <= index && index < ArrayGetElementCount(symbol->entries));
+    SymbolEntry *entry = (SymbolEntry *)ArrayGetElementAtIndex(symbol->entries, index);
+    entry->definition  = definition;
+}
+
+void *SymbolTableGetSymbolGroupType(SymbolTableRef table, SymbolID id, Index index) {
+    assert(0 <= id && id < ArrayGetElementCount(table->symbols));
+
+    SymbolRef symbol = (SymbolRef)ArrayGetElementAtIndex(table->symbols, id);
+    assert(symbol->isGroup);
+    assert(0 <= index && index < ArrayGetElementCount(symbol->entries));
+    SymbolEntry *entry = (SymbolEntry *)ArrayGetElementAtIndex(symbol->entries, index);
+    return entry->type;
+}
+
+void SymbolTableSetSymbolGroupType(SymbolTableRef table, SymbolID id, Index index, void *type) {
+    assert(0 <= id && id < ArrayGetElementCount(table->symbols));
+
+    SymbolRef symbol = (SymbolRef)ArrayGetElementAtIndex(table->symbols, id);
+    assert(symbol->isGroup);
+    assert(0 <= index && index < ArrayGetElementCount(symbol->entries));
+    SymbolEntry *entry = (SymbolEntry *)ArrayGetElementAtIndex(symbol->entries, index);
+    entry->type        = type;
 }

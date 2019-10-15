@@ -68,11 +68,11 @@ DictionaryRef CStringDictionaryCreate(AllocatorRef allocator, Index capacity) {
 
 void DictionaryDestroy(DictionaryRef dictionary) {
     for (Index index = 0; index < dictionary->capacity; index++) {
-        DictionaryBucketRef bucket = (DictionaryBucketRef)((UInt8 *)dictionary->buckets + sizeof(struct _DictionaryBucket));
+        DictionaryBucketRef bucket = (DictionaryBucketRef)((UInt8 *)dictionary->buckets + sizeof(struct _DictionaryBucket) * index);
         DictionaryBucketRef next   = bucket->next;
         while (next) {
             DictionaryBucketRef current = next;
-            next                        = next->next;
+            next                        = current->next;
             AllocatorDeallocate(dictionary->allocator, current);
         }
     }
@@ -154,6 +154,16 @@ void DictionaryRemove(DictionaryRef dictionary, const void *key) {
         previousBucket = bucket;
         bucket         = bucket->next;
     }
+}
+
+void DictionaryGetAllKeys(DictionaryRef dictionary, void **memory, Index *count) {
+    *memory = dictionary->keyBuffer.memory;
+    *count  = dictionary->keyBuffer.offset;
+}
+
+void DictionaryGetAllValues(DictionaryRef dictionary, void **memory, Index *count) {
+    *memory = dictionary->elementBuffer.memory;
+    *count  = dictionary->elementBuffer.offset;
 }
 
 static inline void _DictionaryBufferInit(DictionaryRef dictionary, DictionaryBuffer *buffer) {

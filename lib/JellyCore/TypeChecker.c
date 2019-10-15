@@ -1,5 +1,4 @@
 #include "JellyCore/ASTFunctions.h"
-#include "JellyCore/ASTScope.h"
 #include "JellyCore/Diagnostic.h"
 #include "JellyCore/TypeChecker.h"
 
@@ -40,7 +39,7 @@ static inline void _TypeCheckerValidateStaticArrayTypesInContext(TypeCheckerRef 
 
 static inline void _CheckCyclicStorageInStructureDeclaration(ASTContextRef context, ASTStructureDeclarationRef declaration,
                                                              ArrayRef parents);
-static inline void _CheckIsBlockAlwaysReturning(ASTBlockRef block);
+static inline void _CheckIsBlockAlwaysReturning(ASTContextRef context, ASTBlockRef block);
 static inline void _CheckIsSwitchExhaustive(TypeCheckerRef typeChecker, ASTSwitchStatementRef statement);
 static inline Bool _ASTTypeIsEqualOrError(ASTTypeRef lhs, ASTTypeRef rhs);
 static inline Bool _ASTExpressionIsLValue(ASTExpressionRef expression);
@@ -243,7 +242,7 @@ static inline void _TypeCheckerValidateFunctionDeclaration(TypeCheckerRef typeCh
         }
     }
 
-    _CheckIsBlockAlwaysReturning(declaration->body);
+    _CheckIsBlockAlwaysReturning(context, declaration->body);
     if (requiresReturnValue && !(declaration->body->base.flags & ASTFlagsStatementIsAlwaysReturning)) {
         ReportError("Not all code paths return a value");
     }
@@ -339,13 +338,16 @@ static inline void _TypeCheckerValidateVariableDeclaration(TypeCheckerRef typeCh
     if (declaration->initializer) {
         _TypeCheckerValidateExpression(typeChecker, context, declaration->initializer);
 
-        if (!_ASTTypeIsEqualOrError(declaration->base.type, declaration->initializer->type)) {
+        if (!_ASTTypeIsEqualOrError(declaration->base.type, declaration->initializer->type) &&
+            !ASTTypeIsImplicitlyConvertible(declaration->base.type, declaration->initializer->type)) {
             ReportErrorFormat("Assignment expression of '%s' has mismatching type", StringGetCharacters(declaration->base.name));
         }
     }
 }
 
 static inline void _TypeCheckerValidateStatement(TypeCheckerRef typeChecker, ASTContextRef context, ASTNodeRef node) {
+    SymbolTableRef symbolTable = ASTContextGetSymbolTable(context);
+
     switch (node->tag) {
     case ASTTagIfStatement: {
         ASTIfStatementRef statement = (ASTIfStatementRef)node;
@@ -376,14 +378,11 @@ static inline void _TypeCheckerValidateStatement(TypeCheckerRef typeChecker, AST
 
     case ASTTagCaseStatement: {
         ASTCaseStatementRef statement = (ASTCaseStatementRef)node;
-        ASTScopeRef scope             = statement->base.scope;
-        while (scope && (scope->kind != ASTScopeKindSwitch)) {
-            scope = ASTScopeGetNextParentForLookup(scope);
-        }
-
-        if (scope) {
-            assert(scope->node->tag == ASTTagSwitchStatement);
-            statement->enclosingSwitch = (ASTSwitchStatementRef)scope->node;
+        ScopeID scope                 = SymbolTableGetScopeOrEnclosingParentOfKinds(symbolTable, statement->base.scope, ScopeKindSwitch);
+        if (scope != kScopeNull) {
+            ASTNodeRef node = SymbolTableGetScopeUserdata(symbolTable, scope);
+            assert(node && node->tag == ASTTagSwitchStatement);
+            statement->enclosingSwitch = (ASTSwitchStatementRef)node;
         } else {
             ReportError("'case' is only allowed inside a switch");
         }
@@ -420,13 +419,11 @@ static inline void _TypeCheckerValidateStatement(TypeCheckerRef typeChecker, AST
         ASTControlStatementRef control = (ASTControlStatementRef)node;
         switch (control->kind) {
         case ASTControlKindBreak: {
-            ASTScopeRef scope = control->base.scope;
-            while (scope && (scope->kind != ASTScopeKindLoop && scope->kind != ASTScopeKindSwitch)) {
-                scope = ASTScopeGetNextParentForLookup(scope);
-            }
-
-            if (scope) {
-                control->enclosingNode = scope->node;
+            ScopeID scope = SymbolTableGetScopeOrEnclosingParentOfKinds(symbolTable, control->base.scope, ScopeKindLoop | ScopeKindSwitch);
+            if (scope != kScopeNull) {
+                ASTNodeRef node = SymbolTableGetScopeUserdata(symbolTable, scope);
+                assert(node);
+                control->enclosingNode = node;
             } else {
                 ReportError("'break' is only allowed inside a switch or loop");
             }
@@ -434,13 +431,11 @@ static inline void _TypeCheckerValidateStatement(TypeCheckerRef typeChecker, AST
         }
 
         case ASTControlKindContinue: {
-            ASTScopeRef scope = control->base.scope;
-            while (scope && (scope->kind != ASTScopeKindLoop)) {
-                scope = ASTScopeGetNextParentForLookup(scope);
-            }
-
-            if (scope) {
-                control->enclosingNode = scope->node;
+            ScopeID scope = SymbolTableGetScopeOrEnclosingParentOfKinds(symbolTable, control->base.scope, ScopeKindLoop);
+            if (scope != kScopeNull) {
+                ASTNodeRef node = SymbolTableGetScopeUserdata(symbolTable, scope);
+                assert(node);
+                control->enclosingNode = node;
             } else {
                 ReportError("'continue' is only allowed inside a loop");
             }
@@ -448,13 +443,11 @@ static inline void _TypeCheckerValidateStatement(TypeCheckerRef typeChecker, AST
         }
 
         case ASTControlKindFallthrough: {
-            ASTScopeRef scope = control->base.scope;
-            while (scope && (scope->kind != ASTScopeKindCase)) {
-                scope = ASTScopeGetNextParentForLookup(scope);
-            }
-
-            if (scope) {
-                control->enclosingNode = scope->node;
+            ScopeID scope = SymbolTableGetScopeOrEnclosingParentOfKinds(symbolTable, control->base.scope, ScopeKindCase);
+            if (scope != kScopeNull) {
+                ASTNodeRef node = SymbolTableGetScopeUserdata(symbolTable, scope);
+                assert(node);
+                control->enclosingNode = node;
             } else {
                 ReportError("'fallthrough' is only allowed inside a case");
             }
@@ -466,13 +459,11 @@ static inline void _TypeCheckerValidateStatement(TypeCheckerRef typeChecker, AST
                 _TypeCheckerValidateExpression(typeChecker, context, control->result);
             }
 
-            ASTScopeRef scope = control->base.scope;
-            while (scope && (scope->kind != ASTScopeKindFunction)) {
-                scope = ASTScopeGetNextParentForLookup(scope);
-            }
-
-            if (scope) {
-                control->enclosingNode = scope->node;
+            ScopeID scope = SymbolTableGetScopeOrEnclosingParentOfKinds(symbolTable, control->base.scope, ScopeKindFunction);
+            if (scope != kScopeNull) {
+                ASTNodeRef node = SymbolTableGetScopeUserdata(symbolTable, scope);
+                assert(node);
+                control->enclosingNode = node;
 
                 assert(control->enclosingNode->tag == ASTTagFunctionDeclaration);
                 ASTFunctionDeclarationRef function = (ASTFunctionDeclarationRef)control->enclosingNode;
@@ -805,13 +796,14 @@ static inline void _CheckCyclicStorageInStructureDeclaration(ASTContextRef conte
     }
 }
 
-static inline void _CheckIsBlockAlwaysReturning(ASTBlockRef block) {
+static inline void _CheckIsBlockAlwaysReturning(ASTContextRef context, ASTBlockRef block) {
     if (block->base.flags & ASTFlagsStatementIsAlwaysReturning) {
         return;
     }
 
-    Bool isAlwaysReturning = false;
-    ASTScopeRef scope      = block->base.scope;
+    SymbolTableRef symbolTable = ASTContextGetSymbolTable(context);
+    Bool isAlwaysReturning     = false;
+    ScopeID scope              = block->base.scope;
     for (Index index = 0; index < ASTArrayGetElementCount(block->statements); index++) {
         ASTNodeRef statement = (ASTNodeRef)ASTArrayGetElementAtIndex(block->statements, index);
 
@@ -822,12 +814,8 @@ static inline void _CheckIsBlockAlwaysReturning(ASTBlockRef block) {
             }
 
             if (control->kind == ASTControlKindContinue) {
-                ASTScopeRef loopScope = scope;
-                while (loopScope && loopScope->kind != ASTScopeKindLoop) {
-                    loopScope = ASTScopeGetNextParentForLookup(loopScope);
-                }
-
-                if (loopScope && loopScope->kind == ASTScopeKindLoop) {
+                ScopeID loopScope = SymbolTableGetScopeOrEnclosingParentOfKinds(symbolTable, scope, ScopeKindLoop);
+                if (loopScope != kScopeNull) {
                     isAlwaysReturning = true;
                 }
             }
@@ -840,8 +828,8 @@ static inline void _CheckIsBlockAlwaysReturning(ASTBlockRef block) {
             }
 
             ASTIfStatementRef ifStatement = (ASTIfStatementRef)statement;
-            _CheckIsBlockAlwaysReturning(ifStatement->thenBlock);
-            _CheckIsBlockAlwaysReturning(ifStatement->elseBlock);
+            _CheckIsBlockAlwaysReturning(context, ifStatement->thenBlock);
+            _CheckIsBlockAlwaysReturning(context, ifStatement->elseBlock);
 
             if ((ifStatement->thenBlock->base.flags & ASTFlagsStatementIsAlwaysReturning) &&
                 (ifStatement->elseBlock->base.flags & ASTFlagsStatementIsAlwaysReturning)) {
@@ -863,7 +851,7 @@ static inline void _CheckIsBlockAlwaysReturning(ASTBlockRef block) {
             Bool isSwitchAlwaysReturning          = true;
             for (Index index = 0; index < ASTArrayGetElementCount(switchStatement->cases); index++) {
                 ASTCaseStatementRef child = (ASTCaseStatementRef)ASTArrayGetElementAtIndex(switchStatement->cases, index);
-                _CheckIsBlockAlwaysReturning(child->body);
+                _CheckIsBlockAlwaysReturning(context, child->body);
                 if (!(child->body->base.flags & ASTFlagsStatementIsAlwaysReturning)) {
                     isSwitchAlwaysReturning = false;
                 }

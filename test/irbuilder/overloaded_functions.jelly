@@ -1,7 +1,6 @@
 // run: -dump-ir
 
 func match() -> Void {}
-func match() -> Bool { return false }
 func match(arg0: Int) -> Void {}
 func match(arg1: Int, arg2: Bool) -> Void {}
 func match(arg1: Int, arg2: Int, arg3: Int) -> Void {}

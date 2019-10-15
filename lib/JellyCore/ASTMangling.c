@@ -36,7 +36,8 @@ void PerformNameManglingForDeclaration(ASTContextRef context, ASTDeclarationRef 
         }
     }
 
-    if (declaration->base.tag == ASTTagFunctionDeclaration) {
+    if (declaration->base.tag == ASTTagFunctionDeclaration || declaration->base.tag == ASTTagIntrinsicFunctionDeclaration ||
+        declaration->base.tag == ASTTagForeignFunctionDeclaration) {
         _MangleFunctionDeclarationName((ASTFunctionDeclarationRef)declaration);
     }
 
@@ -54,10 +55,18 @@ void PerformNameManglingForDeclaration(ASTContextRef context, ASTDeclarationRef 
     if (declaration->base.tag == ASTTagValueDeclaration) {
         _MangleValueDeclarationName((ASTValueDeclarationRef)declaration);
     }
+
+    if (declaration->base.tag == ASTTagInitializerDeclaration) {
+        ASTInitializerDeclarationRef initializer = (ASTInitializerDeclarationRef)declaration;
+        assert(initializer->structure);
+        _MangleInitializerDeclarationName(initializer->structure, (ASTInitializerDeclarationRef)declaration);
+    }
 }
 
 static inline void _MangleEnumerationDeclarationName(ASTEnumerationDeclarationRef declaration) {
-    assert(!declaration->base.mangledName);
+    if (declaration->base.mangledName) {
+        return;
+    }
 
     StringRef mangledName = StringCreate(AllocatorGetSystemDefault(), "$E");
     _StringAppendMangledIdentifier(mangledName, declaration->base.name);
@@ -65,8 +74,11 @@ static inline void _MangleEnumerationDeclarationName(ASTEnumerationDeclarationRe
 }
 
 static inline void _MangleEnumerationElementName(ASTEnumerationDeclarationRef declaration, ASTValueDeclarationRef element) {
+    if (element->base.mangledName) {
+        return;
+    }
+
     assert(declaration->base.mangledName);
-    assert(!element->base.mangledName);
 
     StringRef mangledName = StringCreate(AllocatorGetSystemDefault(), StringGetCharacters(declaration->base.mangledName));
     StringAppend(mangledName, "_M");
@@ -76,7 +88,9 @@ static inline void _MangleEnumerationElementName(ASTEnumerationDeclarationRef de
 }
 
 static inline void _MangleFunctionDeclarationName(ASTFunctionDeclarationRef declaration) {
-    assert(!declaration->base.mangledName);
+    if (declaration->base.mangledName) {
+        return;
+    }
 
     StringRef mangledName = StringCreate(AllocatorGetSystemDefault(), "$F");
     _StringAppendMangledIdentifier(mangledName, declaration->base.name);
@@ -92,7 +106,9 @@ static inline void _MangleFunctionDeclarationName(ASTFunctionDeclarationRef decl
 }
 
 static inline void _MangleStructureDeclarationName(ASTStructureDeclarationRef declaration) {
-    assert(!declaration->base.mangledName);
+    if (declaration->base.mangledName) {
+        return;
+    }
 
     StringRef mangledName = StringCreate(AllocatorGetSystemDefault(), "$S");
     _StringAppendMangledIdentifier(mangledName, declaration->base.name);
@@ -100,7 +116,9 @@ static inline void _MangleStructureDeclarationName(ASTStructureDeclarationRef de
 }
 
 static inline void _MangleValueDeclarationName(ASTValueDeclarationRef declaration) {
-    assert(!declaration->base.mangledName);
+    if (declaration->base.mangledName) {
+        return;
+    }
 
     StringRef mangledName = StringCreate(AllocatorGetSystemDefault(), "$V");
     _StringAppendMangledIdentifier(mangledName, declaration->base.name);
@@ -108,7 +126,9 @@ static inline void _MangleValueDeclarationName(ASTValueDeclarationRef declaratio
 }
 
 static inline void _MangleInitializerDeclarationName(ASTStructureDeclarationRef structure, ASTInitializerDeclarationRef initializer) {
-    assert(!initializer->base.mangledName);
+    if (initializer->base.mangledName) {
+        return;
+    }
 
     StringRef mangledName = StringCreate(AllocatorGetSystemDefault(), "$I");
     _StringAppendMangledIdentifier(mangledName, structure->base.name);

@@ -1,6 +1,5 @@
 #include "JellyCore/ASTDumper.h"
 #include "JellyCore/ASTMangling.h"
-#include "JellyCore/ASTScope.h"
 #include "JellyCore/ASTSubstitution.h"
 #include "JellyCore/Diagnostic.h"
 #include "JellyCore/IRBuilder.h"
@@ -29,7 +28,6 @@ struct _Workspace {
 
     WorkspaceOptions options;
     FILE *dumpASTOutput;
-    FILE *dumpScopeOutput;
 
     Bool running;
     Bool waiting;
@@ -61,7 +59,6 @@ WorkspaceRef WorkspaceCreate(AllocatorRef allocator, StringRef workingDirectory,
     workspace->importQueue         = QueueCreate(allocator);
     workspace->options             = options;
     workspace->dumpASTOutput       = stdout;
-    workspace->dumpScopeOutput     = stdout;
     workspace->running             = false;
     workspace->waiting             = false;
     return workspace;
@@ -108,11 +105,6 @@ void WorkspaceAddSourceFile(WorkspaceRef workspace, StringRef filePath) {
 void WorkspaceSetDumpASTOutput(WorkspaceRef workspace, FILE *output) {
     assert(output);
     workspace->dumpASTOutput = output;
-}
-
-void WorkspaceSetDumpScopeOutput(WorkspaceRef workspace, FILE *output) {
-    assert(output);
-    workspace->dumpScopeOutput = output;
 }
 
 Bool WorkspaceStartAsync(WorkspaceRef workspace) {
@@ -359,10 +351,6 @@ void *_WorkspaceProcess(void *context) {
 
     // Perform ASTApplySubstitution a second time to allow substitutions in name resolution phase...
     ASTApplySubstitution(workspace->context, ASTContextGetModule(workspace->context));
-
-    if ((workspace->options & WorkspaceOptionsDumpScope) > 0) {
-        ASTScopeDump(ASTContextGetGlobalScope(workspace->context), workspace->dumpScopeOutput);
-    }
 
     TypeCheckerRef typeChecker = TypeCheckerCreate(workspace->allocator);
     TypeCheckerValidateModule(typeChecker, workspace->context, ASTContextGetModule(workspace->context));
