@@ -21,19 +21,16 @@ Int CompilerRun(ArrayRef arguments) {
     }
 
     Int32 optionDumpAST          = 0;
-    Int32 optionDumpScope        = 0;
     Int32 optionDumpIR           = 0;
     Int32 optionWorkingDirectory = 0;
     Int32 optionModuleName       = 0;
     Int32 optionTypeCheck        = 0;
     StringRef dumpASTFilePath    = NULL;
-    StringRef dumpScopeFilePath  = NULL;
     StringRef workingDirectory   = NULL;
     StringRef moduleName         = NULL;
 
     struct option options[] = {
         {"dump-ast", optional_argument, &optionDumpAST, 1},
-        {"dump-scope", optional_argument, &optionDumpScope, 1},
         {"dump-ir", no_argument, &optionDumpIR, 1},
         {"working-directory", required_argument, &optionWorkingDirectory, 1},
         {"module-name", optional_argument, &optionModuleName, 1},
@@ -52,15 +49,11 @@ Int CompilerRun(ArrayRef arguments) {
                 dumpASTFilePath = StringCreate(AllocatorGetSystemDefault(), optarg);
             }
 
-            if (index == 1 && optarg) {
-                dumpScopeFilePath = StringCreate(AllocatorGetSystemDefault(), optarg);
-            }
-
-            if (index == 3) {
+            if (index == 2) {
                 workingDirectory = StringCreate(AllocatorGetSystemDefault(), optarg);
             }
 
-            if (index == 4 && optarg) {
+            if (index == 3 && optarg) {
                 moduleName = StringCreate(AllocatorGetSystemDefault(), optarg);
             }
             break;
@@ -75,10 +68,6 @@ Int CompilerRun(ArrayRef arguments) {
         default:
             if (dumpASTFilePath) {
                 StringDestroy(dumpASTFilePath);
-            }
-
-            if (dumpScopeFilePath) {
-                StringDestroy(dumpScopeFilePath);
             }
 
             if (workingDirectory) {
@@ -104,10 +93,6 @@ Int CompilerRun(ArrayRef arguments) {
                 StringDestroy(dumpASTFilePath);
             }
 
-            if (dumpScopeFilePath) {
-                StringDestroy(dumpScopeFilePath);
-            }
-
             if (workingDirectory) {
                 StringDestroy(workingDirectory);
             }
@@ -123,10 +108,6 @@ Int CompilerRun(ArrayRef arguments) {
     WorkspaceOptions workspaceOptions = WorkspaceOptionsNone;
     if (optionDumpAST) {
         workspaceOptions |= WorkspaceOptionsDumpAST;
-    }
-
-    if (optionDumpScope) {
-        workspaceOptions |= WorkspaceOptionsDumpScope;
     }
 
     if (optionDumpIR) {
@@ -153,13 +134,6 @@ Int CompilerRun(ArrayRef arguments) {
         WorkspaceSetDumpASTOutput(workspace, dumpASTOutput);
     }
 
-    FILE *dumpScopeOutput = NULL;
-    if (dumpScopeFilePath) {
-        dumpScopeOutput = fopen(StringGetCharacters(dumpScopeFilePath), "w");
-        assert(dumpScopeOutput);
-        WorkspaceSetDumpScopeOutput(workspace, dumpScopeOutput);
-    }
-
     if (optind < argc) {
         StringRef filePath = StringCreate(AllocatorGetSystemDefault(), argv[optind]);
         WorkspaceAddSourceFile(workspace, filePath);
@@ -177,14 +151,6 @@ Int CompilerRun(ArrayRef arguments) {
 
     if (dumpASTFilePath) {
         StringDestroy(dumpASTFilePath);
-    }
-
-    if (dumpScopeOutput) {
-        fclose(dumpScopeOutput);
-    }
-
-    if (dumpScopeFilePath) {
-        StringDestroy(dumpScopeFilePath);
     }
 
     StringDestroy(moduleName);

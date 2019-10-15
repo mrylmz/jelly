@@ -13,7 +13,7 @@ struct _Parser {
     AllocatorRef allocator;
     AllocatorRef tempAllocator;
     ASTContextRef context;
-    ASTScopeRef currentScope;
+    ScopeID currentScope;
     LexerRef lexer;
     Token token;
 };
@@ -59,7 +59,7 @@ static inline ASTExpressionRef _ParserParseConditionList(ParserRef parser);
 static inline ASTNodeRef _ParserParseTopLevelNode(ParserRef parser);
 static inline ASTNodeRef _ParserParseTopLevelInterfaceNode(ParserRef parser);
 
-static inline ASTScopeRef _ParserPushScope(ParserRef parser, SourceRange location, ASTNodeRef node, ASTScopeKind kind);
+static inline ScopeID _ParserPushScope(ParserRef parser, SourceRange location, ASTNodeRef node, ScopeKind kind);
 static inline void _ParserPopScope(ParserRef parser);
 
 ParserRef ParserCreate(AllocatorRef allocator, ASTContextRef context) {
@@ -68,7 +68,7 @@ ParserRef ParserCreate(AllocatorRef allocator, ASTContextRef context) {
     // TODO: Replace tempAllocator with a pool allocator which resets after finishing a top level parse action.
     parser->tempAllocator = BumpAllocatorCreate(allocator);
     parser->context       = context;
-    parser->currentScope  = ASTContextGetGlobalScope(context);
+    parser->currentScope  = kScopeGlobal;
     parser->lexer         = NULL;
     return parser;
 }
@@ -477,7 +477,8 @@ static inline ASTBlockRef _ParserParseBlock(ParserRef parser) {
 
 /// grammar: if-statement := "if" expression { "," expression } block [ "else" ( if-statement | block ) ]
 static inline ASTIfStatementRef _ParserParseIfStatement(ParserRef parser) {
-    SourceRange location = parser->token.location;
+    SymbolTableRef symbolTable = ASTContextGetSymbolTable(parser->context);
+    SourceRange location       = parser->token.location;
 
     if (!_ParserConsumeToken(parser, TokenKindKeywordIf)) {
         return NULL;
@@ -489,20 +490,19 @@ static inline ASTIfStatementRef _ParserParseIfStatement(ParserRef parser) {
     }
 
     // TODO: @ScopeLocation The location of scope will not be correct it has to encapsulate the associated node!
-    ASTScopeRef thenScope = _ParserPushScope(parser, parser->token.location, NULL, ASTScopeKindBranch);
+    ScopeID thenScope     = _ParserPushScope(parser, parser->token.location, NULL, ScopeKindBranch);
     ASTBlockRef thenBlock = _ParserParseBlock(parser);
     if (!thenBlock) {
         return NULL;
     }
-    thenScope->node = (ASTNodeRef)thenBlock;
+    SymbolTableSetScopeUserdata(symbolTable, thenScope, thenBlock);
     _ParserPopScope(parser);
 
     ASTBlockRef elseBlock = NULL;
     if (_ParserConsumeToken(parser, TokenKindKeywordElse)) {
         // TODO: @ScopeLocation The location of scope will not be correct it has to encapsulate the associated node!
-        ASTScopeRef elseScope = _ParserPushScope(parser, parser->token.location, NULL, ASTScopeKindBranch);
-
-        location.end = parser->token.location.start;
+        ScopeID elseScope = _ParserPushScope(parser, parser->token.location, NULL, ScopeKindBranch);
+        location.end      = parser->token.location.start;
         if (_ParserIsToken(parser, TokenKindKeywordIf)) {
             SourceRange location          = parser->token.location;
             ASTIfStatementRef ifStatement = _ParserParseIfStatement(parser);
@@ -522,16 +522,14 @@ static inline ASTIfStatementRef _ParserParseIfStatement(ParserRef parser) {
             }
         }
 
-        elseScope->node = (ASTNodeRef)elseBlock;
+        SymbolTableSetScopeUserdata(symbolTable, elseScope, elseBlock);
         _ParserPopScope(parser);
     } else {
         // TODO: @ScopeLocation The location of scope will not be correct it has to encapsulate the associated node!
-        ASTScopeRef elseScope = _ParserPushScope(parser, parser->token.location, NULL, ASTScopeKindBranch);
-
-        elseBlock = ASTContextCreateBlock(parser->context, SourceRangeMake(parser->token.location.end, parser->token.location.end),
+        ScopeID elseScope = _ParserPushScope(parser, parser->token.location, NULL, ScopeKindBranch);
+        elseBlock         = ASTContextCreateBlock(parser->context, SourceRangeMake(parser->token.location.end, parser->token.location.end),
                                           parser->currentScope, NULL);
-
-        elseScope->node = (ASTNodeRef)elseBlock;
+        SymbolTableSetScopeUserdata(symbolTable, elseScope, elseBlock);
         _ParserPopScope(parser);
     }
 
@@ -543,7 +541,8 @@ static inline ASTIfStatementRef _ParserParseIfStatement(ParserRef parser) {
 /// grammar: while-statement := "while" expression { "," expression } block
 /// grammar: do-statement    := "do" block "while" expression
 static inline ASTLoopStatementRef _ParserParseLoopStatement(ParserRef parser) {
-    SourceRange location = parser->token.location;
+    SymbolTableRef symbolTable = ASTContextGetSymbolTable(parser->context);
+    SourceRange location       = parser->token.location;
 
     if (_ParserConsumeToken(parser, TokenKindKeywordWhile)) {
         ASTExpressionRef condition = _ParserParseConditionList(parser);
@@ -552,7 +551,7 @@ static inline ASTLoopStatementRef _ParserParseLoopStatement(ParserRef parser) {
         }
 
         // TODO: @ScopeLocation The location of scope will not be correct it has to encapsulate the associated node!
-        ASTScopeRef loopScope = _ParserPushScope(parser, parser->token.location, NULL, ASTScopeKindLoop);
+        ScopeID loopScope     = _ParserPushScope(parser, parser->token.location, NULL, ScopeKindLoop);
         ASTBlockRef loopBlock = _ParserParseBlock(parser);
         if (!loopBlock) {
 
@@ -564,13 +563,13 @@ static inline ASTLoopStatementRef _ParserParseLoopStatement(ParserRef parser) {
         location.end             = parser->token.location.start;
         ASTLoopStatementRef loop = ASTContextCreateLoopStatement(parser->context, location, parser->currentScope, ASTLoopKindWhile,
                                                                  condition, loopBlock);
-        loopScope->node          = (ASTNodeRef)loop;
+        SymbolTableSetScopeUserdata(symbolTable, loopScope, loop);
         return loop;
     }
 
     if (_ParserConsumeToken(parser, TokenKindKeywordDo)) {
         // TODO: @ScopeLocation The location of scope will not be correct it has to encapsulate the associated node!
-        ASTScopeRef loopScope = _ParserPushScope(parser, parser->token.location, NULL, ASTScopeKindLoop);
+        ScopeID loopScope     = _ParserPushScope(parser, parser->token.location, NULL, ScopeKindLoop);
         ASTBlockRef loopBlock = _ParserParseBlock(parser);
         if (!loopBlock) {
             return NULL;
@@ -591,7 +590,7 @@ static inline ASTLoopStatementRef _ParserParseLoopStatement(ParserRef parser) {
         location.end             = parser->token.location.start;
         ASTLoopStatementRef loop = ASTContextCreateLoopStatement(parser->context, location, parser->currentScope, ASTLoopKindDo, condition,
                                                                  loopBlock);
-        loopScope->node          = (ASTNodeRef)loop;
+        SymbolTableSetScopeUserdata(symbolTable, loopScope, loop);
         return loop;
     }
 
@@ -603,7 +602,8 @@ static inline ASTLoopStatementRef _ParserParseLoopStatement(ParserRef parser) {
 /// grammar: conditional-case-statement := "case" expression ":" statement { line-break statement }
 /// grammar: else-case-statement        := "else" ":" statement { line-break statement }
 static inline ASTCaseStatementRef _ParserParseCaseStatement(ParserRef parser) {
-    SourceRange location = parser->token.location;
+    SymbolTableRef symbolTable = ASTContextGetSymbolTable(parser->context);
+    SourceRange location       = parser->token.location;
 
     ASTCaseKind kind           = ASTCaseKindElse;
     ASTExpressionRef condition = NULL;
@@ -629,8 +629,8 @@ static inline ASTCaseStatementRef _ParserParseCaseStatement(ParserRef parser) {
     SourceRange blockLocation = parser->token.location;
 
     // TODO: @ScopeLocation The location of scope will not be correct it has to encapsulate the associated node!
-    ASTScopeRef caseScope = _ParserPushScope(parser, parser->token.location, NULL, ASTScopeKindCase);
-    ArrayRef statements   = ArrayCreateEmpty(parser->tempAllocator, sizeof(ASTNodeRef), 8);
+    ScopeID caseScope   = _ParserPushScope(parser, parser->token.location, NULL, ScopeKindCase);
+    ArrayRef statements = ArrayCreateEmpty(parser->tempAllocator, sizeof(ASTNodeRef), 8);
     while (!_ParserIsToken(parser, TokenKindKeywordCase) && !_ParserIsToken(parser, TokenKindKeywordElse) &&
            !_ParserIsToken(parser, TokenKindRightCurlyBracket)) {
         SourceRange leadingTrivia = parser->token.leadingTrivia;
@@ -657,13 +657,14 @@ static inline ASTCaseStatementRef _ParserParseCaseStatement(ParserRef parser) {
 
     location.end                  = parser->token.location.start;
     ASTCaseStatementRef statement = ASTContextCreateCaseStatement(parser->context, location, parser->currentScope, kind, condition, body);
-    caseScope->node               = (ASTNodeRef)statement;
+    SymbolTableSetScopeUserdata(symbolTable, caseScope, statement);
     return statement;
 }
 
 /// grammar: switch-statement := "switch" expression "{" [ case-statement { line-break case-statement } ] "}"
 static inline ASTSwitchStatementRef _ParserParseSwitchStatement(ParserRef parser) {
-    SourceRange location = parser->token.location;
+    SymbolTableRef symbolTable = ASTContextGetSymbolTable(parser->context);
+    SourceRange location       = parser->token.location;
 
     if (!_ParserConsumeToken(parser, TokenKindKeywordSwitch)) {
         return NULL;
@@ -681,8 +682,8 @@ static inline ASTSwitchStatementRef _ParserParseSwitchStatement(ParserRef parser
     }
 
     // TODO: @ScopeLocation The location of scope will not be correct it has to encapsulate the associated node!
-    ASTScopeRef switchScope = _ParserPushScope(parser, parser->token.location, NULL, ASTScopeKindSwitch);
-    ArrayRef statements     = ArrayCreateEmpty(parser->tempAllocator, sizeof(ASTNodeRef), 8);
+    ScopeID switchScope = _ParserPushScope(parser, parser->token.location, NULL, ScopeKindSwitch);
+    ArrayRef statements = ArrayCreateEmpty(parser->tempAllocator, sizeof(ASTNodeRef), 8);
 
     if (_ParserIsToken(parser, TokenKindRightCurlyBracket)) {
         ReportError("'switch' statement body must have at least one 'case' or 'else' block");
@@ -715,7 +716,7 @@ static inline ASTSwitchStatementRef _ParserParseSwitchStatement(ParserRef parser
     location.end                    = parser->token.location.start;
     ASTSwitchStatementRef statement = ASTContextCreateSwitchStatement(parser->context, location, parser->currentScope, argument,
                                                                       statements);
-    switchScope->node               = (ASTNodeRef)statement;
+    SymbolTableSetScopeUserdata(symbolTable, switchScope, statement);
     return statement;
 }
 
@@ -1142,7 +1143,8 @@ static inline ASTConstantExpressionRef _ParserParseConstantExpression(ParserRef 
 
 /// grammar: enum-declaration := "enum" identifier "{" [ enum-element { line-break enum-element } ] "}"
 static inline ASTEnumerationDeclarationRef _ParserParseEnumerationDeclaration(ParserRef parser) {
-    SourceRange location = parser->token.location;
+    SymbolTableRef symbolTable = ASTContextGetSymbolTable(parser->context);
+    SourceRange location       = parser->token.location;
     if (!_ParserConsumeToken(parser, TokenKindKeywordEnum)) {
         return NULL;
     }
@@ -1159,8 +1161,8 @@ static inline ASTEnumerationDeclarationRef _ParserParseEnumerationDeclaration(Pa
     }
 
     // TODO: @ScopeLocation The location of scope will not be correct it has to encapsulate the associated node!
-    ASTScopeRef enumScope = _ParserPushScope(parser, parser->token.location, NULL, ASTScopeKindEnumeration);
-    ArrayRef elements     = ArrayCreateEmpty(parser->tempAllocator, sizeof(ASTNodeRef), 8);
+    ScopeID enumScope = _ParserPushScope(parser, parser->token.location, NULL, ScopeKindEnumeration);
+    ArrayRef elements = ArrayCreateEmpty(parser->tempAllocator, sizeof(ASTNodeRef), 8);
     if (!_ParserIsToken(parser, TokenKindRightCurlyBracket)) {
         while (true) {
             SourceRange leadingTrivia      = parser->token.leadingTrivia;
@@ -1198,14 +1200,15 @@ static inline ASTEnumerationDeclarationRef _ParserParseEnumerationDeclaration(Pa
     ASTEnumerationDeclarationRef enumeration = ASTContextCreateEnumerationDeclaration(parser->context, location, parser->currentScope, name,
                                                                                       elements);
     enumeration->innerScope                  = enumScope;
-    enumScope->node                          = (ASTNodeRef)enumeration;
+    SymbolTableSetScopeUserdata(symbolTable, enumScope, enumeration);
     return enumeration;
 }
 
 /// grammar: func-declaration := "func" identifier "(" [ parameter-declaration { "," parameter-declaration } ] ")" "->" type-identifier
 /// block
 static inline ASTFunctionDeclarationRef _ParserParseFunctionDeclaration(ParserRef parser) {
-    SourceRange location = parser->token.location;
+    SymbolTableRef symbolTable = ASTContextGetSymbolTable(parser->context);
+    SourceRange location       = parser->token.location;
 
     if (!_ParserConsumeToken(parser, TokenKindKeywordFunc)) {
         return NULL;
@@ -1223,8 +1226,8 @@ static inline ASTFunctionDeclarationRef _ParserParseFunctionDeclaration(ParserRe
     }
 
     // TODO: @ScopeLocation The location of scope will not be correct it has to encapsulate the associated node!
-    ASTScopeRef funcScope = _ParserPushScope(parser, parser->token.location, NULL, ASTScopeKindFunction);
-    ArrayRef parameters   = ArrayCreateEmpty(parser->tempAllocator, sizeof(ASTNodeRef), 8);
+    ScopeID funcScope   = _ParserPushScope(parser, parser->token.location, NULL, ScopeKindFunction);
+    ArrayRef parameters = ArrayCreateEmpty(parser->tempAllocator, sizeof(ASTNodeRef), 8);
 
     if (!_ParserIsToken(parser, TokenKindRightParenthesis)) {
         while (true) {
@@ -1279,7 +1282,7 @@ static inline ASTFunctionDeclarationRef _ParserParseFunctionDeclaration(ParserRe
         ASTFunctionDeclarationRef function = ASTContextCreateIntrinsicFunctionDeclaration(
             parser->context, location, parser->currentScope, ASTFixityPrefix, name, parameters, returnType, intrinsicName);
         function->innerScope = funcScope;
-        funcScope->node      = (ASTNodeRef)function;
+        SymbolTableSetScopeUserdata(symbolTable, funcScope, function);
         return function;
     } else {
         ASTBlockRef body = _ParserParseBlock(parser);
@@ -1293,14 +1296,15 @@ static inline ASTFunctionDeclarationRef _ParserParseFunctionDeclaration(ParserRe
         ASTFunctionDeclarationRef function = ASTContextCreateFunctionDeclaration(parser->context, location, parser->currentScope,
                                                                                  ASTFixityPrefix, name, parameters, returnType, body);
         function->innerScope               = funcScope;
-        funcScope->node                    = (ASTNodeRef)function;
+        SymbolTableSetScopeUserdata(symbolTable, funcScope, function);
         return function;
     }
 }
 
 /// grammar: foreign-func-declaration := "prefix" "func" identifier "(" [ parameter { "," parameter } ] ")" "->" type-identifier
 static inline ASTFunctionDeclarationRef _ParserParseForeignFunctionDeclaration(ParserRef parser) {
-    SourceRange location = parser->token.location;
+    SymbolTableRef symbolTable = ASTContextGetSymbolTable(parser->context);
+    SourceRange location       = parser->token.location;
 
     if (!_ParserConsumeToken(parser, TokenKindDirectiveForeign)) {
         return NULL;
@@ -1322,8 +1326,8 @@ static inline ASTFunctionDeclarationRef _ParserParseForeignFunctionDeclaration(P
     }
 
     // TODO: @ScopeLocation The location of scope will not be correct it has to encapsulate the associated node!
-    ASTScopeRef funcScope = _ParserPushScope(parser, parser->token.location, NULL, ASTScopeKindFunction);
-    ArrayRef parameters   = ArrayCreateEmpty(parser->tempAllocator, sizeof(ASTNodeRef), 8);
+    ScopeID funcScope   = _ParserPushScope(parser, parser->token.location, NULL, ScopeKindFunction);
+    ArrayRef parameters = ArrayCreateEmpty(parser->tempAllocator, sizeof(ASTNodeRef), 8);
 
     if (!_ParserIsToken(parser, TokenKindRightParenthesis)) {
         while (true) {
@@ -1375,13 +1379,14 @@ static inline ASTFunctionDeclarationRef _ParserParseForeignFunctionDeclaration(P
     ASTFunctionDeclarationRef function = ASTContextCreateForeignFunctionDeclaration(
         parser->context, location, parser->currentScope, ASTFixityNone, name, parameters, returnType, foreign->stringValue);
     function->innerScope = funcScope;
-    funcScope->node      = (ASTNodeRef)function;
+    SymbolTableSetScopeUserdata(symbolTable, funcScope, function);
     return function;
 }
 
 /// grammar: prefix-func-declaration := "prefix" "func" unary-operator "(" [ parameter { "," parameter } ] ")" "->" type-identifier block
 static inline ASTFunctionDeclarationRef _ParserParsePrefixFunctionDeclaration(ParserRef parser) {
-    SourceRange location = parser->token.location;
+    SymbolTableRef symbolTable = ASTContextGetSymbolTable(parser->context);
+    SourceRange location       = parser->token.location;
 
     if (!_ParserConsumeToken(parser, TokenKindKeywordPrefix)) {
         return NULL;
@@ -1406,8 +1411,8 @@ static inline ASTFunctionDeclarationRef _ParserParsePrefixFunctionDeclaration(Pa
     }
 
     // TODO: @ScopeLocation The location of scope will not be correct it has to encapsulate the associated node!
-    ASTScopeRef funcScope = _ParserPushScope(parser, parser->token.location, NULL, ASTScopeKindFunction);
-    ArrayRef parameters   = ArrayCreateEmpty(parser->tempAllocator, sizeof(ASTNodeRef), 8);
+    ScopeID funcScope   = _ParserPushScope(parser, parser->token.location, NULL, ScopeKindFunction);
+    ArrayRef parameters = ArrayCreateEmpty(parser->tempAllocator, sizeof(ASTNodeRef), 8);
 
     if (!_ParserIsToken(parser, TokenKindRightParenthesis)) {
         while (true) {
@@ -1466,7 +1471,7 @@ static inline ASTFunctionDeclarationRef _ParserParsePrefixFunctionDeclaration(Pa
         ASTFunctionDeclarationRef function = ASTContextCreateIntrinsicFunctionDeclaration(
             parser->context, location, parser->currentScope, ASTFixityPrefix, name, parameters, returnType, intrinsicName);
         function->innerScope = funcScope;
-        funcScope->node      = (ASTNodeRef)function;
+        SymbolTableSetScopeUserdata(symbolTable, funcScope, function);
         return function;
     } else {
         ASTBlockRef body = _ParserParseBlock(parser);
@@ -1480,14 +1485,15 @@ static inline ASTFunctionDeclarationRef _ParserParsePrefixFunctionDeclaration(Pa
         ASTFunctionDeclarationRef function = ASTContextCreateFunctionDeclaration(parser->context, location, parser->currentScope,
                                                                                  ASTFixityPrefix, name, parameters, returnType, body);
         function->innerScope               = funcScope;
-        funcScope->node                    = (ASTNodeRef)function;
+        SymbolTableSetScopeUserdata(symbolTable, funcScope, function);
         return function;
     }
 }
 
 /// grammar: infix-func-declaration := "infix" "func" binary-operator "(" [ parameter { "," parameter } ] ")" "->" type-identifier block
 static inline ASTFunctionDeclarationRef _ParserParseInfixFunctionDeclaration(ParserRef parser) {
-    SourceRange location = parser->token.location;
+    SymbolTableRef symbolTable = ASTContextGetSymbolTable(parser->context);
+    SourceRange location       = parser->token.location;
 
     if (!_ParserConsumeToken(parser, TokenKindKeywordPrefix)) {
         return NULL;
@@ -1512,8 +1518,8 @@ static inline ASTFunctionDeclarationRef _ParserParseInfixFunctionDeclaration(Par
     }
 
     // TODO: @ScopeLocation The location of scope will not be correct it has to encapsulate the associated node!
-    ASTScopeRef funcScope = _ParserPushScope(parser, parser->token.location, NULL, ASTScopeKindFunction);
-    ArrayRef parameters   = ArrayCreateEmpty(parser->tempAllocator, sizeof(ASTNodeRef), 8);
+    ScopeID funcScope   = _ParserPushScope(parser, parser->token.location, NULL, ScopeKindFunction);
+    ArrayRef parameters = ArrayCreateEmpty(parser->tempAllocator, sizeof(ASTNodeRef), 8);
 
     if (!_ParserIsToken(parser, TokenKindRightParenthesis)) {
         while (true) {
@@ -1572,7 +1578,7 @@ static inline ASTFunctionDeclarationRef _ParserParseInfixFunctionDeclaration(Par
         ASTFunctionDeclarationRef function = ASTContextCreateIntrinsicFunctionDeclaration(
             parser->context, location, parser->currentScope, ASTFixityInfix, name, parameters, returnType, intrinsicName);
         function->innerScope = funcScope;
-        funcScope->node      = (ASTNodeRef)function;
+        SymbolTableSetScopeUserdata(symbolTable, funcScope, function);
         return function;
     } else {
         ASTBlockRef body = _ParserParseBlock(parser);
@@ -1586,14 +1592,15 @@ static inline ASTFunctionDeclarationRef _ParserParseInfixFunctionDeclaration(Par
         ASTFunctionDeclarationRef function = ASTContextCreateFunctionDeclaration(parser->context, location, parser->currentScope,
                                                                                  ASTFixityInfix, name, parameters, returnType, body);
         function->innerScope               = funcScope;
-        funcScope->node                    = (ASTNodeRef)function;
+        SymbolTableSetScopeUserdata(symbolTable, funcScope, function);
         return function;
     }
 }
 
 /// grammar: struct-declaration := "struct" identifier "{" { value-declaration } "}"
 static inline ASTStructureDeclarationRef _ParserParseStructureDeclaration(ParserRef parser) {
-    SourceRange location = parser->token.location;
+    SymbolTableRef symbolTable = ASTContextGetSymbolTable(parser->context);
+    SourceRange location       = parser->token.location;
 
     if (!_ParserConsumeToken(parser, TokenKindKeywordStruct)) {
         return NULL;
@@ -1611,9 +1618,9 @@ static inline ASTStructureDeclarationRef _ParserParseStructureDeclaration(Parser
     }
 
     // TODO: @ScopeLocation The location of scope will not be correct it has to encapsulate the associated node!
-    ASTScopeRef structScope = _ParserPushScope(parser, parser->token.location, NULL, ASTScopeKindStructure);
-    ArrayRef values         = ArrayCreateEmpty(parser->tempAllocator, sizeof(ASTNodeRef), 8);
-    ArrayRef initializers   = ArrayCreateEmpty(parser->tempAllocator, sizeof(ASTNodeRef), 8);
+    ScopeID structScope   = _ParserPushScope(parser, parser->token.location, NULL, ScopeKindStructure);
+    ArrayRef values       = ArrayCreateEmpty(parser->tempAllocator, sizeof(ASTNodeRef), 8);
+    ArrayRef initializers = ArrayCreateEmpty(parser->tempAllocator, sizeof(ASTNodeRef), 8);
 
     if (!_ParserIsToken(parser, TokenKindRightCurlyBracket)) {
         while (true) {
@@ -1660,13 +1667,14 @@ static inline ASTStructureDeclarationRef _ParserParseStructureDeclaration(Parser
     ASTStructureDeclarationRef declaration = ASTContextCreateStructureDeclaration(parser->context, location, parser->currentScope, name,
                                                                                   values, initializers);
     declaration->innerScope                = structScope;
-    structScope->node                      = (ASTNodeRef)declaration;
+    SymbolTableSetScopeUserdata(symbolTable, structScope, declaration);
     return declaration;
 }
 
 /// grammar: initializer-declaration := "init" "(" [ parameter-declaration { "," parameter-declaration } ] ")" block
 static inline ASTInitializerDeclarationRef _ParserParseInitializerDeclaration(ParserRef parser) {
-    SourceRange location = parser->token.location;
+    SymbolTableRef symbolTable = ASTContextGetSymbolTable(parser->context);
+    SourceRange location       = parser->token.location;
 
     if (!_ParserConsumeToken(parser, TokenKindKeywordInit)) {
         return NULL;
@@ -1676,8 +1684,8 @@ static inline ASTInitializerDeclarationRef _ParserParseInitializerDeclaration(Pa
         return NULL;
     }
 
-    ASTScopeRef initScope = _ParserPushScope(parser, location, NULL, ASTScopeKindInitializer);
-    ArrayRef parameters   = ArrayCreateEmpty(parser->tempAllocator, sizeof(ASTNodeRef), 8);
+    ScopeID initScope   = _ParserPushScope(parser, location, NULL, ScopeKindInitializer);
+    ArrayRef parameters = ArrayCreateEmpty(parser->tempAllocator, sizeof(ASTNodeRef), 8);
     if (!_ParserIsToken(parser, TokenKindRightParenthesis)) {
         while (true) {
             ASTValueDeclarationRef parameter = _ParserParseParameterDeclaration(parser);
@@ -1715,7 +1723,7 @@ static inline ASTInitializerDeclarationRef _ParserParseInitializerDeclaration(Pa
     ASTInitializerDeclarationRef declaration = ASTContextCreateInitializerDeclaration(parser->context, location, parser->currentScope,
                                                                                       parameters, body);
     declaration->innerScope                  = initScope;
-    initScope->node                          = (ASTNodeRef)declaration;
+    SymbolTableSetScopeUserdata(symbolTable, initScope, declaration);
     return declaration;
 }
 
@@ -2103,14 +2111,16 @@ static inline ASTNodeRef _ParserParseTopLevelInterfaceNode(ParserRef parser) {
     return NULL;
 }
 
-static inline ASTScopeRef _ParserPushScope(ParserRef parser, SourceRange location, ASTNodeRef node, ASTScopeKind kind) {
-    ASTScopeRef scope    = ASTContextCreateScope(parser->context, location, node, parser->currentScope, kind);
-    parser->currentScope = scope;
+static inline ScopeID _ParserPushScope(ParserRef parser, SourceRange location, ASTNodeRef node, ScopeKind kind) {
+    SymbolTableRef symbolTable = ASTContextGetSymbolTable(parser->context);
+    ScopeID scope              = SymbolTableInsertScope(symbolTable, kind, parser->currentScope, location.start);
+    parser->currentScope       = scope;
     return scope;
 }
 
 static inline void _ParserPopScope(ParserRef parser) {
-    assert(parser->currentScope->parent);
-
-    parser->currentScope = parser->currentScope->parent;
+    SymbolTableRef symbolTable = ASTContextGetSymbolTable(parser->context);
+    ScopeID parent             = SymbolTableGetScopeParent(symbolTable, parser->currentScope);
+    assert(parent != kScopeNull);
+    parser->currentScope = parent;
 }

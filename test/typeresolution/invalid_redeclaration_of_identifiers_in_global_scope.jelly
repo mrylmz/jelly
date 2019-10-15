@@ -12,10 +12,8 @@ func fun() -> Void {}
 func fun() -> Void {} // expect-error: Invalid redeclaration of identifier
 func fun(arg0: Int) -> Void {}
 func fun(arg0: Int, arg1: Int) -> Void {}
-func fun() -> Int { return 0 }
 
 func myFunc() -> Void {}
 func myFunc(arg0: A) -> Int { return 0 }
-func myFunc() -> Int { return 0 }
 
 func main() -> Void {}

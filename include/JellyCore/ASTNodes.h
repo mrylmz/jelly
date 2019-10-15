@@ -6,6 +6,7 @@
 #include <JellyCore/Base.h>
 #include <JellyCore/SourceRange.h>
 #include <JellyCore/String.h>
+#include <JellyCore/SymbolTable.h>
 
 JELLY_EXTERN_C_BEGIN
 
@@ -127,13 +128,12 @@ typedef struct _ASTBuiltinType *ASTBuiltinTypeRef;
 typedef struct _ASTEnumerationType *ASTEnumerationTypeRef;
 typedef struct _ASTFunctionType *ASTFunctionTypeRef;
 typedef struct _ASTStructureType *ASTStructureTypeRef;
-typedef struct _ASTScope *ASTScopeRef;
 
 struct _ASTNode {
     ASTTag tag;
     ASTFlags flags;
     SourceRange location;
-    ASTScopeRef scope;
+    ScopeID scope;
     ASTNodeRef substitute;
     ASTNodeRef primary;
 
@@ -457,7 +457,7 @@ struct _ASTModuleDeclaration {
     ASTArrayRef sourceUnits;
 
     // TODO: Move scope to ASTSourceUnitRef after resolving @SourceUnitTree
-    ASTScopeRef scope;
+    ScopeID innerScope;
     ASTArrayRef importedModules;
     ASTArrayRef linkDirectives;
 
@@ -469,7 +469,7 @@ struct _ASTEnumerationDeclaration {
     struct _ASTDeclaration base;
 
     ASTArrayRef elements;
-    ASTScopeRef innerScope;
+    ScopeID innerScope;
 };
 
 struct _ASTFunctionDeclaration {
@@ -479,7 +479,7 @@ struct _ASTFunctionDeclaration {
     ASTArrayRef parameters;
     ASTTypeRef returnType;
     ASTBlockRef body;
-    ASTScopeRef innerScope;
+    ScopeID innerScope;
     StringRef foreignName;
     StringRef intrinsicName;
 };
@@ -489,7 +489,7 @@ struct _ASTStructureDeclaration {
 
     ASTArrayRef values;
     ASTArrayRef initializers;
-    ASTScopeRef innerScope;
+    ScopeID innerScope;
 };
 
 struct _ASTInitializerDeclaration {
@@ -497,8 +497,8 @@ struct _ASTInitializerDeclaration {
 
     ASTArrayRef parameters;
     ASTBlockRef body;
-
-    ASTScopeRef innerScope;
+    ScopeID innerScope;
+    ASTStructureDeclarationRef structure;
     ASTValueDeclarationRef implicitSelf;
 };
 
@@ -587,30 +587,6 @@ struct _ASTStructureType {
     struct _ASTNode base;
 
     ASTStructureDeclarationRef declaration;
-};
-
-enum _ASTScopeKind {
-    ASTScopeKindGlobal,
-    ASTScopeKindBranch,
-    ASTScopeKindLoop,
-    ASTScopeKindCase,
-    ASTScopeKindSwitch,
-    ASTScopeKindEnumeration,
-    ASTScopeKindFunction,
-    ASTScopeKindInitializer,
-    ASTScopeKindStructure,
-};
-typedef enum _ASTScopeKind ASTScopeKind;
-
-struct _ASTScope {
-    struct _ASTNode base;
-
-    ASTScopeKind kind;
-    ASTNodeRef node;
-    ASTScopeRef parent;
-    ASTArrayRef children;
-    ASTArrayRef declarations;
-    void *context;
 };
 
 JELLY_EXTERN_C_END

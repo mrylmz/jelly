@@ -1,5 +1,5 @@
 #include "JellyCore/ASTFunctions.h"
-#include "JellyCore/ASTScope.h"
+#include "JellyCore/ASTMangling.h"
 #include "JellyCore/ASTSubstitution.h"
 #include "JellyCore/Diagnostic.h"
 #include "JellyCore/NameResolution.h"
@@ -19,14 +19,22 @@ typedef enum _CandidateFunctionMatchKind CandidateFunctionMatchKind;
 static inline void _AddSourceUnitRecordDeclarationsToScope(ASTContextRef context, ASTSourceUnitRef sourceUnit);
 static inline Bool _ResolveDeclarationsOfInitializerDeclaration(ASTContextRef context, ASTInitializerDeclarationRef initializer);
 static inline Bool _ResolveDeclarationsOfFunctionSignature(ASTContextRef context, ASTFunctionDeclarationRef function);
-static inline Bool _ResolveDeclarationsOfTypeAndSubstituteType(ASTContextRef context, ASTScopeRef scope, ASTTypeRef *type);
+static inline Bool _ResolveDeclarationsOfTypeAndSubstituteType(ASTContextRef context, ScopeID scope, ASTTypeRef *type);
 static inline void _PerformNameResolutionForEnumerationBody(ASTContextRef context, ASTEnumerationDeclarationRef enumeration);
 static inline void _PerformNameResolutionForFunctionBody(ASTContextRef context, ASTFunctionDeclarationRef function);
 static inline void _PerformNameResolutionForStructureBody(ASTContextRef context, ASTStructureDeclarationRef structure);
 static inline void _PerformNameResolutionForNode(ASTContextRef context, ASTNodeRef node);
 static inline void _PerformNameResolutionForExpression(ASTContextRef context, ASTExpressionRef expression);
+static inline ASTFunctionDeclarationRef _LookupInfixFunctionInScope(SymbolTableRef symbolTable, ScopeID scope, StringRef name,
+                                                                    ArrayRef parameterTypes, ASTTypeRef resultType);
+static inline ASTInitializerDeclarationRef _LookupInitializerInSymbolGroupByParameters(SymbolTableRef symbolTable, SymbolID symbolGroup,
+                                                                                       ASTArrayRef parameters);
+static inline ASTDeclarationRef _LookupDeclarationByNameOrMatchingFunctionSignature(SymbolTableRef symbolTable, ScopeID scope,
+                                                                                    StringRef name, ASTArrayRef parameters);
 
 void PerformNameResolution(ASTContextRef context, ASTModuleDeclarationRef module) {
+    SymbolTableRef symbolTable = ASTContextGetSymbolTable(context);
+
     for (Index index = 0; index < ASTArrayGetElementCount(module->sourceUnits); index++) {
         ASTSourceUnitRef sourceUnit = (ASTSourceUnitRef)ASTArrayGetElementAtIndex(module->sourceUnits, index);
         _AddSourceUnitRecordDeclarationsToScope(context, sourceUnit);
@@ -40,9 +48,11 @@ void PerformNameResolution(ASTContextRef context, ASTModuleDeclarationRef module
                 child->tag == ASTTagIntrinsicFunctionDeclaration) {
                 ASTFunctionDeclarationRef function = (ASTFunctionDeclarationRef)child;
                 if (_ResolveDeclarationsOfFunctionSignature(context, function)) {
-                    if (ASTScopeLookupDeclarationByNameOrMatchingFunctionSignature(child->scope, function->base.name, function->fixity,
-                                                                                   function->parameters, function->returnType) == NULL) {
-                        ASTArrayAppendElement(child->scope->declarations, (ASTDeclarationRef)child);
+                    if (!_LookupDeclarationByNameOrMatchingFunctionSignature(symbolTable, child->scope, function->base.name,
+                                                                             function->parameters)) {
+                        SymbolID symbol  = SymbolTableInsertOrGetSymbolGroup(symbolTable, child->scope, function->base.name);
+                        Index entryIndex = SymbolTableInsertSymbolGroupEntry(symbolTable, symbol);
+                        SymbolTableSetSymbolGroupDefinition(symbolTable, symbol, entryIndex, child);
                     } else {
                         ReportError("Invalid redeclaration of identifier");
                     }
@@ -54,9 +64,13 @@ void PerformNameResolution(ASTContextRef context, ASTModuleDeclarationRef module
                 ASTArrayIteratorRef iterator         = ASTArrayGetIterator(structure->initializers);
                 while (iterator) {
                     ASTInitializerDeclarationRef initializer = (ASTInitializerDeclarationRef)ASTArrayIteratorGetElement(iterator);
+                    _PerformNameResolutionForNode(context, (ASTNodeRef)initializer);
                     if (_ResolveDeclarationsOfInitializerDeclaration(context, initializer)) {
-                        if (ASTScopeLookupInitializerDeclarationByParameters(structure->innerScope, initializer->parameters) == NULL) {
-                            ASTArrayAppendElement(child->scope->declarations, (ASTDeclarationRef)initializer);
+                        SymbolID symbol = SymbolTableInsertOrGetSymbolGroup(symbolTable, structure->innerScope, initializer->base.name);
+                        assert(symbol != kSymbolNull && SymbolTableIsSymbolGroup(symbolTable, symbol));
+                        if (!_LookupInitializerInSymbolGroupByParameters(symbolTable, symbol, initializer->parameters)) {
+                            Index entryIndex = SymbolTableInsertSymbolGroupEntry(symbolTable, symbol);
+                            SymbolTableSetSymbolGroupDefinition(symbolTable, symbol, entryIndex, initializer);
                         } else {
                             ReportError("Invalid redeclaration of initializer");
                         }
@@ -125,34 +139,20 @@ void PerformNameResolution(ASTContextRef context, ASTModuleDeclarationRef module
 }
 
 static inline void _AddSourceUnitRecordDeclarationsToScope(ASTContextRef context, ASTSourceUnitRef sourceUnit) {
+    SymbolTableRef symbolTable = ASTContextGetSymbolTable(context);
+
     for (Index index = 0; index < ASTArrayGetElementCount(sourceUnit->declarations); index++) {
         ASTNodeRef child = (ASTNodeRef)ASTArrayGetElementAtIndex(sourceUnit->declarations, index);
-        if (child->tag == ASTTagTypeAliasDeclaration) {
-            ASTTypeAliasDeclarationRef alias = (ASTTypeAliasDeclarationRef)child;
-            if (ASTScopeLookupDeclarationByName(child->scope, alias->base.name) == NULL) {
-                ASTArrayAppendElement(child->scope->declarations, alias);
-            } else {
-                ReportError("Invalid redeclaration of identifier");
-            }
-        }
-
-        if (child->tag == ASTTagEnumerationDeclaration || child->tag == ASTTagStructureDeclaration) {
+        if (child->tag == ASTTagTypeAliasDeclaration || child->tag == ASTTagEnumerationDeclaration ||
+            child->tag == ASTTagStructureDeclaration ||
+            (child->tag == ASTTagValueDeclaration && ((ASTValueDeclarationRef)child)->kind == ASTValueKindVariable)) {
             ASTDeclarationRef declaration = (ASTDeclarationRef)child;
-            if (ASTScopeLookupDeclarationByName(child->scope, declaration->name) == NULL) {
-                ASTArrayAppendElement(child->scope->declarations, declaration);
+            SymbolID symbol               = SymbolTableLookupSymbol(symbolTable, child->scope, declaration->name);
+            if (symbol == kSymbolNull) {
+                symbol = SymbolTableInsertSymbol(symbolTable, child->scope, declaration->name);
+                SymbolTableSetSymbolDefinition(symbolTable, symbol, declaration);
             } else {
                 ReportError("Invalid redeclaration of identifier");
-            }
-        }
-
-        if (child->tag == ASTTagValueDeclaration) {
-            ASTValueDeclarationRef value = (ASTValueDeclarationRef)child;
-            if (value->kind == ASTValueKindVariable) {
-                if (ASTScopeLookupDeclarationByName(child->scope, value->base.name) == NULL) {
-                    ASTArrayAppendElement(child->scope->declarations, (ASTDeclarationRef)value);
-                } else {
-                    ReportError("Invalid redeclaration of identifier");
-                }
             }
         }
     }
@@ -186,7 +186,9 @@ static inline Bool _ResolveDeclarationsOfFunctionSignature(ASTContextRef context
     return success;
 }
 
-static inline Bool _ResolveDeclarationsOfTypeAndSubstituteType(ASTContextRef context, ASTScopeRef scope, ASTTypeRef *type) {
+static inline Bool _ResolveDeclarationsOfTypeAndSubstituteType(ASTContextRef context, ScopeID scope, ASTTypeRef *type) {
+    SymbolTableRef symbolTable = ASTContextGetSymbolTable(context);
+
     switch ((*type)->tag) {
     case ASTTagOpaqueType: {
         ASTOpaqueTypeRef opaque = (ASTOpaqueTypeRef)(*type);
@@ -196,21 +198,16 @@ static inline Bool _ResolveDeclarationsOfTypeAndSubstituteType(ASTContextRef con
             return true;
         }
 
-        ASTScopeRef currentScope = scope;
-        while (currentScope) {
-            ASTDeclarationRef declaration = ASTScopeLookupDeclarationByName(currentScope, opaque->name);
-            if (declaration) {
-                opaque->declaration = declaration;
-                assert(opaque->declaration->type->tag != ASTTagOpaqueType);
-                *type = opaque->declaration->type;
-                return true;
-            }
-
-            currentScope = ASTScopeGetNextParentForLookup(currentScope);
+        SymbolID symbol = SymbolTableLookupSymbolInHierarchy(symbolTable, scope, opaque->name);
+        if (symbol != kSymbolNull && !SymbolTableIsSymbolGroup(symbolTable, symbol)) {
+            opaque->declaration = (ASTDeclarationRef)SymbolTableGetSymbolDefinition(symbolTable, symbol);
+            assert(opaque->declaration->type->tag != ASTTagOpaqueType);
+            *type = opaque->declaration->type;
+            return true;
         }
 
         // TODO: @Cleanup This hack is used as a workaround for now and should be removed after adding Module compilation support, which
-        // will allow to implicity import the builtin stdlib soon...
+        //       will allow to implicity import the builtin stdlib soon...
         if (StringIsEqualToCString(opaque->name, "String")) {
             *type = (ASTTypeRef)ASTContextGetStringType(context);
             return true;
@@ -262,13 +259,17 @@ static inline Bool _ResolveDeclarationsOfTypeAndSubstituteType(ASTContextRef con
 }
 
 static inline void _PerformNameResolutionForEnumerationBody(ASTContextRef context, ASTEnumerationDeclarationRef enumeration) {
+    SymbolTableRef symbolTable = ASTContextGetSymbolTable(context);
+
     for (Index index = 0; index < ASTArrayGetElementCount(enumeration->elements); index++) {
         ASTValueDeclarationRef element = (ASTValueDeclarationRef)ASTArrayGetElementAtIndex(enumeration->elements, index);
         assert(element->base.base.tag == ASTTagValueDeclaration);
         assert(element->kind == ASTValueKindEnumerationElement);
 
-        if (ASTScopeLookupDeclarationByName(enumeration->innerScope, element->base.name) == NULL) {
-            ASTArrayAppendElement(enumeration->innerScope->declarations, element);
+        SymbolID symbol = SymbolTableLookupSymbol(symbolTable, enumeration->innerScope, element->base.name);
+        if (symbol == kSymbolNull) {
+            symbol = SymbolTableInsertSymbol(symbolTable, enumeration->innerScope, element->base.name);
+            SymbolTableSetSymbolDefinition(symbolTable, symbol, element);
         } else {
             ReportError("Invalid redeclaration of identifier");
         }
@@ -281,10 +282,14 @@ static inline void _PerformNameResolutionForEnumerationBody(ASTContextRef contex
 }
 
 static inline void _PerformNameResolutionForFunctionBody(ASTContextRef context, ASTFunctionDeclarationRef function) {
+    SymbolTableRef symbolTable = ASTContextGetSymbolTable(context);
+
     for (Index parameterIndex = 0; parameterIndex < ASTArrayGetElementCount(function->parameters); parameterIndex++) {
         ASTValueDeclarationRef parameter = (ASTValueDeclarationRef)ASTArrayGetElementAtIndex(function->parameters, parameterIndex);
-        if (ASTScopeLookupDeclarationByName(function->innerScope, parameter->base.name) == NULL) {
-            ASTArrayAppendElement(function->innerScope->declarations, parameter);
+        SymbolID symbol                  = SymbolTableLookupSymbol(symbolTable, function->innerScope, parameter->base.name);
+        if (symbol == kSymbolNull) {
+            symbol = SymbolTableInsertSymbol(symbolTable, function->innerScope, parameter->base.name);
+            SymbolTableSetSymbolDefinition(symbolTable, symbol, parameter);
         } else {
             ReportError("Invalid redeclaration of identifier");
         }
@@ -297,28 +302,27 @@ static inline void _PerformNameResolutionForFunctionBody(ASTContextRef context, 
 }
 
 static inline void _PerformNameResolutionForStructureBody(ASTContextRef context, ASTStructureDeclarationRef structure) {
+    SymbolTableRef symbolTable = ASTContextGetSymbolTable(context);
+
     for (Index index = 0; index < ASTArrayGetElementCount(structure->values); index++) {
         ASTValueDeclarationRef value = (ASTValueDeclarationRef)ASTArrayGetElementAtIndex(structure->values, index);
         assert(value->base.base.tag == ASTTagValueDeclaration);
         assert(value->kind == ASTValueKindVariable);
         if (_ResolveDeclarationsOfTypeAndSubstituteType(context, value->base.base.scope, &value->base.type)) {
-            if (ASTScopeLookupDeclarationByName(structure->innerScope, value->base.name) == NULL) {
-                ASTArrayAppendElement(structure->innerScope->declarations, value);
+            SymbolID symbol = SymbolTableLookupSymbol(symbolTable, structure->innerScope, value->base.name);
+            if (symbol == kSymbolNull) {
+                symbol = SymbolTableInsertSymbol(symbolTable, structure->innerScope, value->base.name);
+                SymbolTableSetSymbolDefinition(symbolTable, symbol, value);
             } else {
                 ReportError("Invalid redeclaration of identifier");
             }
         }
     }
-
-    ASTArrayIteratorRef iterator = ASTArrayGetIterator(structure->initializers);
-    while (iterator) {
-        ASTInitializerDeclarationRef initializer = (ASTInitializerDeclarationRef)ASTArrayIteratorGetElement(iterator);
-        _PerformNameResolutionForNode(context, (ASTNodeRef)initializer);
-        iterator = ASTArrayIteratorNext(iterator);
-    }
 }
 
 static inline void _PerformNameResolutionForNode(ASTContextRef context, ASTNodeRef node) {
+    SymbolTableRef symbolTable = ASTContextGetSymbolTable(context);
+
     switch (node->tag) {
     case ASTTagBlock: {
         ASTBlockRef block = (ASTBlockRef)node;
@@ -349,14 +353,11 @@ static inline void _PerformNameResolutionForNode(ASTContextRef context, ASTNodeR
     case ASTTagCaseStatement: {
         ASTCaseStatementRef statement = (ASTCaseStatementRef)node;
         if (statement->kind == ASTCaseKindConditional) {
-            ASTScopeRef scope = node->scope;
-            while (scope && scope->kind != ASTScopeKindSwitch) {
-                scope = scope->parent;
-            }
-
-            if (scope && scope->kind == ASTScopeKindSwitch) {
-                assert(scope->node && scope->node->tag == ASTTagSwitchStatement);
-                ASTSwitchStatementRef switchStatement = (ASTSwitchStatementRef)scope->node;
+            ScopeID scope = SymbolTableGetScopeOrParentOfKinds(symbolTable, node->scope, ScopeKindSwitch);
+            if (scope != kScopeNull) {
+                ASTNodeRef node = SymbolTableGetScopeUserdata(symbolTable, scope);
+                assert(node && node->tag == ASTTagSwitchStatement);
+                ASTSwitchStatementRef switchStatement = (ASTSwitchStatementRef)node;
                 statement->condition->expectedType    = switchStatement->argument->type;
             }
 
@@ -366,13 +367,12 @@ static inline void _PerformNameResolutionForNode(ASTContextRef context, ASTNodeR
             //       but it should also be possible to compare cases by different types it there is a matching infix function '=='
             // `infix func == (lhs: $switch.argument.type, rhs: $switch.case.type) -> Bool`
 
-            ASTScopeRef globalScope = ASTContextGetGlobalScope(context);
             StringRef name          = StringCreate(AllocatorGetSystemDefault(), "==");
             ArrayRef parameterTypes = ArrayCreateEmpty(AllocatorGetSystemDefault(), sizeof(ASTTypeRef), 2);
             ArrayAppendElement(parameterTypes, &statement->condition->type);
             ArrayAppendElement(parameterTypes, &statement->condition->type);
-            ASTFunctionDeclarationRef comparator = ASTScopeLookupInfixFunction(
-                globalScope, name, parameterTypes, (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindBool));
+            ASTFunctionDeclarationRef comparator = _LookupInfixFunctionInScope(
+                symbolTable, kScopeGlobal, name, parameterTypes, (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindBool));
             if (comparator) {
                 statement->comparator = comparator;
             } else {
@@ -400,13 +400,12 @@ static inline void _PerformNameResolutionForNode(ASTContextRef context, ASTNodeR
     case ASTTagControlStatement: {
         ASTControlStatementRef statement = (ASTControlStatementRef)node;
         if (statement->kind == ASTControlKindReturn && statement->result) {
-            ASTScopeRef scope = statement->base.scope;
-            while (scope && scope->kind != ASTScopeKindFunction) {
-                scope = scope->parent;
-            }
-
-            if (scope && scope->kind == ASTScopeKindFunction) {
-                ASTFunctionDeclarationRef enclosingFunction = (ASTFunctionDeclarationRef)scope->node;
+            ScopeID scope = SymbolTableGetScopeOrParentOfKinds(symbolTable, statement->base.scope, ScopeKindFunction);
+            if (scope != kScopeNull) {
+                ASTNodeRef node = SymbolTableGetScopeUserdata(symbolTable, scope);
+                assert(node && (node->tag == ASTTagFunctionDeclaration || node->tag == ASTTagForeignFunctionDeclaration ||
+                                node->tag == ASTTagIntrinsicFunctionDeclaration));
+                ASTFunctionDeclarationRef enclosingFunction = (ASTFunctionDeclarationRef)node;
                 statement->result->expectedType             = enclosingFunction->returnType;
             }
 
@@ -432,8 +431,10 @@ static inline void _PerformNameResolutionForNode(ASTContextRef context, ASTNodeR
         assert(value->kind == ASTValueKindVariable);
 
         if (_ResolveDeclarationsOfTypeAndSubstituteType(context, value->base.base.scope, &value->base.type)) {
-            if (ASTScopeLookupDeclarationByName(value->base.base.scope, value->base.name) == NULL) {
-                ASTArrayAppendElement(value->base.base.scope->declarations, value);
+            SymbolID symbol = SymbolTableLookupSymbol(symbolTable, value->base.base.scope, value->base.name);
+            if (symbol == kSymbolNull) {
+                symbol = SymbolTableInsertSymbol(symbolTable, value->base.base.scope, value->base.name);
+                SymbolTableSetSymbolDefinition(symbolTable, symbol, value);
             } else {
                 ReportError("Invalid redeclaration of identifier");
             }
@@ -448,11 +449,11 @@ static inline void _PerformNameResolutionForNode(ASTContextRef context, ASTNodeR
 
     case ASTTagInitializerDeclaration: {
         ASTInitializerDeclarationRef initializer = (ASTInitializerDeclarationRef)node;
-        ASTScopeRef scope                        = (ASTScopeRef)initializer->base.base.scope;
-        if (scope->kind == ASTScopeKindStructure) {
-            assert(scope->node);
-            ASTStructureDeclarationRef structure = (ASTStructureDeclarationRef)scope->node;
-            assert(structure->base.type);
+        if (SymbolTableGetScopeKind(symbolTable, initializer->base.base.scope) == ScopeKindStructure) {
+            ASTNodeRef node = SymbolTableGetScopeUserdata(symbolTable, initializer->base.base.scope);
+            assert(node && node->tag == ASTTagStructureDeclaration);
+            initializer->structure = (ASTStructureDeclarationRef)node;
+            assert(initializer->structure->base.type);
 
             ArrayRef parameterTypes               = ArrayCreateEmpty(AllocatorGetSystemDefault(), sizeof(ASTTypeRef),
                                                        ASTArrayGetElementCount(initializer->parameters));
@@ -462,8 +463,10 @@ static inline void _PerformNameResolutionForNode(ASTContextRef context, ASTNodeR
                 assert(parameter->base.type);
                 ArrayAppendElement(parameterTypes, &parameter->base.type);
 
-                if (ASTScopeLookupDeclarationByName(initializer->innerScope, parameter->base.name) == NULL) {
-                    ASTArrayAppendElement(initializer->innerScope->declarations, parameter);
+                SymbolID symbol = SymbolTableLookupSymbol(symbolTable, initializer->innerScope, parameter->base.name);
+                if (symbol == kSymbolNull) {
+                    symbol = SymbolTableInsertSymbol(symbolTable, initializer->innerScope, parameter->base.name);
+                    SymbolTableSetSymbolDefinition(symbolTable, symbol, parameter);
                 } else {
                     ReportError("Invalid redeclaration of identifier");
                 }
@@ -472,13 +475,13 @@ static inline void _PerformNameResolutionForNode(ASTContextRef context, ASTNodeR
             }
 
             initializer->base.type = (ASTTypeRef)ASTContextCreateFunctionType(
-                context, initializer->base.base.location, initializer->base.base.scope, parameterTypes, structure->base.type);
+                context, initializer->base.base.location, initializer->base.base.scope, parameterTypes, initializer->structure->base.type);
             ArrayDestroy(parameterTypes);
 
             StringRef implicitSelfName = StringCreate(AllocatorGetSystemDefault(), "self");
             initializer->implicitSelf  = ASTContextCreateValueDeclaration(context, initializer->base.base.location, initializer->innerScope,
-                                                                         ASTValueKindVariable, implicitSelfName, structure->base.type,
-                                                                         NULL);
+                                                                         ASTValueKindVariable, implicitSelfName,
+                                                                         initializer->structure->base.type, NULL);
             ASTArrayInsertElementAtIndex(initializer->body->statements, 0, initializer->implicitSelf);
             StringDestroy(implicitSelfName);
         } else {
@@ -499,6 +502,8 @@ static inline Bool _IsNodeEqual(const void *elementLeft, const void *elementRigh
 }
 
 static inline void _PerformNameResolutionForExpression(ASTContextRef context, ASTExpressionRef expression) {
+    SymbolTableRef symbolTable = ASTContextGetSymbolTable(context);
+
     if (expression->base.tag == ASTTagReferenceExpression) {
         ASTReferenceExpressionRef reference = (ASTReferenceExpressionRef)expression;
         _PerformNameResolutionForExpression(context, reference->argument);
@@ -533,17 +538,30 @@ static inline void _PerformNameResolutionForExpression(ASTContextRef context, AS
 
     if (expression->base.tag == ASTTagIdentifierExpression) {
         ASTIdentifierExpressionRef identifier = (ASTIdentifierExpressionRef)expression;
-        ASTDeclarationRef declaration         = ASTScopeLookupDeclarationInHierarchyByName(expression->base.scope, identifier->name);
-        if (declaration) {
-            identifier->base.type           = declaration->type;
-            identifier->resolvedDeclaration = declaration;
+        SymbolID symbol                       = SymbolTableLookupSymbolInHierarchy(symbolTable, expression->base.scope, identifier->name);
+        if (symbol != kSymbolNull) {
+            if (SymbolTableIsSymbolGroup(symbolTable, symbol)) {
+                Index count = SymbolTableGetSymbolGroupEntryCount(symbolTable, symbol);
+                for (Index index = 0; index < count; index++) {
+                    ASTDeclarationRef declaration = (ASTDeclarationRef)SymbolTableGetSymbolGroupDefinition(symbolTable, symbol, index);
+                    assert(declaration);
+                    ASTArrayAppendElement(identifier->candidateDeclarations, declaration);
+                }
+            } else {
+                ASTDeclarationRef declaration = SymbolTableGetSymbolDefinition(symbolTable, symbol);
+                assert(declaration);
+                identifier->base.type           = declaration->type;
+                identifier->resolvedDeclaration = declaration;
+            }
         } else {
             if (identifier->base.expectedType && identifier->base.expectedType->tag == ASTTagEnumerationType) {
                 ASTEnumerationTypeRef enumerationType    = (ASTEnumerationTypeRef)identifier->base.expectedType;
                 ASTEnumerationDeclarationRef enumeration = enumerationType->declaration;
 
-                declaration = ASTScopeLookupDeclarationByName(enumeration->innerScope, identifier->name);
-                if (declaration) {
+                symbol = SymbolTableLookupSymbol(symbolTable, enumeration->innerScope, identifier->name);
+                if (symbol != kSymbolNull && !SymbolTableIsSymbolGroup(symbolTable, symbol)) {
+                    ASTDeclarationRef declaration = (ASTDeclarationRef)SymbolTableGetSymbolDefinition(symbolTable, symbol);
+                    assert(declaration);
                     identifier->base.type           = declaration->type;
                     identifier->resolvedDeclaration = declaration;
                 } else {
@@ -551,31 +569,37 @@ static inline void _PerformNameResolutionForExpression(ASTContextRef context, AS
                     ReportErrorFormat("Use of unresolved identifier '%s'", StringGetCharacters(identifier->name));
                 }
             } else {
-                ASTScopeRef globalScope      = ASTContextGetGlobalScope(context);
-                ASTArrayIteratorRef iterator = ASTArrayGetIterator(globalScope->declarations);
-                while (iterator) {
-                    ASTNodeRef child = (ASTNodeRef)ASTArrayIteratorGetElement(iterator);
-                    if (child->tag == ASTTagEnumerationDeclaration) {
-                        ASTEnumerationDeclarationRef enumeration = (ASTEnumerationDeclarationRef)child;
-                        ASTDeclarationRef declaration = ASTScopeLookupDeclarationByName(enumeration->innerScope, identifier->name);
-                        if (declaration) {
-                            ASTArrayAppendElement(identifier->candidateDeclarations, declaration);
+                SymbolID *symbols;
+                Index count;
+                SymbolTableGetScopeSymbols(symbolTable, kScopeGlobal, &symbols, &count);
+                for (Index index = 0; index < count; index++) {
+                    if (!SymbolTableIsSymbolGroup(symbolTable, symbols[index])) {
+                        ASTNodeRef child = (ASTNodeRef)SymbolTableGetSymbolDefinition(symbolTable, symbols[index]);
+                        assert(child);
+                        if (child->tag == ASTTagEnumerationDeclaration) {
+                            ASTEnumerationDeclarationRef enumeration = (ASTEnumerationDeclarationRef)child;
+                            SymbolID symbol = SymbolTableLookupSymbol(symbolTable, enumeration->innerScope, identifier->name);
+                            if (symbol != kSymbolNull && !SymbolTableIsSymbolGroup(symbolTable, symbol)) {
+                                ASTDeclarationRef declaration = (ASTDeclarationRef)SymbolTableGetSymbolDefinition(symbolTable, symbol);
+                                assert(declaration);
+                                ASTArrayAppendElement(identifier->candidateDeclarations, declaration);
+                            }
                         }
                     }
-
-                    iterator = ASTArrayIteratorNext(iterator);
                 }
+            }
+        }
 
-                if (ASTArrayGetElementCount(identifier->candidateDeclarations) == 1) {
-                    ASTDeclarationRef declaration   = ASTArrayGetElementAtIndex(identifier->candidateDeclarations, 0);
-                    identifier->base.type           = declaration->type;
-                    identifier->resolvedDeclaration = declaration;
-                } else {
-                    // TODO: If count of candidateDeclarations is greater than 1, then continue matching candidates in outer expression or
-                    // report ambigous use of identifier error
-                    identifier->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
-                    ReportErrorFormat("Use of unresolved identifier '%s'", StringGetCharacters(identifier->name));
-                }
+        if (!identifier->resolvedDeclaration) {
+            if (ASTArrayGetElementCount(identifier->candidateDeclarations) == 1) {
+                ASTDeclarationRef declaration   = ASTArrayGetElementAtIndex(identifier->candidateDeclarations, 0);
+                identifier->base.type           = declaration->type;
+                identifier->resolvedDeclaration = declaration;
+            } else {
+                // TODO: If count of candidateDeclarations is greater than 1, then continue matching candidates in outer expression or
+                //       report ambigous use of identifier error
+                identifier->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
+                ReportErrorFormat("Use of unresolved identifier '%s'", StringGetCharacters(identifier->name));
             }
         }
 
@@ -675,164 +699,187 @@ static inline void _PerformNameResolutionForExpression(ASTContextRef context, AS
 
         if (call->callee->base.tag == ASTTagIdentifierExpression) {
             ASTIdentifierExpressionRef identifier = (ASTIdentifierExpressionRef)call->callee;
-            ASTDeclarationRef declaration = ASTScopeLookupDeclarationInHierarchyByName(identifier->base.base.scope, identifier->name);
-            if (declaration && declaration->type->tag == ASTTagPointerType &&
-                ((ASTPointerTypeRef)declaration->type)->pointeeType->tag == ASTTagFunctionType) {
-                ASTArrayAppendElement(identifier->candidateDeclarations, declaration);
+            SymbolID symbol = SymbolTableLookupSymbolInHierarchy(symbolTable, identifier->base.base.scope, identifier->name);
+            if (symbol != kSymbolNull && !SymbolTableIsSymbolGroup(symbolTable, symbol)) {
+                ASTDeclarationRef declaration = (ASTDeclarationRef)SymbolTableGetSymbolDefinition(symbolTable, symbol);
+                assert(declaration);
+                if (declaration->type->tag == ASTTagPointerType &&
+                    ((ASTPointerTypeRef)declaration->type)->pointeeType->tag == ASTTagFunctionType) {
+                    ASTArrayAppendElement(identifier->candidateDeclarations, declaration);
+                }
             }
 
-            ASTScopeRef globalScope                = ASTContextGetGlobalScope(context);
             ASTDeclarationRef matchingDeclaration  = NULL;
             CandidateFunctionMatchKind matchKind   = CandidateFunctionMatchKindNone;
             Index matchingParameterTypeCount       = 0;
             Index matchingParameterTypeConversions = UINTMAX_MAX;
 
-            ASTDeclarationRef lookup = ASTScopeLookupDeclarationByName(globalScope, identifier->name);
-            if (lookup && lookup->base.tag == ASTTagStructureDeclaration && call->fixity == ASTFixityNone) {
-                ASTStructureDeclarationRef structure    = (ASTStructureDeclarationRef)lookup;
-                ASTArrayIteratorRef initializerIterator = ASTArrayGetIterator(structure->initializers);
-                while (initializerIterator) {
-                    ASTInitializerDeclarationRef initializer = (ASTInitializerDeclarationRef)ASTArrayIteratorGetElement(
-                        initializerIterator);
-                    if (matchKind < CandidateFunctionMatchKindName) {
-                        matchingDeclaration = (ASTDeclarationRef)initializer;
-                        matchKind           = CandidateFunctionMatchKindName;
-                    }
-
-                    Index minParameterCheckCount  = MIN(ASTArrayGetElementCount(initializer->parameters),
-                                                       ASTArrayGetElementCount(call->arguments));
-                    Index hasCorrectArgumentCount = ASTArrayGetElementCount(initializer->parameters) ==
-                                                    ASTArrayGetElementCount(call->arguments);
-
-                    if (matchKind < CandidateFunctionMatchKindParameterCount && hasCorrectArgumentCount) {
-                        matchingDeclaration = (ASTDeclarationRef)initializer;
-                        matchKind           = CandidateFunctionMatchKindParameterCount;
-                    }
-
-                    assert(structure->base.type);
-                    if (call->base.expectedType && ASTTypeIsEqual(call->base.expectedType, structure->base.type)) {
-                        if (matchKind < CandidateFunctionMatchKindExpectedType) {
+            symbol = SymbolTableLookupSymbol(symbolTable, kScopeGlobal, identifier->name);
+            if (symbol != kSymbolNull && !SymbolTableIsSymbolGroup(symbolTable, symbol)) {
+                ASTDeclarationRef lookup = SymbolTableGetSymbolDefinition(symbolTable, symbol);
+                assert(lookup);
+                if (lookup->base.tag == ASTTagStructureDeclaration && call->fixity == ASTFixityNone) {
+                    ASTStructureDeclarationRef structure    = (ASTStructureDeclarationRef)lookup;
+                    ASTArrayIteratorRef initializerIterator = ASTArrayGetIterator(structure->initializers);
+                    while (initializerIterator) {
+                        ASTInitializerDeclarationRef initializer = (ASTInitializerDeclarationRef)ASTArrayIteratorGetElement(
+                            initializerIterator);
+                        if (matchKind < CandidateFunctionMatchKindName) {
                             matchingDeclaration = (ASTDeclarationRef)initializer;
-                            matchKind           = CandidateFunctionMatchKindExpectedType;
+                            matchKind           = CandidateFunctionMatchKindName;
                         }
-                    }
 
-                    Bool hasMatchingParameterTypes                = true;
-                    Index currentMatchingParameterTypeCount       = 0;
-                    Index currentMatchingParameterTypeConversions = 0;
-                    for (Index parameterIndex = 0; parameterIndex < minParameterCheckCount; parameterIndex++) {
-                        ASTValueDeclarationRef parameter = (ASTValueDeclarationRef)ASTArrayGetElementAtIndex(initializer->parameters,
-                                                                                                             parameterIndex);
-                        ASTExpressionRef argument        = (ASTExpressionRef)ASTArrayGetElementAtIndex(call->arguments, parameterIndex);
+                        Index minParameterCheckCount  = MIN(ASTArrayGetElementCount(initializer->parameters),
+                                                           ASTArrayGetElementCount(call->arguments));
+                        Index hasCorrectArgumentCount = ASTArrayGetElementCount(initializer->parameters) ==
+                                                        ASTArrayGetElementCount(call->arguments);
 
-                        assert(parameter->base.type);
-                        assert(argument->type);
-
-                        if (ASTTypeIsEqual(argument->type, parameter->base.type)) {
-                            currentMatchingParameterTypeCount += 1;
-                        } else if (ASTTypeIsImplicitlyConvertible(argument->type, parameter->base.type)) {
-                            currentMatchingParameterTypeCount += 1;
-                            currentMatchingParameterTypeConversions += 1;
-                        } else {
-                            hasMatchingParameterTypes = false;
+                        if (matchKind < CandidateFunctionMatchKindParameterCount && hasCorrectArgumentCount) {
+                            matchingDeclaration = (ASTDeclarationRef)initializer;
+                            matchKind           = CandidateFunctionMatchKindParameterCount;
                         }
-                    }
 
-                    // TODO: Converted types should also be added to candidateDeclarations and should be filtered by best matches, if there
-                    //       are more than one solutions after the post checking pass, then a declaration will be ambiguous!
-                    if (hasMatchingParameterTypes && hasCorrectArgumentCount && currentMatchingParameterTypeConversions == 0) {
-                        ASTArrayAppendElement(identifier->candidateDeclarations, (ASTDeclarationRef)initializer);
-                    } else if (matchKind <= CandidateFunctionMatchKindParameterTypes &&
-                               ((matchingParameterTypeCount < currentMatchingParameterTypeCount) ||
-                                ((matchingParameterTypeCount == currentMatchingParameterTypeCount) &&
-                                 matchingParameterTypeConversions > currentMatchingParameterTypeConversions))) {
-                        matchingDeclaration              = (ASTDeclarationRef)initializer;
-                        matchKind                        = CandidateFunctionMatchKindParameterTypes;
-                        matchingParameterTypeCount       = currentMatchingParameterTypeCount;
-                        matchingParameterTypeConversions = currentMatchingParameterTypeConversions;
-                    }
+                        assert(structure->base.type);
+                        if (call->base.expectedType && ASTTypeIsEqual(call->base.expectedType, structure->base.type)) {
+                            if (matchKind < CandidateFunctionMatchKindExpectedType) {
+                                matchingDeclaration = (ASTDeclarationRef)initializer;
+                                matchKind           = CandidateFunctionMatchKindExpectedType;
+                            }
+                        }
 
-                    initializerIterator = ASTArrayIteratorNext(initializerIterator);
+                        Bool hasMatchingParameterTypes                = true;
+                        Index currentMatchingParameterTypeCount       = 0;
+                        Index currentMatchingParameterTypeConversions = 0;
+                        for (Index parameterIndex = 0; parameterIndex < minParameterCheckCount; parameterIndex++) {
+                            ASTValueDeclarationRef parameter = (ASTValueDeclarationRef)ASTArrayGetElementAtIndex(initializer->parameters,
+                                                                                                                 parameterIndex);
+                            ASTExpressionRef argument        = (ASTExpressionRef)ASTArrayGetElementAtIndex(call->arguments, parameterIndex);
+
+                            assert(parameter->base.type);
+                            assert(argument->type);
+
+                            if (ASTTypeIsEqual(argument->type, parameter->base.type)) {
+                                currentMatchingParameterTypeCount += 1;
+                            } else if (ASTTypeIsImplicitlyConvertible(argument->type, parameter->base.type)) {
+                                currentMatchingParameterTypeCount += 1;
+                                currentMatchingParameterTypeConversions += 1;
+                            } else {
+                                hasMatchingParameterTypes = false;
+                            }
+                        }
+
+                        // TODO: Converted types should also be added to candidateDeclarations and should be filtered by best matches,
+                        //       if there are more than one solutions after the post checking pass, then a declaration will be ambiguous!
+                        if (hasMatchingParameterTypes && hasCorrectArgumentCount && currentMatchingParameterTypeConversions == 0) {
+                            ASTArrayAppendElement(identifier->candidateDeclarations, (ASTDeclarationRef)initializer);
+                        } else if (matchKind <= CandidateFunctionMatchKindParameterTypes &&
+                                   ((matchingParameterTypeCount < currentMatchingParameterTypeCount) ||
+                                    ((matchingParameterTypeCount == currentMatchingParameterTypeCount) &&
+                                     matchingParameterTypeConversions > currentMatchingParameterTypeConversions))) {
+                            matchingDeclaration              = (ASTDeclarationRef)initializer;
+                            matchKind                        = CandidateFunctionMatchKindParameterTypes;
+                            matchingParameterTypeCount       = currentMatchingParameterTypeCount;
+                            matchingParameterTypeConversions = currentMatchingParameterTypeConversions;
+                        }
+
+                        initializerIterator = ASTArrayIteratorNext(initializerIterator);
+                    }
                 }
             } else {
-                for (Index index = 0; index < ASTArrayGetElementCount(globalScope->declarations); index++) {
-                    ASTDeclarationRef declaration = (ASTDeclarationRef)ASTArrayGetElementAtIndex(globalScope->declarations, index);
-                    if (declaration->base.tag != ASTTagFunctionDeclaration && declaration->base.tag != ASTTagForeignFunctionDeclaration &&
-                        declaration->base.tag != ASTTagIntrinsicFunctionDeclaration) {
+                SymbolID *symbols;
+                Index count;
+                SymbolTableGetScopeSymbols(symbolTable, kScopeGlobal, &symbols, &count);
+                for (Index index = 0; index < count; index++) {
+                    if (!SymbolTableIsSymbolGroup(symbolTable, symbols[index])) {
                         continue;
                     }
 
-                    ASTFunctionDeclarationRef function = (ASTFunctionDeclarationRef)declaration;
-                    if (function->fixity != call->fixity) {
-                        continue;
-                    }
+                    Index entryCount = SymbolTableGetSymbolGroupEntryCount(symbolTable, symbols[index]);
+                    for (Index entryIndex = 0; entryIndex < entryCount; entryIndex++) {
+                        ASTDeclarationRef declaration = (ASTDeclarationRef)SymbolTableGetSymbolGroupDefinition(symbolTable, symbols[index],
+                                                                                                               entryIndex);
+                        assert(declaration);
 
-                    if (!StringIsEqual(declaration->name, identifier->name)) {
-                        continue;
-                    }
+                        if (declaration->base.tag != ASTTagFunctionDeclaration &&
+                            declaration->base.tag != ASTTagForeignFunctionDeclaration &&
+                            declaration->base.tag != ASTTagIntrinsicFunctionDeclaration) {
+                            continue;
+                        }
 
-                    // TODO: For some reasons are the predefined operators visited twice, that should be impossible but we will fix it for
-                    //       now by only storing distinct declarations into candidateDeclarations. It could be that the builtin functions
-                    //       are not inserted correctly to the context
-                    if (ASTArrayContainsElement(identifier->candidateDeclarations, &_IsNodeEqual, declaration)) {
-                        continue;
-                    }
+                        ASTFunctionDeclarationRef function = (ASTFunctionDeclarationRef)declaration;
+                        if (function->fixity != call->fixity) {
+                            continue;
+                        }
 
-                    if (matchKind < CandidateFunctionMatchKindName) {
-                        matchingDeclaration = declaration;
-                        matchKind           = CandidateFunctionMatchKindName;
-                    }
+                        if (!StringIsEqual(declaration->name, identifier->name)) {
+                            continue;
+                        }
 
-                    Index minParameterCheckCount  = MIN(ASTArrayGetElementCount(function->parameters),
-                                                       ASTArrayGetElementCount(call->arguments));
-                    Index hasCorrectArgumentCount = ASTArrayGetElementCount(function->parameters) ==
-                                                    ASTArrayGetElementCount(call->arguments);
+                        // TODO: For some reasons are the predefined operators visited twice, that should be impossible but we will fix it
+                        // for
+                        //       now by only storing distinct declarations into candidateDeclarations. It could be that the builtin
+                        //       functions are not inserted correctly to the context
+                        if (ASTArrayContainsElement(identifier->candidateDeclarations, &_IsNodeEqual, declaration)) {
+                            continue;
+                        }
 
-                    if (matchKind < CandidateFunctionMatchKindParameterCount && hasCorrectArgumentCount) {
-                        matchingDeclaration = declaration;
-                        matchKind           = CandidateFunctionMatchKindParameterCount;
-                    }
-
-                    if (call->base.expectedType && ASTTypeIsEqual(call->base.expectedType, function->returnType)) {
-                        if (matchKind < CandidateFunctionMatchKindExpectedType) {
+                        if (matchKind < CandidateFunctionMatchKindName) {
                             matchingDeclaration = declaration;
-                            matchKind           = CandidateFunctionMatchKindExpectedType;
+                            matchKind           = CandidateFunctionMatchKindName;
                         }
-                    }
 
-                    Bool hasMatchingParameterTypes                = true;
-                    Index currentMatchingParameterTypeCount       = 0;
-                    Index currentMatchingParameterTypeConversions = 0;
-                    for (Index parameterIndex = 0; parameterIndex < minParameterCheckCount; parameterIndex++) {
-                        ASTValueDeclarationRef parameter = (ASTValueDeclarationRef)ASTArrayGetElementAtIndex(function->parameters,
-                                                                                                             parameterIndex);
-                        ASTExpressionRef argument        = (ASTExpressionRef)ASTArrayGetElementAtIndex(call->arguments, parameterIndex);
+                        Index minParameterCheckCount  = MIN(ASTArrayGetElementCount(function->parameters),
+                                                           ASTArrayGetElementCount(call->arguments));
+                        Index hasCorrectArgumentCount = ASTArrayGetElementCount(function->parameters) ==
+                                                        ASTArrayGetElementCount(call->arguments);
 
-                        assert(parameter->base.type);
-                        assert(argument->type);
-
-                        if (ASTTypeIsEqual(argument->type, parameter->base.type)) {
-                            currentMatchingParameterTypeCount += 1;
-                        } else if (ASTTypeIsImplicitlyConvertible(argument->type, parameter->base.type)) {
-                            currentMatchingParameterTypeCount += 1;
-                            currentMatchingParameterTypeConversions += 1;
-                        } else {
-                            hasMatchingParameterTypes = false;
+                        if (matchKind < CandidateFunctionMatchKindParameterCount && hasCorrectArgumentCount) {
+                            matchingDeclaration = declaration;
+                            matchKind           = CandidateFunctionMatchKindParameterCount;
                         }
-                    }
 
-                    // TODO: Converted types should also be added to candidateDeclarations and should be filtered by best matches, if there
-                    //       are more than one solutions after the post checking pass, then a declaration will be ambiguous!
-                    if (hasMatchingParameterTypes && hasCorrectArgumentCount && currentMatchingParameterTypeConversions == 0) {
-                        ASTArrayAppendElement(identifier->candidateDeclarations, declaration);
-                    } else if (matchKind <= CandidateFunctionMatchKindParameterTypes &&
-                               ((matchingParameterTypeCount < currentMatchingParameterTypeCount) ||
-                                ((matchingParameterTypeCount == currentMatchingParameterTypeCount) &&
-                                 matchingParameterTypeConversions > currentMatchingParameterTypeConversions))) {
-                        matchingDeclaration              = declaration;
-                        matchKind                        = CandidateFunctionMatchKindParameterTypes;
-                        matchingParameterTypeCount       = currentMatchingParameterTypeCount;
-                        matchingParameterTypeConversions = currentMatchingParameterTypeConversions;
+                        if (call->base.expectedType && ASTTypeIsEqual(call->base.expectedType, function->returnType)) {
+                            if (matchKind < CandidateFunctionMatchKindExpectedType) {
+                                matchingDeclaration = declaration;
+                                matchKind           = CandidateFunctionMatchKindExpectedType;
+                            }
+                        }
+
+                        Bool hasMatchingParameterTypes                = true;
+                        Index currentMatchingParameterTypeCount       = 0;
+                        Index currentMatchingParameterTypeConversions = 0;
+                        for (Index parameterIndex = 0; parameterIndex < minParameterCheckCount; parameterIndex++) {
+                            ASTValueDeclarationRef parameter = (ASTValueDeclarationRef)ASTArrayGetElementAtIndex(function->parameters,
+                                                                                                                 parameterIndex);
+                            ASTExpressionRef argument        = (ASTExpressionRef)ASTArrayGetElementAtIndex(call->arguments, parameterIndex);
+
+                            assert(parameter->base.type);
+                            assert(argument->type);
+
+                            if (ASTTypeIsEqual(argument->type, parameter->base.type)) {
+                                currentMatchingParameterTypeCount += 1;
+                            } else if (ASTTypeIsImplicitlyConvertible(argument->type, parameter->base.type)) {
+                                currentMatchingParameterTypeCount += 1;
+                                currentMatchingParameterTypeConversions += 1;
+                            } else {
+                                hasMatchingParameterTypes = false;
+                            }
+                        }
+
+                        // TODO: Converted types should also be added to candidateDeclarations and should be filtered by best matches, if
+                        // there
+                        //       are more than one solutions after the post checking pass, then a declaration will be ambiguous
+                        if (hasMatchingParameterTypes && hasCorrectArgumentCount && currentMatchingParameterTypeConversions == 0) {
+                            ASTArrayAppendElement(identifier->candidateDeclarations, declaration);
+                        } else if (matchKind <= CandidateFunctionMatchKindParameterTypes &&
+                                   ((matchingParameterTypeCount < currentMatchingParameterTypeCount) ||
+                                    ((matchingParameterTypeCount == currentMatchingParameterTypeCount) &&
+                                     matchingParameterTypeConversions > currentMatchingParameterTypeConversions))) {
+                            matchingDeclaration              = declaration;
+                            matchKind                        = CandidateFunctionMatchKindParameterTypes;
+                            matchingParameterTypeCount       = currentMatchingParameterTypeCount;
+                            matchingParameterTypeConversions = currentMatchingParameterTypeConversions;
+                        }
                     }
                 }
             }
@@ -1033,4 +1080,149 @@ static inline void _PerformNameResolutionForExpression(ASTContextRef context, AS
     }
 
     JELLY_UNREACHABLE("Invalid tag given for ASTExpression!");
+}
+
+static inline ASTFunctionDeclarationRef _LookupInfixFunctionInScope(SymbolTableRef symbolTable, ScopeID scope, StringRef name,
+                                                                    ArrayRef parameterTypes, ASTTypeRef resultType) {
+    SymbolID symbol = SymbolTableLookupSymbol(symbolTable, scope, name);
+    if (symbol == kSymbolNull || !SymbolTableIsSymbolGroup(symbolTable, symbol)) {
+        return NULL;
+    }
+
+    Index count = SymbolTableGetSymbolGroupEntryCount(symbolTable, symbol);
+    for (Index index = 0; index < count; index++) {
+        ASTDeclarationRef declaration = SymbolTableGetSymbolGroupDefinition(symbolTable, symbol, index);
+        assert(declaration);
+
+        if (!StringIsEqual(declaration->name, name)) {
+            continue;
+        }
+
+        if (declaration->base.tag != ASTTagFunctionDeclaration && declaration->base.tag != ASTTagForeignFunctionDeclaration &&
+            declaration->base.tag != ASTTagIntrinsicFunctionDeclaration) {
+            continue;
+        }
+
+        ASTFunctionDeclarationRef function = (ASTFunctionDeclarationRef)declaration;
+        if (function->fixity != ASTFixityInfix) {
+            continue;
+        }
+
+        if (ASTArrayGetElementCount(function->parameters) != ArrayGetElementCount(parameterTypes)) {
+            continue;
+        }
+
+        if (!ASTTypeIsEqual(function->returnType, resultType)) {
+            continue;
+        }
+
+        Bool hasSameParameters          = true;
+        Index parameterIndex            = 0;
+        ASTArrayIteratorRef lhsIterator = ASTArrayGetIterator(function->parameters);
+        while (lhsIterator) {
+            ASTValueDeclarationRef lhsParameter = (ASTValueDeclarationRef)ASTArrayIteratorGetElement(lhsIterator);
+            ASTTypeRef parameterType            = *((ASTTypeRef *)ArrayGetElementAtIndex(parameterTypes, parameterIndex));
+
+            if (!ASTTypeIsEqual(lhsParameter->base.type, parameterType)) {
+                hasSameParameters = false;
+                break;
+            }
+
+            lhsIterator = ASTArrayIteratorNext(lhsIterator);
+            parameterIndex += 1;
+        }
+
+        if (hasSameParameters) {
+            return function;
+        }
+    }
+
+    return NULL;
+}
+
+static inline ASTInitializerDeclarationRef _LookupInitializerInSymbolGroupByParameters(SymbolTableRef symbolTable, SymbolID symbolGroup,
+                                                                                       ASTArrayRef parameters) {
+    assert(SymbolTableIsSymbolGroup(symbolTable, symbolGroup));
+    Index count = SymbolTableGetSymbolGroupEntryCount(symbolTable, symbolGroup);
+    for (Index index = 0; index < count; index++) {
+        ASTDeclarationRef declaration = (ASTDeclarationRef)SymbolTableGetSymbolGroupDefinition(symbolTable, symbolGroup, index);
+        if (declaration->base.tag != ASTTagInitializerDeclaration) {
+            continue;
+        }
+
+        ASTInitializerDeclarationRef initializer = (ASTInitializerDeclarationRef)declaration;
+        if (ASTArrayGetElementCount(initializer->parameters) != ASTArrayGetElementCount(parameters)) {
+            continue;
+        }
+
+        Bool hasSameParameters          = true;
+        ASTArrayIteratorRef lhsIterator = ASTArrayGetIterator(initializer->parameters);
+        ASTArrayIteratorRef rhsIterator = ASTArrayGetIterator(parameters);
+        while (lhsIterator && rhsIterator) {
+            ASTValueDeclarationRef lhsParameter = (ASTValueDeclarationRef)ASTArrayIteratorGetElement(lhsIterator);
+            ASTValueDeclarationRef rhsParameter = (ASTValueDeclarationRef)ASTArrayIteratorGetElement(rhsIterator);
+
+            if (!ASTTypeIsEqual(lhsParameter->base.type, rhsParameter->base.type)) {
+                hasSameParameters = false;
+                break;
+            }
+
+            lhsIterator = ASTArrayIteratorNext(lhsIterator);
+            rhsIterator = ASTArrayIteratorNext(rhsIterator);
+        }
+
+        if (hasSameParameters) {
+            return initializer;
+        }
+    }
+
+    return NULL;
+}
+
+static inline ASTDeclarationRef _LookupDeclarationByNameOrMatchingFunctionSignature(SymbolTableRef symbolTable, ScopeID scope,
+                                                                                    StringRef name, ASTArrayRef parameters) {
+    SymbolID symbol = SymbolTableLookupSymbol(symbolTable, scope, name);
+    if (symbol != kSymbolNull) {
+        if (!SymbolTableIsSymbolGroup(symbolTable, symbol)) {
+            return SymbolTableGetSymbolDefinition(symbolTable, symbol);
+        }
+
+        Index entryCount = SymbolTableGetSymbolGroupEntryCount(symbolTable, symbol);
+        for (Index index = 0; index < entryCount; index++) {
+            ASTDeclarationRef declaration = (ASTDeclarationRef)SymbolTableGetSymbolGroupDefinition(symbolTable, symbol, index);
+            assert(declaration);
+
+            if (declaration->base.tag != ASTTagFunctionDeclaration && declaration->base.tag != ASTTagForeignFunctionDeclaration &&
+                declaration->base.tag != ASTTagIntrinsicFunctionDeclaration) {
+                return declaration;
+            }
+
+            ASTFunctionDeclarationRef function = (ASTFunctionDeclarationRef)declaration;
+            if (ASTArrayGetElementCount(function->parameters) != ASTArrayGetElementCount(parameters)) {
+                continue;
+            }
+
+            Bool hasSameParameters          = true;
+            ASTArrayIteratorRef lhsIterator = ASTArrayGetIterator(function->parameters);
+            ASTArrayIteratorRef rhsIterator = ASTArrayGetIterator(parameters);
+            while (lhsIterator && rhsIterator) {
+                ASTValueDeclarationRef lhsParameter = (ASTValueDeclarationRef)ASTArrayIteratorGetElement(lhsIterator);
+                ASTValueDeclarationRef rhsParameter = (ASTValueDeclarationRef)ASTArrayIteratorGetElement(rhsIterator);
+
+                if (!ASTTypeIsEqual(lhsParameter->base.type, rhsParameter->base.type)) {
+                    hasSameParameters = false;
+                    break;
+                }
+
+                lhsIterator = ASTArrayIteratorNext(lhsIterator);
+                rhsIterator = ASTArrayIteratorNext(rhsIterator);
+            }
+
+            if (hasSameParameters) {
+                return declaration;
+            }
+        }
+    }
+
+    return NULL;
 }
