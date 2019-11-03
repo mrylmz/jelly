@@ -31,6 +31,8 @@ void *ASTArrayGetElementAtIndex(ASTArrayRef array, Index index) {
 }
 
 void ASTArrayAppendElement(ASTArrayRef array, void *element) {
+    assert(element);
+
     if (!array->list) {
         array->list       = ASTContextCreateLinkedList(array->context, array->base.location, array->base.scope);
         array->list->node = element;

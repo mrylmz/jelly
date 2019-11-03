@@ -6,7 +6,7 @@ struct _Array {
     Index elementCount;
     Index capacity;
     UInt8 *memory;
-};
+} __attribute__((packed));
 
 void _ArrayReserveCapacity(ArrayRef array, Index capacity);
 

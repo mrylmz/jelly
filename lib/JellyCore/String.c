@@ -8,14 +8,14 @@ struct _String {
     AllocatorRef allocator;
     Index length;
     Char *memory;
-};
+} __attribute__((packed));
 
 StringRef StringCreate(AllocatorRef allocator, const Char *rawString) {
     StringRef string = AllocatorAllocate(allocator, sizeof(struct _String));
     assert(string);
     string->allocator = allocator;
     string->length    = strlen(rawString);
-    string->memory    = AllocatorAllocate(allocator, sizeof(Char) * string->length + 1);
+    string->memory    = AllocatorAllocate(allocator, sizeof(Char) * (string->length + 1));
     assert(string->memory);
     memcpy(string->memory, rawString, sizeof(Char) * string->length + 1);
     return string;
