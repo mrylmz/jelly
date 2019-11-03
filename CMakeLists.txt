@@ -83,6 +83,13 @@ add_library(JellyCore STATIC ${JELLY_CORE_HEADER_FILES}
 target_include_directories(JellyCore PUBLIC include)
 target_link_libraries(JellyCore ${JELLY_LLVM_LIBS})
 
+find_library(LIBCLANG_LIBRARY "clang" "${LLVM_LIBRARY_DIRS}" NO_DEFAULT_PATH)
+if(NOT LIBCLANG_LIBRARY)
+    message(FATAL_ERROR "libclang library not found")
+endif()
+message(STATUS "Found libclang library at ${LIBCLANG_LIBRARY}")
+target_link_libraries(JellyCore ${LIBCLANG_LIBRARY})
+
 # Tools
 add_executable(${PROJECT_NAME} "src/main.cpp")
 target_compile_definitions(${PROJECT_NAME}
