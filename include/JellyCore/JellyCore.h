@@ -18,6 +18,7 @@
 #include <JellyCore/SourceRange.h>
 #include <JellyCore/String.h>
 #include <JellyCore/SymbolTable.h>
+#include <JellyCore/TempAllocator.h>
 #include <JellyCore/Workspace.h>
 
 #endif
