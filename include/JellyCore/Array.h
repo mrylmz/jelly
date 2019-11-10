@@ -6,6 +6,8 @@
 
 JELLY_EXTERN_C_BEGIN
 
+static const Index kArrayElementNotFound = SIZE_MAX;
+
 typedef struct _Array *ArrayRef;
 
 typedef Bool (*ArrayPredicate)(const void *elementLeft, const void *elementRight);
@@ -46,9 +48,11 @@ void ArrayRemoveElementAtIndex(ArrayRef array, Index index);
 
 void ArrayRemoveAllElements(ArrayRef array, Bool keepCapacity);
 
-bool ArrayContainsElement(ArrayRef array, ArrayPredicate predicate, const void *element);
+Bool ArrayContainsElement(ArrayRef array, ArrayPredicate predicate, const void *element);
 
-bool ArrayIsEqual(ArrayRef lhs, ArrayRef rhs);
+Index ArrayGetIndexOfElement(ArrayRef array, ArrayPredicate predicate, const void *element);
+
+Bool ArrayIsEqual(ArrayRef lhs, ArrayRef rhs);
 
 JELLY_EXTERN_C_END
 
