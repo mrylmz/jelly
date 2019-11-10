@@ -1,4 +1,5 @@
 #include "JellyCore/Dictionary.h"
+#include "JellyCore/TempAllocator.h"
 
 const Index _kDictionaryBufferDefaultCapacity = 65535;
 const Float32 _kDictionaryBufferGrowthFactor  = 1.5;
@@ -7,9 +8,7 @@ struct _DictionaryBucket {
     UInt64 hash;
     Index keyOffset;
     Index elementOffset;
-
-    // NOTE: When ever a bucket is filled the next pointer will guaranteed to be reserved.
-    //       As long as next is NULL we assume that the bucket is empty.
+    Bool isFilled;
     struct _DictionaryBucket *next;
 };
 typedef struct _DictionaryBucket *DictionaryBucketRef;
@@ -23,6 +22,7 @@ typedef struct _DictionaryBuffer DictionaryBuffer;
 
 struct _Dictionary {
     AllocatorRef allocator;
+    AllocatorRef bucketAllocator;
     DictionaryKeyComparator comparator;
     DictionaryKeyHasher hasher;
     DictionaryKeySizeCallback keySizeCallback;
@@ -49,6 +49,7 @@ DictionaryRef DictionaryCreate(AllocatorRef allocator, DictionaryKeyComparator c
     DictionaryRef dictionary    = (DictionaryRef)AllocatorAllocate(allocator,
                                                                 sizeof(struct _Dictionary) + sizeof(struct _DictionaryBucket) * capacity);
     dictionary->allocator       = allocator;
+    dictionary->bucketAllocator = TempAllocatorCreate(allocator);
     dictionary->comparator      = comparator;
     dictionary->hasher          = hasher;
     dictionary->keySizeCallback = keySizeCallback;
@@ -67,16 +68,7 @@ DictionaryRef CStringDictionaryCreate(AllocatorRef allocator, Index capacity) {
 }
 
 void DictionaryDestroy(DictionaryRef dictionary) {
-    for (Index index = 0; index < dictionary->capacity; index++) {
-        DictionaryBucketRef bucket = (DictionaryBucketRef)((UInt8 *)dictionary->buckets + sizeof(struct _DictionaryBucket) * index);
-        DictionaryBucketRef next   = bucket->next;
-        while (next) {
-            DictionaryBucketRef current = next;
-            next                        = current->next;
-            AllocatorDeallocate(dictionary->allocator, current);
-        }
-    }
-
+    AllocatorDestroy(dictionary->bucketAllocator);
     _DictionaryBufferDeinit(dictionary, &dictionary->elementBuffer);
     _DictionaryBufferDeinit(dictionary, &dictionary->keyBuffer);
     AllocatorDeallocate(dictionary->allocator, dictionary);
@@ -90,8 +82,7 @@ void DictionaryInsert(DictionaryRef dictionary, const void *key, const void *ele
     UInt64 hash                = dictionary->hasher(key);
     Index index                = hash % dictionary->capacity;
     DictionaryBucketRef bucket = (DictionaryBucketRef)(((UInt8 *)dictionary->buckets) + sizeof(struct _DictionaryBucket) * index);
-
-    while (bucket->next != NULL) {
+    while (bucket && bucket->isFilled) {
         const void *bucketKey = _DictionaryBufferGetElement(dictionary, &dictionary->keyBuffer, bucket->keyOffset);
         if (bucket->hash == hash && dictionary->comparator(bucketKey, key)) {
             // TODO: Remove old element from buffer and update all indices in buckets
@@ -99,14 +90,23 @@ void DictionaryInsert(DictionaryRef dictionary, const void *key, const void *ele
             return;
         }
 
-        bucket = bucket->next;
+        if (bucket->next) {
+            bucket = bucket->next;
+        } else {
+            break;
+        }
+    }
+
+    if (bucket->isFilled) {
+        bucket->next = (DictionaryBucketRef)AllocatorAllocate(dictionary->bucketAllocator, sizeof(struct _DictionaryBucket));
+        bucket       = bucket->next;
     }
 
     bucket->hash          = hash;
     bucket->keyOffset     = _DictionaryBufferInsertElement(dictionary, &dictionary->keyBuffer, key, dictionary->keySizeCallback(key));
     bucket->elementOffset = _DictionaryBufferInsertElement(dictionary, &dictionary->elementBuffer, element, elementSize);
-    bucket->next          = (DictionaryBucketRef)AllocatorAllocate(dictionary->allocator, sizeof(struct _DictionaryBucket));
-    memset(bucket->next, 0, sizeof(struct _DictionaryBucket));
+    bucket->isFilled      = true;
+    bucket->next          = NULL;
 
     dictionary->elementCount += 1;
 }
@@ -115,8 +115,7 @@ const void *DictionaryLookup(DictionaryRef dictionary, const void *key) {
     UInt64 hash                = dictionary->hasher(key);
     Index index                = hash % dictionary->capacity;
     DictionaryBucketRef bucket = (DictionaryBucketRef)(((UInt8 *)dictionary->buckets) + sizeof(struct _DictionaryBucket) * index);
-
-    while (bucket->next != NULL) {
+    while (bucket && bucket->isFilled) {
         const void *bucketKey = _DictionaryBufferGetElement(dictionary, &dictionary->keyBuffer, bucket->keyOffset);
         if (bucket->hash == hash && dictionary->comparator(bucketKey, key)) {
             return _DictionaryBufferGetElement(dictionary, &dictionary->elementBuffer, bucket->elementOffset);
@@ -133,16 +132,18 @@ void DictionaryRemove(DictionaryRef dictionary, const void *key) {
     Index index                        = hash % dictionary->capacity;
     DictionaryBucketRef bucket         = (DictionaryBucketRef)(((UInt8 *)dictionary->buckets) + sizeof(struct _DictionaryBucket) * index);
     DictionaryBucketRef previousBucket = NULL;
-
-    while (bucket->next) {
+    while (bucket && bucket->isFilled) {
         const void *bucketKey = _DictionaryBufferGetElement(dictionary, &dictionary->keyBuffer, bucket->keyOffset);
         if (bucket->hash == hash && dictionary->comparator(bucketKey, key)) {
-            if (previousBucket == NULL) {
-                memcpy((DictionaryBucketRef)(((UInt8 *)dictionary->buckets) + sizeof(struct _DictionaryBucket) * index), bucket->next,
-                       sizeof(struct _DictionaryBucket));
+            if (!previousBucket) {
+                if (bucket->next) {
+                    memcpy((DictionaryBucketRef)(((UInt8 *)dictionary->buckets) + sizeof(struct _DictionaryBucket) * index), bucket->next,
+                           sizeof(struct _DictionaryBucket));
+                } else {
+                    bucket->isFilled = false;
+                }
             } else {
                 previousBucket->next = bucket->next;
-                AllocatorDeallocate(dictionary->allocator, bucket);
             }
 
             // TODO: Remove key from buffer and update all indices in buckets

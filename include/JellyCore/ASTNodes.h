@@ -55,7 +55,6 @@ enum _ASTTag {
     ASTTagEnumerationType,
     ASTTagFunctionType,
     ASTTagStructureType,
-    ASTTagScope,
 
     AST_TAG_COUNT
 };
@@ -441,6 +440,7 @@ struct _ASTTypeOperationExpression {
     ASTTypeRef argumentType;
 };
 
+// TODO: Move the innerScope value from the subtypes to base declaration!
 struct _ASTDeclaration {
     struct _ASTNode base;
 

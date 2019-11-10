@@ -69,14 +69,25 @@ void WorkspaceDestroy(WorkspaceRef workspace) {
         WorkspaceWaitForFinish(workspace);
     }
 
-    ArrayDestroy(workspace->sourceFilePaths);
-    QueueDestroy(workspace->importQueue);
-    QueueDestroy(workspace->parseInterfaceQueue);
-    QueueDestroy(workspace->parseQueue);
-    ParserDestroy(workspace->parser);
-    ASTContextDestroy(workspace->context);
-    StringDestroy(workspace->buildDirectory);
+    for (Index index = 0; index < ArrayGetElementCount(workspace->moduleFilePaths); index++) {
+        StringRef string = *(StringRef *)ArrayGetElementAtIndex(workspace->moduleFilePaths, index);
+        StringDestroy(string);
+    }
+
+    for (Index index = 0; index < ArrayGetElementCount(workspace->sourceFilePaths); index++) {
+        StringRef string = *(StringRef *)ArrayGetElementAtIndex(workspace->sourceFilePaths, index);
+        StringDestroy(string);
+    }
+
     StringDestroy(workspace->workingDirectory);
+    StringDestroy(workspace->buildDirectory);
+    ArrayDestroy(workspace->sourceFilePaths);
+    ArrayDestroy(workspace->moduleFilePaths);
+    ASTContextDestroy(workspace->context);
+    ParserDestroy(workspace->parser);
+    QueueDestroy(workspace->parseQueue);
+    QueueDestroy(workspace->parseInterfaceQueue);
+    QueueDestroy(workspace->importQueue);
     AllocatorDeallocate(workspace->allocator, workspace);
 }
 
@@ -273,8 +284,8 @@ void *_WorkspaceProcess(void *context) {
             StringAppendString(absoluteFilePath, importFilePath);
             StringRef source = StringCreateFromFile(workspace->allocator, StringGetCharacters(absoluteFilePath));
             if (source) {
-                ArrayRef modules  = ASTContextGetAllNodes(workspace->context, ASTTagModuleDeclaration);
-                Index moduleCount = ArrayGetElementCount(modules);
+                BucketArrayRef modules = ASTContextGetAllNodes(workspace->context, ASTTagModuleDeclaration);
+                Index moduleCount      = BucketArrayGetElementCount(modules);
 
                 ASTModuleDeclarationRef importedModule = ParserParseModuleDeclaration(workspace->parser, importFilePath, source);
                 StringDestroy(source);
@@ -287,7 +298,7 @@ void *_WorkspaceProcess(void *context) {
                     ASTArrayAppendElement(module->importedModules, importedModule);
 
                     for (Index index = 0; index < moduleCount; index++) {
-                        ASTModuleDeclarationRef loadedModule = (ASTModuleDeclarationRef)ArrayGetElementAtIndex(modules, index);
+                        ASTModuleDeclarationRef loadedModule = (ASTModuleDeclarationRef)BucketArrayGetElementAtIndex(modules, index);
                         if (StringIsEqual(importedModule->base.name, loadedModule->base.name)) {
                             ReportErrorFormat("Module '%s' cannot be imported twice", StringGetCharacters(importedModule->base.name));
                         }
@@ -426,9 +437,10 @@ void *_WorkspaceProcess(void *context) {
 
     LDLinkerLink(workspace->allocator, objectFiles, linkLibraries, linkFrameworks, targetPath, LDLinkerTargetTypeExecutable, NULL);
 
-    StringDestroy(targetPath);
+    ArrayDestroy(linkLibraries);
+    ArrayDestroy(linkFrameworks);
     ArrayDestroy(objectFiles);
     StringDestroy(objectFilePath);
-
+    StringDestroy(targetPath);
     return NULL;
 }

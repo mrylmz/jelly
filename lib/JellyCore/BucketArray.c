@@ -149,6 +149,7 @@ static inline Index _Align(Index value, Index alignment) {
 
 static inline struct _BucketArrayPage *_BucketArrayPageCreate(AllocatorRef allocator, Index capacity) {
     struct _BucketArrayPage *page = AllocatorAllocate(allocator, sizeof(struct _BucketArrayPage) + capacity);
+    page->next                    = NULL;
     page->index                   = 0;
     page->memory                  = (UInt8 *)page + sizeof(struct _BucketArrayPage);
     return page;

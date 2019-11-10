@@ -53,6 +53,8 @@ TEST_P(TypeCheckerTests, run) {
             StringDestroy(*((StringRef*)ArrayGetElementAtIndex(arguments, index)));
         }
 
+        StringDestroy(absoluteFilePath);
+        StringDestroy(workingDirectory);
         StringDestroy(moduleName);
         ArrayDestroy(arguments);
 

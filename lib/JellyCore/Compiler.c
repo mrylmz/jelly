@@ -13,8 +13,9 @@
 // TODO: @ModuleSupport Add compilation support of modules
 
 Int CompilerRun(ArrayRef arguments) {
-    Int32 argc  = ArrayGetElementCount(arguments);
-    Char **argv = AllocatorAllocate(AllocatorGetSystemDefault(), sizeof(Char *) * argc);
+    AllocatorRef allocator = AllocatorGetSystemDefault();
+    Int32 argc             = ArrayGetElementCount(arguments);
+    Char **argv            = AllocatorAllocate(allocator, sizeof(Char *) * argc);
     for (Index index = 0; index < argc; index++) {
         StringRef argument = *((StringRef *)ArrayGetElementAtIndex(arguments, index));
         argv[index]        = StringGetCharacters(argument);
@@ -78,6 +79,7 @@ Int CompilerRun(ArrayRef arguments) {
                 StringDestroy(moduleName);
             }
 
+            AllocatorDeallocate(allocator, argv);
             return EXIT_FAILURE;
         }
     }
@@ -101,6 +103,7 @@ Int CompilerRun(ArrayRef arguments) {
                 StringDestroy(moduleName);
             }
 
+            AllocatorDeallocate(allocator, argv);
             return EXIT_FAILURE;
         }
     }
@@ -156,5 +159,6 @@ Int CompilerRun(ArrayRef arguments) {
     StringDestroy(moduleName);
     StringDestroy(buildDirectory);
     StringDestroy(workingDirectory);
+    AllocatorDeallocate(allocator, argv);
     return EXIT_SUCCESS;
 }

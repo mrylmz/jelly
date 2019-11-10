@@ -65,6 +65,8 @@ TEST_P(ParserTest, run) {
             StringDestroy(*((StringRef*)ArrayGetElementAtIndex(arguments, index)));
         }
 
+        StringDestroy(absoluteFilePath);
+        StringDestroy(workingDirectory);
         ArrayDestroy(arguments);
 
         std::string dumpContent = ReadFileContent(dumpFileName);

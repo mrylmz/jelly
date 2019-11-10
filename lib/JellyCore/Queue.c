@@ -14,6 +14,7 @@ QueueRef QueueCreate(AllocatorRef allocator) {
 }
 
 void QueueDestroy(QueueRef queue) {
+    ArrayDestroy(queue->elements);
     AllocatorDeallocate(queue->allocator, queue);
 }
 

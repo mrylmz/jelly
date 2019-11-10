@@ -1,11 +1,11 @@
 #include "JellyCore/ASTContext.h"
 #include "JellyCore/ASTFunctions.h"
 #include "JellyCore/ASTNodes.h"
-#include "JellyCore/BumpAllocator.h"
 #include "JellyCore/Diagnostic.h"
 #include "JellyCore/Lexer.h"
 #include "JellyCore/Parser.h"
 #include "JellyCore/SourceRange.h"
+#include "JellyCore/TempAllocator.h"
 
 // TODO: Write tests for correct scope creation and population!
 
@@ -66,7 +66,7 @@ ParserRef ParserCreate(AllocatorRef allocator, ASTContextRef context) {
     ParserRef parser  = AllocatorAllocate(allocator, sizeof(struct _Parser));
     parser->allocator = allocator;
     // TODO: Replace tempAllocator with a pool allocator which resets after finishing a top level parse action.
-    parser->tempAllocator = BumpAllocatorCreate(allocator);
+    parser->tempAllocator = TempAllocatorCreate(allocator);
     parser->context       = context;
     parser->currentScope  = kScopeGlobal;
     parser->lexer         = NULL;
@@ -74,10 +74,7 @@ ParserRef ParserCreate(AllocatorRef allocator, ASTContextRef context) {
 }
 
 void ParserDestroy(ParserRef parser) {
-    if (parser->lexer) {
-        LexerDestroy(parser->lexer);
-    }
-
+    assert(!parser->lexer);
     AllocatorDestroy(parser->tempAllocator);
     AllocatorDeallocate(parser->allocator, parser);
 }
@@ -111,6 +108,10 @@ ASTSourceUnitRef ParserParseSourceUnit(ParserRef parser, StringRef filePath, Str
     location.end                = parser->token.location.start;
     ASTSourceUnitRef sourceUnit = ASTContextCreateSourceUnit(parser->context, location, parser->currentScope, filePath, declarations);
     ASTModuleAddSourceUnit(parser->context, module, sourceUnit);
+
+    LexerDestroy(parser->lexer);
+    parser->lexer = NULL;
+
     return sourceUnit;
 }
 
@@ -141,6 +142,10 @@ ASTSourceUnitRef ParserParseModuleSourceUnit(ParserRef parser, ASTModuleDeclarat
     location.end                = parser->token.location.start;
     ASTSourceUnitRef sourceUnit = ASTContextCreateSourceUnit(parser->context, location, parser->currentScope, filePath, declarations);
     ASTModuleAddSourceUnit(parser->context, module, sourceUnit);
+
+    LexerDestroy(parser->lexer);
+    parser->lexer = NULL;
+
     return sourceUnit;
 }
 
@@ -209,6 +214,10 @@ ASTModuleDeclarationRef ParserParseModuleDeclaration(ParserRef parser, StringRef
     ASTArrayAppendArray(module->linkDirectives, linkDirectives);
     ASTSourceUnitRef sourceUnit = ASTContextCreateSourceUnit(parser->context, location, parser->currentScope, filePath, directives);
     ASTModuleAddSourceUnit(parser->context, module, sourceUnit);
+
+    LexerDestroy(parser->lexer);
+    parser->lexer = NULL;
+
     return module;
 }
 

@@ -4,9 +4,9 @@
 static inline void _ASTApplySubstitution(ASTContextRef context, ASTNodeRef node);
 
 void ASTPerformSubstitution(ASTContextRef context, ASTTag tag, ASTTransform transform) {
-    ArrayRef nodes = ASTContextGetAllNodes(context, tag);
-    for (Index index = 0; index < ArrayGetElementCount(nodes); index++) {
-        ASTNodeRef node = (ASTNodeRef)ArrayGetElementAtIndex(nodes, index);
+    BucketArrayRef nodes = ASTContextGetAllNodes(context, tag);
+    for (Index index = 0; index < BucketArrayGetElementCount(nodes); index++) {
+        ASTNodeRef node = (ASTNodeRef)BucketArrayGetElementAtIndex(nodes, index);
         if (node->substitute) {
             continue;
         }
