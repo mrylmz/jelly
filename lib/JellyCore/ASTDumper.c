@@ -276,6 +276,13 @@ void ASTDumperDump(ASTDumperRef dumper, ASTNodeRef node) {
         return;
     }
 
+    case ASTTagTypeAliasDeclaration: {
+        ASTTypeAliasDeclarationRef alias = (ASTTypeAliasDeclarationRef)node;
+        _ASTDumperPrintProperty(dumper, "name", StringGetCharacters(alias->base.name));
+        _ASTDumperDumpChild(dumper, alias->base.type);
+        return;
+    }
+
     case ASTTagOpaqueType: {
         ASTOpaqueTypeRef type = (ASTOpaqueTypeRef)node;
         _ASTDumperPrintProperty(dumper, "name", StringGetCharacters(type->name));
@@ -469,6 +476,9 @@ static inline void _ASTDumperPrintTag(ASTDumperRef dumper, ASTNodeRef node) {
         }
         break;
     }
+
+    case ASTTagTypeAliasDeclaration:
+        return _ASTDumperPrintCString(dumper, "TypeAliasDeclaration");
 
     case ASTTagOpaqueType:
         return _ASTDumperPrintCString(dumper, "OpaqueType");
