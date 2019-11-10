@@ -382,10 +382,11 @@ static inline Bool _ParserConsumePostfixOperatorTail(ParserRef parser, ASTPostfi
     }
 }
 
-/// grammar: directive        := load-directive | link-directive | import-directive
-/// grammar: load-directive   := "#load" string-literal
-/// grammar: link-directive   := "#link" string-literal
-/// grammar: import-directive := "#import" string-literal
+/// grammar: directive         := load-directive | link-directive | import-directive | include-directive
+/// grammar: load-directive    := "#load" string-literal
+/// grammar: link-directive    := "#link" string-literal
+/// grammar: import-directive  := "#import" string-literal
+/// grammar: include-directive := "#include" string-literal
 static inline ASTNodeRef _ParserParseDirective(ParserRef parser) {
     SourceRange location = parser->token.location;
 
@@ -446,6 +447,19 @@ static inline ASTNodeRef _ParserParseDirective(ParserRef parser) {
 
         location.end = parser->token.location.start;
         return (ASTNodeRef)ASTContextCreateImportDirective(parser->context, location, parser->currentScope, filePath->stringValue);
+    }
+
+    if (_ParserConsumeToken(parser, TokenKindDirectiveInclude)) {
+        ASTConstantExpressionRef filePath = _ParserParseConstantExpression(parser);
+        if (!filePath || filePath->kind != ASTConstantKindString) {
+            ReportError("Expected string literal after `#include` directive");
+            return NULL;
+        }
+
+        assert(filePath->kind == ASTConstantKindString);
+
+        location.end = parser->token.location.start;
+        return (ASTNodeRef)ASTContextCreateIncludeDirective(parser->context, location, parser->currentScope, filePath->stringValue);
     }
 
     ReportError("Unknown compiler directive");
@@ -2033,7 +2047,7 @@ static inline ASTNodeRef _ParserParseTopLevelNode(ParserRef parser) {
     }
 
     if (_ParserIsToken(parser, TokenKindDirectiveLoad) || _ParserIsToken(parser, TokenKindDirectiveLink) ||
-        _ParserIsToken(parser, TokenKindDirectiveImport)) {
+        _ParserIsToken(parser, TokenKindDirectiveImport) || _ParserIsToken(parser, TokenKindDirectiveInclude)) {
         return (ASTNodeRef)_ParserParseDirective(parser);
     }
 

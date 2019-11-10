@@ -1,0 +1,31 @@
+ModuleDeclaration
+  ModuleDeclaration
+    SourceUnit
+      @filePath = '/Users/ylmz/Documents/jelly/test/src/../parser/test.h'
+      StructureDeclaration
+        @name = '_Point2'
+        VariableDeclaration
+          @name = 'x'
+          BuiltinType
+            @name = 'Int32'
+        VariableDeclaration
+          @name = 'y'
+          BuiltinType
+            @name = 'Int32'
+      TypeAliasDeclaration
+        @name = 'Point2'
+        OpaqueType
+          @name = '_Point2'
+  SourceUnit
+    @filePath = 'include_header.jelly'
+    IncludeDirective
+      @headerPath = 'test.h'
+    FunctionDeclaration
+      @name = 'main'
+      BuiltinType
+        @name = 'Void'
+      Block
+        VariableDeclaration
+          @name = 'point'
+          OpaqueType
+            @name = 'Point2'

@@ -21,6 +21,7 @@ enum _ASTTag {
     ASTTagLoadDirective,
     ASTTagLinkDirective,
     ASTTagImportDirective,
+    ASTTagIncludeDirective,
     ASTTagBlock,
     ASTTagIfStatement,
     ASTTagLoopStatement,
@@ -95,6 +96,7 @@ typedef struct _ASTLinkedList *ASTLinkedListRef;
 typedef struct _ASTLoadDirective *ASTLoadDirectiveRef;
 typedef struct _ASTLinkDirective *ASTLinkDirectiveRef;
 typedef struct _ASTImportDirective *ASTImportDirectiveRef;
+typedef struct _ASTIncludeDirective *ASTIncludeDirectiveRef;
 typedef struct _ASTBlock *ASTBlockRef;
 typedef struct _ASTTypeAliasDeclaration *ASTTypeAliasDeclarationRef;
 typedef struct _ASTIfStatement *ASTIfStatementRef;
@@ -186,6 +188,12 @@ struct _ASTImportDirective {
     struct _ASTNode base;
 
     StringRef modulePath;
+};
+
+struct _ASTIncludeDirective {
+    struct _ASTNode base;
+
+    StringRef headerPath;
 };
 
 struct _ASTBlock {

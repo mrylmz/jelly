@@ -39,6 +39,8 @@ ASTLinkDirectiveRef ASTContextCreateLinkDirective(ASTContextRef context, SourceR
 
 ASTImportDirectiveRef ASTContextCreateImportDirective(ASTContextRef context, SourceRange location, ScopeID scope, StringRef modulePath);
 
+ASTIncludeDirectiveRef ASTContextCreateIncludeDirective(ASTContextRef context, SourceRange location, ScopeID scope, StringRef headerPath);
+
 ASTBlockRef ASTContextCreateBlock(ASTContextRef context, SourceRange location, ScopeID scope, ArrayRef statements);
 
 ASTIfStatementRef ASTContextCreateIfStatement(ASTContextRef context, SourceRange location, ScopeID scope, ASTExpressionRef condition,

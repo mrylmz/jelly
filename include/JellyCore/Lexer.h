@@ -99,6 +99,7 @@ enum _TokenKind {
     TokenKindDirectiveIntrinsic,
     TokenKindDirectiveForeign,
     TokenKindDirectiveImport,
+    TokenKindDirectiveInclude,
     TokenKindLiteralString,
     TokenKindLiteralInt,
     TokenKindLiteralFloat,
