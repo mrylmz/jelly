@@ -2,15 +2,15 @@
 #include "JellyCore/ASTFunctions.h"
 #include "JellyCore/ASTMangling.h"
 #include "JellyCore/ASTNodes.h"
-#include "JellyCore/BumpAllocator.h"
 #include "JellyCore/SymbolTable.h"
+#include "JellyCore/TempAllocator.h"
 
-// TODO: Add unified identifier storage
-
+// TODO: Add unified identifier storage and remove temp allocator!
 struct _ASTContext {
     AllocatorRef allocator;
+    AllocatorRef tempAllocator;
     SymbolTableRef symbolTable;
-    ArrayRef nodes[AST_TAG_COUNT];
+    BucketArrayRef nodes[AST_TAG_COUNT];
     ASTModuleDeclarationRef module;
 
     ASTModuleDeclarationRef builtinModule;
@@ -26,52 +26,54 @@ void _ASTContextInitBuiltinFunctions(ASTContextRef context);
 ASTBuiltinTypeRef _ASTContextGetBuiltinTypeByName(ASTContextRef context, const Char *name);
 
 ASTContextRef ASTContextCreate(AllocatorRef allocator, StringRef moduleName) {
-    AllocatorRef bumpAllocator = BumpAllocatorCreate(allocator);
-    ASTContextRef context      = AllocatorAllocate(bumpAllocator, sizeof(struct _ASTContext));
-    context->allocator         = bumpAllocator;
-    context->symbolTable       = SymbolTableCreate(allocator);
-    // TODO: @Bug Reallocation of dynamic arrays causes invalidation of all pointers do not store the source of truth in arrays!
-    //            We can just allocate nodes dynamically without holding a reference to them because the BumpAllocator will be freed once...
-    context->nodes[ASTTagSourceUnit]              = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTSourceUnit), 1024);
-    context->nodes[ASTTagLinkedList]              = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTLinkedList), 1024);
-    context->nodes[ASTTagArray]                   = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTArray), 2048);
-    context->nodes[ASTTagLoadDirective]           = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTLoadDirective), 1024);
-    context->nodes[ASTTagLinkDirective]           = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTLinkDirective), 1024);
-    context->nodes[ASTTagImportDirective]         = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTImportDirective), 1024);
-    context->nodes[ASTTagBlock]                   = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTBlock), 1024);
-    context->nodes[ASTTagTypeAliasDeclaration]    = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTTypeAliasDeclaration), 1024);
-    context->nodes[ASTTagIfStatement]             = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTIfStatement), 1024);
-    context->nodes[ASTTagLoopStatement]           = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTLoopStatement), 1024);
-    context->nodes[ASTTagCaseStatement]           = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTCaseStatement), 1024);
-    context->nodes[ASTTagSwitchStatement]         = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTSwitchStatement), 1024);
-    context->nodes[ASTTagControlStatement]        = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTControlStatement), 1024);
-    context->nodes[ASTTagReferenceExpression]     = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTReferenceExpression), 1024);
-    context->nodes[ASTTagDereferenceExpression]   = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTDereferenceExpression), 1024);
-    context->nodes[ASTTagUnaryExpression]         = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTUnaryExpression), 1024);
-    context->nodes[ASTTagBinaryExpression]        = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTBinaryExpression), 1024);
-    context->nodes[ASTTagIdentifierExpression]    = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTIdentifierExpression), 1024);
-    context->nodes[ASTTagMemberAccessExpression]  = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTMemberAccessExpression), 1024);
-    context->nodes[ASTTagAssignmentExpression]    = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTAssignmentExpression), 1024);
-    context->nodes[ASTTagCallExpression]          = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTCallExpression), 1024);
-    context->nodes[ASTTagConstantExpression]      = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTConstantExpression), 1024);
-    context->nodes[ASTTagSizeOfExpression]        = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTSizeOfExpression), 1024);
-    context->nodes[ASTTagSubscriptExpression]     = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTSubscriptExpression), 1024);
-    context->nodes[ASTTagTypeOperationExpression] = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTTypeOperationExpression), 1024);
-    context->nodes[ASTTagModuleDeclaration]       = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTModuleDeclaration), 1024);
-    context->nodes[ASTTagEnumerationDeclaration]  = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTEnumerationDeclaration), 1024);
-    context->nodes[ASTTagFunctionDeclaration]     = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTFunctionDeclaration), 1024);
-    context->nodes[ASTTagForeignFunctionDeclaration]   = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTFunctionDeclaration), 1024);
-    context->nodes[ASTTagIntrinsicFunctionDeclaration] = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTFunctionDeclaration), 1024);
-    context->nodes[ASTTagStructureDeclaration]   = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTStructureDeclaration), 1024);
-    context->nodes[ASTTagInitializerDeclaration] = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTInitializerDeclaration), 1024);
-    context->nodes[ASTTagValueDeclaration]       = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTValueDeclaration), 1024);
-    context->nodes[ASTTagOpaqueType]             = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTOpaqueType), 1024);
-    context->nodes[ASTTagPointerType]            = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTPointerType), 1024);
-    context->nodes[ASTTagArrayType]              = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTArrayType), 1024);
-    context->nodes[ASTTagBuiltinType]            = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTBuiltinType), 1024);
-    context->nodes[ASTTagEnumerationType]        = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTEnumerationType), 1024);
-    context->nodes[ASTTagFunctionType]           = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTFunctionType), 1024);
-    context->nodes[ASTTagStructureType]          = ArrayCreateEmpty(context->allocator, sizeof(struct _ASTStructureType), 1024);
+    ASTContextRef context                        = AllocatorAllocate(allocator, sizeof(struct _ASTContext));
+    context->allocator                           = allocator;
+    context->tempAllocator                       = TempAllocatorCreate(allocator);
+    context->symbolTable                         = SymbolTableCreate(allocator);
+    context->nodes[ASTTagSourceUnit]             = BucketArrayCreateEmpty(context->allocator, sizeof(struct _ASTSourceUnit), 8);
+    context->nodes[ASTTagLinkedList]             = BucketArrayCreateEmpty(context->allocator, sizeof(struct _ASTLinkedList), 8);
+    context->nodes[ASTTagArray]                  = BucketArrayCreateEmpty(context->allocator, sizeof(struct _ASTArray), 8);
+    context->nodes[ASTTagLoadDirective]          = BucketArrayCreateEmpty(context->allocator, sizeof(struct _ASTLoadDirective), 8);
+    context->nodes[ASTTagLinkDirective]          = BucketArrayCreateEmpty(context->allocator, sizeof(struct _ASTLinkDirective), 8);
+    context->nodes[ASTTagImportDirective]        = BucketArrayCreateEmpty(context->allocator, sizeof(struct _ASTImportDirective), 8);
+    context->nodes[ASTTagIncludeDirective]       = BucketArrayCreateEmpty(context->allocator, sizeof(struct _ASTIncludeDirective), 8);
+    context->nodes[ASTTagBlock]                  = BucketArrayCreateEmpty(context->allocator, sizeof(struct _ASTBlock), 8);
+    context->nodes[ASTTagIfStatement]            = BucketArrayCreateEmpty(context->allocator, sizeof(struct _ASTIfStatement), 8);
+    context->nodes[ASTTagLoopStatement]          = BucketArrayCreateEmpty(context->allocator, sizeof(struct _ASTLoopStatement), 8);
+    context->nodes[ASTTagCaseStatement]          = BucketArrayCreateEmpty(context->allocator, sizeof(struct _ASTCaseStatement), 8);
+    context->nodes[ASTTagSwitchStatement]        = BucketArrayCreateEmpty(context->allocator, sizeof(struct _ASTSwitchStatement), 8);
+    context->nodes[ASTTagControlStatement]       = BucketArrayCreateEmpty(context->allocator, sizeof(struct _ASTControlStatement), 8);
+    context->nodes[ASTTagReferenceExpression]    = BucketArrayCreateEmpty(context->allocator, sizeof(struct _ASTReferenceExpression), 8);
+    context->nodes[ASTTagDereferenceExpression]  = BucketArrayCreateEmpty(context->allocator, sizeof(struct _ASTDereferenceExpression), 8);
+    context->nodes[ASTTagUnaryExpression]        = BucketArrayCreateEmpty(context->allocator, sizeof(struct _ASTUnaryExpression), 8);
+    context->nodes[ASTTagBinaryExpression]       = BucketArrayCreateEmpty(context->allocator, sizeof(struct _ASTBinaryExpression), 8);
+    context->nodes[ASTTagIdentifierExpression]   = BucketArrayCreateEmpty(context->allocator, sizeof(struct _ASTIdentifierExpression), 8);
+    context->nodes[ASTTagMemberAccessExpression] = BucketArrayCreateEmpty(context->allocator, sizeof(struct _ASTMemberAccessExpression), 8);
+    context->nodes[ASTTagAssignmentExpression]   = BucketArrayCreateEmpty(context->allocator, sizeof(struct _ASTAssignmentExpression), 8);
+    context->nodes[ASTTagCallExpression]         = BucketArrayCreateEmpty(context->allocator, sizeof(struct _ASTCallExpression), 8);
+    context->nodes[ASTTagConstantExpression]     = BucketArrayCreateEmpty(context->allocator, sizeof(struct _ASTConstantExpression), 8);
+    context->nodes[ASTTagSizeOfExpression]       = BucketArrayCreateEmpty(context->allocator, sizeof(struct _ASTSizeOfExpression), 8);
+    context->nodes[ASTTagSubscriptExpression]    = BucketArrayCreateEmpty(context->allocator, sizeof(struct _ASTSubscriptExpression), 8);
+    context->nodes[ASTTagTypeOperationExpression] = BucketArrayCreateEmpty(context->allocator, sizeof(struct _ASTTypeOperationExpression),
+                                                                           8);
+    context->nodes[ASTTagModuleDeclaration]       = BucketArrayCreateEmpty(context->allocator, sizeof(struct _ASTModuleDeclaration), 8);
+    context->nodes[ASTTagEnumerationDeclaration] = BucketArrayCreateEmpty(context->allocator, sizeof(struct _ASTEnumerationDeclaration), 8);
+    context->nodes[ASTTagFunctionDeclaration]    = BucketArrayCreateEmpty(context->allocator, sizeof(struct _ASTFunctionDeclaration), 8);
+    context->nodes[ASTTagForeignFunctionDeclaration]   = BucketArrayCreateEmpty(context->allocator, sizeof(struct _ASTFunctionDeclaration),
+                                                                              8);
+    context->nodes[ASTTagIntrinsicFunctionDeclaration] = BucketArrayCreateEmpty(context->allocator, sizeof(struct _ASTFunctionDeclaration),
+                                                                                8);
+    context->nodes[ASTTagStructureDeclaration]   = BucketArrayCreateEmpty(context->allocator, sizeof(struct _ASTStructureDeclaration), 8);
+    context->nodes[ASTTagInitializerDeclaration] = BucketArrayCreateEmpty(context->allocator, sizeof(struct _ASTInitializerDeclaration), 8);
+    context->nodes[ASTTagValueDeclaration]       = BucketArrayCreateEmpty(context->allocator, sizeof(struct _ASTValueDeclaration), 8);
+    context->nodes[ASTTagTypeAliasDeclaration]   = BucketArrayCreateEmpty(context->allocator, sizeof(struct _ASTTypeAliasDeclaration), 8);
+    context->nodes[ASTTagOpaqueType]             = BucketArrayCreateEmpty(context->allocator, sizeof(struct _ASTOpaqueType), 8);
+    context->nodes[ASTTagPointerType]            = BucketArrayCreateEmpty(context->allocator, sizeof(struct _ASTPointerType), 8);
+    context->nodes[ASTTagArrayType]              = BucketArrayCreateEmpty(context->allocator, sizeof(struct _ASTArrayType), 8);
+    context->nodes[ASTTagBuiltinType]            = BucketArrayCreateEmpty(context->allocator, sizeof(struct _ASTBuiltinType), 8);
+    context->nodes[ASTTagEnumerationType]        = BucketArrayCreateEmpty(context->allocator, sizeof(struct _ASTEnumerationType), 8);
+    context->nodes[ASTTagFunctionType]           = BucketArrayCreateEmpty(context->allocator, sizeof(struct _ASTFunctionType), 8);
+    context->nodes[ASTTagStructureType]          = BucketArrayCreateEmpty(context->allocator, sizeof(struct _ASTStructureType), 8);
     context->module = ASTContextCreateModuleDeclaration(context, SourceRangeNull(), NULL, moduleName, NULL, NULL);
     SymbolTableSetScopeUserdata(context->symbolTable, kScopeGlobal, context->module);
     _ASTContextInitBuiltinTypes(context);
@@ -80,8 +82,17 @@ ASTContextRef ASTContextCreate(AllocatorRef allocator, StringRef moduleName) {
 }
 
 void ASTContextDestroy(ASTContextRef context) {
+    for (Index index = 0; index < AST_TAG_COUNT; index++) {
+        BucketArrayDestroy(context->nodes[index]);
+    }
+
     SymbolTableDestroy(context->symbolTable);
-    AllocatorDestroy(context->allocator);
+    AllocatorDestroy(context->tempAllocator);
+    AllocatorDeallocate(context->allocator, context);
+}
+
+AllocatorRef ASTContextGetTempAllocator(ASTContextRef context) {
+    return context->tempAllocator;
 }
 
 SymbolTableRef ASTContextGetSymbolTable(ASTContextRef context) {
@@ -92,7 +103,7 @@ ASTModuleDeclarationRef ASTContextGetModule(ASTContextRef context) {
     return context->module;
 }
 
-ArrayRef ASTContextGetAllNodes(ASTContextRef context, ASTTag tag) {
+BucketArrayRef ASTContextGetAllNodes(ASTContextRef context, ASTTag tag) {
     return context->nodes[tag];
 }
 
@@ -105,7 +116,7 @@ ASTSourceUnitRef ASTContextCreateSourceUnit(ASTContextRef context, SourceRange l
     assert(filePath);
 
     ASTSourceUnitRef node = (ASTSourceUnitRef)_ASTContextCreateNode(context, ASTTagSourceUnit, location, scope);
-    node->filePath        = StringCreateCopy(context->allocator, filePath);
+    node->filePath        = StringCreateCopy(context->tempAllocator, filePath);
     node->declarations    = ASTContextCreateArray(context, location, scope);
     if (declarations) {
         ASTArrayAppendArray(node->declarations, declarations);
@@ -143,7 +154,7 @@ ASTLinkDirectiveRef ASTContextCreateLinkDirective(ASTContextRef context, SourceR
 
     ASTLinkDirectiveRef node = (ASTLinkDirectiveRef)_ASTContextCreateNode(context, ASTTagLinkDirective, location, scope);
     node->isFramework        = isFramework;
-    node->library            = StringCreateCopy(context->allocator, library);
+    node->library            = StringCreateCopy(context->tempAllocator, library);
     return node;
 }
 
@@ -151,7 +162,15 @@ ASTImportDirectiveRef ASTContextCreateImportDirective(ASTContextRef context, Sou
     assert(modulePath);
 
     ASTImportDirectiveRef node = (ASTImportDirectiveRef)_ASTContextCreateNode(context, ASTTagImportDirective, location, scope);
-    node->modulePath           = StringCreateCopy(context->allocator, modulePath);
+    node->modulePath           = StringCreateCopy(context->tempAllocator, modulePath);
+    return node;
+}
+
+ASTIncludeDirectiveRef ASTContextCreateIncludeDirective(ASTContextRef context, SourceRange location, ScopeID scope, StringRef headerPath) {
+    assert(headerPath);
+
+    ASTIncludeDirectiveRef node = (ASTIncludeDirectiveRef)_ASTContextCreateNode(context, ASTTagIncludeDirective, location, scope);
+    node->headerPath            = StringCreateCopy(context->tempAllocator, headerPath);
     return node;
 }
 
@@ -281,7 +300,7 @@ ASTIdentifierExpressionRef ASTContextCreateIdentifierExpression(ASTContextRef co
 
     ASTIdentifierExpressionRef node = (ASTIdentifierExpressionRef)_ASTContextCreateNode(context, ASTTagIdentifierExpression, location,
                                                                                         scope);
-    node->name                      = StringCreateCopy(context->allocator, name);
+    node->name                      = StringCreateCopy(context->tempAllocator, name);
     node->base.type                 = NULL;
     node->base.expectedType         = NULL;
     node->candidateDeclarations     = ASTContextCreateArray(context, location, scope);
@@ -296,7 +315,7 @@ ASTMemberAccessExpressionRef ASTContextCreateMemberAccessExpression(ASTContextRe
     ASTMemberAccessExpressionRef node = (ASTMemberAccessExpressionRef)_ASTContextCreateNode(context, ASTTagMemberAccessExpression, location,
                                                                                             scope);
     node->argument                    = argument;
-    node->memberName                  = StringCreateCopy(context->allocator, memberName);
+    node->memberName                  = StringCreateCopy(context->tempAllocator, memberName);
     node->memberIndex                 = -1;
     node->pointerDepth                = 0;
     node->base.type                   = NULL;
@@ -338,7 +357,7 @@ ASTCallExpressionRef ASTContextCreateUnaryCallExpression(ASTContextRef context, 
                                                          ASTExpressionRef arguments[1]) {
     assert(op != ASTUnaryOperatorUnknown);
 
-    StringRef name            = ASTGetPrefixOperatorName(context->allocator, op);
+    StringRef name            = ASTGetPrefixOperatorName(context->tempAllocator, op);
     ASTCallExpressionRef node = (ASTCallExpressionRef)_ASTContextCreateNode(context, ASTTagCallExpression, location, scope);
     node->fixity              = ASTFixityPrefix;
     node->callee              = (ASTExpressionRef)ASTContextCreateIdentifierExpression(context, location, scope, name);
@@ -354,7 +373,7 @@ ASTCallExpressionRef ASTContextCreateBinaryCallExpression(ASTContextRef context,
                                                           ASTExpressionRef arguments[2]) {
     assert(op != ASTUnaryOperatorUnknown);
 
-    StringRef name            = ASTGetInfixOperatorName(context->allocator, op);
+    StringRef name            = ASTGetInfixOperatorName(context->tempAllocator, op);
     ASTCallExpressionRef node = (ASTCallExpressionRef)_ASTContextCreateNode(context, ASTTagCallExpression, location, scope);
     node->fixity              = ASTFixityInfix;
     node->callee              = (ASTExpressionRef)ASTContextCreateIdentifierExpression(context, location, scope, name);
@@ -425,7 +444,7 @@ ASTConstantExpressionRef ASTContextCreateConstantStringExpression(ASTContextRef 
 
     ASTConstantExpressionRef node = (ASTConstantExpressionRef)_ASTContextCreateNode(context, ASTTagConstantExpression, location, scope);
     node->kind                    = ASTConstantKindString;
-    node->stringValue             = StringCreateCopy(context->allocator, value);
+    node->stringValue             = StringCreateCopy(context->tempAllocator, value);
     node->base.type               = NULL;
     node->base.expectedType       = NULL;
     node->base.base.flags |= ASTFlagsIsConstantEvaluable;
@@ -468,14 +487,14 @@ ASTTypeOperationExpressionRef ASTContextCreateTypeOperationExpression(ASTContext
 ASTModuleDeclarationRef ASTContextCreateModuleDeclaration(ASTContextRef context, SourceRange location, ScopeID scope, StringRef name,
                                                           ArrayRef sourceUnits, ArrayRef importedModules) {
     ASTModuleDeclarationRef node = (ASTModuleDeclarationRef)_ASTContextCreateNode(context, ASTTagModuleDeclaration, location, scope);
-    node->base.name              = StringCreateCopy(context->allocator, name);
+    node->base.name              = StringCreateCopy(context->tempAllocator, name);
     node->base.mangledName       = NULL;
     node->base.type              = NULL;
     node->innerScope             = kScopeGlobal;
     node->sourceUnits            = ASTContextCreateArray(context, location, scope);
     node->importedModules        = ASTContextCreateArray(context, location, scope);
     node->linkDirectives         = ASTContextCreateArray(context, location, scope);
-    node->entryPointName         = StringCreate(context->allocator, "main");
+    node->entryPointName         = StringCreate(context->tempAllocator, "main");
     node->entryPoint             = NULL;
     if (sourceUnits) {
         ASTArrayAppendArray(node->sourceUnits, sourceUnits);
@@ -492,7 +511,7 @@ ASTEnumerationDeclarationRef ASTContextCreateEnumerationDeclaration(ASTContextRe
 
     ASTEnumerationDeclarationRef node = (ASTEnumerationDeclarationRef)_ASTContextCreateNode(context, ASTTagEnumerationDeclaration, location,
                                                                                             scope);
-    node->base.name                   = StringCreateCopy(context->allocator, name);
+    node->base.name                   = StringCreateCopy(context->tempAllocator, name);
     node->base.mangledName            = NULL;
     node->elements                    = ASTContextCreateArray(context, location, scope);
     node->innerScope                  = kScopeNull;
@@ -509,7 +528,7 @@ ASTFunctionDeclarationRef ASTContextCreateFunctionDeclaration(ASTContextRef cont
     assert(name && returnType && body);
 
     ASTFunctionDeclarationRef node = (ASTFunctionDeclarationRef)_ASTContextCreateNode(context, ASTTagFunctionDeclaration, location, scope);
-    node->base.name                = StringCreateCopy(context->allocator, name);
+    node->base.name                = StringCreateCopy(context->tempAllocator, name);
     node->base.mangledName         = NULL;
     node->fixity                   = ASTFixityNone;
     node->parameters               = ASTContextCreateArray(context, location, scope);
@@ -532,7 +551,7 @@ ASTFunctionDeclarationRef ASTContextCreateForeignFunctionDeclaration(ASTContextR
 
     ASTFunctionDeclarationRef node = (ASTFunctionDeclarationRef)_ASTContextCreateNode(context, ASTTagForeignFunctionDeclaration, location,
                                                                                       scope);
-    node->base.name                = StringCreateCopy(context->allocator, name);
+    node->base.name                = StringCreateCopy(context->tempAllocator, name);
     node->base.mangledName         = NULL;
     node->fixity                   = fixity;
     node->parameters               = ASTContextCreateArray(context, location, scope);
@@ -542,7 +561,7 @@ ASTFunctionDeclarationRef ASTContextCreateForeignFunctionDeclaration(ASTContextR
         ASTArrayAppendArray(node->parameters, parameters);
     }
     node->base.type     = (ASTTypeRef)ASTContextCreateFunctionTypeForDeclaration(context, location, scope, node);
-    node->foreignName   = StringCreateCopy(context->allocator, foreignName);
+    node->foreignName   = StringCreateCopy(context->tempAllocator, foreignName);
     node->intrinsicName = NULL;
     return node;
 }
@@ -554,7 +573,7 @@ ASTFunctionDeclarationRef ASTContextCreateIntrinsicFunctionDeclaration(ASTContex
 
     ASTFunctionDeclarationRef node = (ASTFunctionDeclarationRef)_ASTContextCreateNode(context, ASTTagIntrinsicFunctionDeclaration, location,
                                                                                       scope);
-    node->base.name                = StringCreateCopy(context->allocator, name);
+    node->base.name                = StringCreateCopy(context->tempAllocator, name);
     node->base.mangledName         = NULL;
     node->fixity                   = fixity;
     node->parameters               = ASTContextCreateArray(context, location, scope);
@@ -565,7 +584,7 @@ ASTFunctionDeclarationRef ASTContextCreateIntrinsicFunctionDeclaration(ASTContex
     }
     node->base.type     = (ASTTypeRef)ASTContextCreateFunctionTypeForDeclaration(context, location, scope, node);
     node->foreignName   = NULL;
-    node->intrinsicName = StringCreateCopy(context->allocator, intrinsicName);
+    node->intrinsicName = StringCreateCopy(context->tempAllocator, intrinsicName);
     return node;
 }
 
@@ -575,7 +594,7 @@ ASTStructureDeclarationRef ASTContextCreateStructureDeclaration(ASTContextRef co
 
     ASTStructureDeclarationRef node = (ASTStructureDeclarationRef)_ASTContextCreateNode(context, ASTTagStructureDeclaration, location,
                                                                                         scope);
-    node->base.name                 = StringCreateCopy(context->allocator, name);
+    node->base.name                 = StringCreateCopy(context->tempAllocator, name);
     node->base.mangledName          = NULL;
     node->values                    = ASTContextCreateArray(context, location, scope);
     node->initializers              = ASTContextCreateArray(context, location, scope);
@@ -596,7 +615,7 @@ ASTInitializerDeclarationRef ASTContextCreateInitializerDeclaration(ASTContextRe
                                                                     ArrayRef parameters, ASTBlockRef body) {
     ASTInitializerDeclarationRef node = (ASTInitializerDeclarationRef)_ASTContextCreateNode(context, ASTTagInitializerDeclaration, location,
                                                                                             scope);
-    node->base.name                   = StringCreate(context->allocator, "init");
+    node->base.name                   = StringCreate(context->tempAllocator, "init");
     node->base.mangledName            = NULL;
     node->parameters                  = ASTContextCreateArray(context, location, scope);
     node->body                        = body;
@@ -616,7 +635,7 @@ ASTValueDeclarationRef ASTContextCreateValueDeclaration(ASTContextRef context, S
     assert((kind == ASTValueKindParameter && !initializer) || (kind == ASTValueKindVariable || kind == ASTValueKindEnumerationElement));
 
     ASTValueDeclarationRef node = (ASTValueDeclarationRef)_ASTContextCreateNode(context, ASTTagValueDeclaration, location, scope);
-    node->base.name             = StringCreateCopy(context->allocator, name);
+    node->base.name             = StringCreateCopy(context->tempAllocator, name);
     node->base.mangledName      = NULL;
     node->kind                  = kind;
     node->base.type             = type;
@@ -628,7 +647,7 @@ ASTTypeAliasDeclarationRef ASTContextCreateTypeAliasDeclaration(ASTContextRef co
                                                                 ASTTypeRef type) {
     ASTTypeAliasDeclarationRef node = (ASTTypeAliasDeclarationRef)_ASTContextCreateNode(context, ASTTagTypeAliasDeclaration, location,
                                                                                         scope);
-    node->base.name                 = StringCreateCopy(context->allocator, name);
+    node->base.name                 = StringCreateCopy(context->tempAllocator, name);
     node->base.mangledName          = NULL;
     node->base.type                 = type;
     return node;
@@ -638,7 +657,7 @@ ASTOpaqueTypeRef ASTContextCreateOpaqueType(ASTContextRef context, SourceRange l
     assert(name);
 
     ASTOpaqueTypeRef node = (ASTOpaqueTypeRef)_ASTContextCreateNode(context, ASTTagOpaqueType, location, scope);
-    node->name            = StringCreateCopy(context->allocator, name);
+    node->name            = StringCreateCopy(context->tempAllocator, name);
     node->declaration     = NULL;
     return node;
 }
@@ -717,7 +736,7 @@ ASTStructureTypeRef ASTContextGetStringType(ASTContextRef context) {
 }
 
 ASTNodeRef _ASTContextCreateNode(ASTContextRef context, ASTTag tag, SourceRange location, ScopeID scope) {
-    ASTNodeRef node  = ArrayAppendUninitializedElement(context->nodes[tag]);
+    ASTNodeRef node  = BucketArrayAppendUninitializedElement(context->nodes[tag]);
     node->tag        = tag;
     node->flags      = ASTFlagsNone;
     node->location   = location;
@@ -745,6 +764,7 @@ void _ASTContextInitBuiltinTypes(ASTContextRef context) {
     StringRef name                                 = StringCreate(context->allocator, builtinTypeNames[ASTBuiltinTypeKindError]);
     context->builtinTypes[ASTBuiltinTypeKindError] = _ASTContextCreateBuiltinType(context, SourceRangeNull(), kScopeGlobal,
                                                                                   ASTBuiltinTypeKindError);
+    StringDestroy(name);
 
     // NOTE: Iteration begins after ASTBuiltinTypeKindError which is 0 to skip addition of <error> type to the scope.
     for (Index index = ASTBuiltinTypeKindError + 1; index < AST_BUILTIN_TYPE_KIND_COUNT; index++) {
@@ -757,6 +777,7 @@ void _ASTContextInitBuiltinTypes(ASTContextRef context) {
         structure->base.type                 = (ASTTypeRef)context->builtinTypes[index];
         SymbolID symbol                      = SymbolTableInsertSymbol(context->symbolTable, kScopeGlobal, structure->base.name);
         SymbolTableSetSymbolDefinition(context->symbolTable, symbol, structure);
+        StringDestroy(name);
     }
 
     StringRef stringName        = StringCreate(context->allocator, "String");
@@ -777,10 +798,10 @@ void _ASTContextInitBuiltinTypes(ASTContextRef context) {
                                                                                         stringName, stringValues, NULL);
     PerformNameManglingForDeclaration(context, (ASTDeclarationRef)stringDeclaration);
     context->stringType = ASTContextCreateStructureType(context, SourceRangeNull(), kScopeGlobal, stringDeclaration);
-    ArrayDestroy(stringValues);
     StringDestroy(stringCountName);
     StringDestroy(stringBufferName);
     StringDestroy(stringName);
+    ArrayDestroy(stringValues);
 }
 
 void _ASTContextInitBuiltinFunctions(ASTContextRef context){
@@ -788,7 +809,7 @@ void _ASTContextInitBuiltinFunctions(ASTContextRef context){
 //       Currently we assume that there will be no name collisions here, which is a possible source for bugs and errors...
 #define UNARY_OPERATOR(SYMBOL, ARGUMENT_TYPE, RESULT_TYPE, INTRINSIC)                                                                      \
     {                                                                                                                                      \
-        ArrayRef parameters              = ArrayCreateEmpty(AllocatorGetSystemDefault(), sizeof(ASTValueDeclarationRef), 1);               \
+        ArrayRef parameters              = ArrayCreateEmpty(context->allocator, sizeof(ASTValueDeclarationRef), 1);                        \
         ScopeID scope                    = SymbolTableInsertScope(context->symbolTable, ScopeKindFunction, kScopeGlobal, NULL);            \
         StringRef parameterName          = StringCreate(context->allocator, "value");                                                      \
         ASTTypeRef parameterType         = (ASTTypeRef)_ASTContextGetBuiltinTypeByName(context, ARGUMENT_TYPE);                            \
@@ -805,12 +826,15 @@ void _ASTContextInitBuiltinFunctions(ASTContextRef context){
         SymbolID symbol  = SymbolTableInsertOrGetSymbolGroup(context->symbolTable, kScopeGlobal, declaration->base.name);                  \
         Index entryIndex = SymbolTableInsertSymbolGroupEntry(context->symbolTable, symbol);                                                \
         SymbolTableSetSymbolGroupDefinition(context->symbolTable, symbol, entryIndex, declaration);                                        \
+        StringDestroy(intrinsic);                                                                                                          \
+        StringDestroy(name);                                                                                                               \
+        StringDestroy(parameterName);                                                                                                      \
         ArrayDestroy(parameters);                                                                                                          \
     }
 
 #define BINARY_OPERATOR(SYMBOL, ARGUMENT_TYPE1, ARGUMENT_TYPE2, RESULT_TYPE, INTRINSIC)                                                    \
     {                                                                                                                                      \
-        ArrayRef parameters                 = ArrayCreateEmpty(AllocatorGetSystemDefault(), sizeof(ASTValueDeclarationRef), 2);            \
+        ArrayRef parameters                 = ArrayCreateEmpty(context->allocator, sizeof(ASTValueDeclarationRef), 2);                     \
         ScopeID scope                       = SymbolTableInsertScope(context->symbolTable, ScopeKindFunction, kScopeGlobal, NULL);         \
         StringRef lhsParameterName          = StringCreate(context->allocator, "lhs");                                                     \
         ASTTypeRef lhsParameterType         = (ASTTypeRef)_ASTContextGetBuiltinTypeByName(context, ARGUMENT_TYPE1);                        \
@@ -832,6 +856,10 @@ void _ASTContextInitBuiltinFunctions(ASTContextRef context){
         SymbolID symbol  = SymbolTableInsertOrGetSymbolGroup(context->symbolTable, kScopeGlobal, declaration->base.name);                  \
         Index entryIndex = SymbolTableInsertSymbolGroupEntry(context->symbolTable, symbol);                                                \
         SymbolTableSetSymbolGroupDefinition(context->symbolTable, symbol, entryIndex, declaration);                                        \
+        StringDestroy(name);                                                                                                               \
+        StringDestroy(intrinsic);                                                                                                          \
+        StringDestroy(rhsParameterName);                                                                                                   \
+        StringDestroy(lhsParameterName);                                                                                                   \
         ArrayDestroy(parameters);                                                                                                          \
     }
 

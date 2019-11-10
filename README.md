@@ -43,10 +43,11 @@ identifier      := identifier-head { identifier-tail }
 identifier-head := "a" ... "z" | "A" ... "Z" | "_"
 identifier-tail := identifier-head | "0" ... "9"
 
-directive        := load-directive | link-directive | import-directive
-load-directive   := "#load" string-literal
-link-directive   := "#link" string-literal
-import-directive := "#import" string-literal
+directive         := load-directive | link-directive | import-directive | include-directive
+load-directive    := "#load" string-literal
+link-directive    := "#link" string-literal
+import-directive  := "#import" string-literal
+include-directive := "#include" string-literal
 
 block := '{' { statement } '}'
 

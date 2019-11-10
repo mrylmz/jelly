@@ -1,11 +1,11 @@
 #include "JellyCore/ASTContext.h"
 #include "JellyCore/ASTFunctions.h"
 #include "JellyCore/ASTNodes.h"
-#include "JellyCore/BumpAllocator.h"
 #include "JellyCore/Diagnostic.h"
 #include "JellyCore/Lexer.h"
 #include "JellyCore/Parser.h"
 #include "JellyCore/SourceRange.h"
+#include "JellyCore/TempAllocator.h"
 
 // TODO: Write tests for correct scope creation and population!
 
@@ -66,7 +66,7 @@ ParserRef ParserCreate(AllocatorRef allocator, ASTContextRef context) {
     ParserRef parser  = AllocatorAllocate(allocator, sizeof(struct _Parser));
     parser->allocator = allocator;
     // TODO: Replace tempAllocator with a pool allocator which resets after finishing a top level parse action.
-    parser->tempAllocator = BumpAllocatorCreate(allocator);
+    parser->tempAllocator = TempAllocatorCreate(allocator);
     parser->context       = context;
     parser->currentScope  = kScopeGlobal;
     parser->lexer         = NULL;
@@ -74,10 +74,7 @@ ParserRef ParserCreate(AllocatorRef allocator, ASTContextRef context) {
 }
 
 void ParserDestroy(ParserRef parser) {
-    if (parser->lexer) {
-        LexerDestroy(parser->lexer);
-    }
-
+    assert(!parser->lexer);
     AllocatorDestroy(parser->tempAllocator);
     AllocatorDeallocate(parser->allocator, parser);
 }
@@ -111,6 +108,10 @@ ASTSourceUnitRef ParserParseSourceUnit(ParserRef parser, StringRef filePath, Str
     location.end                = parser->token.location.start;
     ASTSourceUnitRef sourceUnit = ASTContextCreateSourceUnit(parser->context, location, parser->currentScope, filePath, declarations);
     ASTModuleAddSourceUnit(parser->context, module, sourceUnit);
+
+    LexerDestroy(parser->lexer);
+    parser->lexer = NULL;
+
     return sourceUnit;
 }
 
@@ -141,6 +142,10 @@ ASTSourceUnitRef ParserParseModuleSourceUnit(ParserRef parser, ASTModuleDeclarat
     location.end                = parser->token.location.start;
     ASTSourceUnitRef sourceUnit = ASTContextCreateSourceUnit(parser->context, location, parser->currentScope, filePath, declarations);
     ASTModuleAddSourceUnit(parser->context, module, sourceUnit);
+
+    LexerDestroy(parser->lexer);
+    parser->lexer = NULL;
+
     return sourceUnit;
 }
 
@@ -209,6 +214,10 @@ ASTModuleDeclarationRef ParserParseModuleDeclaration(ParserRef parser, StringRef
     ASTArrayAppendArray(module->linkDirectives, linkDirectives);
     ASTSourceUnitRef sourceUnit = ASTContextCreateSourceUnit(parser->context, location, parser->currentScope, filePath, directives);
     ASTModuleAddSourceUnit(parser->context, module, sourceUnit);
+
+    LexerDestroy(parser->lexer);
+    parser->lexer = NULL;
+
     return module;
 }
 
@@ -373,10 +382,11 @@ static inline Bool _ParserConsumePostfixOperatorTail(ParserRef parser, ASTPostfi
     }
 }
 
-/// grammar: directive        := load-directive | link-directive | import-directive
-/// grammar: load-directive   := "#load" string-literal
-/// grammar: link-directive   := "#link" string-literal
-/// grammar: import-directive := "#import" string-literal
+/// grammar: directive         := load-directive | link-directive | import-directive | include-directive
+/// grammar: load-directive    := "#load" string-literal
+/// grammar: link-directive    := "#link" string-literal
+/// grammar: import-directive  := "#import" string-literal
+/// grammar: include-directive := "#include" string-literal
 static inline ASTNodeRef _ParserParseDirective(ParserRef parser) {
     SourceRange location = parser->token.location;
 
@@ -437,6 +447,19 @@ static inline ASTNodeRef _ParserParseDirective(ParserRef parser) {
 
         location.end = parser->token.location.start;
         return (ASTNodeRef)ASTContextCreateImportDirective(parser->context, location, parser->currentScope, filePath->stringValue);
+    }
+
+    if (_ParserConsumeToken(parser, TokenKindDirectiveInclude)) {
+        ASTConstantExpressionRef filePath = _ParserParseConstantExpression(parser);
+        if (!filePath || filePath->kind != ASTConstantKindString) {
+            ReportError("Expected string literal after `#include` directive");
+            return NULL;
+        }
+
+        assert(filePath->kind == ASTConstantKindString);
+
+        location.end = parser->token.location.start;
+        return (ASTNodeRef)ASTContextCreateIncludeDirective(parser->context, location, parser->currentScope, filePath->stringValue);
     }
 
     ReportError("Unknown compiler directive");
@@ -2024,7 +2047,7 @@ static inline ASTNodeRef _ParserParseTopLevelNode(ParserRef parser) {
     }
 
     if (_ParserIsToken(parser, TokenKindDirectiveLoad) || _ParserIsToken(parser, TokenKindDirectiveLink) ||
-        _ParserIsToken(parser, TokenKindDirectiveImport)) {
+        _ParserIsToken(parser, TokenKindDirectiveImport) || _ParserIsToken(parser, TokenKindDirectiveInclude)) {
         return (ASTNodeRef)_ParserParseDirective(parser);
     }
 

@@ -6,6 +6,7 @@ const Index kBumpAllocatorDefaultPageCapacity = 65535;
 
 struct _BumpAllocatorPage {
     struct _BumpAllocatorPage *next;
+    Index size;
     Index capacity;
     Index index;
     UInt8 *memory;
@@ -17,12 +18,6 @@ struct _BumpAllocatorContext {
     Index pageHeaderSize;
     struct _BumpAllocatorPage *firstPage;
     struct _BumpAllocatorPage *currentPage;
-};
-
-struct _Allocator {
-    struct _Allocator *allocator;
-    AllocatorCallback callback;
-    void *context;
 };
 
 void *_AllocatorBump(AllocatorMode mode, Index capacity, void *memory, void *context);
@@ -50,8 +45,9 @@ void *_AllocatorBump(AllocatorMode mode, Index capacity, void *memory, void *con
             Index memoryCapacity            = MAX(kBumpAllocatorDefaultPageCapacity, capacity + bumpContext->pageHeaderSize);
             memoryCapacity                  = _Align(memoryCapacity, bumpContext->alignment);
             struct _BumpAllocatorPage *page = AllocatorAllocate(bumpContext->allocator, memoryCapacity);
+            page->size                      = memoryCapacity;
             page->next                      = NULL;
-            page->capacity                  = capacity;
+            page->capacity                  = memoryCapacity - bumpContext->pageHeaderSize;
             page->index                     = 0;
             page->memory                    = (UInt8 *)page + bumpContext->pageHeaderSize;
             bumpContext->firstPage          = page;
@@ -60,8 +56,9 @@ void *_AllocatorBump(AllocatorMode mode, Index capacity, void *memory, void *con
             Index memoryCapacity            = MAX(kBumpAllocatorDefaultPageCapacity, capacity + bumpContext->pageHeaderSize);
             memoryCapacity                  = _Align(memoryCapacity, bumpContext->alignment);
             struct _BumpAllocatorPage *page = AllocatorAllocate(bumpContext->allocator, memoryCapacity);
+            page->size                      = memoryCapacity;
             page->next                      = NULL;
-            page->capacity                  = capacity;
+            page->capacity                  = memoryCapacity - bumpContext->pageHeaderSize;
             page->index                     = 0;
             page->memory                    = (UInt8 *)page + bumpContext->pageHeaderSize;
             bumpContext->currentPage->next  = page;
@@ -73,30 +70,9 @@ void *_AllocatorBump(AllocatorMode mode, Index capacity, void *memory, void *con
         return memory;
     }
 
-    case AllocatorModeReallocate: {
-        // TODO: This is a workaround for now and should be refined or removed entirely.
-        //       A reallocation shouldn't be required here but currently it is because the BumpAllocator
-        //       is not used explicitly in context due to the abstraction of Allocator!
-        //       Rethink the structure and usage of the allocator API!!!
-        assert(bumpContext->currentPage);
-        struct _BumpAllocatorPage *page = bumpContext->firstPage;
-        void *newMemory                 = NULL;
-        while (page) {
-            Index start  = (Index)page;
-            Index end    = start + page->capacity;
-            Index offset = (Index)memory;
-            if (start <= offset && offset < end) {
-                Index newCapacity = MAX(capacity, page->capacity);
-                newMemory         = _AllocatorBump(AllocatorModeAllocate, newCapacity, NULL, context);
-                memmove(newMemory, memory, MIN(capacity, page->capacity));
-            }
-
-            page = page->next;
-        }
-
-        assert(newMemory);
-        return newMemory;
-    }
+    case AllocatorModeReallocate:
+        JELLY_UNREACHABLE("BumpAllocator doesn't support reallocation!");
+        return NULL;
 
     case AllocatorModeDeallocate:
         return NULL;

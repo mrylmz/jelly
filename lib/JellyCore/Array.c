@@ -152,7 +152,7 @@ void ArrayRemoveAllElements(ArrayRef array, Bool keepCapacity) {
     }
 }
 
-bool ArrayContainsElement(ArrayRef array, ArrayPredicate predicate, const void *element) {
+Bool ArrayContainsElement(ArrayRef array, ArrayPredicate predicate, const void *element) {
     for (Index index = 0; index < ArrayGetElementCount(array); index++) {
         void *lhs = ArrayGetElementAtIndex(array, index);
         if (predicate(lhs, element)) {
@@ -163,7 +163,18 @@ bool ArrayContainsElement(ArrayRef array, ArrayPredicate predicate, const void *
     return false;
 }
 
-bool ArrayIsEqual(ArrayRef lhs, ArrayRef rhs) {
+Index ArrayGetIndexOfElement(ArrayRef array, ArrayPredicate predicate, const void *element) {
+    for (Index index = 0; index < ArrayGetElementCount(array); index++) {
+        void *lhs = ArrayGetElementAtIndex(array, index);
+        if (predicate(lhs, element)) {
+            return index;
+        }
+    }
+
+    return kArrayElementNotFound;
+}
+
+Bool ArrayIsEqual(ArrayRef lhs, ArrayRef rhs) {
     if (lhs->elementSize != rhs->elementSize || lhs->elementCount != rhs->elementCount) {
         return false;
     }

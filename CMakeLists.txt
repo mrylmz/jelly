@@ -37,7 +37,9 @@ set(JELLY_CORE_HEADER_FILES "include/JellyCore/Allocator.h"
                             "include/JellyCore/ASTNodes.h"
                             "include/JellyCore/ASTSubstitution.h"
                             "include/JellyCore/Base.h"
+                            "include/JellyCore/BucketArray.h"
                             "include/JellyCore/BumpAllocator.h"
+                            "include/JellyCore/ClangImporter.h"
                             "include/JellyCore/Compiler.h"
                             "include/JellyCore/Diagnostic.h"
                             "include/JellyCore/Dictionary.h"
@@ -52,6 +54,7 @@ set(JELLY_CORE_HEADER_FILES "include/JellyCore/Allocator.h"
                             "include/JellyCore/SourceRange.h"
                             "include/JellyCore/String.h"
                             "include/JellyCore/SymbolTable.h"
+                            "include/JellyCore/TempAllocator.h"
                             "include/JellyCore/TypeChecker.h"
                             "include/JellyCore/Workspace.h")
 set(JELLY_CORE_SOURCE_FILES "lib/JellyCore/Allocator.c"
@@ -62,7 +65,9 @@ set(JELLY_CORE_SOURCE_FILES "lib/JellyCore/Allocator.c"
                             "lib/JellyCore/ASTFunctions.c"
                             "lib/JellyCore/ASTMangling.c"
                             "lib/JellyCore/ASTSubstitution.c"
+                            "lib/JellyCore/BucketArray.c"
                             "lib/JellyCore/BumpAllocator.c"
+                            "lib/JellyCore/ClangImporter.c"
                             "lib/JellyCore/Compiler.c"
                             "lib/JellyCore/Diagnostic.c"
                             "lib/JellyCore/Dictionary.c"
@@ -76,12 +81,20 @@ set(JELLY_CORE_SOURCE_FILES "lib/JellyCore/Allocator.c"
                             "lib/JellyCore/SourceRange.c"
                             "lib/JellyCore/String.c"
                             "lib/JellyCore/SymbolTable.c"
+                            "lib/JellyCore/TempAllocator.c"
                             "lib/JellyCore/TypeChecker.c"
                             "lib/JellyCore/Workspace.c")
 add_library(JellyCore STATIC ${JELLY_CORE_HEADER_FILES} 
                              ${JELLY_CORE_SOURCE_FILES})
 target_include_directories(JellyCore PUBLIC include)
 target_link_libraries(JellyCore ${JELLY_LLVM_LIBS})
+
+find_library(LIBCLANG_LIBRARY "clang" "${LLVM_LIBRARY_DIRS}" NO_DEFAULT_PATH)
+if(NOT LIBCLANG_LIBRARY)
+    message(FATAL_ERROR "libclang library not found")
+endif()
+message(STATUS "Found libclang library at ${LIBCLANG_LIBRARY}")
+target_link_libraries(JellyCore ${LIBCLANG_LIBRARY})
 
 # Tools
 add_executable(${PROJECT_NAME} "src/main.cpp")

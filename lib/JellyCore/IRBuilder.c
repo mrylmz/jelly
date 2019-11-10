@@ -78,19 +78,25 @@ IRBuilderRef IRBuilderCreate(AllocatorRef allocator, ASTContextRef context, Stri
 }
 
 void IRBuilderDestroy(IRBuilderRef builder) {
-    StringDestroy(builder->buildDirectory);
-    ArrayDestroy(builder->uninitializedGlobals);
-    AllocatorDeallocate(builder->allocator, builder);
-
     if (builder->module) {
         LLVMDisposeModule(builder->module->module);
+        AllocatorDeallocate(builder->allocator, builder->module);
     }
 
     LLVMDisposeBuilder(builder->builder);
+
+    StringDestroy(builder->buildDirectory);
+    ArrayDestroy(builder->uninitializedGlobals);
+    AllocatorDeallocate(builder->allocator, builder);
 }
 
 IRModuleRef IRBuilderBuild(IRBuilderRef builder, ASTModuleDeclarationRef module) {
     assert(module->base.name);
+
+    if (builder->module) {
+        LLVMDisposeModule(builder->module->module);
+        AllocatorDeallocate(builder->allocator, builder->module);
+    }
 
     builder->module             = (IRModuleRef)AllocatorAllocate(builder->allocator, sizeof(struct _IRModule));
     builder->module->module     = LLVMModuleCreateWithNameInContext(StringGetCharacters(module->base.name), builder->context);
@@ -192,6 +198,7 @@ void IRBuilderDumpModule(IRBuilderRef builder, IRModuleRef module, FILE *target)
 
     Char *dump = LLVMPrintModuleToString(module->module);
     fprintf(target, "%s", dump);
+    LLVMDisposeMessage(dump);
 }
 
 void IRBuilderVerifyModule(IRBuilderRef builder, IRModuleRef module) {
@@ -207,10 +214,13 @@ void IRBuilderVerifyModule(IRBuilderRef builder, IRModuleRef module) {
     if (error) {
         if (message) {
             ReportErrorFormat("LLVM Error:\n%s\n", message);
-            LLVMDisposeMessage(message);
         } else {
             ReportError("LLVM Module Verification failed");
         }
+    }
+
+    if (message) {
+        LLVMDisposeMessage(message);
     }
 }
 
@@ -981,6 +991,7 @@ static inline void _IRBuilderBuildExpression(IRBuilderRef builder, LLVMValueRef 
 
             call->base.base.irValue = LLVMBuildCall(builder->builder, (LLVMValueRef)declaration->base.base.irValue,
                                                     (LLVMValueRef *)ArrayGetMemoryPointer(arguments), ArrayGetElementCount(arguments), "");
+            ArrayDestroy(arguments);
         } else if (declaration->base.base.tag == ASTTagIntrinsicFunctionDeclaration) {
             ArrayRef arguments = ArrayCreateEmpty(builder->allocator, sizeof(LLVMValueRef), ASTArrayGetElementCount(call->arguments));
             for (Index index = 0; index < ASTArrayGetElementCount(call->arguments); index++) {
@@ -995,7 +1006,7 @@ static inline void _IRBuilderBuildExpression(IRBuilderRef builder, LLVMValueRef 
             call->base.base.irValue = _IRBuilderBuildIntrinsic(
                 builder, function, declaration->intrinsicName, (LLVMValueRef *)ArrayGetMemoryPointer(arguments),
                 ArrayGetElementCount(arguments), (LLVMTypeRef)declaration->returnType->irType);
-
+            ArrayDestroy(arguments);
         } else {
             JELLY_UNREACHABLE("Invalid tag given for ASTFunctionDeclaration!");
         }
@@ -1246,6 +1257,7 @@ static inline LLVMTypeRef _IRBuilderGetIRType(IRBuilderRef builder, ASTTypeRef t
 
         llvmType = LLVMFunctionType((LLVMTypeRef)functionType->resultType->irType, (LLVMTypeRef *)ArrayGetMemoryPointer(parameterTypes),
                                     ArrayGetElementCount(parameterTypes), false);
+        ArrayDestroy(parameterTypes);
         break;
     }
 

@@ -33,8 +33,8 @@ typedef struct _Scope *ScopeRef;
 struct _SymbolTable {
     AllocatorRef allocator;
     ScopeID nextScopeID;
-    ArrayRef scopes;
     SymbolID nextSymbolID;
+    ArrayRef scopes;
     ArrayRef symbols;
 };
 
@@ -57,12 +57,20 @@ SymbolTableRef SymbolTableCreate(AllocatorRef allocator) {
 }
 
 void SymbolTableDestroy(SymbolTableRef table) {
+    for (Index index = 0; index < ArrayGetElementCount(table->symbols); index++) {
+        SymbolRef symbol = (SymbolRef)ArrayGetElementAtIndex(table->symbols, index);
+        if (symbol->isGroup) {
+            ArrayDestroy(symbol->entries);
+        }
+    }
+
     for (Index index = 0; index < ArrayGetElementCount(table->scopes); index++) {
         ScopeRef scope = (ScopeRef)ArrayGetElementAtIndex(table->scopes, index);
         DictionaryDestroy(scope->symbols);
     }
 
     ArrayDestroy(table->scopes);
+    ArrayDestroy(table->symbols);
     AllocatorDeallocate(table->allocator, table);
 }
 
@@ -294,7 +302,7 @@ SymbolID SymbolTableInsertOrGetSymbolGroup(SymbolTableRef table, ScopeID id, Str
     if (symbolID != kSymbolNull) {
         SymbolRef symbol = ArrayGetElementAtIndex(table->symbols, symbolID);
         assert(symbol->isGroup);
-        return symbolID;
+        return symbol->id;
     }
 
     return SymbolTableInsertSymbolGroup(table, id, name);

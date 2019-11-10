@@ -214,6 +214,8 @@ static inline void _TypeCheckerValidateEnumerationDeclaration(TypeCheckerRef typ
             nextMemberValue = constant->intValue + 1;
         }
     }
+
+    ArrayDestroy(values);
 }
 
 static inline void _TypeCheckerValidateFunctionDeclaration(TypeCheckerRef typeChecker, ASTContextRef context,
@@ -740,9 +742,9 @@ static inline void _TypeCheckerValidateBlock(TypeCheckerRef typeChecker, ASTCont
 }
 
 static inline void _TypeCheckerValidateStaticArrayTypesInContext(TypeCheckerRef typeChecker, ASTContextRef context) {
-    ArrayRef arrayTypes = ASTContextGetAllNodes(context, ASTTagArrayType);
-    for (Index index = 0; index < ArrayGetElementCount(arrayTypes); index++) {
-        ASTArrayTypeRef arrayType = (ASTArrayTypeRef)ArrayGetElementAtIndex(arrayTypes, index);
+    BucketArrayRef arrayTypes = ASTContextGetAllNodes(context, ASTTagArrayType);
+    for (Index index = 0; index < BucketArrayGetElementCount(arrayTypes); index++) {
+        ASTArrayTypeRef arrayType = (ASTArrayTypeRef)BucketArrayGetElementAtIndex(arrayTypes, index);
         if (arrayType->size) {
             if (arrayType->size->base.tag == ASTTagConstantExpression) {
                 ASTConstantExpressionRef constant = (ASTConstantExpressionRef)arrayType->size;

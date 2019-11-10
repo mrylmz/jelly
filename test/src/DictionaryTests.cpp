@@ -2,7 +2,7 @@
 #include <JellyCore/JellyCore.h>
 
 TEST(Dictionary, CStringDictionaryCreate) {
-    DictionaryRef dictionary = CStringDictionaryCreate(AllocatorGetSystemDefault(), 1024);
+    DictionaryRef dictionary = CStringDictionaryCreate(AllocatorGetSystemDefault(), 2);
     EXPECT_NE(dictionary, nullptr);
     DictionaryDestroy(dictionary);
 }
@@ -11,7 +11,7 @@ TEST(Dictionary, CStringDictionaryInsertAndLookup) {
     Int64 elements[] = {123, 456, 789};
     const Int64 *value;
 
-    DictionaryRef dictionary = CStringDictionaryCreate(AllocatorGetSystemDefault(), 1024);
+    DictionaryRef dictionary = CStringDictionaryCreate(AllocatorGetSystemDefault(), 2);
     DictionaryInsert(dictionary, "Hello", &elements[0], sizeof(Int64));
     DictionaryInsert(dictionary, "World", &elements[1], sizeof(Int64));
     value = (const Int64 *)DictionaryLookup(dictionary, "Hello");
@@ -35,7 +35,7 @@ TEST(Dictionary, CStringDictionaryInsertNull) {
     Int64 elements[] = {123, 456, 789};
     const Int64 *value;
 
-    DictionaryRef dictionary = CStringDictionaryCreate(AllocatorGetSystemDefault(), 1024);
+    DictionaryRef dictionary = CStringDictionaryCreate(AllocatorGetSystemDefault(), 2);
     DictionaryInsert(dictionary, "A", &elements[0], sizeof(Int64));
     DictionaryInsert(dictionary, "B", &elements[1], sizeof(Int64));
     DictionaryInsert(dictionary, "C", &elements[2], sizeof(Int64));
@@ -72,7 +72,8 @@ TEST(Dictionary, CStringDictionaryRemove) {
     Int64 elements[] = {123, 456, 789};
     const Int64 *value;
 
-    DictionaryRef dictionary = CStringDictionaryCreate(AllocatorGetSystemDefault(), 1024);
+    DictionaryRef dictionary = CStringDictionaryCreate(AllocatorGetSystemDefault(), 2);
+    DictionaryInsert(dictionary, "A", &elements[0], sizeof(Int64));
     DictionaryInsert(dictionary, "A", &elements[0], sizeof(Int64));
     DictionaryInsert(dictionary, "B", &elements[1], sizeof(Int64));
     DictionaryInsert(dictionary, "C", &elements[2], sizeof(Int64));

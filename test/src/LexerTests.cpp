@@ -36,8 +36,11 @@ static inline void _PrintTokenKindDescription(TokenKind kind);
 }
 
 TEST(Lexer, Directives) {
-    EXPECT_TOKEN_KINDS_EQ("#load",
-                          TokenKindDirectiveLoad);
+    EXPECT_TOKEN_KINDS_EQ("#load #link #import #include",
+                          TokenKindDirectiveLoad,
+                          TokenKindDirectiveLink,
+                          TokenKindDirectiveImport,
+                          TokenKindDirectiveInclude);
 }
 
 TEST(Lexer, InvalidDirectiveName) {
@@ -896,6 +899,10 @@ static inline void _PrintTokenKindDescription(TokenKind kind) {
 
         case TokenKindDirectiveImport:
             printf("%s", "#import");
+            break;
+
+        case TokenKindDirectiveInclude:
+            printf("%s", "#include");
             break;
 
         case TokenKindLiteralString:

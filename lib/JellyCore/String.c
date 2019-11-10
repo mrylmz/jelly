@@ -10,6 +10,8 @@ struct _String {
     Char *memory;
 } __attribute__((packed));
 
+static inline Bool _StringHasPrefix(StringRef string, const Char *rawPrefix);
+
 StringRef StringCreate(AllocatorRef allocator, const Char *rawString) {
     StringRef string = AllocatorAllocate(allocator, sizeof(struct _String));
     assert(string);
@@ -67,6 +69,32 @@ StringRef StringCreateCopyUntilLastOccurenceOf(AllocatorRef allocator, StringRef
     return StringCreateEmpty(allocator);
 }
 
+StringRef StringCreateCopyOfBasename(AllocatorRef allocator, StringRef string) {
+    Char *start        = string->memory;
+    Char *end          = string->memory + StringGetLength(string);
+    Char *leadingBound = strrchr(start, '/');
+    if (leadingBound) {
+        start = leadingBound + 1;
+    }
+
+    Char *trailingBound = strchr(start, '.');
+    if (trailingBound) {
+        end = trailingBound;
+    }
+
+    return StringCreateRange(allocator, start, end);
+}
+
+StringRef StringCreateCopyRemovingPrefix(AllocatorRef allocator, StringRef string, const Char *prefix) {
+    if (_StringHasPrefix(string, prefix)) {
+        const Char *start = string->memory + sizeof(Char) * strlen(prefix);
+        const Char *end = string->memory + sizeof(Char) * (string->length + 1);
+        return StringCreateRange(allocator, start, end);
+    }
+
+    return StringCreateCopy(allocator, string);
+}
+
 StringRef StringCreateEmpty(AllocatorRef allocator) {
     StringRef string = AllocatorAllocate(allocator, sizeof(struct _String));
     assert(string);
@@ -99,6 +127,15 @@ StringRef StringCreateFromFile(AllocatorRef allocator, const Char *filePath) {
     string->length    = length;
     string->memory    = memory;
     return string;
+}
+
+void StringReplaceOccurenciesOf(StringRef string, Char character, Char replacement) {
+    for (Index index = 0; index < StringGetLength(string); index++) {
+        Char *cursor = string->memory + index;
+        if (*cursor == character) {
+            *cursor = replacement;
+        }
+    }
 }
 
 void StringDestroy(StringRef string) {
@@ -171,4 +208,21 @@ Bool StringIsEqualToCString(StringRef lhs, const Char *rawString) {
     }
 
     return true;
+}
+
+void StringRemovePrefix(StringRef string, const Char *prefix) {
+    if (_StringHasPrefix(string, prefix)) {
+        const Char *start = string->memory + sizeof(Char) * strlen(prefix);
+        memmove(string->memory, start, (string->length - strlen(prefix) + 1));
+        string->length -= strlen(prefix);
+    }
+}
+
+static inline Bool _StringHasPrefix(StringRef string, const Char *rawPrefix) {
+    Index prefixLength = strlen(rawPrefix);
+    if (string->length < prefixLength) {
+        return false;
+    }
+
+    return memcmp(string->memory, rawPrefix, prefixLength) == 0;
 }

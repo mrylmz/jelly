@@ -21,6 +21,7 @@ enum _ASTTag {
     ASTTagLoadDirective,
     ASTTagLinkDirective,
     ASTTagImportDirective,
+    ASTTagIncludeDirective,
     ASTTagBlock,
     ASTTagIfStatement,
     ASTTagLoopStatement,
@@ -55,7 +56,6 @@ enum _ASTTag {
     ASTTagEnumerationType,
     ASTTagFunctionType,
     ASTTagStructureType,
-    ASTTagScope,
 
     AST_TAG_COUNT
 };
@@ -96,6 +96,7 @@ typedef struct _ASTLinkedList *ASTLinkedListRef;
 typedef struct _ASTLoadDirective *ASTLoadDirectiveRef;
 typedef struct _ASTLinkDirective *ASTLinkDirectiveRef;
 typedef struct _ASTImportDirective *ASTImportDirectiveRef;
+typedef struct _ASTIncludeDirective *ASTIncludeDirectiveRef;
 typedef struct _ASTBlock *ASTBlockRef;
 typedef struct _ASTTypeAliasDeclaration *ASTTypeAliasDeclarationRef;
 typedef struct _ASTIfStatement *ASTIfStatementRef;
@@ -187,6 +188,12 @@ struct _ASTImportDirective {
     struct _ASTNode base;
 
     StringRef modulePath;
+};
+
+struct _ASTIncludeDirective {
+    struct _ASTNode base;
+
+    StringRef headerPath;
 };
 
 struct _ASTBlock {
@@ -441,6 +448,7 @@ struct _ASTTypeOperationExpression {
     ASTTypeRef argumentType;
 };
 
+// TODO: Move the innerScope value from the subtypes to base declaration!
 struct _ASTDeclaration {
     struct _ASTNode base;
 

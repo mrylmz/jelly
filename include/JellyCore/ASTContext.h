@@ -4,6 +4,7 @@
 #include <JellyCore/ASTNodes.h>
 #include <JellyCore/Allocator.h>
 #include <JellyCore/Base.h>
+#include <JellyCore/BucketArray.h>
 
 JELLY_EXTERN_C_BEGIN
 
@@ -13,11 +14,13 @@ ASTContextRef ASTContextCreate(AllocatorRef allocator, StringRef moduleName);
 
 void ASTContextDestroy(ASTContextRef context);
 
+AllocatorRef ASTContextGetTempAllocator(ASTContextRef context);
+
 SymbolTableRef ASTContextGetSymbolTable(ASTContextRef context);
 
 ASTModuleDeclarationRef ASTContextGetModule(ASTContextRef context);
 
-ArrayRef ASTContextGetAllNodes(ASTContextRef context, ASTTag tag);
+BucketArrayRef ASTContextGetAllNodes(ASTContextRef context, ASTTag tag);
 
 void ASTModuleAddSourceUnit(ASTContextRef context, ASTModuleDeclarationRef module, ASTSourceUnitRef sourceUnit);
 
@@ -35,6 +38,8 @@ ASTLinkDirectiveRef ASTContextCreateLinkDirective(ASTContextRef context, SourceR
                                                   StringRef library);
 
 ASTImportDirectiveRef ASTContextCreateImportDirective(ASTContextRef context, SourceRange location, ScopeID scope, StringRef modulePath);
+
+ASTIncludeDirectiveRef ASTContextCreateIncludeDirective(ASTContextRef context, SourceRange location, ScopeID scope, StringRef headerPath);
 
 ASTBlockRef ASTContextCreateBlock(ASTContextRef context, SourceRange location, ScopeID scope, ArrayRef statements);
 

@@ -47,6 +47,8 @@ TEST_P(NameResolutionTests, run) {
             StringDestroy(*((StringRef*)ArrayGetElementAtIndex(arguments, index)));
         }
 
+        StringDestroy(absoluteFilePath);
+        StringDestroy(workingDirectory);
         ArrayDestroy(arguments);
 
         if (test.context.index < test.context.records.size()) {
