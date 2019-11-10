@@ -8,6 +8,7 @@
 #include <JellyCore/Array.h>
 #include <JellyCore/BucketArray.h>
 #include <JellyCore/BumpAllocator.h>
+#include <JellyCore/ClangImporter.h>
 #include <JellyCore/Compiler.h>
 #include <JellyCore/Diagnostic.h>
 #include <JellyCore/Dictionary.h>

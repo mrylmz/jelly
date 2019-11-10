@@ -1,6 +1,7 @@
 #include "JellyCore/ASTDumper.h"
 #include "JellyCore/ASTMangling.h"
 #include "JellyCore/ASTSubstitution.h"
+#include "JellyCore/ClangImporter.h"
 #include "JellyCore/Diagnostic.h"
 #include "JellyCore/IRBuilder.h"
 #include "JellyCore/LDLinker.h"
@@ -22,6 +23,7 @@ struct _Workspace {
     ArrayRef moduleFilePaths;
     ASTContextRef context;
     ParserRef parser;
+    ClangImporterRef importer;
     QueueRef parseQueue;
     QueueRef parseInterfaceQueue;
     QueueRef importQueue;
@@ -54,6 +56,7 @@ WorkspaceRef WorkspaceCreate(AllocatorRef allocator, StringRef workingDirectory,
     workspace->moduleFilePaths     = ArrayCreateEmpty(allocator, sizeof(StringRef *), 8);
     workspace->context             = ASTContextCreate(allocator, moduleName);
     workspace->parser              = ParserCreate(allocator, workspace->context);
+    workspace->importer            = ClangImporterCreate(allocator, workspace->context);
     workspace->parseQueue          = QueueCreate(allocator);
     workspace->parseInterfaceQueue = QueueCreate(allocator);
     workspace->importQueue         = QueueCreate(allocator);
@@ -85,6 +88,7 @@ void WorkspaceDestroy(WorkspaceRef workspace) {
     ArrayDestroy(workspace->moduleFilePaths);
     ASTContextDestroy(workspace->context);
     ParserDestroy(workspace->parser);
+    ClangImporterDestroy(workspace->importer);
     QueueDestroy(workspace->parseQueue);
     QueueDestroy(workspace->parseInterfaceQueue);
     QueueDestroy(workspace->importQueue);
