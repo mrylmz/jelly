@@ -6,6 +6,7 @@
 #include <JellyCore/ASTNodes.h>
 #include <JellyCore/Allocator.h>
 #include <JellyCore/Array.h>
+#include <JellyCore/BucketArray.h>
 #include <JellyCore/BumpAllocator.h>
 #include <JellyCore/Compiler.h>
 #include <JellyCore/Diagnostic.h>
