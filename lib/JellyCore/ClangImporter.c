@@ -332,10 +332,11 @@ ASTNodeRef _ClangImporterParseCursor(ClangImporterRef importer, StringRef implic
             }
 
             if (!importer->hasLocalErrorReports) {
-                ASTNodeRef node = (ASTNodeRef)ASTContextCreateStructureDeclaration(importer->context, SourceRangeNull(),
-                                                                                   importer->currentScope, name, values, NULL);
-                _ClangImporterSetScopeNode(importer, scope, node);
-                ASTArrayAppendElement(importer->sourceUnit->declarations, node);
+                ASTStructureDeclarationRef node = ASTContextCreateStructureDeclaration(importer->context, SourceRangeNull(),
+                                                                                       importer->currentScope, name, values, NULL);
+                node->innerScope                = scope;
+                _ClangImporterSetScopeNode(importer, scope, (ASTNodeRef)node);
+                ASTArrayAppendElement(importer->sourceUnit->declarations, (ASTNodeRef)node);
             }
 
             ArrayDestroy(children);
@@ -411,10 +412,11 @@ ASTNodeRef _ClangImporterParseCursor(ClangImporterRef importer, StringRef implic
             _ClangImporterPopScope(importer);
 
             if (!importer->hasLocalErrorReports) {
-                ASTNodeRef node = (ASTNodeRef)ASTContextCreateEnumerationDeclaration(importer->context, SourceRangeNull(),
-                                                                                     importer->currentScope, name, elements);
-                _ClangImporterSetScopeNode(importer, scope, node);
-                ASTArrayAppendElement(importer->sourceUnit->declarations, node);
+                ASTEnumerationDeclarationRef node = ASTContextCreateEnumerationDeclaration(importer->context, SourceRangeNull(),
+                                                                                           importer->currentScope, name, elements);
+                node->innerScope                  = scope;
+                _ClangImporterSetScopeNode(importer, scope, (ASTNodeRef)node);
+                ASTArrayAppendElement(importer->sourceUnit->declarations, (ASTNodeRef)node);
             }
 
             ArrayDestroy(children);
@@ -490,12 +492,13 @@ ASTNodeRef _ClangImporterParseCursor(ClangImporterRef importer, StringRef implic
 
         _ClangImporterPopScope(importer);
 
-        ASTNodeRef node = NULL;
+        ASTFunctionDeclarationRef node = NULL;
         if (!importer->hasLocalErrorReports) {
-            node = (ASTNodeRef)ASTContextCreateForeignFunctionDeclaration(importer->context, SourceRangeNull(), importer->currentScope,
-                                                                          ASTFixityNone, name, arguments, resultType, mangledName);
-            _ClangImporterSetScopeNode(importer, scope, node);
-            ASTArrayAppendElement(importer->sourceUnit->declarations, node);
+            node = ASTContextCreateForeignFunctionDeclaration(importer->context, SourceRangeNull(), importer->currentScope, ASTFixityNone,
+                                                              name, arguments, resultType, mangledName);
+            node->innerScope = scope;
+            _ClangImporterSetScopeNode(importer, scope, (ASTNodeRef)node);
+            ASTArrayAppendElement(importer->sourceUnit->declarations, (ASTNodeRef)node);
         }
 
         ArrayDestroy(arguments);
@@ -504,7 +507,7 @@ ASTNodeRef _ClangImporterParseCursor(ClangImporterRef importer, StringRef implic
         StringDestroy(name);
         clang_disposeString(spelling);
 
-        return node;
+        return (ASTNodeRef)node;
     }
 
     if (cursorKind == CXCursor_VarDecl) {

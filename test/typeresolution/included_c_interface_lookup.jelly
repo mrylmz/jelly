@@ -1,0 +1,5 @@
+#include "test.h"
+
+func main() -> Void {
+    var result: Result = Test(0)
+}
