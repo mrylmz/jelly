@@ -70,6 +70,8 @@ WorkspaceRef WorkspaceCreate(AllocatorRef allocator, StringRef workingDirectory,
     workspace->dumpASTOutput       = stdout;
     workspace->running             = false;
     workspace->waiting             = false;
+    pthread_mutex_init(&workspace->mutex, NULL);
+    pthread_mutex_init(&workspace->empty, NULL);
 
     ASTModuleDeclarationRef module = ASTContextGetModule(workspace->context);
     DictionaryInsert(workspace->modules, StringGetCharacters(module->base.name), &module, sizeof(ASTModuleDeclarationRef));
@@ -144,8 +146,6 @@ Bool WorkspaceStartAsync(WorkspaceRef workspace) {
     workspace->running = true;
 
     DiagnosticEngineResetMessageCounts();
-    pthread_mutex_init(&workspace->mutex, NULL);
-    pthread_mutex_init(&workspace->empty, NULL);
     return pthread_create(&workspace->thread, NULL, &_WorkspaceProcess, workspace) == 0;
 }
 
