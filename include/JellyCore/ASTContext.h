@@ -89,8 +89,8 @@ ASTTypeOperationExpressionRef ASTContextCreateTypeOperationExpression(ASTContext
                                                                       ASTTypeOperation op, ASTExpressionRef expression,
                                                                       ASTTypeRef expressionType);
 
-ASTModuleDeclarationRef ASTContextCreateModuleDeclaration(ASTContextRef context, SourceRange location, ScopeID scope, StringRef moduleName,
-                                                          ArrayRef sourceUnits, ArrayRef importedModules);
+ASTModuleDeclarationRef ASTContextCreateModuleDeclaration(ASTContextRef context, SourceRange location, ScopeID scope, ASTModuleKind kind,
+                                                          StringRef moduleName, ArrayRef sourceUnits, ArrayRef importedModules);
 
 ASTEnumerationDeclarationRef ASTContextCreateEnumerationDeclaration(ASTContextRef context, SourceRange location, ScopeID scope,
                                                                     StringRef name, ArrayRef elements);

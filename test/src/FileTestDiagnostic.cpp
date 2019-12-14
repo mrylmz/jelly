@@ -122,7 +122,7 @@ std::string FileTest::GetFileName(std::string filepath) {
     }
 
     if (result.find("/") != std::string::npos) {
-        result = result.substr(result.find_last_of('/'));
+        result = result.substr(result.find_last_of('/') + 1);
     }
 
     return result;

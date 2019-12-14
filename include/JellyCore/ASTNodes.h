@@ -457,9 +457,17 @@ struct _ASTDeclaration {
     ASTTypeRef type;
 };
 
+enum _ASTModuleKind {
+    ASTModuleKindExecutable,
+    ASTModuleKindLibrary,
+    ASTModuleKindInterface,
+};
+typedef enum _ASTModuleKind ASTModuleKind;
+
 struct _ASTModuleDeclaration {
     struct _ASTDeclaration base;
 
+    ASTModuleKind kind;
     // TODO: @SourceUnitTree Replace sourceUnits with a single ASTSourceUnitRef and move additional source units into ASTSourceUnitRef where
     // they get loaded...
     ASTArrayRef sourceUnits;

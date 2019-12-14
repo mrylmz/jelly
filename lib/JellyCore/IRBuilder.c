@@ -148,6 +148,7 @@ IRModuleRef IRBuilderBuild(IRBuilderRef builder, ASTModuleDeclarationRef module)
             switch (child->tag) {
             case ASTTagLoadDirective:
             case ASTTagImportDirective:
+            case ASTTagIncludeDirective:
                 continue;
 
             case ASTTagEnumerationDeclaration:
@@ -488,6 +489,11 @@ static inline void _IRBuilderBuildForeignFunctionSignature(IRBuilderRef builder,
     }
 
     assert(declaration->base.base.tag == ASTTagForeignFunctionDeclaration);
+
+    if (declaration->base.base.irType == NULL) {
+        declaration->base.base.irType = _IRBuilderGetIRType(builder, declaration->base.type);
+    }
+
     assert(declaration->base.base.irType);
 
     LLVMValueRef function          = LLVMAddFunction(builder->module->module, StringGetCharacters(declaration->foreignName),

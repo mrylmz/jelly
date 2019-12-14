@@ -209,8 +209,8 @@ ASTModuleDeclarationRef ParserParseModuleDeclaration(ParserRef parser, StringRef
     }
 
     location.end                   = parser->token.location.start;
-    ASTModuleDeclarationRef module = ASTContextCreateModuleDeclaration(parser->context, location, parser->currentScope, moduleName, NULL,
-                                                                       NULL);
+    ASTModuleDeclarationRef module = ASTContextCreateModuleDeclaration(parser->context, location, parser->currentScope,
+                                                                       ASTModuleKindLibrary, moduleName, NULL, NULL);
     ASTArrayAppendArray(module->linkDirectives, linkDirectives);
     ASTSourceUnitRef sourceUnit = ASTContextCreateSourceUnit(parser->context, location, parser->currentScope, filePath, directives);
     ASTModuleAddSourceUnit(parser->context, module, sourceUnit);

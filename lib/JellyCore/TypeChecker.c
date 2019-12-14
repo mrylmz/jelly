@@ -110,7 +110,7 @@ void TypeCheckerValidateModule(TypeCheckerRef typeChecker, ASTContextRef context
         }
     }
 
-    if (!hasError && !module->entryPoint) {
+    if (!hasError && !module->entryPoint && module->kind == ASTModuleKindExecutable) {
         ReportError("No entry point specified for module");
     }
 }

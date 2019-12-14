@@ -46,7 +46,8 @@ ASTModuleDeclarationRef ClangImporterImport(ClangImporterRef importer, StringRef
     // TODO: Perform a correct string escaping, replacing whitespaces only is insufficient...
     StringReplaceOccurenciesOf(moduleName, ' ', '_');
 
-    importer->module     = ASTContextCreateModuleDeclaration(importer->context, SourceRangeNull(), kScopeNull, moduleName, NULL, NULL);
+    importer->module     = ASTContextCreateModuleDeclaration(importer->context, SourceRangeNull(), kScopeNull, ASTModuleKindInterface,
+                                                         moduleName, NULL, NULL);
     importer->sourceUnit = ASTContextCreateSourceUnit(importer->context, SourceRangeNull(), importer->currentScope, filePath, NULL);
     ASTArrayAppendElement(importer->module->sourceUnits, importer->sourceUnit);
 
@@ -69,6 +70,7 @@ ASTModuleDeclarationRef ClangImporterImport(ClangImporterRef importer, StringRef
     clang_disposeTranslationUnit(unit);
     clang_disposeIndex(index);
 
+    StringDestroy(moduleName);
     return importer->module;
 }
 
@@ -330,6 +332,8 @@ ASTNodeRef _ClangImporterParseCursor(ClangImporterRef importer, StringRef implic
                     _ClangImporterReportError(importer, cursor, "Unsupported declaration found in structure declaration");
                 }
             }
+
+            _ClangImporterPopScope(importer);
 
             if (!importer->hasLocalErrorReports) {
                 ASTStructureDeclarationRef node = ASTContextCreateStructureDeclaration(importer->context, SourceRangeNull(),

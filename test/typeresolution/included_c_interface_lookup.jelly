@@ -1,5 +1,9 @@
+// run: -dump-ir
+
 #include "test.h"
 
 func main() -> Void {
-    var result: Result = Test(0)
+    var result1: Result
+    result1.value = 1
+    var result2: Result = Test(result1.value)
 }

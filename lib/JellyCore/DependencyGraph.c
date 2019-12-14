@@ -24,8 +24,13 @@ DependencyGraphRef DependencyGraphCreate(AllocatorRef allocator) {
 }
 
 void DependencyGraphDestroy(DependencyGraphRef graph) {
-    // TODO: Free memory of nodes...
+    for (Index index = 0; index < ArrayGetElementCount(graph->nodes); index++) {
+        DependencyGraphNodeRef node = (DependencyGraphNodeRef)ArrayGetElementAtIndex(graph->nodes, index);
+        StringDestroy(node->identifier);
+        ArrayDestroy(node->dependencies);
+    }
 
+    DictionaryDestroy(graph->indices);
     ArrayDestroy(graph->nodes);
     AllocatorDeallocate(graph->allocator, graph);
 }
@@ -69,6 +74,7 @@ Bool DependencyGraphAddDependency(DependencyGraphRef graph, DependencyGraphNodeR
     return true;
 }
 
+// TODO: Improve API to collect information about cyclic dependency occurences...
 ArrayRef DependencyGraphGetIdentifiersInTopologicalOrder(DependencyGraphRef graph, Bool *hasCyclicDependencies) {
     ArrayRef inDegree = ArrayCreateEmpty(graph->allocator, sizeof(Index), ArrayGetElementCount(graph->nodes));
     for (Index index = 0; index < ArrayGetElementCount(graph->nodes); index++) {
@@ -118,7 +124,7 @@ ArrayRef DependencyGraphGetIdentifiersInTopologicalOrder(DependencyGraphRef grap
 
     *hasCyclicDependencies = visitedNodeCount != ArrayGetElementCount(graph->nodes);
 
-    QueueDequeue(queue);
+    QueueDestroy(queue);
     ArrayDestroy(inDegree);
     return result;
 }

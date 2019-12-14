@@ -36,6 +36,7 @@ TEST(DependencyGraph, DependencyGraphSortWithDepth1) {
     EXPECT_STREQ("C", StringGetCharacters(*((StringRef*)ArrayGetElementAtIndex(result, 2))));
     EXPECT_STREQ("D", StringGetCharacters(*((StringRef*)ArrayGetElementAtIndex(result, 3))));
 
+    ArrayDestroy(result);
     DependencyGraphDestroy(graph);
 }
 
@@ -83,6 +84,7 @@ TEST(DependencyGraph, DependencyGraphSortWithDepth2) {
     EXPECT_STREQ("C", StringGetCharacters(*((StringRef*)ArrayGetElementAtIndex(result, 2))));
     EXPECT_STREQ("B", StringGetCharacters(*((StringRef*)ArrayGetElementAtIndex(result, 3))));
 
+    ArrayDestroy(result);
     DependencyGraphDestroy(graph);
 }
 
@@ -131,5 +133,6 @@ TEST(DependencyGraph, DependencyGraphSortWithCyclicDependencyDepth2) {
     EXPECT_EQ(ArrayGetElementCount(result), 0);
     EXPECT_EQ(hasCyclicDependencies, true);
 
+    ArrayDestroy(result);
     DependencyGraphDestroy(graph);
 }
