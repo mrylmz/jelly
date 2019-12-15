@@ -2,7 +2,9 @@
 #include "JellyCore/ASTMangling.h"
 #include "JellyCore/ASTSubstitution.h"
 #include "JellyCore/ClangImporter.h"
+#include "JellyCore/DependencyGraph.h"
 #include "JellyCore/Diagnostic.h"
+#include "JellyCore/Dictionary.h"
 #include "JellyCore/IRBuilder.h"
 #include "JellyCore/LDLinker.h"
 #include "JellyCore/NameResolution.h"
@@ -12,8 +14,6 @@
 #include "JellyCore/Workspace.h"
 
 #include <pthread.h>
-
-// TODO: Fix memory leaks ...
 
 struct _Workspace {
     AllocatorRef allocator;
@@ -29,6 +29,7 @@ struct _Workspace {
     QueueRef parseInterfaceQueue;
     QueueRef parseIncludeQueue;
     QueueRef importQueue;
+    DictionaryRef modules;
 
     WorkspaceOptions options;
     FILE *dumpASTOutput;
@@ -64,10 +65,16 @@ WorkspaceRef WorkspaceCreate(AllocatorRef allocator, StringRef workingDirectory,
     workspace->parseInterfaceQueue = QueueCreate(allocator);
     workspace->parseIncludeQueue   = QueueCreate(allocator);
     workspace->importQueue         = QueueCreate(allocator);
+    workspace->modules             = CStringDictionaryCreate(allocator, 8);
     workspace->options             = options;
     workspace->dumpASTOutput       = stdout;
     workspace->running             = false;
     workspace->waiting             = false;
+    pthread_mutex_init(&workspace->mutex, NULL);
+    pthread_mutex_init(&workspace->empty, NULL);
+
+    ASTModuleDeclarationRef module = ASTContextGetModule(workspace->context);
+    DictionaryInsert(workspace->modules, StringGetCharacters(module->base.name), &module, sizeof(ASTModuleDeclarationRef));
     return workspace;
 }
 
@@ -78,6 +85,11 @@ void WorkspaceDestroy(WorkspaceRef workspace) {
 
     for (Index index = 0; index < ArrayGetElementCount(workspace->moduleFilePaths); index++) {
         StringRef string = *(StringRef *)ArrayGetElementAtIndex(workspace->moduleFilePaths, index);
+        StringDestroy(string);
+    }
+
+    for (Index index = 0; index < ArrayGetElementCount(workspace->includeFilePaths); index++) {
+        StringRef string = *(StringRef *)ArrayGetElementAtIndex(workspace->includeFilePaths, index);
         StringDestroy(string);
     }
 
@@ -98,6 +110,7 @@ void WorkspaceDestroy(WorkspaceRef workspace) {
     QueueDestroy(workspace->parseInterfaceQueue);
     QueueDestroy(workspace->parseIncludeQueue);
     QueueDestroy(workspace->importQueue);
+    DictionaryDestroy(workspace->modules);
     AllocatorDeallocate(workspace->allocator, workspace);
 }
 
@@ -133,8 +146,6 @@ Bool WorkspaceStartAsync(WorkspaceRef workspace) {
     workspace->running = true;
 
     DiagnosticEngineResetMessageCounts();
-    pthread_mutex_init(&workspace->mutex, NULL);
-    pthread_mutex_init(&workspace->empty, NULL);
     return pthread_create(&workspace->thread, NULL, &_WorkspaceProcess, workspace) == 0;
 }
 
@@ -293,10 +304,9 @@ void _WorkspacePerformImports(WorkspaceRef workspace, ASTModuleDeclarationRef mo
     }
 }
 
-void *_WorkspaceProcess(void *context) {
-    WorkspaceRef workspace = (WorkspaceRef)context;
+Bool _WorkspaceProcessParseQueue(WorkspaceRef workspace) {
+    Index processedFileCount = 0;
 
-    // Parse / Import phase
     while (true) {
         pthread_mutex_lock(&workspace->mutex);
         StringRef parseFilePath = QueueDequeue(workspace->parseQueue);
@@ -319,8 +329,20 @@ void *_WorkspaceProcess(void *context) {
 
             StringDestroy(absoluteFilePath);
             StringDestroy(parseFilePath);
-        }
 
+            processedFileCount += 1;
+        } else {
+            break;
+        }
+    }
+
+    return processedFileCount > 0;
+}
+
+Bool _WorkspaceProcessImportQueue(WorkspaceRef workspace) {
+    Index processedFileCount = 0;
+
+    while (true) {
         pthread_mutex_lock(&workspace->mutex);
         ASTModuleDeclarationRef module = QueueDequeue(workspace->importQueue);
         StringRef importFilePath       = QueueDequeue(workspace->importQueue);
@@ -332,25 +354,20 @@ void *_WorkspaceProcess(void *context) {
             StringAppendString(absoluteFilePath, importFilePath);
             StringRef source = StringCreateFromFile(workspace->allocator, StringGetCharacters(absoluteFilePath));
             if (source) {
-                BucketArrayRef modules = ASTContextGetAllNodes(workspace->context, ASTTagModuleDeclaration);
-                Index moduleCount      = BucketArrayGetElementCount(modules);
-
                 ASTModuleDeclarationRef importedModule = ParserParseModuleDeclaration(workspace->parser, importFilePath, source);
                 StringDestroy(source);
 
                 if (importedModule) {
+                    if (DictionaryLookup(workspace->modules, StringGetCharacters(importedModule->base.name)) != NULL) {
+                        ReportErrorFormat("Module '%s' cannot be imported twice", StringGetCharacters(importedModule->base.name));
+                    }
+
                     assert(ASTArrayGetElementCount(importedModule->sourceUnits) == 1);
                     ASTSourceUnitRef sourceUnit = ASTArrayGetElementAtIndex(importedModule->sourceUnits, 0);
                     _WorkspacePerformInterfaceLoads(workspace, importedModule, sourceUnit);
-
                     ASTArrayAppendElement(module->importedModules, importedModule);
-
-                    for (Index index = 0; index < moduleCount; index++) {
-                        ASTModuleDeclarationRef loadedModule = (ASTModuleDeclarationRef)BucketArrayGetElementAtIndex(modules, index);
-                        if (StringIsEqual(importedModule->base.name, loadedModule->base.name)) {
-                            ReportErrorFormat("Module '%s' cannot be imported twice", StringGetCharacters(importedModule->base.name));
-                        }
-                    }
+                    DictionaryInsert(workspace->modules, StringGetCharacters(importedModule->base.name), &importedModule,
+                                     sizeof(ASTModuleDeclarationRef));
                 }
             } else {
                 ReportErrorFormat("File not found: '%s'", StringGetCharacters(importFilePath));
@@ -358,8 +375,20 @@ void *_WorkspaceProcess(void *context) {
 
             StringDestroy(absoluteFilePath);
             StringDestroy(importFilePath);
-        }
 
+            processedFileCount += 1;
+        } else {
+            break;
+        }
+    }
+
+    return processedFileCount > 0;
+}
+
+Bool _WorkspaceProcessParseInterfaceQueue(WorkspaceRef workspace) {
+    Index processedFileCount = 0;
+
+    while (true) {
         pthread_mutex_lock(&workspace->mutex);
         ASTModuleDeclarationRef importedModule = QueueDequeue(workspace->parseInterfaceQueue);
         StringRef parseInterfaceFilePath       = QueueDequeue(workspace->parseInterfaceQueue);
@@ -381,10 +410,22 @@ void *_WorkspaceProcess(void *context) {
 
             StringDestroy(absoluteFilePath);
             StringDestroy(parseInterfaceFilePath);
-        }
 
+            processedFileCount += 1;
+        } else {
+            break;
+        }
+    }
+
+    return processedFileCount > 0;
+}
+
+Bool _WorkspaceProcessParseIncludeQueue(WorkspaceRef workspace) {
+    Index processedFileCount = 0;
+
+    while (true) {
         pthread_mutex_lock(&workspace->mutex);
-        module                         = QueueDequeue(workspace->parseIncludeQueue);
+        ASTModuleDeclarationRef module = QueueDequeue(workspace->parseIncludeQueue);
         StringRef parseIncludeFilePath = QueueDequeue(workspace->parseIncludeQueue);
         pthread_mutex_unlock(&workspace->mutex);
 
@@ -393,19 +434,107 @@ void *_WorkspaceProcess(void *context) {
             StringAppend(absoluteFilePath, "/");
             StringAppendString(absoluteFilePath, parseIncludeFilePath);
 
-            importedModule = ClangImporterImport(workspace->importer, absoluteFilePath);
+            ASTModuleDeclarationRef importedModule = ClangImporterImport(workspace->importer, absoluteFilePath);
             if (importedModule) {
-                // TODO: Check if a module with the same name already exists!
+                if (DictionaryLookup(workspace->modules, StringGetCharacters(importedModule->base.name)) != NULL) {
+                    ReportErrorFormat("Module '%s' cannot be imported twice", StringGetCharacters(importedModule->base.name));
+                }
+
                 ASTArrayAppendElement(module->importedModules, importedModule);
+                DictionaryInsert(workspace->modules, StringGetCharacters(importedModule->base.name), &importedModule,
+                                 sizeof(ASTModuleDeclarationRef));
             }
 
             StringDestroy(absoluteFilePath);
             StringDestroy(parseIncludeFilePath);
-        }
 
-        if (!parseFilePath && !importFilePath && !parseInterfaceFilePath && !parseIncludeFilePath) {
+            processedFileCount += 1;
+        } else {
             break;
         }
+    }
+
+    return processedFileCount > 0;
+}
+
+void _WorkspaceVerifyModule(WorkspaceRef workspace, ASTModuleDeclarationRef module) {
+    ASTApplySubstitution(workspace->context, module);
+
+    PerformNameResolution(workspace->context, module);
+
+    // Perform ASTApplySubstitution a second time to allow substitutions in name resolution phase...
+    ASTApplySubstitution(workspace->context, module);
+
+    TypeCheckerRef typeChecker = TypeCheckerCreate(workspace->allocator);
+    TypeCheckerValidateModule(typeChecker, workspace->context, module);
+    TypeCheckerDestroy(typeChecker);
+}
+
+void _WorkspaceBuildModule(WorkspaceRef workspace, ASTModuleDeclarationRef module) {
+    PerformNameMangling(workspace->context, module);
+
+    if (module->kind == ASTModuleKindInterface) {
+        return;
+    }
+
+    IRBuilderRef builder = IRBuilderCreate(workspace->allocator, workspace->context, workspace->buildDirectory);
+    IRModuleRef irModule = IRBuilderBuild(builder, module);
+
+    if ((workspace->options & WorkspaceOptionsDumpIR) > 0) {
+        IRBuilderDumpModule(builder, irModule, stdout);
+        IRBuilderDestroy(builder);
+        return;
+    }
+
+    IRBuilderVerifyModule(builder, irModule);
+
+    if (DiagnosticEngineGetMessageCount(DiagnosticLevelError) > 0 || DiagnosticEngineGetMessageCount(DiagnosticLevelCritical) > 0) {
+        IRBuilderDestroy(builder);
+        return;
+    }
+
+    IRBuilderEmitObjectFile(builder, irModule, module->base.name);
+    IRBuilderDestroy(builder);
+}
+
+DependencyGraphNodeRef _DependencyGraphInsertModule(DependencyGraphRef graph, ASTModuleDeclarationRef module) {
+    if (StringGetLength(module->base.name) < 1) {
+        return NULL;
+    }
+
+    if (DependencyGraphLookupNode(graph, module->base.name)) {
+        return NULL;
+    }
+
+    DependencyGraphNodeRef node  = DependencyGraphInsertNode(graph, module->base.name);
+    ASTArrayIteratorRef iterator = ASTArrayGetIterator(module->importedModules);
+    while (iterator) {
+        ASTModuleDeclarationRef importedModule = (ASTModuleDeclarationRef)ASTArrayIteratorGetElement(iterator);
+        DependencyGraphNodeRef child           = _DependencyGraphInsertModule(graph, importedModule);
+        if (!child) {
+            break;
+        }
+
+        Bool inserted = DependencyGraphAddDependency(graph, node, importedModule->base.name);
+        assert(inserted);
+
+        iterator = ASTArrayIteratorNext(iterator);
+    }
+
+    return node;
+}
+
+void *_WorkspaceProcess(void *context) {
+    WorkspaceRef workspace = (WorkspaceRef)context;
+
+    // Parse / Import phase
+    Bool processFrontend = true;
+    while (processFrontend) {
+        processFrontend = false;
+        processFrontend |= _WorkspaceProcessParseQueue(workspace);
+        processFrontend |= _WorkspaceProcessImportQueue(workspace);
+        processFrontend |= _WorkspaceProcessParseInterfaceQueue(workspace);
+        processFrontend |= _WorkspaceProcessParseIncludeQueue(workspace);
     }
 
     if ((workspace->options & WorkspaceOptionsDumpAST) > 0) {
@@ -422,28 +551,50 @@ void *_WorkspaceProcess(void *context) {
         return NULL;
     }
 
+    ASTModuleDeclarationRef astModule = ASTContextGetModule(workspace->context);
+    DependencyGraphRef graph          = DependencyGraphCreate(workspace->allocator);
+    _DependencyGraphInsertModule(graph, astModule);
+    Bool hasCyclicDependencies;
+    ArrayRef sortedModuleNames = DependencyGraphGetIdentifiersInTopologicalOrder(graph, &hasCyclicDependencies);
+    if (hasCyclicDependencies) {
+        ReportError("Found cyclic dependencies in imported modules!");
+        ArrayDestroy(sortedModuleNames);
+        return NULL;
+    }
+
+    ArrayRef sortedModules = ArrayCreateEmpty(workspace->allocator, sizeof(ASTModuleDeclarationRef),
+                                              ArrayGetElementCount(sortedModuleNames));
+    for (Index index = ArrayGetElementCount(sortedModuleNames); index > 0; index--) {
+        StringRef moduleName           = *((StringRef *)ArrayGetElementAtIndex(sortedModuleNames, index - 1));
+        ASTModuleDeclarationRef module = *(
+            (ASTModuleDeclarationRef *)DictionaryLookup(workspace->modules, StringGetCharacters(moduleName)));
+        if (module) {
+            ArrayAppendElement(sortedModules, &module);
+        } else {
+            ReportErrorFormat("Couldn't find imported module '%s'", StringGetCharacters(moduleName));
+        }
+    }
+
+    ArrayDestroy(sortedModuleNames);
+    DependencyGraphDestroy(graph);
+
     ASTPerformSubstitution(workspace->context, ASTTagUnaryExpression, &ASTUnaryExpressionUnification);
     ASTPerformSubstitution(workspace->context, ASTTagBinaryExpression, &ASTBinaryExpressionUnification);
-    ASTApplySubstitution(workspace->context, ASTContextGetModule(workspace->context));
 
-    PerformNameResolution(workspace->context, ASTContextGetModule(workspace->context));
-
-    // Perform ASTApplySubstitution a second time to allow substitutions in name resolution phase...
-    ASTApplySubstitution(workspace->context, ASTContextGetModule(workspace->context));
-
-    TypeCheckerRef typeChecker = TypeCheckerCreate(workspace->allocator);
-    TypeCheckerValidateModule(typeChecker, workspace->context, ASTContextGetModule(workspace->context));
-    TypeCheckerDestroy(typeChecker);
+    for (Index index = 0; index < ArrayGetElementCount(sortedModules); index++) {
+        ASTModuleDeclarationRef module = *((ASTModuleDeclarationRef *)ArrayGetElementAtIndex(sortedModules, index));
+        _WorkspaceVerifyModule(workspace, module);
+    }
 
     if (DiagnosticEngineGetMessageCount(DiagnosticLevelError) > 0 || DiagnosticEngineGetMessageCount(DiagnosticLevelCritical) > 0) {
+        ArrayDestroy(sortedModules);
         return NULL;
     }
 
     if (workspace->options & WorkspaceOptionsTypeCheck) {
+        ArrayDestroy(sortedModules);
         return NULL;
     }
-
-    PerformNameMangling(workspace->context, ASTContextGetModule(workspace->context));
 
     DIR *buildDirectory = opendir(StringGetCharacters(workspace->buildDirectory));
     if (!buildDirectory) {
@@ -454,61 +605,64 @@ void *_WorkspaceProcess(void *context) {
         closedir(buildDirectory);
     }
 
-    if (DiagnosticEngineGetMessageCount(DiagnosticLevelError) > 0 || DiagnosticEngineGetMessageCount(DiagnosticLevelCritical) > 0) {
-        return NULL;
+    for (Index index = 0; index < ArrayGetElementCount(sortedModules); index++) {
+        ASTModuleDeclarationRef module = *((ASTModuleDeclarationRef *)ArrayGetElementAtIndex(sortedModules, index));
+        _WorkspaceBuildModule(workspace, module);
     }
 
-    IRBuilderRef builder = IRBuilderCreate(workspace->allocator, workspace->context, workspace->buildDirectory);
-    IRModuleRef module   = IRBuilderBuild(builder, ASTContextGetModule(workspace->context));
+    if (DiagnosticEngineGetMessageCount(DiagnosticLevelError) > 0 || DiagnosticEngineGetMessageCount(DiagnosticLevelCritical) > 0) {
+        ArrayDestroy(sortedModules);
+        return NULL;
+    }
 
     if ((workspace->options & WorkspaceOptionsDumpIR) > 0) {
-        IRBuilderDumpModule(builder, module, stdout);
-        IRBuilderDestroy(builder);
+        ArrayDestroy(sortedModules);
         return NULL;
     }
 
-    IRBuilderVerifyModule(builder, module);
-
-    if (DiagnosticEngineGetMessageCount(DiagnosticLevelError) > 0 || DiagnosticEngineGetMessageCount(DiagnosticLevelCritical) > 0) {
-        IRBuilderDestroy(builder);
-        return NULL;
-    }
-
-    IRBuilderEmitObjectFile(builder, module, ASTContextGetModule(workspace->context)->base.name);
-    IRBuilderDestroy(builder);
-
-    if (DiagnosticEngineGetMessageCount(DiagnosticLevelError) > 0 || DiagnosticEngineGetMessageCount(DiagnosticLevelCritical) > 0) {
-        return NULL;
-    }
-
-    ArrayRef objectFiles     = ArrayCreateEmpty(workspace->allocator, sizeof(StringRef), 1);
-    StringRef objectFilePath = StringCreateCopy(workspace->allocator, workspace->buildDirectory);
-    StringAppendFormat(objectFilePath, "/%s.o", StringGetCharacters(ASTContextGetModule(workspace->context)->base.name));
-    ArrayAppendElement(objectFiles, &objectFilePath);
-
-    StringRef targetPath = StringCreateCopy(workspace->allocator, workspace->buildDirectory);
-    StringAppendFormat(targetPath, "/program");
-
-    ArrayRef linkLibraries       = ArrayCreateEmpty(workspace->allocator, sizeof(StringRef), 0);
-    ArrayRef linkFrameworks      = ArrayCreateEmpty(workspace->allocator, sizeof(StringRef), 0);
-    ASTArrayIteratorRef iterator = ASTArrayGetIterator(ASTContextGetModule(workspace->context)->linkDirectives);
-    while (iterator) {
-        ASTLinkDirectiveRef link = (ASTLinkDirectiveRef)ASTArrayIteratorGetElement(iterator);
-        if (link->isFramework) {
-            ArrayAppendElement(linkFrameworks, &link->library);
-        } else {
-            ArrayAppendElement(linkLibraries, &link->library);
+    ArrayRef objectFiles = ArrayCreateEmpty(workspace->allocator, sizeof(StringRef), 1);
+    for (Index index = 0; index < ArrayGetElementCount(sortedModules); index++) {
+        ASTModuleDeclarationRef module = *((ASTModuleDeclarationRef *)ArrayGetElementAtIndex(sortedModules, index));
+        if (module->kind == ASTModuleKindInterface) {
+            continue;
         }
 
-        iterator = ASTArrayIteratorNext(iterator);
+        StringRef objectFilePath = StringCreateCopy(workspace->allocator, workspace->buildDirectory);
+        StringAppendFormat(objectFilePath, "/%s.o", StringGetCharacters(module->base.name));
+        ArrayAppendElement(objectFiles, &objectFilePath);
+
+        StringRef targetPath = StringCreateCopy(workspace->allocator, workspace->buildDirectory);
+        StringAppendFormat(targetPath, "/%s", StringGetCharacters(module->base.name));
+
+        ArrayRef linkLibraries       = ArrayCreateEmpty(workspace->allocator, sizeof(StringRef), 0);
+        ArrayRef linkFrameworks      = ArrayCreateEmpty(workspace->allocator, sizeof(StringRef), 0);
+        ASTArrayIteratorRef iterator = ASTArrayGetIterator(module->linkDirectives);
+        while (iterator) {
+            ASTLinkDirectiveRef link = (ASTLinkDirectiveRef)ASTArrayIteratorGetElement(iterator);
+            if (link->isFramework) {
+                ArrayAppendElement(linkFrameworks, &link->library);
+            } else {
+                ArrayAppendElement(linkLibraries, &link->library);
+            }
+
+            iterator = ASTArrayIteratorNext(iterator);
+        }
+
+        if (module->kind == ASTModuleKindExecutable) {
+            LDLinkerLink(workspace->allocator, objectFiles, linkLibraries, linkFrameworks, targetPath, LDLinkerTargetTypeExecutable, NULL);
+        }
+
+        ArrayDestroy(linkLibraries);
+        ArrayDestroy(linkFrameworks);
+        StringDestroy(targetPath);
     }
 
-    LDLinkerLink(workspace->allocator, objectFiles, linkLibraries, linkFrameworks, targetPath, LDLinkerTargetTypeExecutable, NULL);
+    for (Index index = 0; index < ArrayGetElementCount(objectFiles); index++) {
+        StringRef objectFilePath = *((StringRef *)ArrayGetElementAtIndex(objectFiles, index));
+        StringDestroy(objectFilePath);
+    }
 
-    ArrayDestroy(linkLibraries);
-    ArrayDestroy(linkFrameworks);
     ArrayDestroy(objectFiles);
-    StringDestroy(objectFilePath);
-    StringDestroy(targetPath);
+    ArrayDestroy(sortedModules);
     return NULL;
 }

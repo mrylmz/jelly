@@ -1,0 +1,7 @@
+#import "module/Renderer.jelly"
+
+func main() -> Void {
+    var p: Point
+    p.x = 1
+    p.y = 2
+}

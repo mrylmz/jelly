@@ -10,6 +10,7 @@
 #include <JellyCore/BumpAllocator.h>
 #include <JellyCore/ClangImporter.h>
 #include <JellyCore/Compiler.h>
+#include <JellyCore/DependencyGraph.h>
 #include <JellyCore/Diagnostic.h>
 #include <JellyCore/Dictionary.h>
 #include <JellyCore/Lexer.h>

@@ -74,7 +74,7 @@ ASTContextRef ASTContextCreate(AllocatorRef allocator, StringRef moduleName) {
     context->nodes[ASTTagEnumerationType]        = BucketArrayCreateEmpty(context->allocator, sizeof(struct _ASTEnumerationType), 8);
     context->nodes[ASTTagFunctionType]           = BucketArrayCreateEmpty(context->allocator, sizeof(struct _ASTFunctionType), 8);
     context->nodes[ASTTagStructureType]          = BucketArrayCreateEmpty(context->allocator, sizeof(struct _ASTStructureType), 8);
-    context->module = ASTContextCreateModuleDeclaration(context, SourceRangeNull(), NULL, moduleName, NULL, NULL);
+    context->module = ASTContextCreateModuleDeclaration(context, SourceRangeNull(), NULL, ASTModuleKindExecutable, moduleName, NULL, NULL);
     SymbolTableSetScopeUserdata(context->symbolTable, kScopeGlobal, context->module);
     _ASTContextInitBuiltinTypes(context);
     _ASTContextInitBuiltinFunctions(context);
@@ -484,12 +484,13 @@ ASTTypeOperationExpressionRef ASTContextCreateTypeOperationExpression(ASTContext
     return node;
 }
 
-ASTModuleDeclarationRef ASTContextCreateModuleDeclaration(ASTContextRef context, SourceRange location, ScopeID scope, StringRef name,
-                                                          ArrayRef sourceUnits, ArrayRef importedModules) {
+ASTModuleDeclarationRef ASTContextCreateModuleDeclaration(ASTContextRef context, SourceRange location, ScopeID scope, ASTModuleKind kind,
+                                                          StringRef name, ArrayRef sourceUnits, ArrayRef importedModules) {
     ASTModuleDeclarationRef node = (ASTModuleDeclarationRef)_ASTContextCreateNode(context, ASTTagModuleDeclaration, location, scope);
     node->base.name              = StringCreateCopy(context->tempAllocator, name);
     node->base.mangledName       = NULL;
     node->base.type              = NULL;
+    node->kind                   = kind;
     node->innerScope             = kScopeGlobal;
     node->sourceUnits            = ASTContextCreateArray(context, location, scope);
     node->importedModules        = ASTContextCreateArray(context, location, scope);

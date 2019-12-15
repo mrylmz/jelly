@@ -46,7 +46,8 @@ ASTModuleDeclarationRef ClangImporterImport(ClangImporterRef importer, StringRef
     // TODO: Perform a correct string escaping, replacing whitespaces only is insufficient...
     StringReplaceOccurenciesOf(moduleName, ' ', '_');
 
-    importer->module     = ASTContextCreateModuleDeclaration(importer->context, SourceRangeNull(), kScopeNull, moduleName, NULL, NULL);
+    importer->module     = ASTContextCreateModuleDeclaration(importer->context, SourceRangeNull(), kScopeNull, ASTModuleKindInterface,
+                                                         moduleName, NULL, NULL);
     importer->sourceUnit = ASTContextCreateSourceUnit(importer->context, SourceRangeNull(), importer->currentScope, filePath, NULL);
     ASTArrayAppendElement(importer->module->sourceUnits, importer->sourceUnit);
 
@@ -69,6 +70,7 @@ ASTModuleDeclarationRef ClangImporterImport(ClangImporterRef importer, StringRef
     clang_disposeTranslationUnit(unit);
     clang_disposeIndex(index);
 
+    StringDestroy(moduleName);
     return importer->module;
 }
 
@@ -331,11 +333,14 @@ ASTNodeRef _ClangImporterParseCursor(ClangImporterRef importer, StringRef implic
                 }
             }
 
+            _ClangImporterPopScope(importer);
+
             if (!importer->hasLocalErrorReports) {
-                ASTNodeRef node = (ASTNodeRef)ASTContextCreateStructureDeclaration(importer->context, SourceRangeNull(),
-                                                                                   importer->currentScope, name, values, NULL);
-                _ClangImporterSetScopeNode(importer, scope, node);
-                ASTArrayAppendElement(importer->sourceUnit->declarations, node);
+                ASTStructureDeclarationRef node = ASTContextCreateStructureDeclaration(importer->context, SourceRangeNull(),
+                                                                                       importer->currentScope, name, values, NULL);
+                node->innerScope                = scope;
+                _ClangImporterSetScopeNode(importer, scope, (ASTNodeRef)node);
+                ASTArrayAppendElement(importer->sourceUnit->declarations, (ASTNodeRef)node);
             }
 
             ArrayDestroy(children);
@@ -411,10 +416,11 @@ ASTNodeRef _ClangImporterParseCursor(ClangImporterRef importer, StringRef implic
             _ClangImporterPopScope(importer);
 
             if (!importer->hasLocalErrorReports) {
-                ASTNodeRef node = (ASTNodeRef)ASTContextCreateEnumerationDeclaration(importer->context, SourceRangeNull(),
-                                                                                     importer->currentScope, name, elements);
-                _ClangImporterSetScopeNode(importer, scope, node);
-                ASTArrayAppendElement(importer->sourceUnit->declarations, node);
+                ASTEnumerationDeclarationRef node = ASTContextCreateEnumerationDeclaration(importer->context, SourceRangeNull(),
+                                                                                           importer->currentScope, name, elements);
+                node->innerScope                  = scope;
+                _ClangImporterSetScopeNode(importer, scope, (ASTNodeRef)node);
+                ASTArrayAppendElement(importer->sourceUnit->declarations, (ASTNodeRef)node);
             }
 
             ArrayDestroy(children);
@@ -425,6 +431,9 @@ ASTNodeRef _ClangImporterParseCursor(ClangImporterRef importer, StringRef implic
         clang_disposeString(spelling);
     }
 
+    // TODO: Including the OpenGL/gl.h interface from macOS the OPENGL_DEPRECATED macro is interpreted
+    //       as the name of the functions but that is not correct!
+    //       There seems to be a problem with the availability attributes of the macOS platform
     if (cursorKind == CXCursor_FunctionDecl) {
         if (clang_isCursorDefinition(cursor)) {
             return NULL;
@@ -490,12 +499,13 @@ ASTNodeRef _ClangImporterParseCursor(ClangImporterRef importer, StringRef implic
 
         _ClangImporterPopScope(importer);
 
-        ASTNodeRef node = NULL;
+        ASTFunctionDeclarationRef node = NULL;
         if (!importer->hasLocalErrorReports) {
-            node = (ASTNodeRef)ASTContextCreateForeignFunctionDeclaration(importer->context, SourceRangeNull(), importer->currentScope,
-                                                                          ASTFixityNone, name, arguments, resultType, mangledName);
-            _ClangImporterSetScopeNode(importer, scope, node);
-            ASTArrayAppendElement(importer->sourceUnit->declarations, node);
+            node = ASTContextCreateForeignFunctionDeclaration(importer->context, SourceRangeNull(), importer->currentScope, ASTFixityNone,
+                                                              name, arguments, resultType, mangledName);
+            node->innerScope = scope;
+            _ClangImporterSetScopeNode(importer, scope, (ASTNodeRef)node);
+            ASTArrayAppendElement(importer->sourceUnit->declarations, (ASTNodeRef)node);
         }
 
         ArrayDestroy(arguments);
@@ -504,7 +514,7 @@ ASTNodeRef _ClangImporterParseCursor(ClangImporterRef importer, StringRef implic
         StringDestroy(name);
         clang_disposeString(spelling);
 
-        return node;
+        return (ASTNodeRef)node;
     }
 
     if (cursorKind == CXCursor_VarDecl) {

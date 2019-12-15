@@ -72,6 +72,10 @@ static inline void _ASTApplySubstitution(ASTContextRef context, ASTNodeRef node)
         return;
     }
 
+    if (node->tag == ASTTagIncludeDirective) {
+        return;
+    }
+
     if (node->tag == ASTTagBlock) {
         ASTBlockRef block = (ASTBlockRef)node;
         _ASTApplySubstitutionInplace(context, block->statements, ASTArrayRef);

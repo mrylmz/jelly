@@ -74,7 +74,10 @@ ParserRef ParserCreate(AllocatorRef allocator, ASTContextRef context) {
 }
 
 void ParserDestroy(ParserRef parser) {
-    assert(!parser->lexer);
+    if (parser->lexer) {
+        LexerDestroy(parser->lexer);
+    }
+
     AllocatorDestroy(parser->tempAllocator);
     AllocatorDeallocate(parser->allocator, parser);
 }
@@ -176,8 +179,9 @@ ASTModuleDeclarationRef ParserParseModuleDeclaration(ParserRef parser, StringRef
     while (!_ParserIsToken(parser, TokenKindRightCurlyBracket)) {
         SourceRange leadingTrivia = parser->token.leadingTrivia;
 
-        if (!_ParserIsToken(parser, TokenKindDirectiveLoad) && !_ParserIsToken(parser, TokenKindDirectiveLink)) {
-            ReportError("Expected '#load' or '#link' directive in module");
+        if (!_ParserIsToken(parser, TokenKindDirectiveLoad) && !_ParserIsToken(parser, TokenKindDirectiveLink) &&
+            !_ParserIsToken(parser, TokenKindDirectiveInclude)) {
+            ReportError("Expected '#load', '#link' or '#include' directive in module");
             return NULL;
         }
 
@@ -209,8 +213,8 @@ ASTModuleDeclarationRef ParserParseModuleDeclaration(ParserRef parser, StringRef
     }
 
     location.end                   = parser->token.location.start;
-    ASTModuleDeclarationRef module = ASTContextCreateModuleDeclaration(parser->context, location, parser->currentScope, moduleName, NULL,
-                                                                       NULL);
+    ASTModuleDeclarationRef module = ASTContextCreateModuleDeclaration(parser->context, location, parser->currentScope,
+                                                                       ASTModuleKindLibrary, moduleName, NULL, NULL);
     ASTArrayAppendArray(module->linkDirectives, linkDirectives);
     ASTSourceUnitRef sourceUnit = ASTContextCreateSourceUnit(parser->context, location, parser->currentScope, filePath, directives);
     ASTModuleAddSourceUnit(parser->context, module, sourceUnit);

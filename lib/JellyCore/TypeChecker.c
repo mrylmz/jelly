@@ -110,7 +110,7 @@ void TypeCheckerValidateModule(TypeCheckerRef typeChecker, ASTContextRef context
         }
     }
 
-    if (!hasError && !module->entryPoint) {
+    if (!hasError && !module->entryPoint && module->kind == ASTModuleKindExecutable) {
         ReportError("No entry point specified for module");
     }
 }
@@ -126,7 +126,7 @@ static inline void _TypeCheckerValidateSourceUnit(TypeCheckerRef typeChecker, AS
 
 static inline void _TypeCheckerValidateTopLevelNode(TypeCheckerRef typeChecker, ASTContextRef context, ASTNodeRef node) {
     if (node->tag == ASTTagLoadDirective || node->tag == ASTTagLinkDirective || node->tag == ASTTagImportDirective ||
-        node->tag == ASTTagTypeAliasDeclaration) {
+        node->tag == ASTTagTypeAliasDeclaration || node->tag == ASTTagIncludeDirective) {
         return;
     }
 
