@@ -22,8 +22,8 @@ void LDLinkerLink(AllocatorRef allocator, ArrayRef objectFiles, ArrayRef linkLib
         StringAppendFormat(command, " %s", "-bundle");
         break;
     case LDLinkerTargetTypeStatic:
-        StringAppendFormat(command, " %s", "-static");
-        break;
+        ReportCritical("Static libraries are currently not supported!");
+        return;
     }
 
     if (architecture) {
@@ -52,7 +52,9 @@ void LDLinkerLink(AllocatorRef allocator, ArrayRef objectFiles, ArrayRef linkLib
     // TODO: macOS min version is missing
     // dynamic main executables must link with libSystem.dylib for inferred architecture x86_64
     // See: https://stackoverflow.com/questions/52830484/nasm-cant-link-object-file-with-ld-on-macos-mojave
-    StringAppendFormat(command, " %s", "-lSystem");
+    if (targetType == LDLinkerTargetTypeExecutable) {
+        StringAppendFormat(command, " %s", "-lSystem");
+    }
 
     Int status = system(StringGetCharacters(command));
     if (status != EXIT_SUCCESS) {

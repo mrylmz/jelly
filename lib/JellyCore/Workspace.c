@@ -648,11 +648,17 @@ void *_WorkspaceProcess(void *context) {
             iterator = ASTArrayIteratorNext(iterator);
         }
 
-        LDLinkerLink(workspace->allocator, objectFiles, linkLibraries, linkFrameworks, targetPath, LDLinkerTargetTypeExecutable, NULL);
+        if (module->kind == ASTModuleKindExecutable) {
+            LDLinkerLink(workspace->allocator, objectFiles, linkLibraries, linkFrameworks, targetPath, LDLinkerTargetTypeExecutable, NULL);
+        }
 
         ArrayDestroy(linkLibraries);
         ArrayDestroy(linkFrameworks);
         StringDestroy(targetPath);
+    }
+
+    for (Index index = 0; index < ArrayGetElementCount(objectFiles); index++) {
+        StringRef objectFilePath = *((StringRef *)ArrayGetElementAtIndex(objectFiles, index));
         StringDestroy(objectFilePath);
     }
 

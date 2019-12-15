@@ -431,6 +431,9 @@ ASTNodeRef _ClangImporterParseCursor(ClangImporterRef importer, StringRef implic
         clang_disposeString(spelling);
     }
 
+    // TODO: Including the OpenGL/gl.h interface from macOS the OPENGL_DEPRECATED macro is interpreted
+    //       as the name of the functions but that is not correct!
+    //       There seems to be a problem with the availability attributes of the macOS platform
     if (cursorKind == CXCursor_FunctionDecl) {
         if (clang_isCursorDefinition(cursor)) {
             return NULL;

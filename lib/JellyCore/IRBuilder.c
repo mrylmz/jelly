@@ -189,7 +189,9 @@ IRModuleRef IRBuilderBuild(IRBuilderRef builder, ASTModuleDeclarationRef module)
         }
     }
 
-    _IRBuilderBuildEntryPoint(builder, module);
+    if (module->kind == ASTModuleKindExecutable) {
+        _IRBuilderBuildEntryPoint(builder, module);
+    }
 
     return builder->module;
 }
