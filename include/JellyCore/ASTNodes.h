@@ -44,6 +44,7 @@ enum _ASTTag {
     ASTTagFunctionDeclaration,
     ASTTagForeignFunctionDeclaration,
     ASTTagIntrinsicFunctionDeclaration,
+    ASTTagGenericFunctionDeclaration,
     ASTTagStructureDeclaration,
     ASTTagGenericStructureDeclaration,
     ASTTagInitializerDeclaration,
@@ -122,6 +123,7 @@ typedef struct _ASTTypeExpression *ASTTypeExpressionRef;
 typedef struct _ASTModuleDeclaration *ASTModuleDeclarationRef;
 typedef struct _ASTEnumerationDeclaration *ASTEnumerationDeclarationRef;
 typedef struct _ASTFunctionDeclaration *ASTFunctionDeclarationRef;
+typedef struct _ASTGenericFunctionDeclaration *ASTGenericFunctionDeclarationRef;
 typedef struct _ASTStructureDeclaration *ASTStructureDeclarationRef;
 typedef struct _ASTGenericStructureDeclaration *ASTGenericStructureDeclarationRef;
 typedef struct _ASTInitializerDeclaration *ASTInitializerDeclarationRef;
@@ -510,6 +512,17 @@ struct _ASTFunctionDeclaration {
     ScopeID innerScope;
     StringRef foreignName;
     StringRef intrinsicName;
+};
+
+struct _ASTGenericFunctionDeclaration {
+    struct _ASTDeclaration base;
+
+    ASTFixity fixity;
+    ASTArrayRef parameters;
+    ASTTypeRef returnType;
+    ASTBlockRef body;
+    ScopeID innerScope;
+    ASTArrayRef genericTypes;
 };
 
 struct _ASTStructureDeclaration {
