@@ -8,6 +8,8 @@ struct _Lexer {
     const Char *bufferStart;
     const Char *bufferEnd;
     struct _LexerState state;
+    ArrayRef stateStack;
+    Bool splitsConsecutivePunctuations;
 };
 
 static inline Bool _CharIsAlphaNumeric(Char character);
@@ -24,14 +26,16 @@ LexerRef LexerCreate(AllocatorRef allocator, StringRef buffer) {
     assert(buffer);
     LexerRef lexer = (LexerRef)AllocatorAllocate(allocator, sizeof(struct _Lexer));
     assert(lexer);
-    lexer->allocator    = allocator;
-    lexer->buffer       = buffer;
-    lexer->bufferStart  = StringGetCharacters(buffer);
-    lexer->bufferEnd    = lexer->bufferStart + StringGetLength(buffer);
-    lexer->state.lexer  = lexer;
-    lexer->state.cursor = lexer->bufferStart;
-    lexer->state.line   = 1;
-    lexer->state.column = 0;
+    lexer->allocator                     = allocator;
+    lexer->buffer                        = buffer;
+    lexer->bufferStart                   = StringGetCharacters(buffer);
+    lexer->bufferEnd                     = lexer->bufferStart + StringGetLength(buffer);
+    lexer->state.lexer                   = lexer;
+    lexer->state.cursor                  = lexer->bufferStart;
+    lexer->state.line                    = 1;
+    lexer->state.column                  = 0;
+    lexer->stateStack                    = ArrayCreateEmpty(allocator, sizeof(struct _LexerState), 8);
+    lexer->splitsConsecutivePunctuations = false;
     return lexer;
 }
 
@@ -46,6 +50,14 @@ LexerState LexerGetState(LexerRef lexer) {
 void LexerSetState(LexerRef lexer, LexerState state) {
     assert(lexer == state.lexer);
     lexer->state = state;
+}
+
+Bool LexerGetSplitsConsecutivePunctuations(LexerRef lexer) {
+    return lexer->splitsConsecutivePunctuations;
+}
+
+void LexerSetSplitsConsecutivePunctuations(LexerRef lexer, Bool splitsConsecutivePunctuations) {
+    lexer->splitsConsecutivePunctuations = splitsConsecutivePunctuations;
 }
 
 void LexerPeekToken(LexerRef lexer, Token *token) {
@@ -833,10 +845,12 @@ static inline void _LexerLexNextToken(LexerRef lexer) {
         assert(*lexer->state.cursor != '/');
         assert(*lexer->state.cursor != '*');
 
-        if (*lexer->state.cursor == '=') {
-            lexer->state.cursor += 1;
-            lexer->state.column += 1;
-            kind = TokenKindSlashEquals;
+        if (!lexer->splitsConsecutivePunctuations) {
+            if (*lexer->state.cursor == '=') {
+                lexer->state.cursor += 1;
+                lexer->state.column += 1;
+                kind = TokenKindSlashEquals;
+            }
         }
 
         break;
@@ -846,10 +860,12 @@ static inline void _LexerLexNextToken(LexerRef lexer) {
         lexer->state.column += 1;
         kind = TokenKindEqualsSign;
 
-        if (*lexer->state.cursor == '=') {
-            lexer->state.cursor += 1;
-            lexer->state.column += 1;
-            kind = TokenKindEqualsEqualsSign;
+        if (!lexer->splitsConsecutivePunctuations) {
+            if (*lexer->state.cursor == '=') {
+                lexer->state.cursor += 1;
+                lexer->state.column += 1;
+                kind = TokenKindEqualsEqualsSign;
+            }
         }
 
         break;
@@ -859,14 +875,16 @@ static inline void _LexerLexNextToken(LexerRef lexer) {
         lexer->state.column += 1;
         kind = TokenKindMinusSign;
 
-        if (*lexer->state.cursor == '>') {
-            lexer->state.cursor += 1;
-            lexer->state.column += 1;
-            kind = TokenKindArrow;
-        } else if (*lexer->state.cursor == '=') {
-            lexer->state.cursor += 1;
-            lexer->state.column += 1;
-            kind = TokenKindMinusEqualsSign;
+        if (!lexer->splitsConsecutivePunctuations) {
+            if (*lexer->state.cursor == '>') {
+                lexer->state.cursor += 1;
+                lexer->state.column += 1;
+                kind = TokenKindArrow;
+            } else if (*lexer->state.cursor == '=') {
+                lexer->state.cursor += 1;
+                lexer->state.column += 1;
+                kind = TokenKindMinusEqualsSign;
+            }
         }
 
         break;
@@ -876,10 +894,12 @@ static inline void _LexerLexNextToken(LexerRef lexer) {
         lexer->state.column += 1;
         kind = TokenKindPlusSign;
 
-        if (*lexer->state.cursor == '=') {
-            lexer->state.cursor += 1;
-            lexer->state.column += 1;
-            kind = TokenKindPlusEquals;
+        if (!lexer->splitsConsecutivePunctuations) {
+            if (*lexer->state.cursor == '=') {
+                lexer->state.cursor += 1;
+                lexer->state.column += 1;
+                kind = TokenKindPlusEquals;
+            }
         }
 
         break;
@@ -889,10 +909,12 @@ static inline void _LexerLexNextToken(LexerRef lexer) {
         lexer->state.column += 1;
         kind = TokenKindExclamationMark;
 
-        if (*lexer->state.cursor == '=') {
-            lexer->state.cursor += 1;
-            lexer->state.column += 1;
-            kind = TokenKindExclamationMarkEqualsSign;
+        if (!lexer->splitsConsecutivePunctuations) {
+            if (*lexer->state.cursor == '=') {
+                lexer->state.cursor += 1;
+                lexer->state.column += 1;
+                kind = TokenKindExclamationMarkEqualsSign;
+            }
         }
 
         break;
@@ -902,10 +924,12 @@ static inline void _LexerLexNextToken(LexerRef lexer) {
         lexer->state.column += 1;
         kind = TokenKindAsterisk;
 
-        if (*lexer->state.cursor == '=') {
-            lexer->state.cursor += 1;
-            lexer->state.column += 1;
-            kind = TokenKindAsteriskEquals;
+        if (!lexer->splitsConsecutivePunctuations) {
+            if (*lexer->state.cursor == '=') {
+                lexer->state.cursor += 1;
+                lexer->state.column += 1;
+                kind = TokenKindAsteriskEquals;
+            }
         }
 
         break;
@@ -915,10 +939,12 @@ static inline void _LexerLexNextToken(LexerRef lexer) {
         lexer->state.column += 1;
         kind = TokenKindPercentSign;
 
-        if (*lexer->state.cursor == '=') {
-            lexer->state.cursor += 1;
-            lexer->state.column += 1;
-            kind = TokenKindPercentEquals;
+        if (!lexer->splitsConsecutivePunctuations) {
+            if (*lexer->state.cursor == '=') {
+                lexer->state.cursor += 1;
+                lexer->state.column += 1;
+                kind = TokenKindPercentEquals;
+            }
         }
 
         break;
@@ -934,21 +960,23 @@ static inline void _LexerLexNextToken(LexerRef lexer) {
         lexer->state.column += 1;
         kind = TokenKindLessThan;
 
-        if (*lexer->state.cursor == '<') {
-            lexer->state.cursor += 1;
-            lexer->state.column += 1;
-            kind = TokenKindLessThanLessThan;
-
-            if (*lexer->state.cursor == '=') {
+        if (!lexer->splitsConsecutivePunctuations) {
+            if (*lexer->state.cursor == '<') {
                 lexer->state.cursor += 1;
                 lexer->state.column += 1;
-                kind = TokenKindLessThanLessThanEquals;
-            }
+                kind = TokenKindLessThanLessThan;
 
-        } else if (*lexer->state.cursor == '=') {
-            lexer->state.cursor += 1;
-            lexer->state.column += 1;
-            kind = TokenKindLessThanEqualsSign;
+                if (*lexer->state.cursor == '=') {
+                    lexer->state.cursor += 1;
+                    lexer->state.column += 1;
+                    kind = TokenKindLessThanLessThanEquals;
+                }
+
+            } else if (*lexer->state.cursor == '=') {
+                lexer->state.cursor += 1;
+                lexer->state.column += 1;
+                kind = TokenKindLessThanEqualsSign;
+            }
         }
 
         break;
@@ -958,20 +986,22 @@ static inline void _LexerLexNextToken(LexerRef lexer) {
         lexer->state.column += 1;
         kind = TokenKindGreaterThan;
 
-        if (*lexer->state.cursor == '>') {
-            lexer->state.cursor += 1;
-            lexer->state.column += 1;
-            kind = TokenKindGreaterThanGreaterThan;
-
-            if (*lexer->state.cursor == '=') {
+        if (!lexer->splitsConsecutivePunctuations) {
+            if (*lexer->state.cursor == '>') {
                 lexer->state.cursor += 1;
                 lexer->state.column += 1;
-                kind = TokenKindGreaterThanGreaterThanEquals;
+                kind = TokenKindGreaterThanGreaterThan;
+
+                if (*lexer->state.cursor == '=') {
+                    lexer->state.cursor += 1;
+                    lexer->state.column += 1;
+                    kind = TokenKindGreaterThanGreaterThanEquals;
+                }
+            } else if (*lexer->state.cursor == '=') {
+                lexer->state.cursor += 1;
+                lexer->state.column += 1;
+                kind = TokenKindGreaterThanEqualsSign;
             }
-        } else if (*lexer->state.cursor == '=') {
-            lexer->state.cursor += 1;
-            lexer->state.column += 1;
-            kind = TokenKindGreaterThanEqualsSign;
         }
 
         break;
@@ -981,14 +1011,16 @@ static inline void _LexerLexNextToken(LexerRef lexer) {
         lexer->state.column += 1;
         kind = TokenKindAmpersand;
 
-        if (*lexer->state.cursor == '&') {
-            lexer->state.cursor += 1;
-            lexer->state.column += 1;
-            kind = TokenKindAmpersandAmpersand;
-        } else if (*lexer->state.cursor == '=') {
-            lexer->state.cursor += 1;
-            lexer->state.column += 1;
-            kind = TokenKindAmpersandEquals;
+        if (!lexer->splitsConsecutivePunctuations) {
+            if (*lexer->state.cursor == '&') {
+                lexer->state.cursor += 1;
+                lexer->state.column += 1;
+                kind = TokenKindAmpersandAmpersand;
+            } else if (*lexer->state.cursor == '=') {
+                lexer->state.cursor += 1;
+                lexer->state.column += 1;
+                kind = TokenKindAmpersandEquals;
+            }
         }
 
         break;
@@ -998,14 +1030,16 @@ static inline void _LexerLexNextToken(LexerRef lexer) {
         lexer->state.column += 1;
         kind = TokenKindPipe;
 
-        if (*lexer->state.cursor == '|') {
-            lexer->state.cursor += 1;
-            lexer->state.column += 1;
-            kind = TokenKindPipePipe;
-        } else if (*lexer->state.cursor == '=') {
-            lexer->state.cursor += 1;
-            lexer->state.column += 1;
-            kind = TokenKindPipeEquals;
+        if (!lexer->splitsConsecutivePunctuations) {
+            if (*lexer->state.cursor == '|') {
+                lexer->state.cursor += 1;
+                lexer->state.column += 1;
+                kind = TokenKindPipePipe;
+            } else if (*lexer->state.cursor == '=') {
+                lexer->state.cursor += 1;
+                lexer->state.column += 1;
+                kind = TokenKindPipeEquals;
+            }
         }
 
         break;
@@ -1015,10 +1049,12 @@ static inline void _LexerLexNextToken(LexerRef lexer) {
         lexer->state.column += 1;
         kind = TokenKindCircumflex;
 
-        if (*lexer->state.cursor == '=') {
-            lexer->state.cursor += 1;
-            lexer->state.column += 1;
-            kind = TokenKindCircumflexEquals;
+        if (!lexer->splitsConsecutivePunctuations) {
+            if (*lexer->state.cursor == '=') {
+                lexer->state.cursor += 1;
+                lexer->state.column += 1;
+                kind = TokenKindCircumflexEquals;
+            }
         }
 
         break;

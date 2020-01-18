@@ -149,6 +149,9 @@ void LexerDestroy(LexerRef lexer);
 LexerState LexerGetState(LexerRef lexer);
 void LexerSetState(LexerRef lexer, LexerState state);
 
+Bool LexerGetSplitsConsecutivePunctuations(LexerRef lexer);
+void LexerSetSplitsConsecutivePunctuations(LexerRef lexer, Bool splitsConsecutivePunctuations);
+
 void LexerPeekToken(LexerRef lexer, Token *token);
 void LexerNextToken(LexerRef lexer, Token *token);
 
