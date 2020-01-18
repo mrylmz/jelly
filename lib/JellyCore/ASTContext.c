@@ -782,7 +782,7 @@ ASTStructureTypeRef ASTContextCreateStructureType(ASTContextRef context, SourceR
     return node;
 }
 
-ASTGenericTypeRef ASTContextCreateGenericType(ASTContextRef context, SourceRange location, ScopeID scope, ASTTypeRef baseType,
+ASTGenericTypeRef ASTContextCreateGenericType(ASTContextRef context, SourceRange location, ScopeID scope, ASTOpaqueTypeRef baseType,
                                               ArrayRef arguments) {
     ASTGenericTypeRef node = (ASTGenericTypeRef)_ASTContextCreateNode(context, ASTTagGenericType, location, scope);
     node->baseType         = baseType;
