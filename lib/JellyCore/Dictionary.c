@@ -157,14 +157,14 @@ void DictionaryRemove(DictionaryRef dictionary, const void *key) {
     }
 }
 
-void DictionaryGetAllKeys(DictionaryRef dictionary, void **memory, Index *count) {
+void DictionaryGetKeyBuffer(DictionaryRef dictionary, void **memory, Index *length) {
     *memory = dictionary->keyBuffer.memory;
-    *count  = dictionary->keyBuffer.offset;
+    *length = dictionary->keyBuffer.offset;
 }
 
-void DictionaryGetAllValues(DictionaryRef dictionary, void **memory, Index *count) {
+void DictionaryGetValueBuffer(DictionaryRef dictionary, void **memory, Index *length) {
     *memory = dictionary->elementBuffer.memory;
-    *count  = dictionary->elementBuffer.offset;
+    *length = dictionary->elementBuffer.offset;
 }
 
 static inline void _DictionaryBufferInit(DictionaryRef dictionary, DictionaryBuffer *buffer) {

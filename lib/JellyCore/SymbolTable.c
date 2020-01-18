@@ -47,8 +47,9 @@ SymbolTableRef SymbolTableCreate(AllocatorRef allocator) {
     table->symbols       = ArrayCreateEmpty(table->allocator, sizeof(struct _Symbol), kDefaultSymbolArrayCapacity);
 
     ScopeRef globalScope  = ArrayAppendUninitializedElement(table->scopes);
+    globalScope->kind     = ScopeKindGlobal;
     globalScope->id       = kScopeGlobal;
-    globalScope->parent   = -1;
+    globalScope->parent   = kScopeNull;
     globalScope->location = NULL;
     globalScope->symbols  = CStringDictionaryCreate(table->allocator, kDefaultSymbolDictionaryCapacity);
     globalScope->userdata = NULL;
@@ -193,7 +194,13 @@ void SymbolTableGetScopeSymbols(SymbolTableRef table, ScopeID id, SymbolID **sym
     assert(0 <= id && id < ArrayGetElementCount(table->scopes));
 
     ScopeRef scope = (ScopeRef)ArrayGetElementAtIndex(table->scopes, id);
-    DictionaryGetAllValues(scope->symbols, (void **)symbols, count);
+
+    void *buffer;
+    Index length;
+    DictionaryGetValueBuffer(scope->symbols, &buffer, &length);
+
+    *symbols = (SymbolID *)buffer;
+    *count   = length / sizeof(SymbolID);
 }
 
 Bool SymbolTableIsSymbolGroup(SymbolTableRef table, SymbolID id) {

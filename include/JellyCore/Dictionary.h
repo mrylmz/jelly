@@ -25,9 +25,9 @@ const void *DictionaryLookup(DictionaryRef dictionary, const void *key);
 
 void DictionaryRemove(DictionaryRef dictionary, const void *key);
 
-void DictionaryGetAllKeys(DictionaryRef dictionary, void **memory, Index *count);
+void DictionaryGetKeyBuffer(DictionaryRef dictionary, void **memory, Index *length);
 
-void DictionaryGetAllValues(DictionaryRef dictionary, void **memory, Index *count);
+void DictionaryGetValueBuffer(DictionaryRef dictionary, void **memory, Index *length);
 
 JELLY_EXTERN_C_END
 
