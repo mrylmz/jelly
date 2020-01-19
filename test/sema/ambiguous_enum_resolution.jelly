@@ -1,0 +1,20 @@
+enum AllocatorMode {
+    case allocate
+    case reallocate
+    case deallocate
+    case destroy
+}
+
+func allocate(mode: AllocatorMode) -> Void {
+
+}
+
+typealias Callback = (AllocatorMode) -> Void
+
+func allocate(callback: Callback) -> Void {
+    
+}
+
+func main() -> Void {
+    allocate(allocate) // expect-error: Ambiguous use of identifier 'allocate'
+}

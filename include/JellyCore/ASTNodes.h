@@ -10,8 +10,6 @@
 
 JELLY_EXTERN_C_BEGIN
 
-// TODO: Replace all linked lists...
-
 typedef void *IRRef;
 
 enum _ASTTag {

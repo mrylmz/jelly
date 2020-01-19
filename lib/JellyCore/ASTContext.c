@@ -16,6 +16,7 @@ struct _ASTContext {
     ASTModuleDeclarationRef builtinModule;
     ASTBuiltinTypeRef builtinTypes[AST_BUILTIN_TYPE_KIND_COUNT];
     ASTStructureTypeRef stringType;
+    ASTTypeRef voidPointerType;
 };
 
 ASTNodeRef _ASTContextCreateNode(ASTContextRef context, ASTTag tag, SourceRange location, ScopeID scope);
@@ -23,7 +24,7 @@ ASTBuiltinTypeRef _ASTContextCreateBuiltinType(ASTContextRef context, SourceRang
 void _ASTContextInitBuiltinTypes(ASTContextRef context);
 void _ASTContextInitBuiltinFunctions(ASTContextRef context);
 
-ASTBuiltinTypeRef _ASTContextGetBuiltinTypeByName(ASTContextRef context, const Char *name);
+ASTTypeRef _ASTContextGetTypeByName(ASTContextRef context, const Char *name);
 
 ASTContextRef ASTContextCreate(AllocatorRef allocator, StringRef moduleName) {
     ASTContextRef context                        = AllocatorAllocate(allocator, sizeof(struct _ASTContext));
@@ -520,6 +521,7 @@ ASTEnumerationDeclarationRef ASTContextCreateEnumerationDeclaration(ASTContextRe
         ASTArrayAppendArray(node->elements, elements);
     }
     node->base.type = (ASTTypeRef)ASTContextCreateEnumerationType(context, location, scope, node);
+
     return node;
 }
 
@@ -803,6 +805,9 @@ void _ASTContextInitBuiltinTypes(ASTContextRef context) {
     StringDestroy(stringBufferName);
     StringDestroy(stringName);
     ArrayDestroy(stringValues);
+
+    context->voidPointerType = (ASTTypeRef)ASTContextCreatePointerType(context, SourceRangeNull(), kScopeGlobal,
+                                                                       (ASTTypeRef)context->builtinTypes[ASTBuiltinTypeKindVoid]);
 }
 
 void _ASTContextInitBuiltinFunctions(ASTContextRef context){
@@ -813,15 +818,16 @@ void _ASTContextInitBuiltinFunctions(ASTContextRef context){
         ArrayRef parameters              = ArrayCreateEmpty(context->allocator, sizeof(ASTValueDeclarationRef), 1);                        \
         ScopeID scope                    = SymbolTableInsertScope(context->symbolTable, ScopeKindFunction, kScopeGlobal, NULL);            \
         StringRef parameterName          = StringCreate(context->allocator, "value");                                                      \
-        ASTTypeRef parameterType         = (ASTTypeRef)_ASTContextGetBuiltinTypeByName(context, ARGUMENT_TYPE);                            \
+        ASTTypeRef parameterType         = _ASTContextGetTypeByName(context, ARGUMENT_TYPE);                                               \
         ASTValueDeclarationRef parameter = ASTContextCreateValueDeclaration(context, SourceRangeNull(), scope, ASTValueKindParameter,      \
                                                                             parameterName, parameterType, NULL);                           \
         ArrayAppendElement(parameters, &parameter);                                                                                        \
-        ASTTypeRef resultType                 = (ASTTypeRef)_ASTContextGetBuiltinTypeByName(context, RESULT_TYPE);                         \
+        ASTTypeRef resultType                 = _ASTContextGetTypeByName(context, RESULT_TYPE);                                            \
         StringRef name                        = StringCreate(context->allocator, SYMBOL);                                                  \
         StringRef intrinsic                   = StringCreate(context->allocator, INTRINSIC);                                               \
         ASTFunctionDeclarationRef declaration = ASTContextCreateIntrinsicFunctionDeclaration(                                              \
             context, SourceRangeNull(), kScopeGlobal, ASTFixityPrefix, name, parameters, resultType, intrinsic);                           \
+        declaration->base.base.flags |= ASTFlagsIsValidated;                                                                               \
         SymbolTableSetScopeUserdata(context->symbolTable, scope, declaration);                                                             \
         assert(declaration->base.name);                                                                                                    \
         SymbolID symbol  = SymbolTableInsertOrGetSymbolGroup(context->symbolTable, kScopeGlobal, declaration->base.name);                  \
@@ -838,20 +844,21 @@ void _ASTContextInitBuiltinFunctions(ASTContextRef context){
         ArrayRef parameters                 = ArrayCreateEmpty(context->allocator, sizeof(ASTValueDeclarationRef), 2);                     \
         ScopeID scope                       = SymbolTableInsertScope(context->symbolTable, ScopeKindFunction, kScopeGlobal, NULL);         \
         StringRef lhsParameterName          = StringCreate(context->allocator, "lhs");                                                     \
-        ASTTypeRef lhsParameterType         = (ASTTypeRef)_ASTContextGetBuiltinTypeByName(context, ARGUMENT_TYPE1);                        \
+        ASTTypeRef lhsParameterType         = _ASTContextGetTypeByName(context, ARGUMENT_TYPE1);                                           \
         ASTValueDeclarationRef lhsParameter = ASTContextCreateValueDeclaration(context, SourceRangeNull(), scope, ASTValueKindParameter,   \
                                                                                lhsParameterName, lhsParameterType, NULL);                  \
         StringRef rhsParameterName          = StringCreate(context->allocator, "rhs");                                                     \
-        ASTTypeRef rhsParameterType         = (ASTTypeRef)_ASTContextGetBuiltinTypeByName(context, ARGUMENT_TYPE2);                        \
+        ASTTypeRef rhsParameterType         = _ASTContextGetTypeByName(context, ARGUMENT_TYPE2);                                           \
         ASTValueDeclarationRef rhsParameter = ASTContextCreateValueDeclaration(context, SourceRangeNull(), scope, ASTValueKindParameter,   \
                                                                                rhsParameterName, rhsParameterType, NULL);                  \
         ArrayAppendElement(parameters, &lhsParameter);                                                                                     \
         ArrayAppendElement(parameters, &rhsParameter);                                                                                     \
-        ASTTypeRef resultType                 = (ASTTypeRef)_ASTContextGetBuiltinTypeByName(context, RESULT_TYPE);                         \
+        ASTTypeRef resultType                 = _ASTContextGetTypeByName(context, RESULT_TYPE);                                            \
         StringRef intrinsic                   = StringCreate(context->allocator, INTRINSIC);                                               \
         StringRef name                        = StringCreate(context->allocator, SYMBOL);                                                  \
         ASTFunctionDeclarationRef declaration = ASTContextCreateIntrinsicFunctionDeclaration(                                              \
             context, SourceRangeNull(), kScopeGlobal, ASTFixityInfix, name, parameters, resultType, intrinsic);                            \
+        declaration->base.base.flags |= ASTFlagsIsValidated;                                                                               \
         SymbolTableSetScopeUserdata(context->symbolTable, scope, declaration);                                                             \
         assert(declaration->base.name);                                                                                                    \
         SymbolID symbol  = SymbolTableInsertOrGetSymbolGroup(context->symbolTable, kScopeGlobal, declaration->base.name);                  \
@@ -867,7 +874,11 @@ void _ASTContextInitBuiltinFunctions(ASTContextRef context){
 #include "JellyCore/RuntimeSupportDefinitions.h"
 }
 
-ASTBuiltinTypeRef _ASTContextGetBuiltinTypeByName(ASTContextRef context, const Char *name) {
+ASTTypeRef _ASTContextGetTypeByName(ASTContextRef context, const Char *name) {
+    if (strcmp("Void*", name) == 0) {
+        return context->voidPointerType;
+    }
+
     const Char *builtinTypeNames[AST_BUILTIN_TYPE_KIND_COUNT - 1] = {
         "Void",   "Bool",   "Int8",   "Int16", "Int32",   "Int64",   "Int",   "UInt8",
         "UInt16", "UInt32", "UInt64", "UInt",  "Float32", "Float64", "Float",
@@ -875,7 +886,7 @@ ASTBuiltinTypeRef _ASTContextGetBuiltinTypeByName(ASTContextRef context, const C
 
     for (Index index = 0; index < AST_BUILTIN_TYPE_KIND_COUNT - 1; index++) {
         if (strcmp(builtinTypeNames[index], name) == 0) {
-            return ASTContextGetBuiltinType(context, (ASTBuiltinTypeKind)(index + 1));
+            return (ASTTypeRef)ASTContextGetBuiltinType(context, (ASTBuiltinTypeKind)(index + 1));
         }
     }
 

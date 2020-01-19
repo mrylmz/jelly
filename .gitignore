@@ -20,6 +20,9 @@ install_manifest.txt
 compile_commands.json
 CTestTestfile.cmake
 
+# Binaries
+*.o
+
 # Directories
 /build
 .DS_Store

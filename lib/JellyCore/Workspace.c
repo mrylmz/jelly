@@ -22,6 +22,7 @@ struct _Workspace {
     ArrayRef sourceFilePaths;
     ArrayRef includeFilePaths;
     ArrayRef moduleFilePaths;
+    ArrayRef parsedSources;
     ASTContextRef context;
     ParserRef parser;
     ClangImporterRef importer;
@@ -46,7 +47,6 @@ Bool _ArrayContainsString(const void *lhs, const void *rhs);
 void _WorkspacePerformLoads(WorkspaceRef workspace, ASTSourceUnitRef sourceUnit);
 void _WorkspacePerformInterfaceLoads(WorkspaceRef workspace, ASTModuleDeclarationRef module, ASTSourceUnitRef sourceUnit);
 void _WorkspacePerformImports(WorkspaceRef workspace, ASTModuleDeclarationRef module, ASTSourceUnitRef sourceUnit);
-void _WorkspaceParse(void *argument, void *context);
 void *_WorkspaceProcess(void *context);
 
 WorkspaceRef WorkspaceCreate(AllocatorRef allocator, StringRef workingDirectory, StringRef buildDirectory, StringRef moduleName,
@@ -58,6 +58,7 @@ WorkspaceRef WorkspaceCreate(AllocatorRef allocator, StringRef workingDirectory,
     workspace->sourceFilePaths     = ArrayCreateEmpty(allocator, sizeof(StringRef *), 8);
     workspace->includeFilePaths    = ArrayCreateEmpty(allocator, sizeof(StringRef *), 8);
     workspace->moduleFilePaths     = ArrayCreateEmpty(allocator, sizeof(StringRef *), 8);
+    workspace->parsedSources       = ArrayCreateEmpty(allocator, sizeof(StringRef *), 8);
     workspace->context             = ASTContextCreate(allocator, moduleName);
     workspace->parser              = ParserCreate(allocator, workspace->context);
     workspace->importer            = ClangImporterCreate(allocator, workspace->context);
@@ -83,6 +84,11 @@ void WorkspaceDestroy(WorkspaceRef workspace) {
         WorkspaceWaitForFinish(workspace);
     }
 
+    for (Index index = 0; index < ArrayGetElementCount(workspace->parsedSources); index++) {
+        StringRef string = *(StringRef *)ArrayGetElementAtIndex(workspace->parsedSources, index);
+        StringDestroy(string);
+    }
+
     for (Index index = 0; index < ArrayGetElementCount(workspace->moduleFilePaths); index++) {
         StringRef string = *(StringRef *)ArrayGetElementAtIndex(workspace->moduleFilePaths, index);
         StringDestroy(string);
@@ -100,6 +106,7 @@ void WorkspaceDestroy(WorkspaceRef workspace) {
 
     StringDestroy(workspace->workingDirectory);
     StringDestroy(workspace->buildDirectory);
+    ArrayDestroy(workspace->parsedSources);
     ArrayDestroy(workspace->sourceFilePaths);
     ArrayDestroy(workspace->includeFilePaths);
     ArrayDestroy(workspace->moduleFilePaths);
@@ -318,8 +325,11 @@ Bool _WorkspaceProcessParseQueue(WorkspaceRef workspace) {
             StringAppendString(absoluteFilePath, parseFilePath);
             StringRef source = StringCreateFromFile(workspace->allocator, StringGetCharacters(absoluteFilePath));
             if (source) {
+                // TODO: The source shouldn't be retained in the compilation process but is currently used for
+                //       and should be remove after implementing a better diagnostic system...
+                ArrayAppendElement(workspace->parsedSources, &source);
+
                 ASTSourceUnitRef sourceUnit = ParserParseSourceUnit(workspace->parser, parseFilePath, source);
-                StringDestroy(source);
                 _WorkspacePerformLoads(workspace, sourceUnit);
                 _WorkspacePerformImports(workspace, ASTContextGetModule(workspace->context), sourceUnit);
                 _WorkspacePerformIncludes(workspace, ASTContextGetModule(workspace->context), sourceUnit);

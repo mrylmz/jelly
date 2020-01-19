@@ -185,7 +185,9 @@ static inline void _TypeCheckerValidateEnumerationDeclaration(TypeCheckerRef typ
             continue;
         }
 
-        if (!ASTTypeIsEqual(element->base.type, element->initializer->type)) {
+        ASTTypeRef intType = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindInt);
+        if (!ASTTypeIsEqual(element->base.type, element->initializer->type) &&
+            !(ASTTypeIsEqual(intType, element->initializer->type) || ASTTypeIsImplicitlyConvertible(element->initializer->type, intType))) {
             ReportErrorFormat("Initializer of element '%s' has mismatching type", StringGetCharacters(element->base.name));
             continue;
         }
@@ -341,7 +343,7 @@ static inline void _TypeCheckerValidateVariableDeclaration(TypeCheckerRef typeCh
         _TypeCheckerValidateExpression(typeChecker, context, declaration->initializer);
 
         if (!_ASTTypeIsEqualOrError(declaration->base.type, declaration->initializer->type) &&
-            !ASTTypeIsImplicitlyConvertible(declaration->base.type, declaration->initializer->type)) {
+            !ASTTypeIsImplicitlyConvertible(declaration->initializer->type, declaration->base.type)) {
             ReportErrorFormat("Assignment expression of '%s' has mismatching type", StringGetCharacters(declaration->base.name));
         }
     }
@@ -396,7 +398,20 @@ static inline void _TypeCheckerValidateStatement(TypeCheckerRef typeChecker, AST
         switch (statement->kind) {
         case ASTCaseKindConditional: {
             _TypeCheckerValidateExpression(typeChecker, context, statement->condition);
-            // TODO: Check if type is comparable with switch argument type
+
+            // TODO: Add validation for mismatching comparator argument types with enumeration type support!
+            //            if (!ASTTypeIsError(statement->condition->type) && statement->comparator) {
+            //                assert(statement->comparator->base.base.flags & ASTFlagsIsValidated);
+            //                assert(ASTArrayGetElementCount(statement->comparator->parameters) == 2);
+            //                ASTValueDeclarationRef rhsParameter =
+            //                (ASTValueDeclarationRef)ASTArrayGetElementAtIndex(statement->comparator->parameters,
+            //                                                                                                        1);
+            //                if (!_ASTTypeIsEqualOrError(rhsParameter->base.type, statement->condition->type) &&
+            //                    !ASTTypeIsImplicitlyConvertible(statement->condition->type, rhsParameter->base.type)) {
+            //                    ReportError("Mismatching type for comparision of case condition");
+            //                    statement->condition->type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
+            //                }
+            //            }
             break;
         }
 
@@ -596,12 +611,14 @@ static inline void _TypeCheckerValidateExpression(TypeCheckerRef typeChecker, AS
         _TypeCheckerValidateExpression(typeChecker, context, assignment->expression);
 
         if (!_ASTExpressionIsLValue(assignment->variable)) {
+            assignment->variable->type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
             ReportError("Left hand side of assignment expression is not assignable");
         }
 
         assert(assignment->variable->type);
         assert(assignment->expression->type);
-        if (!_ASTTypeIsEqualOrError(assignment->variable->type, assignment->expression->type)) {
+        if (!_ASTTypeIsEqualOrError(assignment->variable->type, assignment->expression->type) &&
+            !ASTTypeIsImplicitlyConvertible(assignment->expression->type, assignment->variable->type)) {
             Bool isNilAssignment = assignment->variable->type->tag == ASTTagPointerType &&
                                    (assignment->expression->base.tag == ASTTagConstantExpression) &&
                                    ((ASTConstantExpressionRef)assignment->expression)->kind == ASTConstantKindNil;
@@ -640,8 +657,11 @@ static inline void _TypeCheckerValidateExpression(TypeCheckerRef typeChecker, AS
                         ASTExpressionRef argument = (ASTExpressionRef)ASTArrayIteratorGetElement(argumentIterator);
                         ASTTypeRef parameterType  = (ASTTypeRef)ASTArrayIteratorGetElement(parameterIterator);
 
+                        Bool isMatchingNilArgument = (argument->type->tag == ASTTagPointerType && parameterType->tag == ASTTagPointerType &&
+                                                      argument->base.tag == ASTTagConstantExpression &&
+                                                      ((ASTConstantExpressionRef)argument)->kind == ASTConstantKindNil);
                         if (!_ASTTypeIsEqualOrError(argument->type, parameterType) &&
-                            !ASTTypeIsImplicitlyConvertible(argument->type, parameterType)) {
+                            !ASTTypeIsImplicitlyConvertible(argument->type, parameterType) && !isMatchingNilArgument) {
                             if (functionType->declaration) {
                                 ASTValueDeclarationRef parameter = ASTArrayGetElementAtIndex(functionType->declaration->parameters, index);
                                 ReportErrorFormat("Mismatching type for parameter '%s' in '%s'", StringGetCharacters(parameter->base.name),

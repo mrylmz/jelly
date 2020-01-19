@@ -3,11 +3,11 @@
 func test1(cond: Bool) -> Void {
     while cond {
         switch cond {
-        case 0: // expect-error: Type mismatch
+        case 0: // expect-error: 'case' condition is not comparable with 'switch' argument
             continue
-        case 1: // expect-error: Type mismatch
+        case 1: // expect-error: 'case' condition is not comparable with 'switch' argument
             return
-        case 2: // expect-error: Type mismatch
+        case 2: // expect-error: 'case' condition is not comparable with 'switch' argument
             break
         case true:
             fallthrough

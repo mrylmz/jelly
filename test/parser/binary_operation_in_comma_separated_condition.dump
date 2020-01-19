@@ -1,6 +1,6 @@
 ModuleDeclaration
   SourceUnit
-    @filePath = 'invalid_binary_operation_in_comma_separated_condition.jelly'
+    @filePath = 'binary_operation_in_comma_separated_condition.jelly'
     EnumerationDeclaration
       @name = 'MyEnum'
       EnumerationElementDeclaration

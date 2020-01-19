@@ -560,6 +560,22 @@ Bool ASTTypeIsImplicitlyConvertible(ASTTypeRef type, ASTTypeRef targetType) {
         return true;
     }
 
+    if (type->tag == ASTTagPointerType && targetType->tag == ASTTagPointerType) {
+        ASTPointerTypeRef lhs = (ASTPointerTypeRef)type;
+        ASTPointerTypeRef rhs = (ASTPointerTypeRef)targetType;
+
+        if (lhs->pointeeType->tag == ASTTagPointerType && rhs->pointeeType->tag == ASTTagPointerType) {
+            return ASTTypeIsImplicitlyConvertible(lhs->pointeeType, rhs->pointeeType);
+        }
+
+        if (lhs->pointeeType->tag != ASTTagPointerType && rhs->pointeeType->tag == ASTTagBuiltinType &&
+            ((ASTBuiltinTypeRef)rhs->pointeeType)->kind == ASTBuiltinTypeKindVoid) {
+            return true;
+        }
+
+        return false;
+    }
+
     if (ASTTypeIsInteger(type) && ASTTypeIsFloatingPoint(targetType)) {
         return true;
     }

@@ -1681,6 +1681,17 @@ static inline LLVMValueRef _IRBuilderBuildIntrinsic(IRBuilderRef builder, LLVMVa
         return LLVMBuildFCmp(builder->builder, LLVMRealUEQ, arguments[0], arguments[1], "");
     }
 
+    if (StringIsEqualToCString(intrinsic, "cmp_eq_ptr")) {
+        if (argumentCount != 2) {
+            ReportErrorFormat("Intrinsic '%s' expects two arguments", StringGetCharacters(intrinsic));
+            return LLVMGetUndef(resultType);
+        }
+
+        LLVMValueRef diff = LLVMBuildPtrDiff(builder->builder, arguments[0], arguments[1], "");
+        LLVMValueRef zero = LLVMConstInt(LLVMTypeOf(diff), 0, true);
+        return LLVMBuildICmp(builder->builder, LLVMIntEQ, diff, zero, "");
+    }
+
     if (StringIsEqualToCString(intrinsic, "cmp_ne_i8") || StringIsEqualToCString(intrinsic, "cmp_ne_i16") ||
         StringIsEqualToCString(intrinsic, "cmp_ne_i32") || StringIsEqualToCString(intrinsic, "cmp_ne_i64")) {
         if (argumentCount != 2) {

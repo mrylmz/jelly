@@ -4,7 +4,7 @@ enum MyEnum {
 }
 
 func equals(lhs: MyEnum, rhs: MyEnum) -> Bool {
-    if lhs == A, rhs == A || lhs == B && rhs == B { // expect-error: ?
+    if lhs == A, rhs == A || lhs == B && rhs == B {
         return true
     }
 
