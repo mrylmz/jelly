@@ -472,9 +472,6 @@ void _WorkspaceVerifyModule(WorkspaceRef workspace, ASTModuleDeclarationRef modu
 
     PerformNameResolution(workspace->context, module);
 
-    // Perform ASTApplySubstitution a second time to allow substitutions in name resolution phase...
-    ASTApplySubstitution(workspace->context, module);
-
     TypeCheckerRef typeChecker = TypeCheckerCreate(workspace->allocator);
     TypeCheckerValidateModule(typeChecker, workspace->context, module);
     TypeCheckerDestroy(typeChecker);

@@ -18,7 +18,6 @@ struct _IRBuilder {
     LLVMContextRef context;
     LLVMBuilderRef builder;
     IRModuleRef module;
-    ArrayRef uninitializedGlobals;
 };
 
 struct _IRModule {
@@ -62,8 +61,8 @@ static inline LLVMValueRef _IRBuilderBuildIntrinsic(IRBuilderRef builder, LLVMVa
 
 LLVMValueRef _IRBuilderGetConstantSizeOfType(IRBuilderRef builder, ASTTypeRef type);
 
-LLVMValueRef _IRBuilderImplicitlyConvertValue(IRBuilderRef builder, LLVMValueRef function, LLVMValueRef value, ASTTypeRef valueType,
-                                              ASTTypeRef targetType);
+LLVMValueRef _IRBuilderImplicitlyConvertValue(IRBuilderRef builder, LLVMValueRef function, LLVMValueRef value,
+                                              ASTExpressionRef valueExpression, ASTTypeRef targetType);
 
 IRBuilderRef IRBuilderCreate(AllocatorRef allocator, ASTContextRef context, StringRef buildDirectory) {
     IRBuilderRef builder          = (IRBuilderRef)AllocatorAllocate(allocator, sizeof(struct _IRBuilder));
@@ -73,7 +72,6 @@ IRBuilderRef IRBuilderCreate(AllocatorRef allocator, ASTContextRef context, Stri
     builder->context              = LLVMGetGlobalContext();
     builder->builder              = LLVMCreateBuilderInContext(builder->context);
     builder->module               = NULL;
-    builder->uninitializedGlobals = ArrayCreateEmpty(AllocatorGetSystemDefault(), sizeof(ASTValueDeclarationRef), 8);
     return builder;
 }
 
@@ -86,7 +84,6 @@ void IRBuilderDestroy(IRBuilderRef builder) {
     LLVMDisposeBuilder(builder->builder);
 
     StringDestroy(builder->buildDirectory);
-    ArrayDestroy(builder->uninitializedGlobals);
     AllocatorDeallocate(builder->allocator, builder);
 }
 
@@ -422,7 +419,8 @@ static inline void _IRBuilderBuildGlobalVariable(IRBuilderRef builder, ASTValueD
             ReportError("Expression is either not constant or it is currently not supported by the compiler!");
         }
     } else {
-        ArrayAppendElement(builder->uninitializedGlobals, &declaration);
+        LLVMValueRef initializer = LLVMConstNull(_IRBuilderGetIRType(builder, declaration->base.type));
+        LLVMSetInitializer(value, initializer);
     }
 
     declaration->base.base.irValue = value;
@@ -805,7 +803,7 @@ static inline void _IRBuilderBuildControlStatement(IRBuilderRef builder, LLVMVal
             ASTFunctionDeclarationRef func = (ASTFunctionDeclarationRef)statement->enclosingNode;
             ASTTypeRef targetType          = func->returnType;
             LLVMValueRef resultValue       = _IRBuilderLoadExpression(builder, function, statement->result);
-            resultValue = _IRBuilderImplicitlyConvertValue(builder, function, resultValue, statement->result->type, targetType);
+            resultValue = _IRBuilderImplicitlyConvertValue(builder, function, resultValue, statement->result, targetType);
             LLVMBuildRet(builder->builder, resultValue);
             return;
         } else {
@@ -929,7 +927,7 @@ static inline void _IRBuilderBuildExpression(IRBuilderRef builder, LLVMValueRef 
                 ASTValueDeclarationRef parameter = (ASTValueDeclarationRef)ASTArrayGetElementAtIndex(initializer->parameters, index);
                 _IRBuilderBuildExpression(builder, function, argument);
                 LLVMValueRef argumentValue = _IRBuilderLoadExpression(builder, function, argument);
-                argumentValue = _IRBuilderImplicitlyConvertValue(builder, function, argumentValue, argument->type, parameter->base.type);
+                argumentValue = _IRBuilderImplicitlyConvertValue(builder, function, argumentValue, argument, parameter->base.type);
                 ArrayAppendElement(arguments, &argumentValue);
             }
 
@@ -953,14 +951,15 @@ static inline void _IRBuilderBuildExpression(IRBuilderRef builder, LLVMValueRef 
         }
 
         ASTFunctionDeclarationRef declaration = NULL;
+        ASTFunctionTypeRef functionType       = NULL;
         if (call->callee->type->tag == ASTTagPointerType) {
-            ASTPointerTypeRef pointerType   = (ASTPointerTypeRef)call->callee->type;
-            ASTFunctionTypeRef functionType = (ASTFunctionTypeRef)pointerType->pointeeType;
+            ASTPointerTypeRef pointerType = (ASTPointerTypeRef)call->callee->type;
+            functionType                  = (ASTFunctionTypeRef)pointerType->pointeeType;
             assert(functionType->resultType->irType);
             call->base.base.irType = functionType->resultType->irType;
             declaration            = functionType->declaration;
         } else {
-            ASTFunctionTypeRef functionType = (ASTFunctionTypeRef)call->callee->type;
+            functionType = (ASTFunctionTypeRef)call->callee->type;
             assert(functionType->resultType->irType);
             call->base.base.irType = functionType->resultType->irType;
             declaration            = functionType->declaration;
@@ -971,17 +970,21 @@ static inline void _IRBuilderBuildExpression(IRBuilderRef builder, LLVMValueRef 
 
             ArrayRef arguments = ArrayCreateEmpty(builder->allocator, sizeof(LLVMValueRef), ASTArrayGetElementCount(call->arguments));
             for (Index index = 0; index < ASTArrayGetElementCount(call->arguments); index++) {
-                ASTExpressionRef argument        = (ASTExpressionRef)ASTArrayGetElementAtIndex(call->arguments, index);
-                ASTValueDeclarationRef parameter = (ASTValueDeclarationRef)ASTArrayGetElementAtIndex(declaration->parameters, index);
+                ASTExpressionRef argument = (ASTExpressionRef)ASTArrayGetElementAtIndex(call->arguments, index);
+                ASTTypeRef parameterType  = ASTArrayGetElementAtIndex(functionType->parameterTypes, index);
                 _IRBuilderBuildExpression(builder, function, argument);
                 LLVMValueRef argumentValue = _IRBuilderLoadExpression(builder, function, argument);
-                argumentValue = _IRBuilderImplicitlyConvertValue(builder, function, argumentValue, argument->type, parameter->base.type);
+                argumentValue              = _IRBuilderImplicitlyConvertValue(builder, function, argumentValue, argument, parameterType);
                 ArrayAppendElement(arguments, &argumentValue);
             }
 
-            call->base.base.irValue = (LLVMValueRef)LLVMBuildCall(builder->builder, (LLVMValueRef)call->callee->base.irValue,
-                                                                  (LLVMValueRef *)ArrayGetMemoryPointer(arguments),
-                                                                  ArrayGetElementCount(arguments), "");
+            LLVMValueRef callee = call->callee->base.irValue;
+            if (call->callee->type->tag == ASTTagPointerType) {
+                callee = _IRBuilderLoadExpression(builder, function, call->callee);
+            }
+
+            call->base.base.irValue = (LLVMValueRef)LLVMBuildCall(
+                builder->builder, callee, (LLVMValueRef *)ArrayGetMemoryPointer(arguments), ArrayGetElementCount(arguments), "");
 
             ArrayDestroy(arguments);
         } else if (declaration->base.base.tag == ASTTagForeignFunctionDeclaration) {
@@ -993,7 +996,7 @@ static inline void _IRBuilderBuildExpression(IRBuilderRef builder, LLVMValueRef 
                 ASTValueDeclarationRef parameter = (ASTValueDeclarationRef)ASTArrayGetElementAtIndex(declaration->parameters, index);
                 _IRBuilderBuildExpression(builder, function, argument);
                 LLVMValueRef argumentValue = _IRBuilderLoadExpression(builder, function, argument);
-                argumentValue = _IRBuilderImplicitlyConvertValue(builder, function, argumentValue, argument->type, parameter->base.type);
+                argumentValue = _IRBuilderImplicitlyConvertValue(builder, function, argumentValue, argument, parameter->base.type);
                 ArrayAppendElement(arguments, &argumentValue);
             }
 
@@ -1006,9 +1009,10 @@ static inline void _IRBuilderBuildExpression(IRBuilderRef builder, LLVMValueRef 
                 ASTExpressionRef argument        = (ASTExpressionRef)ASTArrayGetElementAtIndex(call->arguments, index);
                 ASTValueDeclarationRef parameter = (ASTValueDeclarationRef)ASTArrayGetElementAtIndex(declaration->parameters, index);
                 _IRBuilderBuildExpression(builder, function, argument);
-                LLVMValueRef argumentValue = _IRBuilderLoadExpression(builder, function, argument);
-                argumentValue = _IRBuilderImplicitlyConvertValue(builder, function, argumentValue, argument->type, parameter->base.type);
-                ArrayAppendElement(arguments, &argumentValue);
+                argument->base.irValue = _IRBuilderLoadExpression(builder, function, argument);
+                argument->base.irValue = _IRBuilderImplicitlyConvertValue(builder, function, argument->base.irValue, argument,
+                                                                          parameter->base.type);
+                ArrayAppendElement(arguments, &argument->base.irValue);
             }
 
             call->base.base.irValue = _IRBuilderBuildIntrinsic(
@@ -1258,7 +1262,8 @@ static inline LLVMTypeRef _IRBuilderGetIRType(IRBuilderRef builder, ASTTypeRef t
         while (iterator) {
             ASTTypeRef parameterType = ASTArrayIteratorGetElement(iterator);
             parameterType->irType    = _IRBuilderGetIRType(builder, parameterType);
-            iterator                 = ASTArrayIteratorNext(iterator);
+            ArrayAppendElement(parameterTypes, &parameterType->irType);
+            iterator = ASTArrayIteratorNext(iterator);
         }
 
         functionType->resultType->irType = _IRBuilderGetIRType(builder, functionType->resultType);
@@ -1687,9 +1692,9 @@ static inline LLVMValueRef _IRBuilderBuildIntrinsic(IRBuilderRef builder, LLVMVa
             return LLVMGetUndef(resultType);
         }
 
-        LLVMValueRef diff = LLVMBuildPtrDiff(builder->builder, arguments[0], arguments[1], "");
-        LLVMValueRef zero = LLVMConstInt(LLVMTypeOf(diff), 0, true);
-        return LLVMBuildICmp(builder->builder, LLVMIntEQ, diff, zero, "");
+        LLVMValueRef lhs = LLVMBuildPtrToInt(builder->builder, arguments[0], LLVMInt64Type(), "");
+        LLVMValueRef rhs = LLVMBuildPtrToInt(builder->builder, arguments[1], LLVMInt64Type(), "");
+        return LLVMBuildICmp(builder->builder, LLVMIntEQ, lhs, rhs, "");
     }
 
     if (StringIsEqualToCString(intrinsic, "cmp_ne_i8") || StringIsEqualToCString(intrinsic, "cmp_ne_i16") ||
@@ -1719,13 +1724,24 @@ LLVMValueRef _IRBuilderGetConstantSizeOfType(IRBuilderRef builder, ASTTypeRef ty
     return LLVMSizeOf(_IRBuilderGetIRType(builder, type));
 }
 
-LLVMValueRef _IRBuilderImplicitlyConvertValue(IRBuilderRef builder, LLVMValueRef function, LLVMValueRef value, ASTTypeRef valueType,
-                                              ASTTypeRef targetType) {
+LLVMValueRef _IRBuilderImplicitlyConvertValue(IRBuilderRef builder, LLVMValueRef function, LLVMValueRef value,
+                                              ASTExpressionRef valueExpression, ASTTypeRef targetType) {
+    ASTTypeRef valueType = valueExpression->type;
     if (ASTTypeIsEqual(valueType, targetType)) {
         return value;
     }
 
+    Bool isNilExpression = (valueExpression->base.tag == ASTTagConstantExpression &&
+                            ((ASTConstantExpressionRef)valueExpression)->kind == ASTConstantKindNil);
+    if (isNilExpression && targetType->tag == ASTTagPointerType) {
+        return LLVMBuildPointerCast(builder->builder, value, _IRBuilderGetIRType(builder, targetType), "");
+    }
+
     assert(ASTTypeIsImplicitlyConvertible(valueType, targetType));
+
+    if (valueType->tag == ASTTagPointerType && targetType->tag == ASTTagPointerType) {
+        return LLVMBuildPointerCast(builder->builder, value, _IRBuilderGetIRType(builder, targetType), "");
+    }
 
     if (ASTTypeIsInteger(valueType) && ASTTypeIsInteger(targetType)) {
         Int lhsBitwidth = ASTIntegerTypeGetBitwidth(valueType);
