@@ -334,6 +334,8 @@ ASTAssignmentExpressionRef ASTContextCreateAssignmentExpression(ASTContextRef co
     node->op                        = op;
     node->variable                  = variable;
     node->expression                = expression;
+    node->base.type                 = NULL;
+    node->base.expectedType         = NULL;
     return node;
 }
 

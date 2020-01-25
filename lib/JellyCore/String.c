@@ -19,7 +19,7 @@ StringRef StringCreate(AllocatorRef allocator, const Char *rawString) {
     string->length    = strlen(rawString);
     string->memory    = AllocatorAllocate(allocator, sizeof(Char) * (string->length + 1));
     assert(string->memory);
-    memcpy(string->memory, rawString, sizeof(Char) * string->length + 1);
+    memcpy(string->memory, rawString, sizeof(Char) * (string->length + 1));
     return string;
 }
 
@@ -29,7 +29,7 @@ StringRef StringCreateRange(AllocatorRef allocator, const Char *start, const Cha
     assert(string);
     string->allocator = allocator;
     string->length    = length;
-    string->memory    = AllocatorAllocate(allocator, sizeof(Char) * length + 1);
+    string->memory    = AllocatorAllocate(allocator, sizeof(Char) * (length + 1));
     assert(string->memory);
     memcpy(string->memory, start, sizeof(Char) * length);
     string->memory[sizeof(Char) * length] = '\0';
@@ -41,9 +41,9 @@ StringRef StringCreateCopy(AllocatorRef allocator, StringRef string) {
     assert(copy);
     copy->allocator = allocator;
     copy->length    = string->length;
-    copy->memory    = AllocatorAllocate(allocator, sizeof(Char) * string->length + 1);
+    copy->memory    = AllocatorAllocate(allocator, sizeof(Char) * (string->length + 1));
     assert(copy->memory);
-    memcpy(copy->memory, string->memory, sizeof(Char) * string->length + 1);
+    memcpy(copy->memory, string->memory, sizeof(Char) * (string->length + 1));
     return copy;
 }
 
@@ -88,7 +88,7 @@ StringRef StringCreateCopyOfBasename(AllocatorRef allocator, StringRef string) {
 StringRef StringCreateCopyRemovingPrefix(AllocatorRef allocator, StringRef string, const Char *prefix) {
     if (_StringHasPrefix(string, prefix)) {
         const Char *start = string->memory + sizeof(Char) * strlen(prefix);
-        const Char *end = string->memory + sizeof(Char) * (string->length + 1);
+        const Char *end   = string->memory + sizeof(Char) * (string->length + 1);
         return StringCreateRange(allocator, start, end);
     }
 
@@ -115,7 +115,7 @@ StringRef StringCreateFromFile(AllocatorRef allocator, const Char *filePath) {
     fseek(file, 0, SEEK_END);
     Index length = ftell(file);
     fseek(file, 0, SEEK_SET);
-    Char *memory = AllocatorAllocate(allocator, sizeof(Char) * length + 1);
+    Char *memory = AllocatorAllocate(allocator, sizeof(Char) * (length + 1));
     assert(memory);
     fread(memory, sizeof(Char), length, file);
     memory[length] = 0;
@@ -154,7 +154,7 @@ Char *StringGetCharacters(StringRef string) {
 void StringAppend(StringRef string, const Char *rawString) {
     Index length = strlen(rawString);
     if (length > 0) {
-        Index newCapacity = sizeof(Char) * string->length + length + 1;
+        Index newCapacity = sizeof(Char) * (string->length + length + 1);
         Char *newMemory   = AllocatorReallocate(string->allocator, string->memory, newCapacity);
         assert(newMemory);
         memcpy(newMemory + sizeof(Char) * string->length, rawString, length);
@@ -166,7 +166,7 @@ void StringAppend(StringRef string, const Char *rawString) {
 
 void StringAppendString(StringRef string, StringRef other) {
     if (other->length > 0) {
-        Index newCapacity = sizeof(Char) * string->length + other->length + 1;
+        Index newCapacity = sizeof(Char) * (string->length + other->length + 1);
         Char *newMemory   = AllocatorReallocate(string->allocator, string->memory, newCapacity);
         assert(newMemory);
         memcpy(newMemory + sizeof(Char) * string->length, other->memory, other->length);

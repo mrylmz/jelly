@@ -1,0 +1,8 @@
+
+func main() -> Void {
+    var character: UInt8 = 0
+    var current: UInt8* = nil
+    if *current == character {
+
+    }
+}

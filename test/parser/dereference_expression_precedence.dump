@@ -1,0 +1,30 @@
+ModuleDeclaration
+  SourceUnit
+    @filePath = 'dereference_expression_precedence.jelly'
+    FunctionDeclaration
+      @name = 'main'
+      BuiltinType
+        @name = 'Void'
+      Block
+        VariableDeclaration
+          @name = 'character'
+          BuiltinType
+            @name = 'UInt8'
+          IntLiteral
+            @value = '0'
+        VariableDeclaration
+          @name = 'current'
+          PointerType
+            BuiltinType
+              @name = 'UInt8'
+          NilLiteral
+        IfStatement
+          BinaryExpression
+            @operator = '=='
+              DereferenceExpression
+                IdentifierExpression
+                  @identifier = 'current'
+              IdentifierExpression
+                @identifier = 'character'
+          Block
+          Block

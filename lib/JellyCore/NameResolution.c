@@ -462,7 +462,8 @@ static inline void _PerformNameResolutionForNode(ASTContextRef context, ASTNodeR
     case ASTTagMemberAccessExpression:
     case ASTTagAssignmentExpression:
     case ASTTagCallExpression:
-    case ASTTagConstantExpression: {
+    case ASTTagConstantExpression:
+    case ASTTagDereferenceExpression: {
         ASTExpressionRef expression = (ASTExpressionRef)node;
         _PerformNameResolutionForExpression(context, expression, true);
         break;
@@ -563,6 +564,7 @@ static inline void _PerformNameResolutionForExpression(ASTContextRef context, AS
     if (expression->base.tag == ASTTagDereferenceExpression) {
         ASTDereferenceExpressionRef dereference = (ASTDereferenceExpressionRef)expression;
         _PerformNameResolutionForExpression(context, dereference->argument, reportErrors);
+        assert(dereference->argument->type);
         if (dereference->argument->type->tag == ASTTagBuiltinType &&
             ((ASTBuiltinTypeRef)dereference->argument->type)->kind == ASTBuiltinTypeKindError) {
             dereference->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
@@ -730,6 +732,7 @@ static inline void _PerformNameResolutionForExpression(ASTContextRef context, AS
         _PerformNameResolutionForExpression(context, assignment->variable, reportErrors);
         assignment->expression->expectedType = assignment->variable->type;
         _PerformNameResolutionForExpression(context, assignment->expression, reportErrors);
+        assignment->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindVoid);
         return;
     }
 

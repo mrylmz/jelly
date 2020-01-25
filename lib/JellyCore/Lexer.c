@@ -707,10 +707,6 @@ static inline TokenKind _LexerLexIdentifierOrKeyword(LexerRef lexer) {
         kind = TokenKindKeywordEnum;
     } else if (SourceRangeIsEqual(range, "func")) {
         kind = TokenKindKeywordFunc;
-    } else if (SourceRangeIsEqual(range, "prefix")) {
-        kind = TokenKindKeywordPrefix;
-    } else if (SourceRangeIsEqual(range, "infix")) {
-        kind = TokenKindKeywordInfix;
     } else if (SourceRangeIsEqual(range, "struct")) {
         kind = TokenKindKeywordStruct;
     } else if (SourceRangeIsEqual(range, "var")) {

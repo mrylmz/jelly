@@ -251,6 +251,18 @@ static inline Bool _ParserIsToken(ParserRef parser, TokenKind kind) {
     return parser->token.kind == kind;
 }
 
+static inline Bool _ParserIsTokenIdentifierMatchingCString(ParserRef parser, const Char *string) {
+    if (parser->token.kind != TokenKindIdentifier) {
+        return false;
+    }
+
+    if (!SourceRangeIsEqual(parser->token.location, string)) {
+        return false;
+    }
+
+    return true;
+}
+
 static inline Bool _ParserConsumeToken(ParserRef parser, TokenKind kind) {
     if (parser->token.kind == kind) {
         LexerNextToken(parser->lexer, &parser->token);
@@ -271,6 +283,21 @@ static inline StringRef _ParserConsumeIdentifier(ParserRef parser) {
     }
 
     return NULL;
+}
+
+static inline Bool _ParserConsumeIdentifierMatchingCString(ParserRef parser, const Char *string) {
+    StringRef identifier = _ParserConsumeIdentifier(parser);
+    if (!identifier) {
+        return false;
+    }
+
+    if (!StringIsEqualToCString(identifier, string)) {
+        StringDestroy(identifier);
+        return false;
+    }
+
+    StringDestroy(identifier);
+    return true;
 }
 
 static inline ASTUnaryOperator _ParserConsumeUnaryOperator(ParserRef parser) {
@@ -1051,10 +1078,10 @@ static inline ASTExpressionRef _ParserParseExpression(ParserRef parser, ASTOpera
             return NULL;
         }
 
-        LexerStateRef state = LexerGetState(parser->lexer);
-        binary              = _ParserConsumeBinaryOperator(parser);
-        precedence          = ASTGetBinaryOperatorPrecedence(binary);
-        postfix             = ASTPostfixOperatorUnknown;
+        state      = LexerGetState(parser->lexer);
+        binary     = _ParserConsumeBinaryOperator(parser);
+        precedence = ASTGetBinaryOperatorPrecedence(binary);
+        postfix    = ASTPostfixOperatorUnknown;
 
         if (binary == ASTBinaryOperatorUnknown) {
             postfix    = _ParserConsumePostfixOperatorHead(parser);
@@ -1415,7 +1442,7 @@ static inline ASTFunctionDeclarationRef _ParserParsePrefixFunctionDeclaration(Pa
     SymbolTableRef symbolTable = ASTContextGetSymbolTable(parser->context);
     SourceRange location       = parser->token.location;
 
-    if (!_ParserConsumeToken(parser, TokenKindKeywordPrefix)) {
+    if (!_ParserConsumeIdentifierMatchingCString(parser, "prefix")) {
         return NULL;
     }
 
@@ -1522,7 +1549,7 @@ static inline ASTFunctionDeclarationRef _ParserParseInfixFunctionDeclaration(Par
     SymbolTableRef symbolTable = ASTContextGetSymbolTable(parser->context);
     SourceRange location       = parser->token.location;
 
-    if (!_ParserConsumeToken(parser, TokenKindKeywordPrefix)) {
+    if (!_ParserConsumeIdentifierMatchingCString(parser, "infix")) {
         return NULL;
     }
 
@@ -1531,13 +1558,13 @@ static inline ASTFunctionDeclarationRef _ParserParseInfixFunctionDeclaration(Par
         return NULL;
     }
 
-    ASTUnaryOperator op = _ParserConsumeUnaryOperator(parser);
-    if (op == ASTUnaryOperatorUnknown) {
-        ReportError("Expected unary operator of infix func");
+    ASTBinaryOperator op = _ParserConsumeBinaryOperator(parser);
+    if (op == ASTBinaryOperatorUnknown) {
+        ReportError("Expected binary operator of infix func");
         return NULL;
     }
 
-    StringRef name = ASTGetPrefixOperatorName(parser->tempAllocator, op);
+    StringRef name = ASTGetInfixOperatorName(parser->tempAllocator, op);
 
     if (!_ParserConsumeToken(parser, TokenKindLeftParenthesis)) {
         ReportError("Expected parameter list after name of 'func'");
@@ -2067,11 +2094,11 @@ static inline ASTNodeRef _ParserParseTopLevelNode(ParserRef parser) {
         return (ASTNodeRef)_ParserParseFunctionDeclaration(parser);
     }
 
-    if (_ParserIsToken(parser, TokenKindKeywordPrefix)) {
+    if (_ParserIsTokenIdentifierMatchingCString(parser, "prefix")) {
         return (ASTNodeRef)_ParserParsePrefixFunctionDeclaration(parser);
     }
 
-    if (_ParserIsToken(parser, TokenKindKeywordInfix)) {
+    if (_ParserIsTokenIdentifierMatchingCString(parser, "infix")) {
         return (ASTNodeRef)_ParserParseInfixFunctionDeclaration(parser);
     }
 
