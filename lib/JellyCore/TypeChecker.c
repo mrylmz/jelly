@@ -1036,6 +1036,15 @@ static inline Bool _ASTExpressionIsLValue(ASTExpressionRef expression) {
         return false;
     }
 
+    case ASTTagDereferenceExpression: {
+        ASTDereferenceExpressionRef dereference = (ASTDereferenceExpressionRef)expression;
+        if (_ASTExpressionIsLValue(dereference->argument)) {
+            return true;
+        }
+
+        return false;
+    }
+
     default:
         JELLY_UNREACHABLE("Invalid tag given for ASTExpression");
         break;

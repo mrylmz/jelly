@@ -65,13 +65,13 @@ LLVMValueRef _IRBuilderImplicitlyConvertValue(IRBuilderRef builder, LLVMValueRef
                                               ASTExpressionRef valueExpression, ASTTypeRef targetType);
 
 IRBuilderRef IRBuilderCreate(AllocatorRef allocator, ASTContextRef context, StringRef buildDirectory) {
-    IRBuilderRef builder          = (IRBuilderRef)AllocatorAllocate(allocator, sizeof(struct _IRBuilder));
-    builder->allocator            = allocator;
-    builder->astContext           = context;
-    builder->buildDirectory       = StringCreateCopy(allocator, buildDirectory);
-    builder->context              = LLVMGetGlobalContext();
-    builder->builder              = LLVMCreateBuilderInContext(builder->context);
-    builder->module               = NULL;
+    IRBuilderRef builder    = (IRBuilderRef)AllocatorAllocate(allocator, sizeof(struct _IRBuilder));
+    builder->allocator      = allocator;
+    builder->astContext     = context;
+    builder->buildDirectory = StringCreateCopy(allocator, buildDirectory);
+    builder->context        = LLVMGetGlobalContext();
+    builder->builder        = LLVMCreateBuilderInContext(builder->context);
+    builder->module         = NULL;
     return builder;
 }
 
@@ -843,6 +843,7 @@ static inline void _IRBuilderBuildExpression(IRBuilderRef builder, LLVMValueRef 
         _IRBuilderBuildExpression(builder, function, dereference->argument);
         dereference->base.base.irType  = _IRBuilderGetIRType(builder, dereference->base.type);
         dereference->base.base.irValue = LLVMBuildLoad(builder->builder, (LLVMValueRef)dereference->argument->base.irValue, "");
+        dereference->base.base.flags |= ASTFlagsIsValuePointer;
         return;
     }
 
@@ -1714,6 +1715,28 @@ static inline LLVMValueRef _IRBuilderBuildIntrinsic(IRBuilderRef builder, LLVMVa
         }
 
         return LLVMBuildFCmp(builder->builder, LLVMRealUNE, arguments[0], arguments[1], "");
+    }
+
+    if (StringIsEqualToCString(intrinsic, "cmp_ne_ptr")) {
+        if (argumentCount != 2) {
+            ReportErrorFormat("Intrinsic '%s' expects two arguments", StringGetCharacters(intrinsic));
+            return LLVMGetUndef(resultType);
+        }
+
+        LLVMValueRef lhs = LLVMBuildPtrToInt(builder->builder, arguments[0], LLVMInt64Type(), "");
+        LLVMValueRef rhs = LLVMBuildPtrToInt(builder->builder, arguments[1], LLVMInt64Type(), "");
+        return LLVMBuildICmp(builder->builder, LLVMIntNE, lhs, rhs, "");
+    }
+
+    if (StringIsEqualToCString(intrinsic, "ptr_diff")) {
+        if (argumentCount != 2) {
+            ReportErrorFormat("Intrinsic '%s' expects two arguments", StringGetCharacters(intrinsic));
+            return LLVMGetUndef(resultType);
+        }
+
+        LLVMValueRef lhs = LLVMBuildPtrToInt(builder->builder, arguments[0], LLVMInt64Type(), "");
+        LLVMValueRef rhs = LLVMBuildPtrToInt(builder->builder, arguments[1], LLVMInt64Type(), "");
+        return LLVMBuildSub(builder->builder, lhs, rhs, "");
     }
 
     ReportError("Use of unknown intrinsic");
