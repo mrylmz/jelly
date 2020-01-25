@@ -906,7 +906,7 @@ static inline ASTExpressionRef _ParserParsePrimaryExpression(ParserRef parser) {
     }
 
     if (_ParserConsumeToken(parser, TokenKindAmpersand)) {
-        ASTExpressionRef argument = _ParserParseExpression(parser, 0, false);
+        ASTExpressionRef argument = _ParserParseExpression(parser, 950, false);
         if (!argument) {
             return NULL;
         }
@@ -916,7 +916,7 @@ static inline ASTExpressionRef _ParserParsePrimaryExpression(ParserRef parser) {
     }
 
     if (_ParserConsumeToken(parser, TokenKindAsterisk)) {
-        ASTExpressionRef argument = _ParserParseExpression(parser, 0, false);
+        ASTExpressionRef argument = _ParserParseExpression(parser, 950, false);
         if (!argument) {
             return NULL;
         }

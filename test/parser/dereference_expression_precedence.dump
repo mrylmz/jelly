@@ -1,6 +1,16 @@
 ModuleDeclaration
   SourceUnit
     @filePath = 'dereference_expression_precedence.jelly'
+    StructureDeclaration
+      @name = 'Point'
+      VariableDeclaration
+        @name = 'x'
+        BuiltinType
+          @name = 'Int'
+      VariableDeclaration
+        @name = 'y'
+        BuiltinType
+          @name = 'Int'
     FunctionDeclaration
       @name = 'main'
       BuiltinType
@@ -21,10 +31,27 @@ ModuleDeclaration
         IfStatement
           BinaryExpression
             @operator = '=='
-              DereferenceExpression
-                IdentifierExpression
-                  @identifier = 'current'
+            DereferenceExpression
               IdentifierExpression
-                @identifier = 'character'
+                @identifier = 'current'
+            IdentifierExpression
+              @identifier = 'character'
+          Block
+          Block
+        VariableDeclaration
+          @name = 'point'
+          PointerType
+            OpaqueType
+              @name = 'Point'
+        IfStatement
+          BinaryExpression
+            @operator = '=='
+            DereferenceExpression
+              MemberAccessExpression
+                @memberName = 'x'
+                IdentifierExpression
+                  @identifier = 'point'
+            IntLiteral
+              @value = '0'
           Block
           Block

@@ -1,8 +1,18 @@
+struct Point {
+    var x: Int
+    var y: Int
+}
+
 
 func main() -> Void {
     var character: UInt8 = 0
     var current: UInt8* = nil
     if *current == character {
 
+    }
+
+    var point: Point*
+    if *point.x == 0 {
+        
     }
 }
