@@ -10,6 +10,21 @@
 #include <llvm-c/Linker.h>
 #include <llvm-c/Support.h>
 
+#warning TODO: Always default initialize the memory of any value declaration if there is no initializer expression!
+
+// TODO: The dereference expression in the following code sample is not load correctly before the icmp instruction!
+// func replaceOccurenciesOf(string: String*, character: UInt8, replacement: UInt8) -> Void {
+//     var index: Int = 0
+//     while index < string.length {
+//         var cursor: UInt8* = string.memory + sizeof(UInt8) * index
+//         if *cursor == character { // This is making a "icmp eq i8* %16, i8 %1" but should be a "icmp eq i8 ..."!
+//             *cursor = replacement
+//         }
+//
+//         index = index + 1
+//     }
+// }
+
 // TODO: Rename this to LLVMBackend
 struct _IRBuilder {
     AllocatorRef allocator;

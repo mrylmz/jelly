@@ -5,6 +5,9 @@
 #include <JellyCore/Allocator.h>
 #include <JellyCore/Base.h>
 
+#warning TODO: Add support for character literals!
+#warning TODO: Allow parameter swapping for functions like `==` where the algorithm for swapped arguments would be equivalent!
+
 JELLY_EXTERN_C_BEGIN
 
 typedef struct _Parser *ParserRef;

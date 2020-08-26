@@ -132,14 +132,22 @@ struct _Token {
 typedef struct _Token Token;
 
 typedef struct _Lexer *LexerRef;
-typedef struct _LexerState *LexerStateRef;
+
+struct _LexerState {
+    LexerRef lexer;
+    const Char *cursor;
+    Index line;
+    Index column;
+    Token token;
+};
+typedef struct _LexerState LexerState;
 
 LexerRef LexerCreate(AllocatorRef allocator, StringRef buffer);
 
 void LexerDestroy(LexerRef lexer);
 
-LexerStateRef LexerGetState(LexerRef lexer);
-void LexerSetState(LexerRef lexer, LexerStateRef state);
+LexerState LexerGetState(LexerRef lexer);
+void LexerSetState(LexerRef lexer, LexerState state);
 
 void LexerPeekToken(LexerRef lexer, Token *token);
 void LexerNextToken(LexerRef lexer, Token *token);

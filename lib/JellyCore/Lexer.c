@@ -2,21 +2,12 @@
 #include "JellyCore/Diagnostic.h"
 #include "JellyCore/Lexer.h"
 
-struct _LexerState {
-    LexerRef lexer;
-    const Char *cursor;
-    Index line;
-    Index column;
-    Token token;
-};
-
 struct _Lexer {
     AllocatorRef allocator;
     StringRef buffer;
     const Char *bufferStart;
     const Char *bufferEnd;
     struct _LexerState state;
-    ArrayRef stateStack;
 };
 
 static inline Bool _CharIsAlphaNumeric(Char character);
@@ -41,24 +32,20 @@ LexerRef LexerCreate(AllocatorRef allocator, StringRef buffer) {
     lexer->state.cursor = lexer->bufferStart;
     lexer->state.line   = 1;
     lexer->state.column = 0;
-    lexer->stateStack   = ArrayCreateEmpty(allocator, sizeof(struct _LexerState), 8);
     return lexer;
 }
 
 void LexerDestroy(LexerRef lexer) {
-    ArrayDestroy(lexer->stateStack);
     AllocatorDeallocate(lexer->allocator, lexer);
 }
 
-LexerStateRef LexerGetState(LexerRef lexer) {
-    LexerStateRef state = ArrayAppendUninitializedElement(lexer->stateStack);
-    memcpy(state, &lexer->state, sizeof(struct _LexerState));
-    return state;
+LexerState LexerGetState(LexerRef lexer) {
+    return lexer->state;
 }
 
-void LexerSetState(LexerRef lexer, LexerStateRef state) {
-    assert(lexer == state->lexer);
-    lexer->state = *state;
+void LexerSetState(LexerRef lexer, LexerState state) {
+    assert(lexer == state.lexer);
+    lexer->state = state;
 }
 
 void LexerPeekToken(LexerRef lexer, Token *token) {

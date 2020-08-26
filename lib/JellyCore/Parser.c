@@ -793,8 +793,8 @@ static inline ASTControlStatementRef _ParserParseControlStatement(ParserRef pars
     } else if (_ParserConsumeToken(parser, TokenKindKeywordReturn)) {
         kind = ASTControlKindReturn;
 
-        LexerStateRef state = LexerGetState(parser->lexer);
-        result              = _ParserParseExpression(parser, 0, true);
+        LexerState state = LexerGetState(parser->lexer);
+        result           = _ParserParseExpression(parser, 0, true);
         if (!result) {
             LexerSetState(parser->lexer, state);
             LexerPeekToken(parser->lexer, &parser->token);
@@ -865,6 +865,8 @@ static inline ASTExpressionRef _ParserParseAtomExpression(ParserRef parser) {
             return NULL;
         }
 
+        location.end              = parser->token.location.start;
+        expression->base.location = location;
         return expression;
     }
 
@@ -965,7 +967,7 @@ static inline ASTExpressionRef _ParserParseExpression(ParserRef parser, ASTOpera
     }
 
     location.end                     = parser->token.location.start;
-    LexerStateRef state              = LexerGetState(parser->lexer);
+    LexerState state                 = LexerGetState(parser->lexer);
     ASTBinaryOperator binary         = _ParserConsumeBinaryOperator(parser);
     ASTOperatorPrecedence precedence = ASTGetBinaryOperatorPrecedence(binary);
 
