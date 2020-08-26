@@ -929,11 +929,39 @@ static inline void _PerformNameResolutionForExpression(ASTContextRef context, AS
 
                             if (ASTTypeIsEqual(argument->type, parameter->base.type)) {
                                 currentMatchingParameterTypeCount += 1;
-                            } else if (ASTTypeIsImplicitlyConvertible(argument->type, parameter->base.type)) {
-                                currentMatchingParameterTypeCount += 1;
-                                currentMatchingParameterTypeConversions += 1;
                             } else {
-                                hasMatchingParameterTypes = false;
+                                // TODO: @Incomplete Matching the candidates declarations of the arguments isn't a good solution!
+                                //       For now we leave it as is because getting an error seams to be better then passing here...
+                                //
+                                // NOTE: A potential solution to this issue would be to match exactly all possible combinations
+                                //       and to reduce to the only ones that are possible.
+                                if (argument->base.tag == ASTTagIdentifierExpression && ASTTypeIsError(argument->type)) {
+                                    ASTIdentifierExpressionRef identifierArgument = (ASTIdentifierExpressionRef)argument;
+                                    if (ASTArrayGetElementCount(identifierArgument->candidateDeclarations) > 0) {
+                                        ASTArrayIteratorRef iterator     = ASTArrayGetIterator(identifier->candidateDeclarations);
+                                        Int32 matchingArgumentCandidates = 0;
+
+                                        while (iterator) {
+                                            ASTDeclarationRef candidate = (ASTDeclarationRef)ASTArrayIteratorGetElement(iterator);
+                                            assert(candidate->type);
+                                            if (ASTTypeIsEqual(candidate->type, parameter->base.type)) {
+                                                matchingArgumentCandidates += 1;
+                                            }
+
+                                            iterator = ASTArrayIteratorNext(iterator);
+                                        }
+
+                                        if (matchingArgumentCandidates == 1) {
+                                            ASTArrayAppendElement(identifier->candidateDeclarations, declaration);
+                                            hasMatchingParameterTypes = false;
+                                        }
+                                    }
+                                } else if (ASTTypeIsImplicitlyConvertible(argument->type, parameter->base.type)) {
+                                    currentMatchingParameterTypeCount += 1;
+                                    currentMatchingParameterTypeConversions += 1;
+                                } else {
+                                    hasMatchingParameterTypes = false;
+                                }
                             }
                         }
 
@@ -991,7 +1019,7 @@ static inline void _PerformNameResolutionForExpression(ASTContextRef context, AS
             } else {
                 identifier->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
                 if (reportErrors) {
-                    ReportError("Ambiguous use of identifier");
+                    ReportErrorFormat("Ambiguous use of identifier '%s'", StringGetCharacters(identifier->name));
                 }
             }
 

@@ -1,17 +1,21 @@
 enum AllocatorMode {
-    case allocate
+    case allocate // candidate 1 
     case reallocate
     case deallocate
     case destroy
 }
 
-func allocate(mode: AllocatorMode) -> Void {
+func allocate(mode: AllocatorMode) -> Void { // candidate 2
 
 }
 
 typealias Callback = (AllocatorMode) -> Void
 
 func allocate(callback: Callback) -> Void {
+    
+}
+
+func allocate(size: Int) -> Void {
     
 }
 
