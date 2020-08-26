@@ -858,7 +858,6 @@ static inline void _IRBuilderBuildExpression(IRBuilderRef builder, LLVMValueRef 
         _IRBuilderBuildExpression(builder, function, dereference->argument);
         dereference->base.base.irType  = _IRBuilderGetIRType(builder, dereference->base.type);
         dereference->base.base.irValue = LLVMBuildLoad(builder->builder, (LLVMValueRef)dereference->argument->base.irValue, "");
-        dereference->base.base.flags |= ASTFlagsIsValuePointer;
         return;
     }
 
