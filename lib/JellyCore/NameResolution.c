@@ -938,7 +938,7 @@ static inline void _PerformNameResolutionForExpression(ASTContextRef context, AS
                                 if (argument->base.tag == ASTTagIdentifierExpression && ASTTypeIsError(argument->type)) {
                                     ASTIdentifierExpressionRef identifierArgument = (ASTIdentifierExpressionRef)argument;
                                     if (ASTArrayGetElementCount(identifierArgument->candidateDeclarations) > 0) {
-                                        ASTArrayIteratorRef iterator     = ASTArrayGetIterator(identifier->candidateDeclarations);
+                                        ASTArrayIteratorRef iterator     = ASTArrayGetIterator(identifierArgument->candidateDeclarations);
                                         Int32 matchingArgumentCandidates = 0;
 
                                         while (iterator) {
@@ -986,6 +986,32 @@ static inline void _PerformNameResolutionForExpression(ASTContextRef context, AS
             if (candidateCount == 1) {
                 identifier->resolvedDeclaration = (ASTDeclarationRef)ASTArrayGetElementAtIndex(identifier->candidateDeclarations, 0);
                 identifier->base.type           = identifier->resolvedDeclaration->type;
+
+                if (identifier->resolvedDeclaration->base.tag == ASTTagFunctionDeclaration ||
+                    identifier->resolvedDeclaration->base.tag == ASTTagForeignFunctionDeclaration ||
+                    identifier->resolvedDeclaration->base.tag == ASTTagIntrinsicFunctionDeclaration) {
+                    ASTFunctionDeclarationRef function = (ASTFunctionDeclarationRef)identifier->resolvedDeclaration;
+                    Index maxArgumentCount = MIN(ASTArrayGetElementCount(function->parameters), ASTArrayGetElementCount(call->arguments));
+                    for (Index index = 0; index < maxArgumentCount; index++) {
+                        ASTExpressionRef argument        = (ASTExpressionRef)ASTArrayGetElementAtIndex(call->arguments, index);
+                        ASTValueDeclarationRef parameter = (ASTValueDeclarationRef)ASTArrayGetElementAtIndex(function->parameters, index);
+
+                        if (argument->base.tag == ASTTagIdentifierExpression) {
+                            ASTIdentifierExpressionRef identifierArgument = (ASTIdentifierExpressionRef)argument;
+                            if (!identifierArgument->resolvedDeclaration) {
+                                identifierArgument->base.expectedType = parameter->base.type;
+                                _PerformNameResolutionForExpression(context, argument, reportErrors);
+                            }
+                        }
+                        if (argument->base.tag == ASTTagMemberAccessExpression) {
+                            ASTMemberAccessExpressionRef memberArgument = (ASTMemberAccessExpressionRef)argument;
+                            if (!memberArgument->resolvedDeclaration) {
+                                memberArgument->base.expectedType = parameter->base.type;
+                                _PerformNameResolutionForExpression(context, argument, reportErrors);
+                            }
+                        }
+                    }
+                }
             } else if (candidateCount == 0) {
                 // Fall back to best matching declaration to emit better error reports in type checking phase
                 if (matchingDeclaration) {

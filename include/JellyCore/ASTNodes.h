@@ -60,6 +60,7 @@ enum _ASTTag {
 typedef enum _ASTTag ASTTag;
 
 // TODO: Add error flag for validity checks
+// TODO: Add flag to indicate if an expression is resolved or not
 enum _ASTFlags {
     ASTFlagsNone                       = 0,
     ASTFlagsStructureHasCyclicStorage  = 1 << 0,
