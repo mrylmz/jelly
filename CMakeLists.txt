@@ -1,14 +1,13 @@
-cmake_minimum_required(VERSION 3.11.1)
+cmake_minimum_required(VERSION 3.27.1)
 
-project(jelly
-        VERSION 0.1.0
-        LANGUAGES C)
+project(jelly VERSION 0.1.0 LANGUAGES C CXX)
 
 if (APPLE)
     # Add support for brew packages which will not be linked by
     # brew because they are expected to be pre-installed on the
     # target os (e.g. llvm on macOS)
     list(APPEND CMAKE_PREFIX_PATH /usr/local/opt/)
+    list(APPEND CMAKE_PREFIX_PATH /opt/homebrew/opt/)
 endif()
 
 set(CMAKE_C_STANDARD 99)
@@ -18,13 +17,15 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
 set(CMAKE_BUILD_TYPE Debug)
-SET(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -DDEBUG=1")
+set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -DDEBUG=1")
 
 # LLVM Libraries
 include(LLVM)
 
-# All llvm libraries will be linked for now should be reduced to the required ones soon...
-llvm_map_components_to_libnames(JELLY_LLVM_LIBS all)
+llvm_map_components_to_libnames(JELLY_LLVM_LIBS Analysis CodeGen Core ExecutionEngine Linker MC Support Target
+                                                AArch64 AMDGPU ARM AVR BPF Hexagon Lanai LoongArch MSP430 Mips NVPTX PowerPC RISCV Sparc SystemZ X86 XCore VE WebAssembly)
+
+message(STATUS "LLVM include dirs: ${JELLY_LLVM_LIBS}")
 
 # Libraries
 set(JELLY_CORE_HEADER_FILES "include/JellyCore/Allocator.h"
@@ -98,15 +99,17 @@ endif()
 message(STATUS "Found libclang library at ${LIBCLANG_LIBRARY}")
 target_link_libraries(JellyCore ${LIBCLANG_LIBRARY})
 
+set(CLANG_INCLUDE_DIRS ${CMAKE_SOURCE_DIR}/submodules/llvm-project/clang/include )
+target_include_directories(JellyCore PUBLIC ${CLANG_INCLUDE_DIRS})
+
 # Tools
 add_executable(${PROJECT_NAME} "src/main.cpp")
-target_compile_definitions(${PROJECT_NAME}
-                           PRIVATE -DJELLY_VERSION="${PROJECT_VERSION}")
+target_compile_definitions(${PROJECT_NAME} PRIVATE -DJELLY_VERSION="${PROJECT_VERSION}")
 target_include_directories(${PROJECT_NAME} PUBLIC include)
 target_link_libraries(${PROJECT_NAME} JellyCore)
 
 # Testing
-add_subdirectory(googletest)
+add_subdirectory(${CMAKE_SOURCE_DIR}/submodules/googletest)
 add_subdirectory(test)
 
 # Code Coverage

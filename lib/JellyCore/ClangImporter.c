@@ -41,14 +41,14 @@ void ClangImporterDestroy(ClangImporterRef importer) {
     AllocatorDeallocate(importer->allocator, importer);
 }
 
-ASTModuleDeclarationRef ClangImporterImport(ClangImporterRef importer, StringRef filePath) {
-    StringRef moduleName = StringCreateCopyOfBasename(importer->allocator, filePath);
+ASTModuleDeclarationRef ClangImporterImport(ClangImporterRef importer, StringRef unitFilePath, StringRef absoluteFilePath) {
+    StringRef moduleName = StringCreateCopyOfBasename(importer->allocator, unitFilePath);
     // TODO: Perform a correct string escaping, replacing whitespaces only is insufficient...
     StringReplaceOccurenciesOf(moduleName, ' ', '_');
 
     importer->module     = ASTContextCreateModuleDeclaration(importer->context, SourceRangeNull(), kScopeNull, ASTModuleKindInterface,
                                                          moduleName, NULL, NULL);
-    importer->sourceUnit = ASTContextCreateSourceUnit(importer->context, SourceRangeNull(), importer->currentScope, filePath, NULL);
+    importer->sourceUnit = ASTContextCreateSourceUnit(importer->context, SourceRangeNull(), importer->currentScope, unitFilePath, NULL);
     ASTArrayAppendElement(importer->module->sourceUnits, importer->sourceUnit);
 
     const Char *arguments[] = {
@@ -58,10 +58,10 @@ ASTModuleDeclarationRef ClangImporterImport(ClangImporterRef importer, StringRef
     };
 
     CXIndex index          = clang_createIndex(0, 0);
-    CXTranslationUnit unit = clang_parseTranslationUnit(index, StringGetCharacters(filePath), arguments, 3, NULL, 0,
+    CXTranslationUnit unit = clang_parseTranslationUnit(index, StringGetCharacters(absoluteFilePath), arguments, 3, NULL, 0,
                                                         CXTranslationUnit_None);
     if (!unit) {
-        ReportErrorFormat("Parsing of header '%s' failed", StringGetCharacters(filePath));
+        ReportErrorFormat("Parsing of header '%s' failed", StringGetCharacters(unitFilePath));
     }
 
     CXCursor cursor = clang_getTranslationUnitCursor(unit);

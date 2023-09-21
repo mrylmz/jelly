@@ -14,7 +14,7 @@ ClangImporterRef ClangImporterCreate(AllocatorRef allocator, ASTContextRef conte
 
 void ClangImporterDestroy(ClangImporterRef importer);
 
-ASTModuleDeclarationRef ClangImporterImport(ClangImporterRef importer, StringRef filePath);
+ASTModuleDeclarationRef ClangImporterImport(ClangImporterRef importer, StringRef unitFilePath, StringRef absoluteFilePath);
 
 JELLY_EXTERN_C_END
 

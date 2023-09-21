@@ -273,7 +273,7 @@ void ASTDumperDump(ASTDumperRef dumper, ASTNodeRef node) {
     case ASTTagValueDeclaration: {
         ASTValueDeclarationRef value = (ASTValueDeclarationRef)node;
         _ASTDumperPrintProperty(dumper, "name", StringGetCharacters(value->base.name));
-        _ASTDumperDumpChild(dumper, value->base.type);
+        _ASTDumperDumpChild(dumper, value->base.base.type);
 
         if (value->initializer) {
             _ASTDumperDumpChild(dumper, (ASTNodeRef)value->initializer);
@@ -285,7 +285,7 @@ void ASTDumperDump(ASTDumperRef dumper, ASTNodeRef node) {
     case ASTTagTypeAliasDeclaration: {
         ASTTypeAliasDeclarationRef alias = (ASTTypeAliasDeclarationRef)node;
         _ASTDumperPrintProperty(dumper, "name", StringGetCharacters(alias->base.name));
-        _ASTDumperDumpChild(dumper, alias->base.type);
+        _ASTDumperDumpChild(dumper, alias->base.base.type);
         return;
     }
 

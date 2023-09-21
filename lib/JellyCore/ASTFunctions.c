@@ -357,8 +357,8 @@ static inline Bool _ASTOpaqueTypeIsEqual(ASTOpaqueTypeRef opaque, ASTTypeRef oth
     assert(opaque->declaration);
 
     if (opaque->declaration->base.tag == ASTTagTypeAliasDeclaration) {
-        assert((ASTTypeRef)opaque != opaque->declaration->type);
-        return ASTTypeIsEqual(opaque->declaration->type, other);
+        assert((ASTTypeRef)opaque != opaque->declaration->base.type);
+        return ASTTypeIsEqual(opaque->declaration->base.type, other);
     }
 
     switch (other->tag) {

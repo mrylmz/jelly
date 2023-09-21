@@ -1,7 +1,7 @@
 ModuleDeclaration
   ModuleDeclaration
     SourceUnit
-      @filePath = '/Users/ylmz/Documents/jelly/test/src/../parser/test.h'
+      @filePath = 'test.h'
       StructureDeclaration
         @name = '_Point2'
         VariableDeclaration

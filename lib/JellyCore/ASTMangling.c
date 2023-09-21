@@ -103,7 +103,7 @@ static inline void _MangleFunctionDeclarationName(AllocatorRef allocator, ASTFun
     StringAppendFormat(mangledName, "%zu", ASTArrayGetElementCount(declaration->parameters));
     for (Index index = 0; index < ASTArrayGetElementCount(declaration->parameters); index++) {
         ASTValueDeclarationRef value = (ASTValueDeclarationRef)ASTArrayGetElementAtIndex(declaration->parameters, index);
-        _StringAppendMangledTypeName(mangledName, value->base.type);
+        _StringAppendMangledTypeName(mangledName, value->base.base.type);
     }
 
     _StringAppendMangledTypeName(mangledName, declaration->returnType);
@@ -143,7 +143,7 @@ static inline void _MangleInitializerDeclarationName(AllocatorRef allocator, AST
     StringAppendFormat(mangledName, "%zu", ASTArrayGetElementCount(initializer->parameters));
     for (Index index = 0; index < ASTArrayGetElementCount(initializer->parameters); index++) {
         ASTValueDeclarationRef value = (ASTValueDeclarationRef)ASTArrayGetElementAtIndex(initializer->parameters, index);
-        _StringAppendMangledTypeName(mangledName, value->base.type);
+        _StringAppendMangledTypeName(mangledName, value->base.base.type);
     }
 
     initializer->base.mangledName = mangledName;

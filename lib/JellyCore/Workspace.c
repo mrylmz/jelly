@@ -444,7 +444,7 @@ Bool _WorkspaceProcessParseIncludeQueue(WorkspaceRef workspace) {
             StringAppend(absoluteFilePath, "/");
             StringAppendString(absoluteFilePath, parseIncludeFilePath);
 
-            ASTModuleDeclarationRef importedModule = ClangImporterImport(workspace->importer, absoluteFilePath);
+            ASTModuleDeclarationRef importedModule = ClangImporterImport(workspace->importer, parseIncludeFilePath, absoluteFilePath);
             if (importedModule) {
                 if (DictionaryLookup(workspace->modules, StringGetCharacters(importedModule->base.name)) != NULL) {
                     ReportErrorFormat("Module '%s' cannot be imported twice", StringGetCharacters(importedModule->base.name));

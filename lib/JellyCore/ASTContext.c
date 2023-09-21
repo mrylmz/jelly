@@ -251,7 +251,6 @@ ASTReferenceExpressionRef ASTContextCreateReferenceExpression(ASTContextRef cont
 
     ASTReferenceExpressionRef node = (ASTReferenceExpressionRef)_ASTContextCreateNode(context, ASTTagReferenceExpression, location, scope);
     node->argument                 = argument;
-    node->base.type                = NULL;
     node->base.expectedType        = NULL;
     return node;
 }
@@ -263,7 +262,6 @@ ASTDereferenceExpressionRef ASTContextCreateDereferenceExpression(ASTContextRef 
     ASTDereferenceExpressionRef node = (ASTDereferenceExpressionRef)_ASTContextCreateNode(context, ASTTagDereferenceExpression, location,
                                                                                           scope);
     node->argument                   = argument;
-    node->base.type                  = NULL;
     node->base.expectedType          = NULL;
     return node;
 }
@@ -276,7 +274,6 @@ ASTUnaryExpressionRef ASTContextCreateUnaryExpression(ASTContextRef context, Sou
     node->op                   = op;
     node->arguments[0]         = arguments[0];
     node->opFunction           = NULL;
-    node->base.type            = NULL;
     node->base.expectedType    = NULL;
     return node;
 }
@@ -290,7 +287,6 @@ ASTBinaryExpressionRef ASTContextCreateBinaryExpression(ASTContextRef context, S
     node->arguments[0]          = arguments[0];
     node->arguments[1]          = arguments[1];
     node->opFunction            = NULL;
-    node->base.type             = NULL;
     node->base.expectedType     = NULL;
     return node;
 }
@@ -302,7 +298,6 @@ ASTIdentifierExpressionRef ASTContextCreateIdentifierExpression(ASTContextRef co
     ASTIdentifierExpressionRef node = (ASTIdentifierExpressionRef)_ASTContextCreateNode(context, ASTTagIdentifierExpression, location,
                                                                                         scope);
     node->name                      = StringCreateCopy(context->tempAllocator, name);
-    node->base.type                 = NULL;
     node->base.expectedType         = NULL;
     node->candidateDeclarations     = ASTContextCreateArray(context, location, scope);
     node->resolvedDeclaration       = NULL;
@@ -319,7 +314,6 @@ ASTMemberAccessExpressionRef ASTContextCreateMemberAccessExpression(ASTContextRe
     node->memberName                  = StringCreateCopy(context->tempAllocator, memberName);
     node->memberIndex                 = -1;
     node->pointerDepth                = 0;
-    node->base.type                   = NULL;
     node->base.expectedType           = NULL;
     return node;
 }
@@ -334,7 +328,6 @@ ASTAssignmentExpressionRef ASTContextCreateAssignmentExpression(ASTContextRef co
     node->op                        = op;
     node->variable                  = variable;
     node->expression                = expression;
-    node->base.type                 = NULL;
     node->base.expectedType         = NULL;
     return node;
 }
@@ -348,7 +341,6 @@ ASTCallExpressionRef ASTContextCreateCallExpression(ASTContextRef context, Sourc
     node->callee              = callee;
     node->arguments           = ASTContextCreateArray(context, location, scope);
     node->op.unary            = ASTUnaryOperatorUnknown;
-    node->base.type           = NULL;
     node->base.expectedType   = NULL;
     if (arguments) {
         ASTArrayAppendArray(node->arguments, arguments);
@@ -366,7 +358,6 @@ ASTCallExpressionRef ASTContextCreateUnaryCallExpression(ASTContextRef context, 
     node->callee              = (ASTExpressionRef)ASTContextCreateIdentifierExpression(context, location, scope, name);
     node->arguments           = ASTContextCreateArray(context, location, scope);
     node->op.unary            = op;
-    node->base.type           = NULL;
     node->base.expectedType   = NULL;
     ASTArrayAppendElement(node->arguments, arguments[0]);
     return node;
@@ -382,7 +373,6 @@ ASTCallExpressionRef ASTContextCreateBinaryCallExpression(ASTContextRef context,
     node->callee              = (ASTExpressionRef)ASTContextCreateIdentifierExpression(context, location, scope, name);
     node->arguments           = ASTContextCreateArray(context, location, scope);
     node->op.binary           = op;
-    node->base.type           = NULL;
     node->base.expectedType   = NULL;
     ASTArrayAppendElement(node->arguments, arguments[0]);
     ASTArrayAppendElement(node->arguments, arguments[1]);
@@ -393,7 +383,6 @@ ASTConstantExpressionRef ASTContextCreateConstantNilExpression(ASTContextRef con
     ASTConstantExpressionRef node = (ASTConstantExpressionRef)_ASTContextCreateNode(context, ASTTagConstantExpression, location, scope);
     node->kind                    = ASTConstantKindNil;
     node->minimumBitWidth         = -1;
-    node->base.type               = NULL;
     node->base.expectedType       = NULL;
     node->base.base.flags |= ASTFlagsIsConstantEvaluable;
     return node;
@@ -404,7 +393,6 @@ ASTConstantExpressionRef ASTContextCreateConstantBoolExpression(ASTContextRef co
     node->kind                    = ASTConstantKindBool;
     node->minimumBitWidth         = 1;
     node->boolValue               = value;
-    node->base.type               = NULL;
     node->base.expectedType       = NULL;
     node->base.base.flags |= ASTFlagsIsConstantEvaluable;
     return node;
@@ -414,7 +402,6 @@ ASTConstantExpressionRef ASTContextCreateConstantIntExpression(ASTContextRef con
     ASTConstantExpressionRef node = (ASTConstantExpressionRef)_ASTContextCreateNode(context, ASTTagConstantExpression, location, scope);
     node->kind                    = ASTConstantKindInt;
     node->intValue                = value;
-    node->base.type               = NULL;
     node->base.expectedType       = NULL;
     node->base.base.flags |= ASTFlagsIsConstantEvaluable;
 
@@ -435,7 +422,6 @@ ASTConstantExpressionRef ASTContextCreateConstantFloatExpression(ASTContextRef c
     node->kind                    = ASTConstantKindFloat;
     node->minimumBitWidth         = -1;
     node->floatValue              = value;
-    node->base.type               = NULL;
     node->base.expectedType       = NULL;
     node->base.base.flags |= ASTFlagsIsConstantEvaluable;
     return node;
@@ -448,7 +434,6 @@ ASTConstantExpressionRef ASTContextCreateConstantStringExpression(ASTContextRef 
     ASTConstantExpressionRef node = (ASTConstantExpressionRef)_ASTContextCreateNode(context, ASTTagConstantExpression, location, scope);
     node->kind                    = ASTConstantKindString;
     node->stringValue             = StringCreateCopy(context->tempAllocator, value);
-    node->base.type               = NULL;
     node->base.expectedType       = NULL;
     node->base.base.flags |= ASTFlagsIsConstantEvaluable;
     return node;
@@ -457,7 +442,6 @@ ASTConstantExpressionRef ASTContextCreateConstantStringExpression(ASTContextRef 
 ASTSizeOfExpressionRef ASTContextCreateSizeOfExpression(ASTContextRef context, SourceRange location, ScopeID scope, ASTTypeRef sizeType) {
     ASTSizeOfExpressionRef node = (ASTSizeOfExpressionRef)_ASTContextCreateNode(context, ASTTagSizeOfExpression, location, scope);
     node->sizeType              = sizeType;
-    node->base.type             = NULL;
     node->base.expectedType     = NULL;
     node->base.base.flags |= ASTFlagsIsConstantEvaluable;
     return node;
@@ -482,7 +466,6 @@ ASTTypeOperationExpressionRef ASTContextCreateTypeOperationExpression(ASTContext
     node->op                           = op;
     node->expression                   = expression;
     node->argumentType                 = expressionType;
-    node->base.type                    = NULL;
     node->base.expectedType            = NULL;
     return node;
 }
@@ -492,7 +475,6 @@ ASTModuleDeclarationRef ASTContextCreateModuleDeclaration(ASTContextRef context,
     ASTModuleDeclarationRef node = (ASTModuleDeclarationRef)_ASTContextCreateNode(context, ASTTagModuleDeclaration, location, scope);
     node->base.name              = StringCreateCopy(context->tempAllocator, name);
     node->base.mangledName       = NULL;
-    node->base.type              = NULL;
     node->kind                   = kind;
     node->innerScope             = kScopeGlobal;
     node->sourceUnits            = ASTContextCreateArray(context, location, scope);
@@ -522,7 +504,7 @@ ASTEnumerationDeclarationRef ASTContextCreateEnumerationDeclaration(ASTContextRe
     if (elements) {
         ASTArrayAppendArray(node->elements, elements);
     }
-    node->base.type = (ASTTypeRef)ASTContextCreateEnumerationType(context, location, scope, node);
+    ASTNodeGetType(node) = (ASTTypeRef)ASTContextCreateEnumerationType(context, location, scope, node);
 
     return node;
 }
@@ -543,7 +525,7 @@ ASTFunctionDeclarationRef ASTContextCreateFunctionDeclaration(ASTContextRef cont
     if (parameters) {
         ASTArrayAppendArray(node->parameters, parameters);
     }
-    node->base.type     = (ASTTypeRef)ASTContextCreateFunctionTypeForDeclaration(context, location, scope, node);
+    ASTNodeGetType(node)     = (ASTTypeRef)ASTContextCreateFunctionTypeForDeclaration(context, location, scope, node);
     node->foreignName   = NULL;
     node->intrinsicName = NULL;
     return node;
@@ -565,7 +547,7 @@ ASTFunctionDeclarationRef ASTContextCreateForeignFunctionDeclaration(ASTContextR
     if (parameters) {
         ASTArrayAppendArray(node->parameters, parameters);
     }
-    node->base.type     = (ASTTypeRef)ASTContextCreateFunctionTypeForDeclaration(context, location, scope, node);
+    ASTNodeGetType(node)     = (ASTTypeRef)ASTContextCreateFunctionTypeForDeclaration(context, location, scope, node);
     node->foreignName   = StringCreateCopy(context->tempAllocator, foreignName);
     node->intrinsicName = NULL;
     return node;
@@ -587,7 +569,7 @@ ASTFunctionDeclarationRef ASTContextCreateIntrinsicFunctionDeclaration(ASTContex
     if (parameters) {
         ASTArrayAppendArray(node->parameters, parameters);
     }
-    node->base.type     = (ASTTypeRef)ASTContextCreateFunctionTypeForDeclaration(context, location, scope, node);
+    ASTNodeGetType(node)    = (ASTTypeRef)ASTContextCreateFunctionTypeForDeclaration(context, location, scope, node);
     node->foreignName   = NULL;
     node->intrinsicName = StringCreateCopy(context->tempAllocator, intrinsicName);
     return node;
@@ -612,7 +594,7 @@ ASTStructureDeclarationRef ASTContextCreateStructureDeclaration(ASTContextRef co
         ASTArrayAppendArray(node->initializers, initializers);
     }
 
-    node->base.type = (ASTTypeRef)ASTContextCreateStructureType(context, location, scope, node);
+    ASTNodeGetType(node) = (ASTTypeRef)ASTContextCreateStructureType(context, location, scope, node);
     return node;
 }
 
@@ -630,7 +612,7 @@ ASTInitializerDeclarationRef ASTContextCreateInitializerDeclaration(ASTContextRe
     if (parameters) {
         ASTArrayAppendArray(node->parameters, parameters);
     }
-    node->base.type = NULL;
+    ASTNodeGetType(node) = NULL;
     return node;
 }
 
@@ -643,7 +625,7 @@ ASTValueDeclarationRef ASTContextCreateValueDeclaration(ASTContextRef context, S
     node->base.name             = StringCreateCopy(context->tempAllocator, name);
     node->base.mangledName      = NULL;
     node->kind                  = kind;
-    node->base.type             = type;
+    ASTNodeGetType(node)        = type;
     node->initializer           = initializer;
     return node;
 }
@@ -654,7 +636,7 @@ ASTTypeAliasDeclarationRef ASTContextCreateTypeAliasDeclaration(ASTContextRef co
                                                                                         scope);
     node->base.name                 = StringCreateCopy(context->tempAllocator, name);
     node->base.mangledName          = NULL;
-    node->base.type                 = type;
+    ASTNodeGetType(node)            = type;
     return node;
 }
 
@@ -703,7 +685,7 @@ ASTFunctionTypeRef ASTContextCreateFunctionTypeForDeclaration(ASTContextRef cont
     ASTArrayIteratorRef iterator = ASTArrayGetIterator(declaration->parameters);
     while (iterator) {
         ASTValueDeclarationRef parameter = (ASTValueDeclarationRef)ASTArrayIteratorGetElement(iterator);
-        ASTArrayAppendElement(node->parameterTypes, parameter->base.type);
+        ASTArrayAppendElement(node->parameterTypes, ASTNodeGetType(parameter));
 
         iterator = ASTArrayIteratorNext(iterator);
     }
@@ -748,6 +730,7 @@ ASTNodeRef _ASTContextCreateNode(ASTContextRef context, ASTTag tag, SourceRange 
     node->scope      = scope;
     node->substitute = NULL;
     node->primary    = NULL;
+    node->type       = NULL;
     node->irValue    = NULL;
     node->irType     = NULL;
     return node;
@@ -779,7 +762,7 @@ void _ASTContextInitBuiltinTypes(ASTContextRef context) {
         ASTStructureDeclarationRef structure = ASTContextCreateStructureDeclaration(context, SourceRangeNull(), kScopeGlobal, name, NULL,
                                                                                     NULL);
         structure->innerScope                = SymbolTableInsertScope(context->symbolTable, ScopeKindStructure, kScopeGlobal, NULL);
-        structure->base.type                 = (ASTTypeRef)context->builtinTypes[index];
+        ASTNodeGetType(structure)            = (ASTTypeRef)context->builtinTypes[index];
         SymbolID symbol                      = SymbolTableInsertSymbol(context->symbolTable, kScopeGlobal, structure->base.name);
         SymbolTableSetSymbolDefinition(context->symbolTable, symbol, structure);
         StringDestroy(name);

@@ -136,15 +136,17 @@ struct _ASTNode {
     ScopeID scope;
     ASTNodeRef substitute;
     ASTNodeRef primary;
+    ASTTypeRef type;
 
     IRRef irValue;
     IRRef irType;
 };
 
+#define ASTNodeGetType(__NODE__) (((ASTNodeRef)__NODE__)->type)
+
 struct _ASTExpression {
     struct _ASTNode base;
-
-    ASTTypeRef type;
+    
     ASTTypeRef expectedType;
 };
 
@@ -453,7 +455,6 @@ struct _ASTDeclaration {
 
     StringRef name;
     StringRef mangledName;
-    ASTTypeRef type;
 };
 
 enum _ASTModuleKind {

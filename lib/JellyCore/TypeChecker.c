@@ -167,27 +167,27 @@ static inline void _TypeCheckerValidateEnumerationDeclaration(TypeCheckerRef typ
         ASTValueDeclarationRef element = (ASTValueDeclarationRef)ASTArrayGetElementAtIndex(declaration->elements, index);
         assert(element->kind == ASTValueKindEnumerationElement);
 
-        if (ASTTypeIsError(element->base.type)) {
+        if (ASTTypeIsError(element->base.base.type)) {
             continue;
         }
 
         if (!element->initializer) {
             ASTConstantExpressionRef constant = ASTContextCreateConstantIntExpression(context, SourceRangeNull(), element->base.base.scope,
                                                                                       nextMemberValue);
-            constant->base.type               = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindInt);
+            constant->base.base.type               = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindInt);
             element->initializer              = (ASTExpressionRef)constant;
         }
 
         _TypeCheckerValidateExpression(typeChecker, context, element->initializer);
 
-        if (ASTTypeIsError(element->initializer->type)) {
-            element->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
+        if (ASTTypeIsError(element->initializer->base.type)) {
+            element->base.base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
             continue;
         }
 
         ASTTypeRef intType = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindInt);
-        if (!ASTTypeIsEqual(element->base.type, element->initializer->type) &&
-            !(ASTTypeIsEqual(intType, element->initializer->type) || ASTTypeIsImplicitlyConvertible(element->initializer->type, intType))) {
+        if (!ASTTypeIsEqual(element->base.base.type, element->initializer->base.type) &&
+            !(ASTTypeIsEqual(intType, element->initializer->base.type) || ASTTypeIsImplicitlyConvertible(element->initializer->base.type, intType))) {
             ReportErrorFormat("Initializer of element '%s' has mismatching type", StringGetCharacters(element->base.name));
             continue;
         }
@@ -226,12 +226,12 @@ static inline void _TypeCheckerValidateFunctionDeclaration(TypeCheckerRef typeCh
 
     for (Index index = 0; index < ASTArrayGetElementCount(declaration->parameters); index++) {
         ASTValueDeclarationRef parameter = (ASTValueDeclarationRef)ASTArrayGetElementAtIndex(declaration->parameters, index);
-        assert(parameter->base.type);
+        assert(parameter->base.base.type);
 
-        if (parameter->base.type->tag == ASTTagBuiltinType) {
-            ASTBuiltinTypeRef builtinType = (ASTBuiltinTypeRef)parameter->base.type;
+        if (parameter->base.base.type->tag == ASTTagBuiltinType) {
+            ASTBuiltinTypeRef builtinType = (ASTBuiltinTypeRef)parameter->base.base.type;
             if (builtinType->kind == ASTBuiltinTypeKindVoid) {
-                parameter->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
+                parameter->base.base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
                 ReportError("Cannot pass 'Void' type as parameter");
             }
         }
@@ -263,12 +263,12 @@ static inline void _TypeCheckerValidateForeignFunctionDeclaration(TypeCheckerRef
 
     for (Index index = 0; index < ASTArrayGetElementCount(declaration->parameters); index++) {
         ASTValueDeclarationRef parameter = (ASTValueDeclarationRef)ASTArrayGetElementAtIndex(declaration->parameters, index);
-        assert(parameter->base.type);
+        assert(ASTNodeGetType(parameter));
 
-        if (parameter->base.type->tag == ASTTagBuiltinType) {
-            ASTBuiltinTypeRef builtinType = (ASTBuiltinTypeRef)parameter->base.type;
+        if (ASTNodeGetType(parameter)->tag == ASTTagBuiltinType) {
+            ASTBuiltinTypeRef builtinType = (ASTBuiltinTypeRef)ASTNodeGetType(parameter);
             if (builtinType->kind == ASTBuiltinTypeKindVoid) {
-                parameter->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
+                ASTNodeGetType(parameter) = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
                 ReportError("Cannot pass 'Void' type as parameter");
             }
         }
@@ -290,12 +290,12 @@ static inline void _TypeCheckerValidateIntrinsicFunctionDeclaration(TypeCheckerR
 
     for (Index index = 0; index < ASTArrayGetElementCount(declaration->parameters); index++) {
         ASTValueDeclarationRef parameter = (ASTValueDeclarationRef)ASTArrayGetElementAtIndex(declaration->parameters, index);
-        assert(parameter->base.type);
+        assert(ASTNodeGetType(parameter));
 
-        if (parameter->base.type->tag == ASTTagBuiltinType) {
-            ASTBuiltinTypeRef builtinType = (ASTBuiltinTypeRef)parameter->base.type;
+        if (ASTNodeGetType(parameter)->tag == ASTTagBuiltinType) {
+            ASTBuiltinTypeRef builtinType = (ASTBuiltinTypeRef)ASTNodeGetType(parameter);
             if (builtinType->kind == ASTBuiltinTypeKindVoid) {
-                parameter->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
+                ASTNodeGetType(parameter) = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
                 ReportError("Cannot pass 'Void' type as parameter");
             }
         }
@@ -322,12 +322,12 @@ static inline void _TypeCheckerValidateStructureDeclaration(TypeCheckerRef typeC
 
     for (Index index = 0; index < ASTArrayGetElementCount(declaration->values); index++) {
         ASTValueDeclarationRef value = (ASTValueDeclarationRef)ASTArrayGetElementAtIndex(declaration->values, index);
-        assert(value->base.type);
+        assert(ASTNodeGetType(value));
 
-        if (value->base.type->tag == ASTTagBuiltinType) {
-            ASTBuiltinTypeRef builtinType = (ASTBuiltinTypeRef)value->base.type;
+        if (ASTNodeGetType(value)->tag == ASTTagBuiltinType) {
+            ASTBuiltinTypeRef builtinType = (ASTBuiltinTypeRef)ASTNodeGetType(value);
             if (builtinType->kind == ASTBuiltinTypeKindVoid) {
-                value->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
+                ASTNodeGetType(value) = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
                 ReportError("Cannot store 'Void' type as member");
             }
         }
@@ -342,8 +342,8 @@ static inline void _TypeCheckerValidateVariableDeclaration(TypeCheckerRef typeCh
     if (declaration->initializer) {
         _TypeCheckerValidateExpression(typeChecker, context, declaration->initializer);
 
-        if (!_ASTTypeIsEqualOrError(declaration->base.type, declaration->initializer->type) &&
-            !ASTTypeIsImplicitlyConvertible(declaration->initializer->type, declaration->base.type)) {
+        if (!_ASTTypeIsEqualOrError(ASTNodeGetType(declaration), ASTNodeGetType(declaration->initializer)) &&
+            !ASTTypeIsImplicitlyConvertible(ASTNodeGetType(declaration->initializer), ASTNodeGetType(declaration))) {
             ReportErrorFormat("Assignment expression of '%s' has mismatching type", StringGetCharacters(declaration->base.name));
         }
     }
@@ -357,8 +357,8 @@ static inline void _TypeCheckerValidateStatement(TypeCheckerRef typeChecker, AST
         ASTIfStatementRef statement = (ASTIfStatementRef)node;
         _TypeCheckerValidateExpression(typeChecker, context, statement->condition);
 
-        assert(statement->condition->type);
-        if (!_ASTTypeIsEqualOrError(statement->condition->type, (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindBool))) {
+        assert(ASTNodeGetType(statement->condition));
+        if (!_ASTTypeIsEqualOrError(ASTNodeGetType(statement->condition), (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindBool))) {
             ReportError("Expected type Bool for condition of if statement");
         }
 
@@ -371,8 +371,8 @@ static inline void _TypeCheckerValidateStatement(TypeCheckerRef typeChecker, AST
         ASTLoopStatementRef statement = (ASTLoopStatementRef)node;
         _TypeCheckerValidateExpression(typeChecker, context, statement->condition);
 
-        assert(statement->condition->type);
-        if (!_ASTTypeIsEqualOrError(statement->condition->type, (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindBool))) {
+        assert(ASTNodeGetType(statement->condition));
+        if (!_ASTTypeIsEqualOrError(ASTNodeGetType(statement->condition), (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindBool))) {
             ReportError("Expected type Bool for condition of loop statement");
         }
 
@@ -487,8 +487,8 @@ static inline void _TypeCheckerValidateStatement(TypeCheckerRef typeChecker, AST
 
                 ASTTypeRef resultType = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindVoid);
                 if (control->result) {
-                    assert(control->result->type);
-                    resultType = control->result->type;
+                    assert(ASTNodeGetType(control->result));
+                    resultType = ASTNodeGetType(control->result);
                 }
 
                 if (!_ASTTypeIsEqualOrError(resultType, function->returnType) &&
@@ -611,15 +611,15 @@ static inline void _TypeCheckerValidateExpression(TypeCheckerRef typeChecker, AS
         _TypeCheckerValidateExpression(typeChecker, context, assignment->expression);
 
         if (!_ASTExpressionIsLValue(assignment->variable)) {
-            assignment->variable->type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
+            ASTNodeGetType(assignment->variable) = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
             ReportError("Left hand side of assignment expression is not assignable");
         }
 
-        assert(assignment->variable->type);
-        assert(assignment->expression->type);
-        if (!_ASTTypeIsEqualOrError(assignment->variable->type, assignment->expression->type) &&
-            !ASTTypeIsImplicitlyConvertible(assignment->expression->type, assignment->variable->type)) {
-            Bool isNilAssignment = assignment->variable->type->tag == ASTTagPointerType &&
+        assert(ASTNodeGetType(assignment->variable));
+        assert(ASTNodeGetType(assignment->expression));
+        if (!_ASTTypeIsEqualOrError(ASTNodeGetType(assignment->variable), ASTNodeGetType(assignment->expression)) &&
+            !ASTTypeIsImplicitlyConvertible(ASTNodeGetType(assignment->expression), ASTNodeGetType(assignment->variable))) {
+            Bool isNilAssignment = ASTNodeGetType(assignment->variable)->tag == ASTTagPointerType &&
                                    (assignment->expression->base.tag == ASTTagConstantExpression) &&
                                    ((ASTConstantExpressionRef)assignment->expression)->kind == ASTConstantKindNil;
 
@@ -640,8 +640,8 @@ static inline void _TypeCheckerValidateExpression(TypeCheckerRef typeChecker, AS
             _TypeCheckerValidateExpression(typeChecker, context, argument);
         }
 
-        if (!ASTTypeIsError(call->callee->type)) {
-            ASTTypeRef calleeType = call->callee->type;
+        if (!ASTTypeIsError(ASTNodeGetType(call->callee))) {
+            ASTTypeRef calleeType = ASTNodeGetType(call->callee);
             if (calleeType->tag == ASTTagPointerType) {
                 ASTPointerTypeRef pointerType = (ASTPointerTypeRef)calleeType;
                 calleeType                    = pointerType->pointeeType;
@@ -657,11 +657,11 @@ static inline void _TypeCheckerValidateExpression(TypeCheckerRef typeChecker, AS
                         ASTExpressionRef argument = (ASTExpressionRef)ASTArrayIteratorGetElement(argumentIterator);
                         ASTTypeRef parameterType  = (ASTTypeRef)ASTArrayIteratorGetElement(parameterIterator);
 
-                        Bool isMatchingNilArgument = (argument->type->tag == ASTTagPointerType && parameterType->tag == ASTTagPointerType &&
+                        Bool isMatchingNilArgument = (ASTNodeGetType(argument)->tag == ASTTagPointerType && parameterType->tag == ASTTagPointerType &&
                                                       argument->base.tag == ASTTagConstantExpression &&
                                                       ((ASTConstantExpressionRef)argument)->kind == ASTConstantKindNil);
-                        if (!_ASTTypeIsEqualOrError(argument->type, parameterType) &&
-                            !ASTTypeIsImplicitlyConvertible(argument->type, parameterType) && !isMatchingNilArgument) {
+                        if (!_ASTTypeIsEqualOrError(ASTNodeGetType(argument), parameterType) &&
+                            !ASTTypeIsImplicitlyConvertible(ASTNodeGetType(argument), parameterType) && !isMatchingNilArgument) {
                             if (functionType->declaration) {
                                 ASTValueDeclarationRef parameter = ASTArrayGetElementAtIndex(functionType->declaration->parameters, index);
                                 ReportErrorFormat("Mismatching type for parameter '%s' in '%s'", StringGetCharacters(parameter->base.name),
@@ -700,14 +700,14 @@ static inline void _TypeCheckerValidateExpression(TypeCheckerRef typeChecker, AS
         ASTSubscriptExpressionRef subscript = (ASTSubscriptExpressionRef)expression;
         if (ASTArrayGetElementCount(subscript->arguments) == 1) {
             ASTExpressionRef argument = ASTArrayGetElementAtIndex(subscript->arguments, 0);
-            if (!ASTTypeIsError(argument->type) && !ASTTypeIsInteger(argument->type)) {
+            if (!ASTTypeIsError(ASTNodeGetType(argument)) && !ASTTypeIsInteger(ASTNodeGetType(argument))) {
                 ReportError("Type mismatch in argument list of subscript expression");
-                subscript->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
+                ASTNodeGetType(subscript) = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
             }
         } else {
             ReportErrorFormat("Expected single argument for subscript expression found '%zu'",
                               ASTArrayGetElementCount(subscript->arguments));
-            subscript->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
+            ASTNodeGetType(subscript) = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
         }
 
         break;
@@ -729,9 +729,9 @@ static inline void _TypeCheckerValidateExpression(TypeCheckerRef typeChecker, AS
 
         // NOTE: We will limit this operation to only pointer types for now and can eventually add support for other types if it makes
         //       sense...
-        if (typeExpression->expression->type->tag != ASTTagPointerType || typeExpression->argumentType->tag != ASTTagPointerType) {
+        if (ASTNodeGetType(typeExpression->expression)->tag != ASTTagPointerType || typeExpression->argumentType->tag != ASTTagPointerType) {
             ReportError("Bitcast operation only accepts pointer types at the moment");
-            typeExpression->base.type = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
+            ASTNodeGetType(typeExpression) = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
             return;
         }
 
@@ -789,9 +789,9 @@ static inline void _CheckCyclicStorageInStructureDeclaration(ASTContextRef conte
 
         ASTValueDeclarationRef value = (ASTValueDeclarationRef)child;
         assert(value->kind == ASTValueKindVariable);
-        assert(value->base.type && value->base.type->tag != ASTTagOpaqueType);
+        assert(ASTNodeGetType(value) && ASTNodeGetType(value)->tag != ASTTagOpaqueType);
 
-        ASTTypeRef elementType = value->base.type;
+        ASTTypeRef elementType = ASTNodeGetType(value);
         while (elementType->tag == ASTTagArrayType) {
             ASTArrayTypeRef arrayType = (ASTArrayTypeRef)elementType;
             elementType               = arrayType->elementType;
@@ -906,9 +906,9 @@ static inline void _CheckIsSwitchExhaustive(TypeCheckerRef typeChecker, ASTSwitc
         return;
     }
 
-    assert(statement->argument->type && statement->argument->type->tag != ASTTagOpaqueType);
-    if (statement->argument->type->tag == ASTTagEnumerationType) {
-        ASTEnumerationTypeRef enumerationType    = (ASTEnumerationTypeRef)statement->argument->type;
+    assert(ASTNodeGetType(statement->argument) && ASTNodeGetType(statement->argument)->tag != ASTTagOpaqueType);
+    if (ASTNodeGetType(statement->argument)->tag == ASTTagEnumerationType) {
+        ASTEnumerationTypeRef enumerationType    = (ASTEnumerationTypeRef)ASTNodeGetType(statement->argument);
         ASTEnumerationDeclarationRef enumeration = enumerationType->declaration;
 
         ArrayRef intValues = ArrayCreateEmpty(typeChecker->allocator, sizeof(UInt64), ASTArrayGetElementCount(enumeration->elements));
@@ -949,8 +949,8 @@ static inline void _CheckIsSwitchExhaustive(TypeCheckerRef typeChecker, ASTSwitc
         }
 
         ArrayDestroy(intValues);
-    } else if (statement->argument->type->tag == ASTTagBuiltinType) {
-        ASTBuiltinTypeRef type = (ASTBuiltinTypeRef)statement->argument->type;
+    } else if (ASTNodeGetType(statement->argument)->tag == ASTTagBuiltinType) {
+        ASTBuiltinTypeRef type = (ASTBuiltinTypeRef)ASTNodeGetType(statement->argument);
         if (type->kind == ASTBuiltinTypeKindBool) {
             ArrayRef boolValues = ArrayCreateEmpty(typeChecker->allocator, sizeof(Bool), 2);
             Bool trueValue      = true;
@@ -992,7 +992,7 @@ static inline Bool _ASTTypeIsEqualOrError(ASTTypeRef lhs, ASTTypeRef rhs) {
 
 static inline Bool _ASTExpressionIsLValue(ASTExpressionRef expression) {
     // TODO: This is only partially correct and doesn't cover every assignable value...
-    assert(expression->type && expression->type->tag != ASTTagOpaqueType);
+    assert(ASTNodeGetType(expression) && ASTNodeGetType(expression)->tag != ASTTagOpaqueType);
 
     // We do not allow unary, binary, assignment and call expressions to be assignable even if they would be valid lvalues
     switch (expression->base.tag) {
@@ -1010,7 +1010,7 @@ static inline Bool _ASTExpressionIsLValue(ASTExpressionRef expression) {
         if (identifier->resolvedDeclaration->base.tag == ASTTagValueDeclaration) {
             ASTValueDeclarationRef value = (ASTValueDeclarationRef)identifier->resolvedDeclaration;
             if (value->kind == ASTValueKindVariable ||
-                (value->kind == ASTValueKindParameter && value->base.type->tag == ASTTagPointerType)) {
+                (value->kind == ASTValueKindParameter && ASTNodeGetType(value)->tag == ASTTagPointerType)) {
                 return true;
             }
         }

@@ -1,4 +1,6 @@
-cmake_minimum_required(VERSION 3.4.3)
+cmake_minimum_required(VERSION 3.27.1)
+
+set(LLVM_DIR "${CMAKE_SOURCE_DIR}/build/llvm-build/lib/cmake/llvm")
 
 find_package(LLVM REQUIRED CONFIG)
 

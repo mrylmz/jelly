@@ -50,12 +50,13 @@ void LDLinkerLink(AllocatorRef allocator, ArrayRef objectFiles, ArrayRef linkLib
     }
 
     // TODO: macOS min version is missing
+    // TODO: This libSystem should only be linked on macOS
     // dynamic main executables must link with libSystem.dylib for inferred architecture x86_64
     // See: https://stackoverflow.com/questions/52830484/nasm-cant-link-object-file-with-ld-on-macos-mojave
     if (targetType == LDLinkerTargetTypeExecutable) {
-        StringAppendFormat(command, " %s", "-lSystem");
+        StringAppendFormat(command, " %s %s", "-L$(xcrun --sdk macosx --show-sdk-path)/usr/lib", "-lSystem");
     }
-
+    
     Int status = system(StringGetCharacters(command));
     if (status != EXIT_SUCCESS) {
         ReportError("Linking process failed!");

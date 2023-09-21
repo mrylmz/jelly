@@ -220,7 +220,7 @@ static inline void _ASTApplySubstitution(ASTContextRef context, ASTNodeRef node)
 
     if (node->tag == ASTTagValueDeclaration) {
         ASTValueDeclarationRef declaration = (ASTValueDeclarationRef)node;
-        _ASTApplySubstitutionInplace(context, declaration->base.type, ASTTypeRef);
+        _ASTApplySubstitutionInplace(context, declaration->base.base.type, ASTTypeRef);
         if (declaration->initializer) {
             _ASTApplySubstitutionInplace(context, declaration->initializer, ASTExpressionRef);
         }
@@ -229,7 +229,7 @@ static inline void _ASTApplySubstitution(ASTContextRef context, ASTNodeRef node)
 
     if (node->tag == ASTTagTypeAliasDeclaration) {
         ASTTypeAliasDeclarationRef declaration = (ASTTypeAliasDeclarationRef)node;
-        _ASTApplySubstitutionInplace(context, declaration->base.type, ASTTypeRef);
+        _ASTApplySubstitutionInplace(context, declaration->base.base.type, ASTTypeRef);
         return;
     }
 
