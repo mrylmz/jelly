@@ -124,8 +124,18 @@ Int CompilerRun(ArrayRef arguments) {
     StringRef buildDirectory = StringCreateCopy(AllocatorGetSystemDefault(), workingDirectory);
     StringAppend(buildDirectory, "/build");
 
+    StringRef filePath = NULL;
+    if (optind < argc) {
+        filePath = StringCreate(AllocatorGetSystemDefault(), argv[optind]);
+        optind += 1;
+    }
+    
+    if (!filePath) {
+        FatalError("No source file path specified!");
+    }
+    
     if (!moduleName) {
-        moduleName = StringCreate(AllocatorGetSystemDefault(), "Module");
+        moduleName = StringCreateCopyOfBasename(AllocatorGetSystemDefault(), filePath);
     }
 
     WorkspaceRef workspace = WorkspaceCreate(AllocatorGetSystemDefault(), workingDirectory, buildDirectory, moduleName, workspaceOptions);
@@ -137,11 +147,9 @@ Int CompilerRun(ArrayRef arguments) {
         WorkspaceSetDumpASTOutput(workspace, dumpASTOutput);
     }
 
-    if (optind < argc) {
-        StringRef filePath = StringCreate(AllocatorGetSystemDefault(), argv[optind]);
+    if (filePath) {
         WorkspaceAddSourceFile(workspace, filePath);
         StringDestroy(filePath);
-        optind += 1;
     }
 
     WorkspaceStartAsync(workspace);
