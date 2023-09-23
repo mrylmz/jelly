@@ -1,0 +1,3 @@
+ModuleDeclaration
+  SourceUnit
+    @filePath = 'string_literal_missing_double_quotation.jelly'
