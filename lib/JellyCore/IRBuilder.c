@@ -1229,8 +1229,15 @@ static inline LLVMTypeRef _IRBuilderGetIRType(IRBuilderRef builder, ASTTypeRef t
     switch (type->tag) {
     case ASTTagPointerType: {
         ASTPointerTypeRef pointerType = (ASTPointerTypeRef)type;
-        llvmType                      = _IRBuilderGetIRType(builder, pointerType->pointeeType);
-        llvmType                      = LLVMPointerType(llvmType, 0);
+        
+        // We substitute Void* to UInt8* here as Void* is not a valid pointer type.
+        if (ASTTypeIsVoid(pointerType->pointeeType)) {
+            llvmType = LLVMInt8Type();
+        } else {
+            llvmType = _IRBuilderGetIRType(builder, pointerType->pointeeType);
+        }
+        
+        llvmType = LLVMPointerType(llvmType, 0);
         break;
     }
 
@@ -1238,7 +1245,7 @@ static inline LLVMTypeRef _IRBuilderGetIRType(IRBuilderRef builder, ASTTypeRef t
         ASTArrayTypeRef arrayType = (ASTArrayTypeRef)type;
         if (arrayType->base.flags & ASTFlagsArrayTypeIsStatic) {
             llvmType = _IRBuilderGetIRType(builder, arrayType->elementType);
-            llvmType = LLVMArrayType(llvmType, arrayType->sizeValue);
+            llvmType = LLVMArrayType(llvmType, (unsigned)arrayType->sizeValue);
         } else {
             ReportCritical("Dynamic Array type is currently not supported!");
         }
