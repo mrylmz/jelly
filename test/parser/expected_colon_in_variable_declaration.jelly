@@ -1,1 +1,1 @@
-var x Int // expect-error: Expected ':' after name of variable declaration
+var x Int // expect-error: Expected type declaration or assignment expression of variable declaration

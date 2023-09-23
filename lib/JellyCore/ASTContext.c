@@ -618,7 +618,6 @@ ASTInitializerDeclarationRef ASTContextCreateInitializerDeclaration(ASTContextRe
 
 ASTValueDeclarationRef ASTContextCreateValueDeclaration(ASTContextRef context, SourceRange location, ScopeID scope, ASTValueKind kind,
                                                         StringRef name, ASTTypeRef type, ASTExpressionRef initializer) {
-    assert(name && type);
     assert((kind == ASTValueKindParameter && !initializer) || (kind == ASTValueKindVariable || kind == ASTValueKindEnumerationElement));
 
     ASTValueDeclarationRef node = (ASTValueDeclarationRef)_ASTContextCreateNode(context, ASTTagValueDeclaration, location, scope);
@@ -627,6 +626,12 @@ ASTValueDeclarationRef ASTContextCreateValueDeclaration(ASTContextRef context, S
     node->kind                  = kind;
     ASTNodeGetType(node)        = type;
     node->initializer           = initializer;
+    
+    if (!type) {
+        ASTNodeGetType(node) = (ASTTypeRef)ASTContextGetBuiltinType(context, ASTBuiltinTypeKindError);
+        node->base.base.flags |= ASTFlagsIsUntyped;
+    }
+    
     return node;
 }
 

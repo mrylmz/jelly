@@ -1,0 +1,21 @@
+var globalInt = 1
+var globalFloat = 1.0
+var globalString = "Hello Global!"
+
+func resolve_from_func() -> Int {
+    return 1
+}
+
+func main() -> Void {
+    var x = 1
+    var y = "Hello World!"
+    var z = x
+    var w = resolve_from_func()
+
+    call(x)
+    call(y)
+    call(w)
+}
+
+func call(x: Int) -> Void {}
+func call(y: String) -> Void {}

@@ -110,40 +110,46 @@ void PerformNameResolution(ASTContextRef context, ASTModuleDeclarationRef module
         }
     }
 
-    for (Index index = 0; index < ASTArrayGetElementCount(module->sourceUnits); index++)
-    {
+    for (Index index = 0; index < ASTArrayGetElementCount(module->sourceUnits); index++) {
         ASTSourceUnitRef sourceUnit = (ASTSourceUnitRef)ASTArrayGetElementAtIndex(module->sourceUnits, index);
-        for (Index sourceUnitIndex = 0; sourceUnitIndex < ASTArrayGetElementCount(sourceUnit->declarations); sourceUnitIndex++)
-        {
+        for (Index sourceUnitIndex = 0; sourceUnitIndex < ASTArrayGetElementCount(sourceUnit->declarations); sourceUnitIndex++) {
             ASTNodeRef child = (ASTNodeRef)ASTArrayGetElementAtIndex(sourceUnit->declarations, sourceUnitIndex);
-            if (child->tag == ASTTagEnumerationDeclaration)
-            {
+            if (child->tag == ASTTagEnumerationDeclaration) {
                 ASTEnumerationDeclarationRef enumeration = (ASTEnumerationDeclarationRef)child;
                 _PerformNameResolutionForEnumerationBody(context, enumeration);
                 continue;
             }
 
-            if (child->tag == ASTTagStructureDeclaration)
-            {
+            if (child->tag == ASTTagStructureDeclaration) {
                 ASTStructureDeclarationRef structure = (ASTStructureDeclarationRef)child;
                 _PerformNameResolutionForStructureBody(context, structure);
                 continue;
             }
 
-            if (child->tag == ASTTagValueDeclaration)
-            {
+            if (child->tag == ASTTagValueDeclaration) {
                 ASTValueDeclarationRef value = (ASTValueDeclarationRef)child;
+                ASTTypeRef Type = ASTNodeGetType(value);
+                Bool IsUntyped = ASTTypeIsError(Type) && ASTNodeHasFlag(value, ASTFlagsIsUntyped);
+                
+                if (IsUntyped && !value->initializer) {
+                    ReportError("Cannot infer type of declaration");
+                    continue;
+                }
+                
+                if (IsUntyped && value->initializer) {
+                    _PerformNameResolutionForExpression(context, value->initializer, true);
+                    ASTNodeGetType(value) = ASTNodeGetType(value->initializer);
+                }
+                
                 _ResolveDeclarationsOfTypeAndSubstituteType(context, value->base.base.scope, &value->base.base.type);
 
-                if (value->initializer)
-                {
+                if (value->initializer) {
                     value->initializer->expectedType = value->base.base.type;
                     _PerformNameResolutionForExpression(context, value->initializer, true);
                 }
             }
 
-            if (child->tag == ASTTagTypeAliasDeclaration)
-            {
+            if (child->tag == ASTTagTypeAliasDeclaration) {
                 ASTTypeAliasDeclarationRef alias = (ASTTypeAliasDeclarationRef)child;
                 _ResolveDeclarationsOfTypeAndSubstituteType(context, alias->base.base.scope, &alias->base.base.type);
             }
@@ -571,22 +577,30 @@ static inline void _PerformNameResolutionForNode(ASTContextRef context, ASTNodeR
         ASTValueDeclarationRef value = (ASTValueDeclarationRef)node;
         assert(value->kind == ASTValueKindVariable);
 
-        if (_ResolveDeclarationsOfTypeAndSubstituteType(context, value->base.base.scope, &value->base.base.type))
-        {
+        ASTTypeRef Type = ASTNodeGetType(value);
+        Bool IsUntyped = ASTTypeIsError(Type) && ASTNodeHasFlag(value, ASTFlagsIsUntyped);
+        if (IsUntyped && !value->initializer) {
+            ReportError("Cannot infer type of declaration");
+            break;
+        }
+        
+        if (IsUntyped && value->initializer) {
+            _PerformNameResolutionForExpression(context, value->initializer, true);
+            ASTNodeGetType(value) = ASTNodeGetType(value->initializer);
+        }
+        
+        if (_ResolveDeclarationsOfTypeAndSubstituteType(context, value->base.base.scope, &value->base.base.type)) {
             SymbolID symbol = SymbolTableLookupSymbol(symbolTable, value->base.base.scope, value->base.name);
-            if (symbol == kSymbolNull)
-            {
+            if (symbol == kSymbolNull) {
                 symbol = SymbolTableInsertSymbol(symbolTable, value->base.base.scope, value->base.name);
                 SymbolTableSetSymbolDefinition(symbolTable, symbol, value);
             }
-            else
-            {
+            else {
                 ReportError("Invalid redeclaration of identifier");
             }
         }
 
-        if (value->initializer)
-        {
+        if (value->initializer) {
             value->initializer->expectedType = value->base.base.type;
             _PerformNameResolutionForExpression(context, value->initializer, true);
         }

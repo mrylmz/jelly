@@ -73,6 +73,7 @@ enum _ASTFlags {
     ASTFlagsIsPointerArithmetic        = 1 << 7,
     ASTFlagsCallIsInitialization       = 1 << 8,
     ASTFlagsArrayTypeIsStatic          = 1 << 9,
+    ASTFlagsIsUntyped                  = 1 << 10,
 };
 typedef enum _ASTFlags ASTFlags;
 
@@ -143,6 +144,7 @@ struct _ASTNode {
 };
 
 #define ASTNodeGetType(__NODE__) (((ASTNodeRef)__NODE__)->type)
+#define ASTNodeHasFlag(__NODE__, __FLAG__) (((ASTNodeRef)__NODE__)->flags & __FLAG__)
 
 struct _ASTExpression {
     struct _ASTNode base;

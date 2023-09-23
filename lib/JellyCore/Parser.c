@@ -1783,7 +1783,7 @@ static inline ASTInitializerDeclarationRef _ParserParseInitializerDeclaration(Pa
     return declaration;
 }
 
-/// grammar: variable-declaration := "var" identifier ":" type-identifier [ "=" expression ]
+/// grammar: variable-declaration := "var" identifier [ ":" type-identifier [ "=" expression ] ] | "=" expression
 static inline ASTValueDeclarationRef _ParserParseVariableDeclaration(ParserRef parser) {
     SourceRange location = parser->token.location;
 
@@ -1798,17 +1798,15 @@ static inline ASTValueDeclarationRef _ParserParseVariableDeclaration(ParserRef p
         return NULL;
     }
 
-    if (!_ParserConsumeToken(parser, TokenKindColon)) {
-        ReportError("Expected ':' after name of variable declaration");
-        return NULL;
+    ASTTypeRef type = NULL;
+    if (_ParserConsumeToken(parser, TokenKindColon)) {
+        type = _ParserParseType(parser);
+        if (!type) {
+            ReportError("Expected type of variable declaration");
+            return NULL;
+        }
     }
-
-    ASTTypeRef type = _ParserParseType(parser);
-    if (!type) {
-        ReportError("Expected type of variable declaration");
-        return NULL;
-    }
-
+    
     ASTExpressionRef initializer = NULL;
     ASTBinaryOperator binary     = _ParserConsumeBinaryOperator(parser);
     if (binary == ASTBinaryOperatorAssign) {
@@ -1817,8 +1815,11 @@ static inline ASTValueDeclarationRef _ParserParseVariableDeclaration(ParserRef p
             ReportError("Expected expression");
             return NULL;
         }
-    } else if (binary != ASTBinaryOperatorUnknown) {
+    } else if (type && binary != ASTBinaryOperatorUnknown) {
         ReportError("Unexpected binary operator found!");
+        return NULL;
+    } else if (!type) {
+        ReportError("Expected type declaration or assignment expression of variable declaration");
         return NULL;
     }
 
